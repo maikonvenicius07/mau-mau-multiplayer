@@ -134,8 +134,7 @@ $('#rulesClose').onclick=()=>rules.close();
 
 $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
   const suit=btn.dataset.suit;$('#suitDialog').close();
-  if(pendingBurn) socket.emit('burnPair',{cardId:pendingCard.id,chosenSuit:suit});
-  else socket.emit('playCard',{cardId:pendingCard.id,chosenSuit:suit});
+  socket.emit('playCard',{cardId:pendingCard.id,chosenSuit:suit});
   pendingCard=null;pendingBurn=false;
 });
 
@@ -255,6 +254,8 @@ function renderCenter(){
   const current=state.players.find(p=>p.id===state.currentPlayerId);
   let banner='Aguardando jogadores...';
   if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.avatar||''} ${current?.name||''}`);
+  if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id) banner='🔥 Complete a queima: jogue mais 1 carta';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Carta igual à mesa + mais uma';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
   $('#turnBanner').textContent=banner;
@@ -269,16 +270,23 @@ function renderHand(){
   state.me.hand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
     if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
-    const ok=legal.has(card.id)&&canAct();el.classList.add(ok?'playable':'disabled');
+    const ok=legal.has(card.id)&&canAct();
+    const canBurn=burn.has(card.id)&&socket.connected&&!state.paused&&!state.me.justDrawnCardId;
+    el.classList.add(ok?'playable':'disabled');
+    if(canBurn) el.classList.add('burnable');
     if(ok)el.onclick=()=>play(card,false);
-    if(burn.has(card.id)&&canAct()&&!state.me.justDrawnCardId){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='Queimar duas cartas iguais';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
+    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa e depois mais uma compatível';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
   });
   const myTurn=canAct();
-  const canDeclareMau=state.me.hand.length===2||(state.me.hand.length===3&&state.me.burnableCardIds.length>0);
-  $('#mauBtn').disabled=!(myTurn&&canDeclareMau);$('#batendoBtn').disabled=!(myTurn&&canBatendo());
-  $('#endBurnBtn').classList.toggle('hidden',!(myTurn&&state.continuationPlayerId===state.me.id));
+  const burnOpportunity=state.me.burnableCardIds.length>0;
+  // Mau-Mau pode ser anunciado na vez normal com 2 cartas ou, fora da vez,
+  // antes de uma queima de 3 para 1. Batendo pode ser anunciado fora da vez.
+  const canDeclareMau=(myTurn&&state.me.hand.length===2)||(state.me.hand.length===3&&burnOpportunity);
+  $('#mauBtn').disabled=!canDeclareMau;$('#batendoBtn').disabled=!canBatendo();
+  // V11: a segunda carta da queima é obrigatória; não existe mais 'Encerrar queima'.
+  $('#endBurnBtn').classList.add('hidden');
   const canPassAfterDraw=!!(myTurn&&state.me.justDrawnCardId);
   $('#passDrawBtn').classList.toggle('hidden',!canPassAfterDraw);
   $('#passDrawBtn').disabled=!canPassAfterDraw;
@@ -338,10 +346,18 @@ function renderControls(){
 }
 function play(card,burn){
   pendingCard=card;pendingBurn=burn;
-  // O J não pode ser queimado; se jogado normalmente e não for a última carta, pede naipe.
+  if(burn){
+    socket.emit('burnMatch',{cardId:card.id});
+    pendingCard=null;pendingBurn=false;
+    return;
+  }
+  // O Valete jogado normalmente pede o naipe quando ainda restarem cartas.
   if(card.rank==='J'&&state.me.hand.length>1){$('#suitDialog').showModal();return}
-  if(burn)socket.emit('burnPair',{cardId:card.id});else socket.emit('playCard',{cardId:card.id});
+  socket.emit('playCard',{cardId:card.id});
+  pendingCard=null;pendingBurn=false;
 }
-function canBatendo(){const h=state.me.hand;if(h.length!==2)return false;return h[0].rank===h[1].rank&&h[0].suit===h[1].suit&&!['A','7','8','J','Q','K'].includes(h[0].rank)}
+function canBatendo(){
+  return state.me.hand.length===2 && state.me.burnableCardIds.length>0;
+}
 function cardHTML(c,small){const red=c.suit==='hearts'||c.suit==='diamonds';return `<div class="playing-card ${red?'red-suit':'black-suit'}"><div class="corner">${c.rank}<br>${suitGlyph[c.suit]}</div><div class="suit-big">${suitGlyph[c.suit]}</div><div class="corner bottom">${c.rank}<br>${suitGlyph[c.suit]}</div>${specialName[c.rank]?`<div class="special-tag">${specialName[c.rank]}</div>`:''}</div>`}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}

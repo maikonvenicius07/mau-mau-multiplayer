@@ -46,3 +46,8 @@ button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-col
 .pass-turn-btn:hover{filter:brightness(1.18)!important;transform:translateY(-1px)}
 .draw-choice{margin-top:10px;background:#173a50;border:1px solid #4c91ba;color:#dff5ff;border-radius:12px;padding:9px 13px;font-size:12px;font-weight:800;box-shadow:0 5px 18px #0003;animation:pulseChoice 1.5s ease-in-out infinite alternate}
 @keyframes pulseChoice{from{box-shadow:0 0 0 0 #65c6ff20}to{box-shadow:0 0 0 5px #65c6ff12}}
+
+/* V11 — destaque da queima dinâmica, inclusive fora da vez */
+.playing-card.burnable{filter:none!important;box-shadow:0 0 0 3px #ff9d36,0 0 24px #ff7b2488,0 10px 22px #0008!important;animation:burnPulse 1.05s ease-in-out infinite alternate}
+.playing-card.burnable .burn-btn{transform:scale(1.08)}
+@keyframes burnPulse{from{transform:translateY(-3px)}to{transform:translateY(-8px)}}

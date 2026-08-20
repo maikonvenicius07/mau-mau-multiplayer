@@ -64,23 +64,29 @@ Quando estiver com duas cartas e for fazer uma jogada que deixará apenas uma, a
 
 No aplicativo, esquecer o anúncio gera compra de 2 cartas.
 
-## 6. Queimar cartas
+## 6. Queimar cartas — regra V11
 
-A queima utiliza o fato de existirem dois baralhos, portanto duas cópias de cada carta.
+A queima passa a funcionar como uma jogada de reação. Quando **outro jogador** coloca uma carta na mesa e você possui na mão uma carta **exatamente igual** — mesmo valor e mesmo naipe — você pode queimar essa carta, inclusive fora da sua vez.
 
-Na sua vez, se você tiver duas cartas exatamente iguais (mesmo valor e mesmo naipe) e a primeira delas puder ser jogada normalmente, poderá jogar a dupla como uma queima.
+Para iniciar a queima, você também precisa possuir uma segunda carta que possa ser jogada imediatamente depois da carta queimada. Essa segunda carta deve ser:
 
-Depois da dupla queimada, você recebe uma continuação e pode:
+- do mesmo valor; ou
+- do mesmo naipe; ou
+- um Valete (J).
 
-- jogar mais uma carta do mesmo valor ou naipe do topo;
-- jogar um Valete e escolher um novo naipe;
-- ou encerrar a continuação e passar a vez.
+A sequência é obrigatoriamente: **carta igual à mesa + segunda carta compatível**. Portanto, a queima elimina duas cartas na mesma jogada. Depois que a primeira carta da queima é baixada, não é permitido desistir nem comprar; o jogador deve completar a queima com a segunda carta.
 
-Não podem ser queimados: Ás, Dama, Valete, Rei, Oito e Sete.
+A primeira carta usada para queimar não pode ser Ás, Dama, Valete, Rei, Oito ou Sete. A segunda carta pode ser especial e, nesse caso, seu efeito é aplicado normalmente.
+
+Quem queima assume a jogada. Depois da segunda carta, a ordem da partida continua a partir do jogador que realizou a queima, respeitando o sentido atual e os efeitos da segunda carta.
+
+### Mau-Mau na queima
+
+Se a queima de duas cartas fizer o jogador terminar com apenas uma carta, ele deve anunciar **“Mau-Mau”** antes de ficar com uma carta.
 
 ### Mau-Mau batendo/queimando
 
-Se suas duas últimas cartas forem exatamente iguais e puderem ser queimadas, anuncie “Mau-Mau batendo/queimando” antes da jogada. A dupla é descartada e a rodada termina.
+Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima, deve anunciar **“Mau-Mau batendo/queimando”** antes de iniciar. As duas cartas não precisam ser iguais entre si: a primeira precisa ser exatamente igual à carta da mesa e a segunda precisa ser compatível com ela.
 
 ## 7. Pontuação
 
@@ -105,3 +111,17 @@ Quem entrar depois do início da partida recebe como pontuação inicial o maior
 - Em caso de desconexão durante uma rodada online, a partida pausa para evitar que o jogador perca a vez involuntariamente.
 - Empate na menor pontuação após cinco rodadas resulta em vitória compartilhada.
 
+
+## Jogador automático (V7)
+
+O anfitrião pode jogar contra a máquina ou adicionar jogadores automáticos à mesma sala dos jogadores humanos. O bot segue as mesmas regras da partida: joga por valor ou naipe, compra quando não possui jogada válida, rebate a cadeia de 7 quando possível, escolhe um naipe ao usar Valete, anuncia Mau-Mau e Mau-Mau batendo quando necessário e utiliza a queima dinâmica quando outro jogador baixar uma carta exatamente igual a uma carta da sua mão e houver segunda carta compatível. O limite total da mesa continua sendo de 5 participantes, somando humanos e máquinas.
+
+
+## Regra V10 — Passar após a compra
+
+Quando o jogador não possuir carta válida, ele compra apenas 1 carta. Se essa carta for compatível com o topo da mesa, o jogador **não é obrigado a jogá-la**. Ele pode:
+
+- jogar a carta recém-comprada; ou
+- clicar em **Passar a vez**, mantendo a carta na mão.
+
+Se a carta comprada não puder ser jogada, a vez passa automaticamente. Durante essa decisão, somente a carta recém-comprada pode ser jogada.

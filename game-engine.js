@@ -127,6 +127,8 @@ function createRoom(code, hostInfo) {
     winnerId: null,
     lastWinnerCard: null,
     continuationPlayerId: null,
+    lastPlayedById: null,
+    burnTopCardId: null,
     finishPendingSeven: false,
     roundRoles: null,
     log: [],
@@ -183,6 +185,8 @@ function startRound(room) {
   room.winnerId = null;
   room.lastWinnerCard = null;
   room.continuationPlayerId = null;
+  room.lastPlayedById = null;
+  room.burnTopCardId = null;
   room.finishPendingSeven = false;
   room.discard = [];
   room.deck = shuffle(createDeck());
@@ -271,22 +275,32 @@ function ensureTurn(room, playerId) {
 }
 
 function declare(room, playerId, type) {
-  const idx = ensureTurn(room, playerId);
+  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
+  const idx = room.players.findIndex(p => p.id === playerId);
+  if (idx < 0) throw new Error('Jogador não encontrado.');
   const p = room.players[idx];
   if (!['mau-mau','batendo'].includes(type)) throw new Error('Declaração inválida.');
+
+  // Na V11, a queima pode ser feita fora da vez. Por isso também permitimos
+  // o anúncio imediatamente antes de uma queima válida, mesmo fora da vez.
+  const isTurn = room.players[room.currentPlayer]?.id === p.id;
+  const hasBurnOpportunity = canBurnMatch(room,p).length > 0;
+  if (!isTurn && !hasBurnOpportunity) throw new Error('Não é a sua vez.');
+
   if (type === 'mau-mau') {
-    const canReachOneByBurn = p.hand.length === 3 && canBurnPair(room,p).length > 0;
+    const canReachOneByBurn = p.hand.length === 3 && hasBurnOpportunity;
     if (p.hand.length !== 2 && !canReachOneByBurn) {
       throw new Error('O aviso Mau-Mau deve ser feito antes de uma jogada que deixe você com apenas uma carta.');
     }
   }
   if (type === 'batendo') {
-    if (p.hand.length !== 2 || !sameCard(p.hand[0], p.hand[1]) || isSpecial(p.hand[0])) {
-      throw new Error('Mau-Mau batendo exige exatamente duas cartas iguais e não especiais.');
+    if (p.hand.length !== 2 || !hasBurnOpportunity) {
+      throw new Error('Mau-Mau batendo exige duas cartas que possam encerrar a rodada pela queima: uma igual à mesa e outra compatível.');
     }
   }
   p.declaration = type;
-  log(room, `${p.name} anunciou ${type === 'batendo' ? '“Mau-Mau batendo!”' : '“Mau-Mau!”'}`, 'mau');
+  log(room, `${p.name} anunciou ${type === 'batendo' ? '“Mau-Mau batendo/queimando!”' : '“Mau-Mau!”'}`, 'mau');
 }
 
 function removeCard(player, cardId) {
@@ -320,6 +334,10 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   const played = removeCard(player, cardId);
   room.discard.push(played);
   room.requestedSuit = null;
+  // Toda carta jogada normalmente abre uma oportunidade de queima para OUTRO jogador.
+  // A própria pessoa que baixou a carta não pode queimar a sua própria jogada.
+  room.lastPlayedById = player.id;
+  room.burnTopCardId = played.id;
   log(room, `${player.name} jogou ${cardLabel(played)}.`, isSpecial(played) ? 'special' : 'play');
 
   if (played.rank === 'J' && player.hand.length > 0) {
@@ -410,57 +428,76 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   }
 }
 
-function burnPair(room, playerId, cardId, chosenSuit=null) {
-  const idx = ensureTurn(room, playerId);
+function burnFollowUpLegal(baseCard, nextCard) {
+  if (!baseCard || !nextCard) return false;
+  return nextCard.rank === 'J' || nextCard.rank === baseCard.rank || nextCard.suit === baseCard.suit;
+}
+
+// V11 — QUEIMA DINÂMICA
+// Quando OUTRO jogador coloca uma carta na mesa e você possui exatamente a
+// mesma carta (mesmo valor + mesmo naipe), pode interromper a ordem normal,
+// baixar a sua carta igual e, obrigatoriamente, baixar mais UMA carta compatível.
+// A segunda carta pode ter o mesmo valor, o mesmo naipe ou ser um Valete.
+function burnMatch(room, playerId, cardId) {
+  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
   if (!room.rules.burnEnabled) throw new Error('A regra de queimar cartas está desativada.');
   if (room.pendingSeven > 0) throw new Error('Não é permitido queimar durante uma penalidade de 7.');
+  if (room.continuationPlayerId) throw new Error('Aguarde a queima atual ser concluída.');
+
+  const idx = room.players.findIndex(p => p.id === playerId);
+  if (idx < 0) throw new Error('Jogador não encontrado.');
   const player = room.players[idx];
+  if (!player.connected || player.finishedRound) throw new Error('Jogador não pode realizar a queima agora.');
+
+  const top = topCard(room);
   const first = player.hand.find(c => c.id === cardId);
-  if (!first) throw new Error('Carta não encontrada.');
+  if (!first) throw new Error('Carta não encontrada na mão.');
+  if (!top || room.burnTopCardId !== top.id || !room.lastPlayedById) {
+    throw new Error('Não há uma carta recém-jogada disponível para queima.');
+  }
+  if (room.lastPlayedById === player.id) throw new Error('Você não pode queimar a carta que acabou de jogar.');
   if (isSpecial(first)) throw new Error('Não é permitido queimar Ás, Dama, Valete, Rei, Oito ou Sete.');
-  if (!legalCard(room, first, player)) throw new Error('A primeira carta da queima precisa ser uma jogada válida.');
-  const pair = player.hand.find(c => c.id !== cardId && sameCard(c, first));
-  if (!pair) throw new Error('Você precisa ter duas cartas exatamente iguais para queimar.');
+  if (!sameCard(first, top)) throw new Error('Para queimar, sua primeira carta deve ser exatamente igual à carta da mesa: mesmo valor e mesmo naipe.');
 
-  const before = player.hand.length;
-  if (before === 2 && player.declaration !== 'batendo') {
-    throw new Error('Com duas cartas iguais para encerrar a rodada, anuncie “Mau-Mau batendo” antes de queimar.');
+  const followUps = player.hand.filter(c => c.id !== first.id && burnFollowUpLegal(first, c));
+  if (!followUps.length) {
+    throw new Error('Para queimar, você precisa ter também uma segunda carta do mesmo valor, do mesmo naipe ou um Valete.');
   }
 
+  if (player.hand.length === 2 && player.declaration !== 'batendo') {
+    throw new Error('Para encerrar com duas cartas na queima, anuncie “Mau-Mau batendo/queimando” antes.');
+  }
+
+  const interrupted = room.players[room.currentPlayer];
   removeCard(player, first.id);
-  removeCard(player, pair.id);
-  room.discard.push(first, pair);
+  room.discard.push(first);
   room.requestedSuit = null;
-  log(room, `${player.name} queimou a dupla ${cardLabel(first)} + ${cardLabel(pair)}.`, 'burn');
+  player.justDrawnCardId = null;
 
-  if (player.hand.length === 0) {
-    room.winnerId = player.id;
-    room.lastWinnerCard = pair;
-    player.finishedRound = true;
-    player.declaration = null;
-    finalizeRound(room);
-    return;
-  }
-
-  if (before === 3 && player.hand.length === 1 && player.declaration !== 'mau-mau') {
-    const n = room.rules.mauMauPenalty;
-    drawCards(room, player, n);
-    log(room, `${player.name} queimou e ficou com uma carta sem anunciar Mau-Mau; comprou ${n}.`, 'penalty');
-  }
-  player.declaration = null;
-
-  // A regra enviada permite uma carta adicional após a dupla queimada.
+  // A queima toma a vez para quem queimou. Durante a continuação ninguém mais
+  // pode atravessar a jogada. A segunda carta é obrigatória.
+  room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
-  log(room, `${player.name} pode jogar mais uma carta compatível (ou Valete) antes de encerrar o turno.`, 'burn');
+  room.lastPlayedById = player.id;
+  room.burnTopCardId = null;
+
+  const interruptedText = interrupted && interrupted.id !== player.id
+    ? ` e interrompeu a vez de ${interrupted.name}`
+    : '';
+  log(room, `${player.name} QUEIMOU ${cardLabel(first)}${interruptedText}. Agora deve jogar mais uma carta do mesmo valor/naipe ou um Valete.`, 'burn');
+}
+
+// Mantido como alias para não quebrar clientes antigos durante a atualização.
+function burnPair(room, playerId, cardId) {
+  return burnMatch(room, playerId, cardId);
 }
 
 function endBurnContinuation(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
   if (room.continuationPlayerId !== p.id) throw new Error('Você não está em uma continuação de queima.');
-  room.continuationPlayerId = null;
-  room.currentPlayer = nextIndex(room, idx, 1);
-  log(room, `${p.name} encerrou a continuação da queima.`, 'turn');
+  throw new Error('Nesta regra de queima, a segunda carta é obrigatória. Jogue uma carta do mesmo valor, do mesmo naipe ou um Valete.');
 }
 
 function nextEligiblePenaltyTarget(room, fromIdx) {
@@ -472,6 +509,8 @@ function nextEligiblePenaltyTarget(room, fromIdx) {
 function drawAction(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
+  // Ao iniciar uma compra, encerra-se a janela de queima da jogada anterior.
+  room.burnTopCardId = null;
   if (room.continuationPlayerId === p.id) {
     throw new Error('Após uma queima, jogue uma carta adicional ou encerre a continuação; não é permitido comprar.');
   }
@@ -545,6 +584,8 @@ function finalizeRound(room) {
   room.pendingSeven = 0;
   room.requestedSuit = null;
   room.continuationPlayerId = null;
+  room.lastPlayedById = null;
+  room.burnTopCardId = null;
   room.finishPendingSeven = false;
 
   if (room.status === 'finished') {
@@ -554,16 +595,17 @@ function finalizeRound(room) {
   }
 }
 
-function canBurnPair(room, player) {
-  if (!room.rules.burnEnabled || room.pendingSeven > 0) return [];
-  const results = [];
-  for (let i=0;i<player.hand.length;i++) {
-    const c = player.hand[i];
-    if (isSpecial(c) || !legalCard(room,c,player)) continue;
-    const dup = player.hand.find((d,j) => j!==i && sameCard(c,d));
-    if (dup && !results.some(x => sameCard(x,c))) results.push(c);
-  }
-  return results;
+function canBurnMatch(room, player) {
+  if (!room.rules.burnEnabled || room.status !== 'playing' || room.pendingSeven > 0 || room.continuationPlayerId) return [];
+  if (!player || !player.connected || player.finishedRound) return [];
+  const top = topCard(room);
+  if (!top || room.burnTopCardId !== top.id || !room.lastPlayedById || room.lastPlayedById === player.id) return [];
+  if (isSpecial(top)) return [];
+
+  return player.hand.filter(first => {
+    if (isSpecial(first) || !sameCard(first, top)) return false;
+    return player.hand.some(second => second.id !== first.id && burnFollowUpLegal(first, second));
+  });
 }
 
 function roomPublicState(room, viewerId) {
@@ -612,9 +654,10 @@ function roomPublicState(room, viewerId) {
       legalCardIds: room.status === 'playing' && room.players[room.currentPlayer]?.id === viewer.id
         ? (viewer.justDrawnCardId ? [viewer.justDrawnCardId] : viewer.hand.filter(c => legalCard(room,c,viewer)).map(c=>c.id))
         : [],
-      burnableCardIds: room.status === 'playing' && room.players[room.currentPlayer]?.id === viewer.id
-        ? canBurnPair(room,viewer).map(c=>c.id)
+      burnableCardIds: room.status === 'playing'
+        ? canBurnMatch(room,viewer).map(c=>c.id)
         : [],
+      burnSecondRequired: room.continuationPlayerId === viewer.id,
     } : null,
     log: room.log.slice(-30),
   };
@@ -634,7 +677,7 @@ module.exports = {
   SUITS,RANKS,SPECIAL_RANKS,DEFAULT_RULES,
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
   createRoom,addPlayer,reconnectPlayer,startRound,
-  legalCard,declare,playCard,burnPair,endBurnContinuation,
+  legalCard,declare,playCard,burnMatch,burnPair,endBurnContinuation,canBurnMatch,
   drawAction,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
   appendLog: log,

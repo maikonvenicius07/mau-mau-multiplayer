@@ -1,0 +1,17 @@
+MAU-MAU V11 — QUEIMA DINÂMICA
+
+ALTERAÇÃO PRINCIPAL
+- A queima não exige mais duas cartas iguais na própria mão.
+- Quando OUTRO jogador baixa uma carta e você tem uma carta exatamente igual (mesmo valor + mesmo naipe), pode queimá-la.
+- A queima pode acontecer fora da sua vez.
+- Para iniciar, é obrigatório possuir uma segunda carta do mesmo valor, do mesmo naipe ou um Valete.
+- Depois da primeira carta, a segunda é obrigatória.
+- Quem queima assume a jogada.
+- A primeira carta da queima continua proibida para A, Q, J, K, 8 e 7.
+- A segunda carta pode ser especial e seu efeito funciona normalmente.
+- Mau-Mau e Mau-Mau batendo/queimando foram adaptados à nova regra.
+- O jogador automático também utiliza a queima dinâmica.
+
+TESTES
+- Motor de regras: aprovado.
+- 100 partidas completas entre bots: concluídas sem travamento.

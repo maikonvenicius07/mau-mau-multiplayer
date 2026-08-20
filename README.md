@@ -1,17 +1,27 @@
-# Mau-Mau V10 — Passar a vez após comprar
+# Mau-Mau V11 — Queima dinâmica
 
-## Novidade da V10
+## Novidade principal da V11
 
-Quando o jogador não possui jogada válida e compra 1 carta, se a carta comprada puder ser usada ele passa a ter duas opções:
+A regra de **queimar cartas** foi refeita para ficar mais próxima da regra definida para esta mesa. Quando outro jogador baixa uma carta e você possui uma carta exatamente igual (mesmo valor e mesmo naipe), pode interromper a ordem normal e queimar a sua carta. Em seguida, é obrigatório baixar mais uma carta do mesmo valor, do mesmo naipe ou um Valete.
 
-1. **Jogar a carta comprada**; ou
-2. **⏭️ Passar a vez**, mantendo a carta na mão.
+Exemplo:
 
-O jogador **não é obrigado a jogar a carta que acabou de comprar**. Se a carta comprada não for válida, a passagem de vez continua automática.
+```text
+Mesa: 5♥
+Sua mão: 5♥  9♥  2♣
 
-Na interface, enquanto essa escolha estiver disponível, aparece um aviso no centro da mesa e o botão azul **⏭️ Passar a vez** na área da mão.
+Queima: 5♥
+Segunda carta obrigatória: 9♥
+
+Resultado: duas cartas descartadas na mesma jogada.
+```
+
+A queima pode acontecer fora da vez. O primeiro jogador que tiver uma queima válida e executá-la assume a jogada. A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7; a segunda pode ser especial e aplica seu efeito normalmente.
+
+A máquina também entende e utiliza essa nova regra.
 
 ---
+
 
 
 Esta versão mantém as regras e o jogador automático da V8 e acrescenta **chat em tempo real** e **efeitos sonoros compartilhados entre os jogadores da sala**.
@@ -54,17 +64,16 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Rei (K): o jogador anterior, considerando o sentido atual, compra 1.
 - Oito (8): o jogador anterior, considerando o sentido atual, compra 2.
 
-## Regra de queimar — interpretação implementada
+## Regra de queimar — V11
 
-A redação recebida indica que cartas exatamente iguais podem ser queimadas e que, depois delas, é possível jogar outra carta compatível ou um Valete. Para deixar a regra inequívoca no aplicativo, foi adotado o seguinte fluxo:
-
-1. Na sua vez, escolha uma carta normal que seja uma jogada válida.
-2. Se você tiver uma segunda carta exatamente igual (mesmo valor e mesmo naipe), poderá usar “Queimar”.
-3. As duas cartas iguais são descartadas na mesma jogada.
-4. Você ganha uma continuação para jogar mais uma carta que combine com o topo (mesmo valor/naipe) ou um Valete.
-5. Também pode encerrar a continuação sem jogar outra carta.
-6. Ás, Dama, Valete, Rei, Oito e Sete não podem ser queimados.
-7. Se as duas cartas iguais forem as duas últimas da mão, é obrigatório anunciar “Mau-Mau batendo/queimando” antes da queima.
+1. Outro jogador baixa uma carta normal.
+2. Se você tiver uma carta exatamente igual (mesmo valor e mesmo naipe), ela pode aparecer destacada com 🔥.
+3. Para iniciar a queima, você precisa ter também uma segunda carta compatível.
+4. Clique em 🔥 para baixar a carta igual, mesmo fora da sua vez.
+5. Você passa a controlar a jogada e deve obrigatoriamente baixar mais uma carta do mesmo valor, do mesmo naipe ou um Valete.
+6. Não existe mais o botão “Encerrar queima”: a segunda carta é obrigatória.
+7. A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7.
+8. Se as duas cartas encerrarem sua mão, anuncie “Mau-Mau batendo/queimando” antes.
 
 ## Mau-Mau
 

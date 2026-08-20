@@ -34,35 +34,47 @@ function emitRoom(room) {
 function scheduleBotTurn(room) {
   if (!room || room.status !== 'playing' || room.botTimer) return;
   if (room.players.some(p => !p.isBot && !p.connected)) return;
-  const bot = room.players[room.currentPlayer];
-  if (!bot?.isBot || bot.finishedRound) return;
+
+  // V11: antes da jogada normal, uma máquina também pode aproveitar uma
+  // oportunidade de QUEIMA fora da vez. A primeira oportunidade válida vence.
+  const burnBot = room.players.find(p => p.isBot && !p.finishedRound && Engine.canBurnMatch(room,p).length > 0);
+  const turnBot = room.players[room.currentPlayer];
+  const actingBot = burnBot || (turnBot?.isBot && !turnBot.finishedRound ? turnBot : null);
+  if (!actingBot) return;
 
   room.botTimer = setTimeout(() => {
     room.botTimer = null;
     const liveRoom = rooms.get(room.code);
     if (!liveRoom || liveRoom !== room || liveRoom.status !== 'playing') return;
-    const liveBot = liveRoom.players[liveRoom.currentPlayer];
-    if (!liveBot?.isBot) return;
+    const liveBot = liveRoom.players.find(p => p.id === actingBot.id);
+    if (!liveBot?.isBot || liveBot.finishedRound) return;
 
+    const isCurrentTurn = liveRoom.players[liveRoom.currentPlayer]?.id === liveBot.id;
     try {
-      BotPlayer.takeTurn(liveRoom, liveBot, Engine);
+      const burns = Engine.canBurnMatch(liveRoom, liveBot);
+      if (burns.length) BotPlayer.takeBurnOpportunity(liveRoom, liveBot, Engine);
+      else if (isCurrentTurn) BotPlayer.takeTurn(liveRoom, liveBot, Engine);
+      else { emitRoom(liveRoom); return; }
     } catch (e) {
-      Engine.appendLog(liveRoom, `${liveBot.name} encontrou uma jogada inválida e teve a vez encerrada por segurança.`, 'system');
-      // Evita que um erro inesperado da IA congele toda a sala.
-      liveBot.justDrawnCardId = null;
-      liveRoom.continuationPlayerId = null;
-      const idx = liveRoom.players.findIndex(p => p.id === liveBot.id);
-      if (idx >= 0 && liveRoom.status === 'playing') {
-        const n = liveRoom.players.length;
-        let cursor = idx;
-        for (let i=0; i<n; i++) {
-          cursor = (cursor + liveRoom.direction + n) % n;
-          if (!liveRoom.players[cursor].finishedRound) { liveRoom.currentPlayer = cursor; break; }
+      Engine.appendLog(liveRoom, `${liveBot.name} encontrou uma jogada automática inválida: ${e.message}`, 'system');
+      // Só avançamos a vez por segurança quando o erro ocorreu durante a vez
+      // normal do bot. Uma tentativa de queima fora da vez nunca pula terceiros.
+      if (isCurrentTurn) {
+        liveBot.justDrawnCardId = null;
+        liveRoom.continuationPlayerId = null;
+        const idx = liveRoom.players.findIndex(p => p.id === liveBot.id);
+        if (idx >= 0 && liveRoom.status === 'playing') {
+          const n = liveRoom.players.length;
+          let cursor = idx;
+          for (let i=0; i<n; i++) {
+            cursor = (cursor + liveRoom.direction + n) % n;
+            if (!liveRoom.players[cursor].finishedRound) { liveRoom.currentPlayer = cursor; break; }
+          }
         }
       }
     }
     emitRoom(liveRoom);
-  }, 850);
+  }, burnBot ? 650 : 850);
   if (typeof room.botTimer.unref === 'function') room.botTimer.unref();
 }
 
@@ -115,6 +127,8 @@ function cancelCurrentRoundAfterLeave(room, leavingName) {
   room.winnerId = null;
   room.lastWinnerCard = null;
   room.continuationPlayerId = null;
+  room.lastPlayedById = null;
+  room.burnTopCardId = null;
   room.finishPendingSeven = false;
   room.roundRoles = null;
   for (const p of room.players) {
@@ -287,7 +301,9 @@ io.on('connection', socket => {
       Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
     }
   }));
-  socket.on('burnPair', payload => withRoom(socket,(room,p)=> Engine.burnPair(room,p.id,payload.cardId,payload.chosenSuit)));
+  socket.on('burnMatch', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
+  // Compatibilidade temporária com clientes V10/V9.
+  socket.on('burnPair', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
   socket.on('endBurn', () => withRoom(socket,(room,p)=> Engine.endBurnContinuation(room,p.id)));
   socket.on('draw', () => withRoom(socket,(room,p)=> Engine.drawAction(room,p.id)));
   socket.on('passAfterDraw', () => withRoom(socket,(room,p)=> Engine.passAfterDraw(room,p.id)));
