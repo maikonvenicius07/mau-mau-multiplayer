@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "1.7.0",
-  "description": "Mau-Mau tradicional multiplayer com bots, chat, sons, compra obrigatória antes de Passar a vez e queima dinâmica de duas cartas.",
+  "version": "1.8.0",
+  "description": "Mau-Mau tradicional multiplayer com bots, chat, sons, passagem de vez corrigida após compra, bots, chat, sons e queima dinâmica de duas cartas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,6 +1,7 @@
 const socket = io();
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+let passPending=false;
 let state=null, pendingCard=null, pendingBurn=false, soundOn=true, previousHandIds=new Set();
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
@@ -126,7 +127,14 @@ $('#drawPile').onclick=()=>{if(canAct()) socket.emit('draw')};
 $('#mauBtn').onclick=()=>socket.emit('declare',{type:'mau-mau'});
 $('#batendoBtn').onclick=()=>socket.emit('declare',{type:'batendo'});
 $('#endBurnBtn').onclick=()=>socket.emit('endBurn');
-$('#passTurnBtn').onclick=()=>socket.emit('passTurn');
+$('#passTurnBtn').onclick=()=>{
+  if(passPending) return;
+  passPending=true;
+  $('#passTurnBtn').disabled=true;
+  $('#passTurnBtn').textContent='⏳ Passando...';
+  toast('⏭️ Passando a vez. A carta comprada ficará na sua mão.');
+  socket.emit('passTurn');
+};
 
 const rules=$('#rulesDialog');
 $('#rulesOpen').onclick=$('#rulesOpen2').onclick=()=>rules.showModal();
@@ -142,7 +150,19 @@ socket.on('joined',data=>{
   saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar});
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
 });
-socket.on('state',s=>{const prev=state;state=s;render();if(prev){const last=s.log.at(-1);const old=prev.log.at(-1);if(last&&last.id!==old?.id)beep(last.kind)}});
+socket.on('state',s=>{
+  const prev=state;
+  state=s;
+  if(passPending && state?.me && state.currentPlayerId !== state.me.id){
+    passPending=false;
+  }
+  render();
+  if(prev){
+    const last=s.log.at(-1);
+    const old=prev.log.at(-1);
+    if(last&&last.id!==old?.id)beep(last.kind);
+  }
+});
 socket.on('chatHistory',messages=>{chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
   chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
@@ -155,7 +175,11 @@ socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
   playSocialEffect(event.effect);showReaction(`${event.avatar||'🙂'} ${event.name||'Jogador'}`,fx.emoji,fx.label);
 });
-socket.on('gameError',e=>{toast(e.message);renderControls();});
+socket.on('passConfirmed',data=>{
+  const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
+  toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
+});
+socket.on('gameError',e=>{passPending=false;toast(e.message);render();});
 socket.on('leftRoom',()=>{
   clearSession();
   returnToLanding('Você saiu da sala.');
@@ -225,7 +249,7 @@ function showReaction(name,emoji,label){
   layer.appendChild(el);setTimeout(()=>el.remove(),2100);
 }
 
-function canAct(){return socket.connected&&state?.status==='playing'&&state.currentPlayerId===state.me?.id}
+function canAct(){return !passPending&&socket.connected&&state?.status==='playing'&&state.currentPlayerId===state.me?.id}
 function render(){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
@@ -295,6 +319,7 @@ function renderHand(){
   const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&!passBlockedByBurn&&boughtThisTurn);
   $('#passTurnBtn').classList.toggle('hidden',state.status!=='playing');
   $('#passTurnBtn').disabled=!canPassTurn;
+  $('#passTurnBtn').textContent=passPending?'⏳ Passando...':'⏭️ Passar a vez';
   $('#passTurnBtn').title=canPassTurn
     ? 'Passar a vez após a compra obrigatória de 1 carta.'
     : passBlockedBySeven
@@ -307,7 +332,7 @@ function renderHand(){
 
   // Só é permitido comprar uma carta normal por turno. A cadeia de 7 é tratada
   // separadamente pelo motor do jogo.
-  $('#drawPile').disabled=!!(myTurn&&state.me.justDrawnCardId&&!state.pendingSeven);
+  $('#drawPile').disabled=!!(passPending||(myTurn&&state.me.justDrawnCardId&&!state.pendingSeven));
   $('#drawPile').title=state.me.justDrawnCardId
     ? 'Você já comprou nesta vez. Jogue a carta comprada se puder ou passe a vez.'
     : 'Comprar 1 carta';

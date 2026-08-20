@@ -1,4 +1,17 @@
-# Mau-Mau V13 — Compra obrigatória para passar
+# Mau-Mau V14 — Passar a vez corrigido
+
+## Correção principal da V14
+
+Depois de comprar 1 carta, o jogador pode clicar em **⏭️ Passar a vez**. Ao passar:
+
+- a carta comprada fica na mão;
+- o turno termina imediatamente no servidor;
+- nenhuma carta do jogador que passou pode ser jogada até sua próxima vez;
+- a interface bloqueia a mão enquanto a passagem está sendo confirmada;
+- aparece uma confirmação indicando quem joga em seguida;
+- contra a máquina, há um pequeno intervalo antes da jogada automática para ficar visível que a vez realmente mudou.
+
+A compra de 1 carta continua obrigatória antes de usar **Passar a vez**. Cadeia de 7 e segunda carta da queima continuam sem permitir passe.
 
 ## Novidade principal da V13
 

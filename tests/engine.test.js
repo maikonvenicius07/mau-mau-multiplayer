@@ -297,4 +297,32 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,0);
 }
 
-console.log('✓ V13: todos os testes do motor do Mau-Mau passaram.');
+// V14: depois de passar, o jogador não pode jogar mais nenhuma carta até a próxima vez.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','hearts','topV14')];
+  a.hand=[card('5','clubs','v14old')];
+  r.deck=[card('5','spades','v14draw')];
+  E.drawAction(r,a.id);
+  E.passTurn(r,a.id);
+  assert.equal(r.currentPlayer,1);
+  assert.equal(a.justDrawnCardId,null);
+  assert.equal(a.hand.length,2);
+  assert.throws(()=>E.playCard(r,a.id,'v14old'),/Não é a sua vez/);
+  assert.throws(()=>E.playCard(r,a.id,'v14draw'),/Não é a sua vez/);
+}
+
+// V14: a carta comprada permanece na mão depois do passe.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('9','clubs','topV14b')];
+  a.hand=[card('2','hearts','v14b-old')];
+  r.deck=[card('9','diamonds','v14b-draw')];
+  E.drawAction(r,a.id);
+  E.passTurn(r,a.id);
+  assert(a.hand.some(c=>c.id==='v14b-draw'));
+  assert.equal(r.lastPass?.playerId,a.id);
+  assert.equal(r.lastPass?.nextPlayerId,r.players[1].id);
+}
+
+console.log('✓ V14: todos os testes do motor do Mau-Mau passaram.');

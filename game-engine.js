@@ -130,6 +130,7 @@ function createRoom(code, hostInfo) {
     lastPlayedById: null,
     burnTopCardId: null,
     finishPendingSeven: false,
+    lastPass: null,
     roundRoles: null,
     log: [],
     createdAt: Date.now(),
@@ -569,10 +570,20 @@ function passTurn(room, playerId) {
   }
 
   room.burnTopCardId = null;
+  const keptCardId = p.justDrawnCardId;
   p.justDrawnCardId = null;
   p.declaration = null;
-  room.currentPlayer = nextIndex(room, idx, 1);
-  log(room, `${p.name} comprou uma carta e passou a vez.`, 'turn');
+
+  const next = nextIndex(room, idx, 1);
+  room.currentPlayer = next;
+  room.lastPass = {
+    playerId: p.id,
+    keptCardId,
+    nextPlayerId: room.players[next]?.id || null,
+    at: Date.now(),
+  };
+
+  log(room, `${p.name} passou a vez. A carta comprada permaneceu na mão e agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
 }
 
 function passAfterDraw(room, playerId) {
@@ -648,6 +659,7 @@ function roomPublicState(room, viewerId) {
     winnerId: room.winnerId,
     lastWinnerCard: room.lastWinnerCard,
     continuationPlayerId: room.continuationPlayerId,
+    lastPass: room.lastPass,
     roundRoles: room.roundRoles,
     players: room.players.map(p => ({
       id:p.id,

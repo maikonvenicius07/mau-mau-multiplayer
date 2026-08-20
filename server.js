@@ -74,7 +74,7 @@ function scheduleBotTurn(room) {
       }
     }
     emitRoom(liveRoom);
-  }, burnBot ? 650 : 850);
+  }, burnBot ? 650 : 1250);
   if (typeof room.botTimer.unref === 'function') room.botTimer.unref();
 }
 
@@ -306,7 +306,23 @@ io.on('connection', socket => {
   socket.on('burnPair', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
   socket.on('endBurn', () => withRoom(socket,(room,p)=> Engine.endBurnContinuation(room,p.id)));
   socket.on('draw', () => withRoom(socket,(room,p)=> Engine.drawAction(room,p.id)));
-  socket.on('passAfterDraw', () => withRoom(socket,(room,p)=> Engine.passAfterDraw(room,p.id)));
+  socket.on('passTurn', () => withRoom(socket,(room,p)=> {
+    const oldPlayerId = p.id;
+    Engine.passTurn(room,p.id);
+    socket.emit('passConfirmed', {
+      playerId: oldPlayerId,
+      nextPlayerId: room.players[room.currentPlayer]?.id || null,
+    });
+  }));
+  // Compatibilidade com clientes V10/V11.
+  socket.on('passAfterDraw', () => withRoom(socket,(room,p)=> {
+    const oldPlayerId = p.id;
+    Engine.passAfterDraw(room,p.id);
+    socket.emit('passConfirmed', {
+      playerId: oldPlayerId,
+      nextPlayerId: room.players[room.currentPlayer]?.id || null,
+    });
+  }));
 
 
   socket.on('chatMessage', payload => {
