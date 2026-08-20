@@ -125,3 +125,9 @@ Quando o jogador não possuir carta válida, ele compra apenas 1 carta. Se essa 
 - clicar em **Passar a vez**, mantendo a carta na mão.
 
 Se a carta comprada não puder ser jogada, a vez passa automaticamente. Durante essa decisão, somente a carta recém-comprada pode ser jogada.
+
+
+## Compra obrigatória para passar a vez (V13)
+Em uma jogada normal, o jogador pode optar por **passar a vez**, mas precisa primeiro **comprar 1 carta do monte**. A compra é permitida mesmo quando já existem cartas válidas na mão. Depois de comprar, o participante pode jogar a carta recém-comprada caso ela seja válida ou clicar em **Passar a vez**, mantendo a carta na mão. Não é permitido comprar uma segunda carta na mesma jogada normal.
+
+A passagem voluntária **não pode** ser utilizada para evitar uma cadeia de 7: nessa situação, o jogador deve rebater com outro 7 ou comprar a quantidade acumulada. Também não pode ser utilizada durante a continuação de uma queima dinâmica, pois a segunda carta da queima é obrigatória.

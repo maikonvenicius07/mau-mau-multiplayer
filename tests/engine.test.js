@@ -231,4 +231,70 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(a.hand.length,2);
 }
 
-console.log('✓ V11: todos os testes do motor do Mau-Mau passaram.');
+
+// V13: não pode passar antes de comprar uma carta.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('5','hearts','topV13')];
+  a.hand=[card('5','clubs','v13legal'),card('9','hearts','v13legal2')];
+  assert.throws(()=>E.passTurn(r,a.id),/primeiro compre 1 carta/);
+  assert.equal(r.currentPlayer,0);
+}
+
+// V13: pode comprar mesmo tendo carta válida e depois passar.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('5','hearts','topV13b')];
+  a.hand=[card('5','clubs','v13legal')];
+  r.deck=[card('2','spades','v13draw')];
+  E.drawAction(r,a.id);
+  assert.equal(a.justDrawnCardId,'v13draw');
+  assert.equal(r.currentPlayer,0);
+  E.passTurn(r,a.id);
+  assert.equal(r.currentPlayer,1);
+  assert.equal(a.hand.length,2);
+}
+
+// V13: não pode comprar duas cartas na mesma jogada normal.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('5','hearts','topV13c')];
+  a.hand=[card('2','clubs','v13none')];
+  r.deck=[card('3','diamonds','v13draw2'),card('4','spades','v13draw1')];
+  E.drawAction(r,a.id);
+  assert.throws(()=>E.drawAction(r,a.id),/já comprou uma carta/);
+  assert.equal(r.currentPlayer,0);
+}
+
+// V13: carta comprada não jogável mantém a vez até o jogador passar.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('5','hearts','topV13d')];
+  a.hand=[card('2','clubs','v13none2')];
+  r.deck=[card('3','diamonds','v13bad')];
+  E.drawAction(r,a.id);
+  assert.equal(a.justDrawnCardId,'v13bad');
+  assert.equal(r.currentPlayer,0);
+  E.passTurn(r,a.id);
+  assert.equal(r.currentPlayer,1);
+}
+
+// V13: não pode usar Passar para escapar de uma cadeia de 7.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.pendingSeven=4;
+  a.hand=[card('2','clubs','v13seven')];
+  assert.throws(()=>E.passTurn(r,a.id),/cadeia de 7/);
+  assert.equal(r.currentPlayer,0);
+}
+
+// V13: a segunda carta da queima continua obrigatória.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.continuationPlayerId=a.id;
+  a.hand=[card('9','hearts','v13burn')];
+  assert.throws(()=>E.passTurn(r,a.id),/continuação de uma queima/);
+  assert.equal(r.currentPlayer,0);
+}
+
+console.log('✓ V13: todos os testes do motor do Mau-Mau passaram.');

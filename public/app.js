@@ -126,7 +126,7 @@ $('#drawPile').onclick=()=>{if(canAct()) socket.emit('draw')};
 $('#mauBtn').onclick=()=>socket.emit('declare',{type:'mau-mau'});
 $('#batendoBtn').onclick=()=>socket.emit('declare',{type:'batendo'});
 $('#endBurnBtn').onclick=()=>socket.emit('endBurn');
-$('#passDrawBtn').onclick=()=>socket.emit('passAfterDraw');
+$('#passTurnBtn').onclick=()=>socket.emit('passTurn');
 
 const rules=$('#rulesDialog');
 $('#rulesOpen').onclick=$('#rulesOpen2').onclick=()=>rules.showModal();
@@ -287,10 +287,30 @@ function renderHand(){
   $('#mauBtn').disabled=!canDeclareMau;$('#batendoBtn').disabled=!canBatendo();
   // V11: a segunda carta da queima é obrigatória; não existe mais 'Encerrar queima'.
   $('#endBurnBtn').classList.add('hidden');
-  const canPassAfterDraw=!!(myTurn&&state.me.justDrawnCardId);
-  $('#passDrawBtn').classList.toggle('hidden',!canPassAfterDraw);
-  $('#passDrawBtn').disabled=!canPassAfterDraw;
-  $('#passDrawBtn').title=canPassAfterDraw?'Você não é obrigado a jogar a carta comprada. Clique para encerrar sua vez.':'';
+  // V13: para passar a vez é obrigatório comprar 1 carta antes.
+  // O jogador pode escolher comprar mesmo tendo carta válida, mas só uma vez por turno.
+  const passBlockedBySeven=state.pendingSeven>0;
+  const passBlockedByBurn=state.continuationPlayerId===state.me.id;
+  const boughtThisTurn=!!state.me.justDrawnCardId;
+  const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&!passBlockedByBurn&&boughtThisTurn);
+  $('#passTurnBtn').classList.toggle('hidden',state.status!=='playing');
+  $('#passTurnBtn').disabled=!canPassTurn;
+  $('#passTurnBtn').title=canPassTurn
+    ? 'Passar a vez após a compra obrigatória de 1 carta.'
+    : passBlockedBySeven
+      ? 'Resolva primeiro a cadeia de 7: rebata ou compre a penalidade.'
+      : passBlockedByBurn
+        ? 'Complete primeiro a segunda carta obrigatória da queima.'
+        : myTurn
+          ? 'Para passar a vez, primeiro compre 1 carta do monte.'
+          : 'Aguarde sua vez.';
+
+  // Só é permitido comprar uma carta normal por turno. A cadeia de 7 é tratada
+  // separadamente pelo motor do jogo.
+  $('#drawPile').disabled=!!(myTurn&&state.me.justDrawnCardId&&!state.pendingSeven);
+  $('#drawPile').title=state.me.justDrawnCardId
+    ? 'Você já comprou nesta vez. Jogue a carta comprada se puder ou passe a vez.'
+    : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}

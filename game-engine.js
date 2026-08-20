@@ -530,33 +530,53 @@ function drawAction(room, playerId) {
     return;
   }
 
-  const existingLegal = p.hand.some(c => legalCard(room,c,p));
-  if (existingLegal) throw new Error('Você possui uma carta válida e deve jogá-la; a compra ocorre apenas quando não há jogada possível.');
+  // V13: o jogador pode optar por comprar mesmo tendo carta válida na mão.
+  // Porém, só pode comprar UMA carta na jogada normal. A compra é o requisito
+  // para habilitar o botão "Passar a vez".
+  if (p.justDrawnCardId) {
+    throw new Error('Você já comprou uma carta nesta vez. Jogue a carta comprada, se possível, ou passe a vez.');
+  }
 
   const drawn = drawOne(room);
   p.hand.push(drawn);
-  log(room, `${p.name} comprou 1 carta.`, 'draw');
+  p.justDrawnCardId = drawn.id;
+  log(room, `${p.name} comprou 1 carta. Agora pode jogar a carta comprada, se ela for válida, ou passar a vez.`, 'draw');
 
-  // V10: compra apenas uma. Se a carta comprada servir, o jogador ESCOLHE entre jogá-la ou passar a vez.
-  // Não existe obrigação de jogar a carta comprada. Se ela não servir, a vez passa automaticamente.
   if (legalCard(room, drawn, p)) {
     log(room, `A carta comprada por ${p.name} pode ser jogada ou o jogador pode passar a vez.`, 'turn');
-    // Mantém a vez. A interface destaca apenas a carta comprada como sugestão, mas outras legais continuam bloqueadas no cliente.
-    p.justDrawnCardId = drawn.id;
   } else {
-    p.justDrawnCardId = null;
-    room.currentPlayer = nextIndex(room, idx, 1);
-    log(room, `${p.name} não pôde usar a carta comprada e passou a vez.`, 'turn');
+    log(room, `A carta comprada por ${p.name} não pode ser jogada. O jogador deve passar a vez.`, 'turn');
   }
 }
 
-function passAfterDraw(room, playerId) {
+// V13 — COMPRA OBRIGATÓRIA PARA PASSAR
+// O jogador pode optar por passar a vez, mas somente DEPOIS de comprar uma carta
+// naquela jogada normal. Isso vale inclusive quando ele já possuía carta válida.
+// Exceções: não pode usar Passar para escapar da penalidade do 7 nem durante a
+// segunda carta obrigatória de uma queima dinâmica.
+function passTurn(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
-  if (!p.justDrawnCardId) throw new Error('Você só pode passar voluntariamente depois de comprar uma carta jogável.');
+
+  if (room.pendingSeven > 0) {
+    throw new Error('Não é possível passar a vez durante uma cadeia de 7. Rebate com outro 7 ou compre a penalidade.');
+  }
+  if (room.continuationPlayerId === p.id) {
+    throw new Error('Não é possível passar a vez durante a continuação de uma queima. Jogue a segunda carta obrigatória.');
+  }
+  if (!p.justDrawnCardId) {
+    throw new Error('Para passar a vez, primeiro compre 1 carta do monte.');
+  }
+
+  room.burnTopCardId = null;
   p.justDrawnCardId = null;
+  p.declaration = null;
   room.currentPlayer = nextIndex(room, idx, 1);
-  log(room, `${p.name} decidiu não jogar a carta comprada e passou.`, 'turn');
+  log(room, `${p.name} comprou uma carta e passou a vez.`, 'turn');
+}
+
+function passAfterDraw(room, playerId) {
+  return passTurn(room, playerId);
 }
 
 function playDrawnCard(room, playerId, cardId, chosenSuit=null) {
@@ -652,7 +672,7 @@ function roomPublicState(room, viewerId) {
       declaration: viewer.declaration,
       justDrawnCardId: viewer.justDrawnCardId || null,
       legalCardIds: room.status === 'playing' && room.players[room.currentPlayer]?.id === viewer.id
-        ? (viewer.justDrawnCardId ? [viewer.justDrawnCardId] : viewer.hand.filter(c => legalCard(room,c,viewer)).map(c=>c.id))
+        ? (viewer.justDrawnCardId ? viewer.hand.filter(c => c.id === viewer.justDrawnCardId && legalCard(room,c,viewer)).map(c=>c.id) : viewer.hand.filter(c => legalCard(room,c,viewer)).map(c=>c.id))
         : [],
       burnableCardIds: room.status === 'playing'
         ? canBurnMatch(room,viewer).map(c=>c.id)
@@ -678,7 +698,7 @@ module.exports = {
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
   createRoom,addPlayer,reconnectPlayer,startRound,
   legalCard,declare,playCard,burnMatch,burnPair,endBurnContinuation,canBurnMatch,
-  drawAction,passAfterDraw,playDrawnCard,finalizeRound,
+  drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
   appendLog: log,
 };

@@ -1,6 +1,6 @@
-# Mau-Mau V11 — Queima dinâmica
+# Mau-Mau V13 — Compra obrigatória para passar
 
-## Novidade principal da V11
+## Novidade principal da V13
 
 A regra de **queimar cartas** foi refeita para ficar mais próxima da regra definida para esta mesa. Quando outro jogador baixa uma carta e você possui uma carta exatamente igual (mesmo valor e mesmo naipe), pode interromper a ordem normal e queimar a sua carta. Em seguida, é obrigatório baixar mais uma carta do mesmo valor, do mesmo naipe ou um Valete.
 
@@ -64,7 +64,7 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Rei (K): o jogador anterior, considerando o sentido atual, compra 1.
 - Oito (8): o jogador anterior, considerando o sentido atual, compra 2.
 
-## Regra de queimar — V11
+## Regra de queimar — V12
 
 1. Outro jogador baixa uma carta normal.
 2. Se você tiver uma carta exatamente igual (mesmo valor e mesmo naipe), ela pode aparecer destacada com 🔥.
@@ -148,3 +148,13 @@ As regras do usuário são a fonte principal do projeto. As referências abaixo 
 ## V8 — Dama (Q) em partidas com 2 jogadores
 
 A Dama continua invertendo o sentido do jogo. Quando existirem exatamente dois jogadores ativos, a inversão faz com que o jogador que descartou a Dama jogue novamente. Com três ou mais jogadores, o turno segue normalmente para o próximo participante no novo sentido.
+
+
+## V12 — Passar a vez livre
+Durante uma jogada normal, o participante pode clicar em **⏭️ Passar a vez** mesmo que possua carta válida e mesmo sem ter comprado carta. A passagem é voluntária e encerra imediatamente o turno.
+
+O botão não pode ser usado para evitar obrigações pendentes: durante uma cadeia de **7** é necessário rebater com outro 7 ou comprar a penalidade; durante uma **queima dinâmica**, a segunda carta continua obrigatória.
+
+
+## V13 — Compra obrigatória para passar a vez
+Para encerrar voluntariamente a própria jogada com o botão **⏭️ Passar a vez**, o participante precisa primeiro comprar **1 carta do monte**. A compra é permitida mesmo quando ele já possui carta válida. Após comprar, somente a carta recém-comprada poderá ser jogada naquela decisão; se não quiser jogá-la, ou se ela não for válida, o jogador pode clicar em **Passar a vez**. Não é permitido comprar uma segunda carta na mesma jogada normal. A regra não altera a penalidade da cadeia de 7 nem a segunda carta obrigatória da queima dinâmica.
