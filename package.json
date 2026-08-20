@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "1.4.0",
-  "description": "Mau-Mau tradicional multiplayer com bots, chat em tempo real e efeitos sonoros compartilhados.",
+  "version": "1.5.0",
+  "description": "Mau-Mau tradicional multiplayer com bots, chat, sons e opção de passar a vez após comprar uma carta jogável.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

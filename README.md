@@ -1,4 +1,18 @@
-# Mau-Mau V9 — Chat e efeitos sonoros
+# Mau-Mau V10 — Passar a vez após comprar
+
+## Novidade da V10
+
+Quando o jogador não possui jogada válida e compra 1 carta, se a carta comprada puder ser usada ele passa a ter duas opções:
+
+1. **Jogar a carta comprada**; ou
+2. **⏭️ Passar a vez**, mantendo a carta na mão.
+
+O jogador **não é obrigado a jogar a carta que acabou de comprar**. Se a carta comprada não for válida, a passagem de vez continua automática.
+
+Na interface, enquanto essa escolha estiver disponível, aparece um aviso no centro da mesa e o botão azul **⏭️ Passar a vez** na área da mão.
+
+---
+
 
 Esta versão mantém as regras e o jogador automático da V8 e acrescenta **chat em tempo real** e **efeitos sonoros compartilhados entre os jogadores da sala**.
 

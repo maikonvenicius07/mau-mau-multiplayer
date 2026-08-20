@@ -260,7 +260,10 @@ function renderCenter(){
   $('#turnBanner').textContent=banner;
   $('#suitRequest').classList.toggle('hidden',!state.requestedSuit);if(state.requestedSuit)$('#suitRequest').textContent=`Naipe pedido: ${suitGlyph[state.requestedSuit]} ${suitName[state.requestedSuit]}`;
   $('#sevenPenalty').classList.toggle('hidden',!state.pendingSeven);if(state.pendingSeven)$('#sevenPenalty').textContent=`⚠️ Cadeia de 7: comprar ${state.pendingSeven} ou rebater com outro 7`;
+  const canChooseAfterDraw=state.status==='playing'&&!state.paused&&current?.id===state.me?.id&&!!state.me?.justDrawnCardId;
+  $('#drawChoice').classList.toggle('hidden',!canChooseAfterDraw);
 }
+
 function renderHand(){
   const h=$('#hand');h.innerHTML='';const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds);
   state.me.hand.forEach(card=>{
@@ -276,7 +279,10 @@ function renderHand(){
   const canDeclareMau=state.me.hand.length===2||(state.me.hand.length===3&&state.me.burnableCardIds.length>0);
   $('#mauBtn').disabled=!(myTurn&&canDeclareMau);$('#batendoBtn').disabled=!(myTurn&&canBatendo());
   $('#endBurnBtn').classList.toggle('hidden',!(myTurn&&state.continuationPlayerId===state.me.id));
-  $('#passDrawBtn').classList.toggle('hidden',!(myTurn&&state.me.justDrawnCardId));
+  const canPassAfterDraw=!!(myTurn&&state.me.justDrawnCardId);
+  $('#passDrawBtn').classList.toggle('hidden',!canPassAfterDraw);
+  $('#passDrawBtn').disabled=!canPassAfterDraw;
+  $('#passDrawBtn').title=canPassAfterDraw?'Você não é obrigado a jogar a carta comprada. Clique para encerrar sua vez.':'';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}

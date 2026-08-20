@@ -40,3 +40,9 @@ button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-col
 .host-controls .bot-control-btn.remove{background:#42231f;color:#ffd4cc;border-color:#71453d}
 .action-grid .join-row{grid-column:1/-1}
 @media(max-width:900px){.action-grid .join-row{grid-column:auto}}
+
+/* V10 — escolha após comprar uma carta */
+.pass-turn-btn{background:linear-gradient(135deg,#315b80,#4279a6)!important;border-color:#6098c4!important;color:#fff!important;box-shadow:0 0 0 1px #7bb9e633 inset,0 4px 12px #0004;font-size:12px!important;padding:10px 14px!important}
+.pass-turn-btn:hover{filter:brightness(1.18)!important;transform:translateY(-1px)}
+.draw-choice{margin-top:10px;background:#173a50;border:1px solid #4c91ba;color:#dff5ff;border-radius:12px;padding:9px 13px;font-size:12px;font-weight:800;box-shadow:0 5px 18px #0003;animation:pulseChoice 1.5s ease-in-out infinite alternate}
+@keyframes pulseChoice{from{box-shadow:0 0 0 0 #65c6ff20}to{box-shadow:0 0 0 5px #65c6ff12}}

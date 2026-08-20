@@ -45,7 +45,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V9 • CHAT • SONS</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V10 • PASSAR APÓS COMPRA</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -67,6 +67,7 @@
           </div>
           <div id="suitRequest" class="suit-request hidden"></div>
           <div id="sevenPenalty" class="penalty hidden"></div>
+          <div id="drawChoice" class="draw-choice hidden">🃏 Carta comprada: você pode jogá-la ou passar a vez.</div>
           <div id="hostControls" class="host-controls"></div>
         </div>
       </div>
@@ -78,7 +79,7 @@
             <button id="mauBtn" class="mau-btn">📣 Mau-Mau!</button>
             <button id="batendoBtn" class="mau-btn burn-tone">🔥 Mau-Mau batendo/queimando!</button>
             <button id="endBurnBtn" class="hidden">Encerrar queima</button>
-            <button id="passDrawBtn" class="hidden">Passar</button>
+            <button id="passDrawBtn" class="pass-turn-btn hidden">⏭️ Passar a vez</button>
           </div>
         </div>
         <div id="hand" class="hand"></div>
@@ -142,7 +143,7 @@
         <h3>🤖 Jogador automático</h3>
         <p>O anfitrião pode adicionar máquinas à sala fora das rodadas. O bot joga sozinho, anuncia Mau-Mau, escolhe naipe no Valete, rebate o 7 quando possível e usa a regra de queimar.</p>
         <h3>▶️ Jogada normal</h3>
-        <p>Jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> do topo. Sem opção, compre 1 carta. Se a carta comprada servir, você pode jogá-la; caso contrário, a vez passa.</p>
+        <p>Jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> do topo. Sem opção, compre 1 carta. Se a carta comprada servir, <strong>você escolhe</strong>: pode jogá-la ou clicar em <strong>Passar a vez</strong>. Você não é obrigado a jogar a carta comprada. Se ela não servir, a vez passa automaticamente.</p>
         <h3>📣 Mau-Mau</h3>
         <p>Antes de uma jogada que deixe apenas 1 carta na mão, anuncie “Mau-Mau”. No aplicativo, o esquecimento gera +2 cartas, usando a penalidade tradicional encontrada nas regras da Copag.</p>
       </article>

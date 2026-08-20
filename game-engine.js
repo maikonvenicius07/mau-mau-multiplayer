@@ -498,10 +498,10 @@ function drawAction(room, playerId) {
   p.hand.push(drawn);
   log(room, `${p.name} comprou 1 carta.`, 'draw');
 
-  // Pela regra enviada, compra apenas uma. Se servir, pode jogar imediatamente; senão passa.
-  // O servidor deixa a carta na mão e mantém a vez se ela for jogável. Caso não seja, passa automaticamente.
+  // V10: compra apenas uma. Se a carta comprada servir, o jogador ESCOLHE entre jogá-la ou passar a vez.
+  // Não existe obrigação de jogar a carta comprada. Se ela não servir, a vez passa automaticamente.
   if (legalCard(room, drawn, p)) {
-    log(room, `A carta comprada por ${p.name} pode ser jogada nesta mesma vez.`, 'turn');
+    log(room, `A carta comprada por ${p.name} pode ser jogada ou o jogador pode passar a vez.`, 'turn');
     // Mantém a vez. A interface destaca apenas a carta comprada como sugestão, mas outras legais continuam bloqueadas no cliente.
     p.justDrawnCardId = drawn.id;
   } else {

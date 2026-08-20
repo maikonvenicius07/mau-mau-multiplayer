@@ -215,3 +215,23 @@ console.log('✓ Mau-Mau antes de queima de 3 para 1 validado.');
 }
 
 console.log('✓ Regra da Dama (Q) para 2 jogadores validada.');
+
+
+// V10: jogador pode passar a vez depois de comprar uma carta jogável.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;
+  r.discard=[card('5','hearts','topV10')];
+  a.hand=[card('2','clubs','v10nao')];
+  r.deck=[card('5','spades','v10draw')];
+  E.drawAction(r,a.id);
+  assert.equal(a.justDrawnCardId,'v10draw','carta comprada jogável deve oferecer escolha');
+  assert.equal(r.currentPlayer,0,'a vez deve permanecer enquanto o jogador decide');
+  assert.equal(a.hand.length,2);
+  E.passAfterDraw(r,a.id);
+  assert.equal(a.justDrawnCardId,null);
+  assert.equal(r.currentPlayer,1,'ao clicar em Passar a vez, deve avançar para o outro jogador');
+  assert.equal(a.hand.length,2,'a carta comprada deve permanecer na mão');
+}
+
+console.log('✓ V10: passar a vez após comprar carta jogável validado.');
