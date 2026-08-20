@@ -274,7 +274,12 @@ function declare(room, playerId, type) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
   if (!['mau-mau','batendo'].includes(type)) throw new Error('Declaração inválida.');
-  if (type === 'mau-mau' && p.hand.length !== 2) throw new Error('O aviso Mau-Mau deve ser feito quando você está com duas cartas e pretende ficar com uma.');
+  if (type === 'mau-mau') {
+    const canReachOneByBurn = p.hand.length === 3 && canBurnPair(room,p).length > 0;
+    if (p.hand.length !== 2 && !canReachOneByBurn) {
+      throw new Error('O aviso Mau-Mau deve ser feito antes de uma jogada que deixe você com apenas uma carta.');
+    }
+  }
   if (type === 'batendo') {
     if (p.hand.length !== 2 || !sameCard(p.hand[0], p.hand[1]) || isSpecial(p.hand[0])) {
       throw new Error('Mau-Mau batendo exige exatamente duas cartas iguais e não especiais.');

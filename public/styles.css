@@ -28,3 +28,13 @@ button,input,select{font:inherit}.hidden{display:none!important}button{cursor:po
 .playing-card.deal-in{animation:dealIn .42s cubic-bezier(.2,.8,.25,1)}
 
 .you-tag{font-size:.72em;font-weight:700;color:#8fd7ff;white-space:nowrap}.wait small{opacity:.78;font-weight:500}
+
+/* V7 — jogador automático */
+button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-color:#5baa86;color:#fff}
+.bot-tag{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:999px;background:#305e4a;color:#8ff0bd;font-size:8px;letter-spacing:.08em;vertical-align:1px}
+.score-bot{display:inline-block;margin-left:4px;padding:1px 4px;border-radius:999px;background:#264b3c;color:#8fe1b5;font-size:8px}
+.bot-controls{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+.host-controls .bot-control-btn{background:#244a3a;color:#d8f7e7;border:1px solid #4b7d67;padding:7px 10px;font-size:10px}
+.host-controls .bot-control-btn.remove{background:#42231f;color:#ffd4cc;border-color:#71453d}
+.action-grid .join-row{grid-column:1/-1}
+@media(max-width:900px){.action-grid .join-row{grid-column:auto}}

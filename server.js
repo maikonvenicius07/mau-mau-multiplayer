@@ -4,6 +4,7 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const Engine = require('./game-engine');
+const BotPlayer = require('./bot-player');
 
 const app = express();
 const server = http.createServer(app);
@@ -27,18 +28,77 @@ function emitRoom(room) {
   for (const p of room.players) {
     if (p.socketId) io.to(p.socketId).emit('state', Engine.roomPublicState(room,p.id));
   }
+  scheduleBotTurn(room);
 }
+
+function scheduleBotTurn(room) {
+  if (!room || room.status !== 'playing' || room.botTimer) return;
+  if (room.players.some(p => !p.isBot && !p.connected)) return;
+  const bot = room.players[room.currentPlayer];
+  if (!bot?.isBot || bot.finishedRound) return;
+
+  room.botTimer = setTimeout(() => {
+    room.botTimer = null;
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom || liveRoom !== room || liveRoom.status !== 'playing') return;
+    const liveBot = liveRoom.players[liveRoom.currentPlayer];
+    if (!liveBot?.isBot) return;
+
+    try {
+      BotPlayer.takeTurn(liveRoom, liveBot, Engine);
+    } catch (e) {
+      Engine.appendLog(liveRoom, `${liveBot.name} encontrou uma jogada inválida e teve a vez encerrada por segurança.`, 'system');
+      // Evita que um erro inesperado da IA congele toda a sala.
+      liveBot.justDrawnCardId = null;
+      liveRoom.continuationPlayerId = null;
+      const idx = liveRoom.players.findIndex(p => p.id === liveBot.id);
+      if (idx >= 0 && liveRoom.status === 'playing') {
+        const n = liveRoom.players.length;
+        let cursor = idx;
+        for (let i=0; i<n; i++) {
+          cursor = (cursor + liveRoom.direction + n) % n;
+          if (!liveRoom.players[cursor].finishedRound) { liveRoom.currentPlayer = cursor; break; }
+        }
+      }
+    }
+    emitRoom(liveRoom);
+  }, 850);
+  if (typeof room.botTimer.unref === 'function') room.botTimer.unref();
+}
+
 function err(socket, e) {
   socket.emit('gameError', {message: e?.message || 'Ocorreu um erro.'});
 }
 
 function ensureHost(room) {
-  if (!room.players.length) return;
-  const hosts = room.players.filter(p => p.host);
+  const humans = room.players.filter(p => !p.isBot);
+  if (!humans.length) return;
+  const hosts = humans.filter(p => p.host);
   if (hosts.length === 1) return;
   room.players.forEach(p => { p.host = false; });
-  const nextHost = room.players.find(p => p.connected) || room.players[0];
+  const nextHost = humans.find(p => p.connected) || humans[0];
   if (nextHost) nextHost.host = true;
+}
+
+function nextBotInfo(room) {
+  const bots = room.players.filter(p => p.isBot);
+  const avatars = ['🤖','🦾','🧠','🎩'];
+  const n = bots.length + 1;
+  return {
+    socketId: null,
+    name: n === 1 ? 'Máquina' : `Máquina ${n}`,
+    avatar: avatars[(n-1) % avatars.length],
+    isBot: true,
+  };
+}
+
+function addBotToRoom(room) {
+  const bot = Engine.addPlayer(room, nextBotInfo(room));
+  bot.connected = true;
+  bot.socketId = null;
+  bot.host = false;
+  Engine.appendLog(room, `${bot.name} entrou na mesa como jogador automático.`, 'system');
+  return bot;
 }
 
 function cancelCurrentRoundAfterLeave(room, leavingName) {
@@ -88,6 +148,7 @@ io.on('connection', socket => {
         avatar:payload?.avatar,
       });
       rooms.set(code,room);
+      if (payload?.withBot) addBotToRoom(room);
       const p=room.players[0];
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
@@ -117,6 +178,22 @@ io.on('connection', socket => {
     } catch(e){err(socket,e);}
   });
 
+  socket.on('addBot', () => withRoom(socket,(room,p)=>{
+    if(!p.host) throw new Error('Somente o anfitrião pode adicionar uma máquina.');
+    if(room.status==='playing') throw new Error('Adicione máquinas somente fora de uma rodada.');
+    addBotToRoom(room);
+  }));
+
+  socket.on('removeBot', () => withRoom(socket,(room,p)=>{
+    if(!p.host) throw new Error('Somente o anfitrião pode remover uma máquina.');
+    if(room.status==='playing') throw new Error('Remova máquinas somente fora de uma rodada.');
+    const bot = [...room.players].reverse().find(x => x.isBot);
+    if(!bot) throw new Error('Não há jogador automático para remover.');
+    room.players = room.players.filter(x => x.id !== bot.id);
+    Engine.appendLog(room, `${bot.name} foi removido da mesa.`, 'system');
+    ensureHost(room);
+  }));
+
   socket.on('leaveRoom', () => {
     try {
       const code = socket.data.roomCode;
@@ -142,7 +219,8 @@ io.on('connection', socket => {
       const wasPlaying = room.status === 'playing';
       room.players.splice(idx, 1);
 
-      if (!room.players.length) {
+      if (!room.players.length || room.players.every(p => p.isBot)) {
+        if (room.botTimer) clearTimeout(room.botTimer);
         rooms.delete(code);
       } else {
         if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
@@ -229,7 +307,8 @@ io.on('connection', socket => {
 
           const leavingName = stale.name;
           currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
-          if (!currentRoom.players.length) {
+          if (!currentRoom.players.length || currentRoom.players.every(p => p.isBot)) {
+            if (currentRoom.botTimer) clearTimeout(currentRoom.botTimer);
             rooms.delete(code);
             return;
           }
@@ -246,8 +325,12 @@ io.on('connection', socket => {
 setInterval(()=>{
   const now=Date.now();
   for(const [code,room] of rooms){
-    const allGone=room.players.every(p=>!p.connected);
-    if(allGone && now-room.createdAt>6*60*60*1000) rooms.delete(code);
+    const humans=room.players.filter(p=>!p.isBot);
+    const allHumansGone=!humans.length || humans.every(p=>!p.connected);
+    if(allHumansGone && now-room.createdAt>6*60*60*1000) {
+      if (room.botTimer) clearTimeout(room.botTimer);
+      rooms.delete(code);
+    }
   }
 }, 30*60*1000).unref();
 

@@ -118,3 +118,67 @@ console.log('✓ Todos os testes do motor do Mau-Mau passaram.');
 }
 
 console.log('✓ Correção de jogadores fantasmas/reconexão validada.');
+
+// V7: jogador automático.
+{
+  const Bot = require('../bot-player');
+  const r=room2(), human=r.players[0], bot=r.players[1];
+  bot.isBot=true; bot.name='Máquina'; bot.avatar='🤖';
+  r.currentPlayer=1;
+  bot.hand=[card('5','clubs','bot5'),card('2','spades','bot2')];
+  human.hand=[card('3','hearts','h3'),card('4','clubs','h4')];
+  const result=Bot.takeTurn(r,bot,E);
+  assert.equal(result.action,'play');
+  assert.equal(bot.hand.length,1);
+  assert.equal(r.discard.at(-1).rank,'5');
+}
+
+{
+  const Bot = require('../bot-player');
+  const r=room2(), human=r.players[0], bot=r.players[1];
+  bot.isBot=true; r.currentPlayer=1; r.pendingSeven=2;
+  bot.hand=[card('7','clubs','b7'),card('9','spades','b9')];
+  human.hand=[card('3','hearts','h3')];
+  const result=Bot.takeTurn(r,bot,E);
+  assert.equal(result.action,'counter-seven');
+  assert.equal(r.pendingSeven,4);
+}
+
+{
+  const Bot = require('../bot-player');
+  const r=room2(), bot=r.players[1];
+  bot.isBot=true; r.currentPlayer=1; r.discard=[card('4','hearts','top4')];
+  bot.hand=[card('4','clubs','x1'),card('4','clubs','x2')];
+  const result=Bot.takeTurn(r,bot,E);
+  assert.equal(result.action,'burn');
+  assert.equal(r.winnerId,bot.id);
+  assert.equal(r.status,'between-rounds');
+}
+
+console.log('✓ Jogador automático validado.');
+
+{
+  const Bot = require('../bot-player');
+  const r=room2(), bot=r.players[1];
+  bot.isBot=true; r.currentPlayer=1; r.discard=[card('9','hearts','top9')];
+  bot.hand=[card('2','clubs','b2')];
+  // Simula uma carta recém-comprada que é jogável.
+  const drawn=card('9','spades','drawn9');
+  bot.hand.push(drawn); bot.justDrawnCardId=drawn.id;
+  const result=Bot.takeTurn(r,bot,E);
+  assert.equal(result.action,'play-drawn');
+  assert.equal(bot.justDrawnCardId,null,'o marcador de carta recém-comprada deve ser limpo');
+}
+
+console.log('✓ Compra e jogada automática do bot validada.');
+
+{
+  const r=room2(),a=r.players[0];
+  r.discard=[card('4','hearts','top4b')];
+  a.hand=[card('4','clubs','z1'),card('4','clubs','z2'),card('9','spades','z3')];
+  E.declare(r,a.id,'mau-mau');
+  E.burnPair(r,a.id,'z1');
+  assert.equal(a.hand.length,1,'queima de 3 para 1 deve aceitar anúncio Mau-Mau');
+}
+
+console.log('✓ Mau-Mau antes de queima de 3 para 1 validado.');

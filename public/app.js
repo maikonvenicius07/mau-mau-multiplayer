@@ -34,6 +34,11 @@ $('#createBtn').onclick=()=>{
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID()});
 };
+$('#botGameBtn').onclick=()=>{
+  if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  clearSession();
+  socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true});
+};
 $('#joinBtn').onclick=()=>{
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   const code=$('#roomInput').value.trim().toUpperCase();
@@ -135,12 +140,13 @@ function renderPlayers(){
     const d=document.createElement('div');d.className='player-seat';d.style.left=spots[i][0]+'%';d.style.top=spots[i][1]+'%';
     const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
-    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${p.avatar}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
+    const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
+    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${p.avatar}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
     ring.appendChild(d);
   });
 }
 function renderScore(){
-  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span>${p.avatar}</span><span>${esc(p.name)}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
+  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span>${p.avatar}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
@@ -164,7 +170,9 @@ function renderHand(){
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
   });
-  const myTurn=canAct();$('#mauBtn').disabled=!(myTurn&&state.me.hand.length===2);$('#batendoBtn').disabled=!(myTurn&&canBatendo());
+  const myTurn=canAct();
+  const canDeclareMau=state.me.hand.length===2||(state.me.hand.length===3&&state.me.burnableCardIds.length>0);
+  $('#mauBtn').disabled=!(myTurn&&canDeclareMau);$('#batendoBtn').disabled=!(myTurn&&canBatendo());
   $('#endBurnBtn').classList.toggle('hidden',!(myTurn&&state.continuationPlayerId===state.me.id));
   $('#passDrawBtn').classList.toggle('hidden',!(myTurn&&state.me.justDrawnCardId));
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
@@ -181,8 +189,21 @@ function renderControls(){
   const connectedHost=state.players.find(p=>p.host&&p.connected);
   const canTakeHost=!connectedHost;
   const canStart=(me?.host||canTakeHost)&&(state.status==='lobby'||state.status==='between-rounds');
+  const bots=state.players.filter(p=>p.isBot);
 
   if(canStart){
+    if(me?.host){
+      const botBar=document.createElement('div');botBar.className='bot-controls';
+      const addBot=document.createElement('button');addBot.className='bot-control-btn';addBot.textContent='🤖 Adicionar máquina';
+      addBot.disabled=!socket.connected||state.players.length>=5||(state.status==='between-rounds'&&state.round>=3);
+      addBot.onclick=()=>socket.emit('addBot');
+      botBar.appendChild(addBot);
+      if(bots.length){
+        const removeBot=document.createElement('button');removeBot.className='bot-control-btn remove';removeBot.textContent='− Remover máquina';
+        removeBot.disabled=!socket.connected;removeBot.onclick=()=>socket.emit('removeBot');botBar.appendChild(removeBot);
+      }
+      box.appendChild(botBar);
+    }
     const b=document.createElement('button');
     const normalLabel=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
     b.textContent=me?.host?normalLabel:`Assumir sala e ${normalLabel.toLowerCase()}`;
