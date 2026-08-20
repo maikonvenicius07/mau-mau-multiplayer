@@ -34,10 +34,11 @@ function err(socket, e) {
 
 function ensureHost(room) {
   if (!room.players.length) return;
-  if (!room.players.some(p => p.host)) {
-    const nextHost = room.players.find(p => p.connected) || room.players[0];
-    nextHost.host = true;
-  }
+  const hosts = room.players.filter(p => p.host);
+  if (hosts.length === 1) return;
+  room.players.forEach(p => { p.host = false; });
+  const nextHost = room.players.find(p => p.connected) || room.players[0];
+  if (nextHost) nextHost.host = true;
 }
 
 function cancelCurrentRoundAfterLeave(room, leavingName) {
@@ -164,8 +165,18 @@ io.on('connection', socket => {
   });
 
   socket.on('startRound', () => withRoom(socket,(room,p)=>{
-    if(!p.host) throw new Error('Somente o anfitrião pode iniciar a rodada.');
     if(room.status==='playing') throw new Error('A rodada já está em andamento.');
+
+    // Failover do anfitrião: se o anfitrião atual estiver realmente desconectado,
+    // qualquer jogador conectado pode assumir a sala e iniciar a próxima rodada.
+    const connectedHost = room.players.find(x => x.host && x.connected);
+    if(!p.host && connectedHost) throw new Error('Somente o anfitrião pode iniciar a rodada.');
+    if(!connectedHost) {
+      room.players.forEach(x => { x.host = false; });
+      p.host = true;
+      Engine.appendLog(room, `${p.name} assumiu como anfitrião da sala.`, 'system');
+    }
+
     Engine.startRound(room);
   }));
 
@@ -200,32 +211,33 @@ io.on('connection', socket => {
     if(p && p.socketId === socket.id){
       p.connected=false;
       p.socketId=null;
-      if(p.host){
-        p.host=false;
-        const nextHost=room.players.find(x=>x.connected);
-        if(nextHost) nextHost.host=true;
-      }
+
+      // IMPORTANTE: não retiramos o papel de anfitrião imediatamente.
+      // Um simples F5 ou uma oscilação de internet derruba o socket por alguns
+      // segundos. Mantendo host=true durante a tolerância, o criador da sala
+      // recupera normalmente o botão "Iniciar" ao reconectar.
       emitRoom(room);
 
-      // Na sala de espera, elimina automaticamente participantes que realmente
-      // ficaram desconectados, evitando jogadores "fantasmas" no início.
-      if (room.status === 'lobby') {
+      // Fora de uma rodada, removemos somente quem continuar desconectado após
+      // 20 s. Se era o anfitrião, outro conectado assume depois da remoção.
+      if (room.status === 'lobby' || room.status === 'between-rounds') {
         setTimeout(() => {
           const currentRoom = rooms.get(code);
-          if (!currentRoom || currentRoom.status !== 'lobby') return;
+          if (!currentRoom || !['lobby','between-rounds'].includes(currentRoom.status)) return;
           const stale = currentRoom.players.find(x => x.id === playerId);
           if (!stale || stale.connected) return;
+
+          const leavingName = stale.name;
           currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
           if (!currentRoom.players.length) {
             rooms.delete(code);
             return;
           }
-          if (!currentRoom.players.some(x => x.host)) {
-            const nextHost = currentRoom.players.find(x => x.connected) || currentRoom.players[0];
-            if (nextHost) nextHost.host = true;
-          }
+
+          ensureHost(currentRoom);
+          Engine.appendLog(currentRoom, `${leavingName} foi removido após ficar desconectado.`, 'system');
           emitRoom(currentRoom);
-        }, 12000);
+        }, 20000);
       }
     }
   });

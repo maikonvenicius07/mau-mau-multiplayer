@@ -1,6 +1,6 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mau-Mau com baralho tradicional, 2 a 5 jogadores, 5 rodadas e multiplayer online.",
   "main": "server.js",
   "scripts": {

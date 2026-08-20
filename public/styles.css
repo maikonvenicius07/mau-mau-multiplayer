@@ -26,3 +26,5 @@ button,input,select{font:inherit}.hidden{display:none!important}button{cursor:po
 @media(max-width:520px){.hero-card{padding:22px}.brand-mark{width:58px;height:72px;font-size:36px}.mini-deck{transform:scale(.85);margin-left:-25px}.felt{height:430px}.piles{gap:18px}.pile{width:78px;height:114px}.playing-card{width:76px;height:110px}.playing-card .suit-big{font-size:40px}.playing-card .corner{font-size:16px}.hand{min-height:130px}.hand .playing-card:not(:first-child){margin-left:-28px}.toolbar-actions{justify-content:flex-end}.mau-btn{font-size:9px!important}}
 @keyframes dealIn{0%{transform:translate(0,-160px) rotate(-16deg) scale(.75);opacity:0}70%{opacity:1}100%{transform:translate(0,0) rotate(0) scale(1);opacity:1}}
 .playing-card.deal-in{animation:dealIn .42s cubic-bezier(.2,.8,.25,1)}
+
+.you-tag{font-size:.72em;font-weight:700;color:#8fd7ff;white-space:nowrap}.wait small{opacity:.78;font-weight:500}

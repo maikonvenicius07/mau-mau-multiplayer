@@ -134,7 +134,8 @@ function renderPlayers(){
   state.players.forEach((p,i)=>{
     const d=document.createElement('div');d.className='player-seat';d.style.left=spots[i][0]+'%';d.style.top=spots[i][1]+'%';
     const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
-    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${p.avatar}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
+    const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
+    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${p.avatar}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
     ring.appendChild(d);
   });
 }
@@ -176,9 +177,15 @@ function renderControls(){
   const connected=state.players.filter(p=>p.connected).length;
   const disconnected=state.players.length-connected;
 
-  if(me?.host&&(state.status==='lobby'||state.status==='between-rounds')){
+  const host=state.players.find(p=>p.host);
+  const connectedHost=state.players.find(p=>p.host&&p.connected);
+  const canTakeHost=!connectedHost;
+  const canStart=(me?.host||canTakeHost)&&(state.status==='lobby'||state.status==='between-rounds');
+
+  if(canStart){
     const b=document.createElement('button');
-    b.textContent=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
+    const normalLabel=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
+    b.textContent=me?.host?normalLabel:`Assumir sala e ${normalLabel.toLowerCase()}`;
     const blocked=!socket.connected||connected<2||(state.status==='between-rounds'&&disconnected>0);
     b.disabled=blocked;
     b.onclick=()=>{
@@ -189,12 +196,16 @@ function renderControls(){
     box.appendChild(b);
     const info=document.createElement('div');info.className='host-status';
     if(connected<2) info.textContent='Aguardando pelo menos mais 1 jogador conectado.';
-    else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s) será(ão) removido(s) ao iniciar.`;
+    else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s) será(ão) removido(s) automaticamente.`;
     else if(disconnected>0) info.textContent='Aguarde os jogadores desconectados reconectarem.';
+    else if(!me?.host) info.textContent='O anfitrião está desconectado. Você pode assumir a sala e iniciar.';
     else info.textContent=`${connected} jogador(es) conectado(s). Pronto para iniciar.`;
     box.appendChild(info);
     if(state.status==='between-rounds'&&state.round<3){const s=document.createElement('div');s.className='wait';s.textContent='Novos jogadores ainda podem entrar antes do início da próxima rodada.';box.appendChild(s)}
-  } else if(state.status==='lobby') box.innerHTML='<div class="wait">Aguardando o anfitrião iniciar a partida.</div>';
+  } else if(state.status==='lobby') {
+    const hostName=host?`${host.avatar} ${esc(host.name)}`:'outro jogador';
+    box.innerHTML=`<div class="wait">Aguardando o anfitrião ★ ${hostName} iniciar a partida.<br><small>O jogador marcado com ★ controla o início da rodada.</small></div>`;
+  }
 }
 function play(card,burn){
   pendingCard=card;pendingBurn=burn;
