@@ -31,6 +31,40 @@ function emitRoom(room) {
 function err(socket, e) {
   socket.emit('gameError', {message: e?.message || 'Ocorreu um erro.'});
 }
+
+function ensureHost(room) {
+  if (!room.players.length) return;
+  if (!room.players.some(p => p.host)) {
+    const nextHost = room.players.find(p => p.connected) || room.players[0];
+    nextHost.host = true;
+  }
+}
+
+function cancelCurrentRoundAfterLeave(room, leavingName) {
+  // A saída voluntária no meio da rodada não pode deixar a mesa pausada.
+  // A rodada corrente é anulada e pode ser reiniciada com os jogadores restantes.
+  room.round = Math.max(0, room.round - 1);
+  room.status = room.round === 0 ? 'lobby' : 'between-rounds';
+  room.deck = [];
+  room.discard = [];
+  room.direction = -1;
+  room.currentPlayer = -1;
+  room.requestedSuit = null;
+  room.pendingSeven = 0;
+  room.winnerId = null;
+  room.lastWinnerCard = null;
+  room.continuationPlayerId = null;
+  room.finishPendingSeven = false;
+  room.roundRoles = null;
+  for (const p of room.players) {
+    p.hand = [];
+    p.roundScore = 0;
+    p.finishedRound = false;
+    p.declaration = null;
+    p.justDrawnCardId = null;
+  }
+  Engine.appendLog(room, `${leavingName} saiu da sala. A rodada em andamento foi cancelada e deverá ser reiniciada.`, 'system');
+}
 function withRoom(socket, fn) {
   try {
     const room = rooms.get(socket.data.roomCode);
@@ -66,13 +100,67 @@ io.on('connection', socket => {
       const code=String(payload?.code||'').trim().toUpperCase();
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
-      let p = payload?.token ? Engine.reconnectPlayer(room,payload.token,socket.id) : null;
+      let p = null;
+      if (payload?.token) {
+        const existing = room.players.find(x => x.token === payload.token);
+        if (existing?.socketId && existing.socketId !== socket.id) {
+          io.to(existing.socketId).emit('sessionReplaced');
+        }
+        p = Engine.reconnectPlayer(room,payload.token,socket.id);
+      }
       if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name, avatar:payload?.avatar});
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
       socket.emit('joined',{code,playerId:p.id,token:p.token});
       emitRoom(room);
     } catch(e){err(socket,e);}
+  });
+
+  socket.on('leaveRoom', () => {
+    try {
+      const code = socket.data.roomCode;
+      const playerId = socket.data.playerId;
+      const room = rooms.get(code);
+      if (!room) {
+        socket.data.roomCode = null;
+        socket.data.playerId = null;
+        socket.emit('leftRoom');
+        return;
+      }
+
+      const idx = room.players.findIndex(p => p.id === playerId);
+      if (idx < 0) {
+        socket.leave(code);
+        socket.data.roomCode = null;
+        socket.data.playerId = null;
+        socket.emit('leftRoom');
+        return;
+      }
+
+      const leaving = room.players[idx];
+      const wasPlaying = room.status === 'playing';
+      room.players.splice(idx, 1);
+
+      if (!room.players.length) {
+        rooms.delete(code);
+      } else {
+        if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
+        else Engine.appendLog(room, `${leaving.name} saiu da sala.`, 'system');
+
+        // Se restou somente um participante durante uma partida já iniciada,
+        // ele retorna à espera. As regras de entrada tardia continuam valendo.
+        if (room.players.length === 1 && room.status === 'between-rounds' && room.round === 0) {
+          room.status = 'lobby';
+        }
+        ensureHost(room);
+        emitRoom(room);
+      }
+
+      socket.leave(code);
+      socket.data.roomCode = null;
+      socket.data.playerId = null;
+      socket.emit('leftRoom');
+    } catch(e) { err(socket,e); }
   });
 
   socket.on('startRound', () => withRoom(socket,(room,p)=>{
@@ -101,18 +189,45 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
-    const room=rooms.get(socket.data.roomCode);
+    const code = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room=rooms.get(code);
     if(!room) return;
-    const p=room.players.find(x=>x.id===socket.data.playerId);
-    if(p){
-      p.connected=false;p.socketId=null;
+    const p=room.players.find(x=>x.id===playerId);
+
+    // Se outra aba já reconectou com o mesmo token, este socket é antigo.
+    // Não devemos marcar o jogador como desconectado por causa da aba antiga.
+    if(p && p.socketId === socket.id){
+      p.connected=false;
+      p.socketId=null;
       if(p.host){
         p.host=false;
         const nextHost=room.players.find(x=>x.connected);
         if(nextHost) nextHost.host=true;
       }
+      emitRoom(room);
+
+      // Na sala de espera, elimina automaticamente participantes que realmente
+      // ficaram desconectados, evitando jogadores "fantasmas" no início.
+      if (room.status === 'lobby') {
+        setTimeout(() => {
+          const currentRoom = rooms.get(code);
+          if (!currentRoom || currentRoom.status !== 'lobby') return;
+          const stale = currentRoom.players.find(x => x.id === playerId);
+          if (!stale || stale.connected) return;
+          currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
+          if (!currentRoom.players.length) {
+            rooms.delete(code);
+            return;
+          }
+          if (!currentRoom.players.some(x => x.host)) {
+            const nextHost = currentRoom.players.find(x => x.connected) || currentRoom.players[0];
+            if (nextHost) nextHost.host = true;
+          }
+          emitRoom(currentRoom);
+        }, 12000);
+      }
     }
-    emitRoom(room);
   });
 });
 

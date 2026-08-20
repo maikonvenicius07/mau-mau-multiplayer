@@ -160,7 +160,20 @@ function reconnectPlayer(room, token, socketId) {
 }
 
 function startRound(room) {
-  if (room.players.length < 2) throw new Error('São necessários pelo menos 2 jogadores.');
+  // Antes da 1ª rodada, remove participantes que ficaram como "fantasmas"
+  // após fechar/atualizar uma aba. Isso evita iniciar a partida já pausada.
+  if (room.status === 'lobby') {
+    const removed = room.players.filter(p => !p.connected);
+    if (removed.length) {
+      room.players = room.players.filter(p => p.connected);
+      log(room, `${removed.length} jogador(es) desconectado(s) removido(s) da sala antes do início.`, 'system');
+      if (room.players.length && !room.players.some(p => p.host)) room.players[0].host = true;
+    }
+  }
+
+  const connectedCount = room.players.filter(p => p.connected).length;
+  if (connectedCount < 2) throw new Error('São necessários pelo menos 2 jogadores conectados.');
+  if (room.players.some(p => !p.connected)) throw new Error('Há jogador desconectado. Aguarde a reconexão antes de iniciar a próxima rodada.');
   if (room.round >= room.rules.rounds) throw new Error('As 5 rodadas já foram concluídas.');
   room.round += 1;
   room.status = 'playing';
@@ -555,6 +568,7 @@ function roomPublicState(room, viewerId) {
     topCard: top,
     deckCount: room.deck.length,
     rules: room.rules,
+    connectedCount: room.players.filter(p => p.connected).length,
     paused: room.status === 'playing' && room.players.some(p => !p.connected),
     winnerId: room.winnerId,
     lastWinnerCard: room.lastWinnerCard,
@@ -610,4 +624,5 @@ module.exports = {
   legalCard,declare,playCard,burnPair,endBurnContinuation,
   drawAction,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
+  appendLog: log,
 };

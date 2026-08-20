@@ -12,6 +12,11 @@ function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
 function clearSession(){localStorage.removeItem(sessionKey)}
+function setConnection(status){
+  const chip=$('#connectionChip'); if(!chip) return;
+  chip.className=`connection-chip ${status}`;
+  chip.textContent=status==='online'?'● Online':status==='offline'?'● Sem conexão':'● Conectando';
+}
 
 function beep(type='play'){
   if(!soundOn) return;
@@ -24,10 +29,35 @@ function beep(type='play'){
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
-$('#createBtn').onclick=()=>socket.emit('createRoom',{...profile(),token:crypto.randomUUID()});
-$('#joinBtn').onclick=()=>socket.emit('joinRoom',{...profile(),code:$('#roomInput').value,token:crypto.randomUUID()});
+$('#createBtn').onclick=()=>{
+  if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  clearSession();
+  socket.emit('createRoom',{...profile(),token:crypto.randomUUID()});
+};
+$('#joinBtn').onclick=()=>{
+  if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  const code=$('#roomInput').value.trim().toUpperCase();
+  if(!code) return toast('Informe o código da sala.');
+  const sess=saved();
+  const token=sess?.code===code&&sess?.token?sess.token:crypto.randomUUID();
+  socket.emit('joinRoom',{...profile(),code,token});
+};
 $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
 $('#copyInvite').onclick=async()=>{const url=new URL(location.href);url.searchParams.set('room',state.code);await navigator.clipboard.writeText(url.toString());toast('Link da sala copiado.');};
+$('#leaveBtn').onclick=()=>{
+  if(!state) return;
+  const duringRound=state.status==='playing';
+  const message=duringRound
+    ? 'Deseja sair da sala? A rodada atual será cancelada para os jogadores que permanecerem.'
+    : 'Deseja sair desta sala?';
+  if(!window.confirm(message)) return;
+  if(!socket.connected){
+    clearSession();
+    returnToLanding('Você saiu da sala.');
+    return;
+  }
+  socket.emit('leaveRoom');
+};
 $('#soundBtn').onclick=()=>{soundOn=!soundOn;$('#soundBtn').textContent=soundOn?'🔊':'🔇'};
 $('#drawPile').onclick=()=>{if(canAct()) socket.emit('draw')};
 $('#mauBtn').onclick=()=>socket.emit('declare',{type:'mau-mau'});
@@ -51,17 +81,45 @@ socket.on('joined',data=>{
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
 });
 socket.on('state',s=>{const prev=state;state=s;render();if(prev){const last=s.log.at(-1);const old=prev.log.at(-1);if(last&&last.id!==old?.id)beep(last.kind)}});
-socket.on('gameError',e=>toast(e.message));
+socket.on('gameError',e=>{toast(e.message);renderControls();});
+socket.on('leftRoom',()=>{
+  clearSession();
+  returnToLanding('Você saiu da sala.');
+});
+socket.on('sessionReplaced',()=>toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.'));
 socket.on('connect',()=>{
-  const urlRoom=new URLSearchParams(location.search).get('room');
+  setConnection('online');
+  const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
   const sess=saved();
+
+  // Um link de convite para outra sala tem prioridade sobre uma sessão antiga.
+  if(urlRoom && (!sess?.code || sess.code !== urlRoom)){
+    $('#roomInput').value=urlRoom;
+    return;
+  }
   if(sess?.code&&sess?.token){
     $('#nameInput').value=sess.name||'Jogador';$('#avatarSelect').value=sess.avatar||'🧑';
     socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
-  } else if(urlRoom) $('#roomInput').value=urlRoom.toUpperCase();
+  } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
+socket.on('disconnect',()=>{setConnection('offline');toast('Conexão perdida. Tentando reconectar...');renderControls();});
+socket.on('connect_error',()=>setConnection('offline'));
+socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
-function canAct(){return state?.status==='playing'&&state.currentPlayerId===state.me?.id}
+function returnToLanding(message=''){
+  state=null;pendingCard=null;pendingBurn=false;previousHandIds=new Set();
+  try{
+    const url=new URL(location.href);
+    url.searchParams.delete('room');
+    history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
+  }catch{}
+  $('#game').classList.add('hidden');
+  $('#landing').classList.remove('hidden');
+  $('#roomInput').value='';
+  if(message) toast(message);
+}
+
+function canAct(){return socket.connected&&state?.status==='playing'&&state.currentPlayerId===state.me?.id}
 function render(){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
@@ -112,9 +170,29 @@ function renderHand(){
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}
 function renderControls(){
-  const box=$('#hostControls');const me=state.players.find(p=>p.id===state.me.id);box.innerHTML='';
+  const box=$('#hostControls');
+  if(!state?.me){box.innerHTML='';return}
+  const me=state.players.find(p=>p.id===state.me.id);box.innerHTML='';
+  const connected=state.players.filter(p=>p.connected).length;
+  const disconnected=state.players.length-connected;
+
   if(me?.host&&(state.status==='lobby'||state.status==='between-rounds')){
-    const b=document.createElement('button');b.textContent=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;b.disabled=state.players.length<2;b.onclick=()=>socket.emit('startRound');box.appendChild(b);
+    const b=document.createElement('button');
+    b.textContent=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
+    const blocked=!socket.connected||connected<2||(state.status==='between-rounds'&&disconnected>0);
+    b.disabled=blocked;
+    b.onclick=()=>{
+      if(!socket.connected) return toast('Sem conexão com o servidor.');
+      b.disabled=true;b.textContent='Iniciando...';
+      socket.emit('startRound');
+    };
+    box.appendChild(b);
+    const info=document.createElement('div');info.className='host-status';
+    if(connected<2) info.textContent='Aguardando pelo menos mais 1 jogador conectado.';
+    else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s) será(ão) removido(s) ao iniciar.`;
+    else if(disconnected>0) info.textContent='Aguarde os jogadores desconectados reconectarem.';
+    else info.textContent=`${connected} jogador(es) conectado(s). Pronto para iniciar.`;
+    box.appendChild(info);
     if(state.status==='between-rounds'&&state.round<3){const s=document.createElement('div');s.className='wait';s.textContent='Novos jogadores ainda podem entrar antes do início da próxima rodada.';box.appendChild(s)}
   } else if(state.status==='lobby') box.innerHTML='<div class="wait">Aguardando o anfitrião iniciar a partida.</div>';
 }

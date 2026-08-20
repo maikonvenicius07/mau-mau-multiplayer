@@ -103,3 +103,18 @@ console.log('✓ Todos os testes do motor do Mau-Mau passaram.');
   assert.equal(b.hand.length,before+2);
   assert.equal(r.status,'between-rounds');
 }
+
+
+// A sala não pode travar por causa de jogador fantasma desconectado antes da 1ª rodada.
+{
+  const r=E.createRoom('GHOST1',{name:'Host',avatar:'🧑',socketId:'s1',token:'t1'});
+  E.addPlayer(r,{name:'Conectado',avatar:'👩',socketId:'s2',token:'t2'});
+  const ghost=E.addPlayer(r,{name:'Fantasma',avatar:'😴',socketId:null,token:'t3'});
+  ghost.connected=false;
+  E.startRound(r);
+  assert.equal(r.status,'playing');
+  assert.equal(r.players.length,2,'jogador desconectado no lobby deve ser removido antes de iniciar');
+  assert(r.players.every(p=>p.connected));
+}
+
+console.log('✓ Correção de jogadores fantasmas/reconexão validada.');
