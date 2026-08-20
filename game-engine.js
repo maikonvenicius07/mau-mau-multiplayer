@@ -12,6 +12,7 @@ const DEFAULT_RULES = {
   safeStarter: true,
   allowLateJoinUntilRound: 3,
   burnEnabled: true,
+  doubleCardEnabled: true,
 };
 
 function id(prefix='id') {
@@ -287,17 +288,22 @@ function declare(room, playerId, type) {
   // o anúncio imediatamente antes de uma queima válida, mesmo fora da vez.
   const isTurn = room.players[room.currentPlayer]?.id === p.id;
   const hasBurnOpportunity = canBurnMatch(room,p).length > 0;
+  const doublePairs = canPlayDouble(room,p);
+  const hasDoubleOpportunity = doublePairs.length > 0;
   if (!isTurn && !hasBurnOpportunity) throw new Error('Não é a sua vez.');
 
   if (type === 'mau-mau') {
     const canReachOneByBurn = p.hand.length === 3 && hasBurnOpportunity;
-    if (p.hand.length !== 2 && !canReachOneByBurn) {
+    const canReachOneByDouble = p.hand.length === 3 && hasDoubleOpportunity;
+    if (p.hand.length !== 2 && !canReachOneByBurn && !canReachOneByDouble) {
       throw new Error('O aviso Mau-Mau deve ser feito antes de uma jogada que deixe você com apenas uma carta.');
     }
   }
   if (type === 'batendo') {
-    if (p.hand.length !== 2 || !hasBurnOpportunity) {
-      throw new Error('Mau-Mau batendo exige duas cartas que possam encerrar a rodada pela queima: uma igual à mesa e outra compatível.');
+    const canFinishByBurn = p.hand.length === 2 && hasBurnOpportunity;
+    const canFinishByDouble = p.hand.length === 2 && hasDoubleOpportunity;
+    if (!canFinishByBurn && !canFinishByDouble) {
+      throw new Error('Mau-Mau batendo exige uma jogada válida que descarte suas duas últimas cartas, por Queima ou Carta Dupla.');
     }
   }
   p.declaration = type;
@@ -427,6 +433,97 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   } else {
     room.currentPlayer = nextIndex(room, idx, 1);
   }
+}
+
+
+// V16 — CARTA DUPLA (SOMENTE CARTAS COMUNS)
+// Na própria vez, se o jogador possuir duas cartas exatamente idênticas
+// (mesmo valor + mesmo naipe) e a carta for legal sobre o topo da mesa,
+// ele pode descartar as duas juntas como UMA jogada composta.
+// A regra NÃO se aplica às cartas especiais A, 7, 8, J, Q e K.
+function canPlayDouble(room, player) {
+  if (!room?.rules?.doubleCardEnabled || room.status !== 'playing') return [];
+  if (!player || !player.connected || player.finishedRound) return [];
+  if (room.players[room.currentPlayer]?.id !== player.id) return [];
+  if (room.continuationPlayerId) return [];
+  if (player.justDrawnCardId) return []; // após compra, vale a regra específica da carta comprada
+
+  const groups = new Map();
+  for (const c of player.hand) {
+    const key = `${c.rank}|${c.suit}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  }
+
+  const pairs = [];
+  for (const cards of groups.values()) {
+    if (cards.length < 2) continue;
+    const first = cards[0], second = cards[1];
+    if (isSpecial(first)) continue; // Carta Dupla não vale para A, 7, 8, J, Q e K
+    if (!legalCard(room, first, player)) continue;
+    pairs.push({
+      cardIds: [first.id, second.id],
+      rank: first.rank,
+      suit: first.suit,
+    });
+  }
+  return pairs;
+}
+
+function applyDoubleMauMauPenaltyIfNeeded(room, player, beforeCount, afterCount) {
+  if (beforeCount === 3 && afterCount === 1) {
+    if (player.declaration !== 'mau-mau') {
+      const n = room.rules.mauMauPenalty;
+      drawCards(room, player, n);
+      log(room, `${player.name} usou Carta Dupla, ficou com uma carta sem anunciar Mau-Mau e comprou ${n} carta(s) de penalidade.`, 'penalty');
+    }
+  }
+  player.declaration = null;
+}
+
+function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=null) {
+  const idx = ensureTurn(room, playerId);
+  const player = room.players[idx];
+
+  if (!room.rules.doubleCardEnabled) throw new Error('A regra Carta Dupla está desativada.');
+  if (room.continuationPlayerId === player.id) throw new Error('Complete primeiro a segunda carta obrigatória da queima.');
+  if (player.justDrawnCardId) throw new Error('Depois de comprar, jogue somente a carta comprada ou passe a vez.');
+
+  const first = player.hand.find(c => c.id === firstCardId);
+  const second = player.hand.find(c => c.id === secondCardId);
+  if (!first || !second || first.id === second.id) throw new Error('Selecione duas cartas diferentes da sua mão.');
+  if (!sameCard(first, second)) throw new Error('Carta Dupla exige duas cartas idênticas: mesmo valor e mesmo naipe.');
+  if (isSpecial(first) || isSpecial(second)) throw new Error('Carta Dupla não pode ser usada com cartas especiais (A, 7, 8, J, Q e K).');
+  if (!legalCard(room, first, player)) throw new Error('Essa dupla não pode ser jogada sobre a carta atual da mesa.');
+
+  // Quando as duas últimas cartas forem usadas juntas, preservamos a regra
+  // original do projeto: é necessário anunciar Mau-Mau batendo/queimando.
+  if (player.hand.length === 2 && player.declaration !== 'batendo') {
+    throw new Error('Para encerrar a rodada com Carta Dupla, anuncie “Mau-Mau batendo/queimando” antes.');
+  }
+
+  const before = player.hand.length;
+  const played1 = removeCard(player, first.id);
+  const played2 = removeCard(player, second.id);
+  room.discard.push(played1, played2);
+  room.requestedSuit = null;
+  room.lastPlayedById = player.id;
+  room.burnTopCardId = played2.id;
+  player.justDrawnCardId = null;
+
+  log(room, `${player.name} jogou CARTA DUPLA: ${cardLabel(played1)} + ${cardLabel(played2)}.`, 'play');
+
+  if (player.hand.length === 0) {
+    room.winnerId = player.id;
+    room.lastWinnerCard = played2;
+    player.finishedRound = true;
+    player.declaration = null;
+    finalizeRound(room);
+    return;
+  }
+
+  applyDoubleMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
+  room.currentPlayer = nextIndex(room, idx, 1);
 }
 
 function burnFollowUpLegal(baseCard, nextCard) {
@@ -689,6 +786,9 @@ function roomPublicState(room, viewerId) {
       burnableCardIds: room.status === 'playing'
         ? canBurnMatch(room,viewer).map(c=>c.id)
         : [],
+      doublePairs: room.status === 'playing'
+        ? canPlayDouble(room,viewer)
+        : [],
       burnSecondRequired: room.continuationPlayerId === viewer.id,
     } : null,
     log: room.log.slice(-30),
@@ -709,7 +809,7 @@ module.exports = {
   SUITS,RANKS,SPECIAL_RANKS,DEFAULT_RULES,
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
   createRoom,addPlayer,reconnectPlayer,startRound,
-  legalCard,declare,playCard,burnMatch,burnPair,endBurnContinuation,canBurnMatch,
+  legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,
   drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
   appendLog: log,

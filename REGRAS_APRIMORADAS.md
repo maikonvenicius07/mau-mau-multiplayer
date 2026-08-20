@@ -20,12 +20,29 @@ Na sua vez, jogue uma carta que tenha o mesmo valor ou o mesmo naipe da carta qu
 
 Exemplo: sobre 9 de Copas, são válidos qualquer 9, qualquer carta de Copas ou um Valete.
 
-Se você não tiver nenhuma jogada possível, compre uma única carta:
+O jogador também pode optar por comprar uma única carta mesmo tendo jogada válida. Depois da compra, pode jogar apenas a carta recém-comprada se ela for válida ou usar **Passar a vez**, mantendo-a na mão. Não é permitido comprar uma segunda carta na mesma jogada normal.
 
-- se ela for válida, pode jogá-la imediatamente;
-- se ela não for válida, a vez passa.
 
-## 4. Cartas especiais
+## 4. Carta Dupla — regra V16
+
+Na própria vez, se o jogador possuir **duas cartas idênticas** na mão — mesmo valor e mesmo naipe — e essa carta for válida sobre o topo do descarte, ele pode jogar as duas juntas na mesma jogada.
+
+Exemplo:
+
+```text
+Mesa: 5♥
+Mão: 5♣  5♣  9♦  K♠
+
+Carta Dupla: 5♣ + 5♣
+```
+
+As duas cartas são retiradas da mão e a segunda cópia fica como carta visível no topo do descarte. No aplicativo, uma dupla disponível recebe o botão **×2**.
+
+A Carta Dupla é tratada como **uma única jogada composta**, porém é permitida **somente para cartas comuns**. Não pode ser utilizada com **Ás (A), Sete (7), Oito (8), Valete (J), Dama (Q) ou Rei (K)**. Essas cartas especiais devem ser jogadas individualmente, preservando integralmente seus efeitos próprios.
+
+Se a Carta Dupla reduzir a mão de 3 para 1 carta, o jogador deve anunciar **Mau-Mau** antes da jogada. Se as duas cartas idênticas forem as duas últimas da mão, deve anunciar **Mau-Mau batendo/queimando** antes de descartá-las.
+
+## 5. Cartas especiais
 
 ### Ás (A) — Pular
 O próximo jogador perde a vez.
@@ -58,13 +75,13 @@ O jogador anterior, considerando o sentido atual da partida, compra uma carta.
 ### Oito (8) — Jogador anterior +2
 O jogador anterior, considerando o sentido atual da partida, compra duas cartas.
 
-## 5. Regra Mau-Mau
+## 6. Regra Mau-Mau
 
 Quando estiver com duas cartas e for fazer uma jogada que deixará apenas uma, anuncie “Mau-Mau” antes de descartar.
 
 No aplicativo, esquecer o anúncio gera compra de 2 cartas.
 
-## 6. Queimar cartas — regra V11
+## 7. Queimar cartas — regra V11
 
 A queima passa a funcionar como uma jogada de reação. Quando **outro jogador** coloca uma carta na mesa e você possui na mão uma carta **exatamente igual** — mesmo valor e mesmo naipe — você pode queimar essa carta, inclusive fora da sua vez.
 
@@ -88,7 +105,7 @@ Se a queima de duas cartas fizer o jogador terminar com apenas uma carta, ele de
 
 Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima, deve anunciar **“Mau-Mau batendo/queimando”** antes de iniciar. As duas cartas não precisam ser iguais entre si: a primeira precisa ser exatamente igual à carta da mesa e a segunda precisa ser compatível com ela.
 
-## 7. Pontuação
+## 8. Pontuação
 
 - A = 1 ponto
 - 2 a 10 = valor da carta
@@ -98,13 +115,13 @@ Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima,
 
 O vencedor da rodada recebe 0. Os demais somam as cartas restantes. Se a batida ocorrer com Valete, a pontuação dos demais é dobrada.
 
-## 8. Entrada de novos jogadores
+## 9. Entrada de novos jogadores
 
 Não é permitido entrar durante uma rodada. Um jogador pode entrar no intervalo entre rodadas até antes do início da terceira rodada.
 
 Quem entrar depois do início da partida recebe como pontuação inicial o maior total acumulado pelos jogadores que já estavam participando.
 
-## 9. Regras técnicas para o aplicativo
+## 10. Regras técnicas para o aplicativo
 
 - Carta inicial especial é devolvida ao monte e outra carta normal é virada.
 - Se o monte acabar, o descarte é reembaralhado, preservando a carta do topo.

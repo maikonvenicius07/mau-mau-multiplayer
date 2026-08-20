@@ -1,3 +1,20 @@
+# Mau-Mau V16 — Carta Dupla sem cartas especiais
+
+## Novidade principal
+
+Na própria vez, se o jogador possuir duas cartas exatamente idênticas — mesmo valor e mesmo naipe — e essa carta for válida sobre o topo, pode clicar em **×2** e jogar as duas juntas na mesma jogada.
+
+- As duas cartas saem da mão de uma vez.
+- A segunda cópia fica no topo do descarte.
+- Carta Dupla é permitida somente para cartas comuns; A, 7, 8, J, Q e K ficam excluídas.
+- De 3 cartas para 1: anuncie **Mau-Mau** antes.
+- Se forem as duas últimas cartas: anuncie **Mau-Mau batendo/queimando** antes.
+- O jogador automático também usa Carta Dupla quando houver oportunidade, mas nunca com cartas especiais.
+
+A V15 mantém as correções anteriores de passar após compra, Queima Dinâmica, bot, chat, sons e regra da Dama em partidas com dois jogadores.
+
+---
+
 # Mau-Mau V14 — Passar a vez corrigido
 
 ## Correção principal da V14

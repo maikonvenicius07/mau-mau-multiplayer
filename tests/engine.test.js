@@ -325,4 +325,77 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.lastPass?.nextPlayerId,r.players[1].id);
 }
 
-console.log('✓ V14: todos os testes do motor do Mau-Mau passaram.');
+
+// V15: Carta Dupla permite jogar duas cartas idênticas na própria vez.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','hearts','top-double')];
+  a.hand=[card('5','clubs','d1'),card('5','clubs','d2'),card('9','spades','d3'),card('2','diamonds','d4')];
+  b.hand=[card('3','hearts','bd1')];
+  const pairs=E.canPlayDouble(r,a);
+  assert.equal(pairs.length,1);
+  assert.deepEqual(pairs[0].cardIds,['d1','d2']);
+  E.playDoubleCard(r,a.id,'d1','d2');
+  assert.equal(a.hand.length,2);
+  assert.equal(r.discard.at(-1).rank,'5');
+  assert.equal(r.discard.at(-1).suit,'clubs');
+  assert.equal(r.currentPlayer,1);
+}
+
+// V15: as duas últimas cartas idênticas exigem Mau-Mau batendo e encerram a rodada.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('9','clubs','top-double-win')];
+  a.hand=[card('9','hearts','dw1'),card('9','hearts','dw2')];
+  b.hand=[card('K','clubs','bdw1')];
+  assert.throws(()=>E.playDoubleCard(r,a.id,'dw1','dw2'),/Mau-Mau batendo/);
+  E.declare(r,a.id,'batendo');
+  E.playDoubleCard(r,a.id,'dw1','dw2');
+  assert.equal(r.winnerId,a.id);
+  assert.equal(r.status,'between-rounds');
+}
+
+// V15: Carta Dupla de 3 para 1 exige Mau-Mau; sem anúncio recebe +2.
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('4','spades','top-double-mau')];
+  a.hand=[card('4','hearts','dm1'),card('4','hearts','dm2'),card('2','clubs','dm3')];
+  const before=a.hand.length;
+  E.playDoubleCard(r,a.id,'dm1','dm2');
+  assert.equal(before,3);
+  assert.equal(a.hand.length,3,'ficaria com 1, mas sem Mau-Mau compra +2');
+}
+{
+  const r=room2(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('4','spades','top-double-mau-ok')];
+  a.hand=[card('4','hearts','dmo1'),card('4','hearts','dmo2'),card('2','clubs','dmo3')];
+  E.declare(r,a.id,'mau-mau');
+  E.playDoubleCard(r,a.id,'dmo1','dmo2');
+  assert.equal(a.hand.length,1);
+}
+
+// V16: Carta Dupla NÃO funciona com cartas especiais A, 7, 8, J, Q e K.
+{
+  const specials=['A','7','8','J','Q','K'];
+  for (const rank of specials) {
+    const r=room2(),a=r.players[0];
+    r.currentPlayer=0;r.discard=[card(rank,'hearts',`top-special-${rank}`)];
+    a.hand=[card(rank,'clubs',`s1-${rank}`),card(rank,'clubs',`s2-${rank}`),card('3','spades',`x-${rank}`)];
+    assert.equal(E.canPlayDouble(r,a).length,0,`não deve oferecer Carta Dupla para ${rank}`);
+    assert.throws(()=>E.playDoubleCard(r,a.id,`s1-${rank}`,`s2-${rank}`),/não pode ser usada com cartas especiais/);
+  }
+}
+
+// V15: bot utiliza Carta Dupla quando disponível.
+{
+  const r=room2(),human=r.players[0],bot=r.players[1];
+  bot.isBot=true;bot.name='Máquina';r.currentPlayer=1;
+  r.discard=[card('6','hearts','top-bot-double')];
+  bot.hand=[card('6','clubs','botd1'),card('6','clubs','botd2'),card('2','spades','botd3'),card('3','diamonds','botd4')];
+  human.hand=[card('9','hearts','human-d')];
+  const result=Bot.takeTurn(r,bot,E);
+  assert.equal(result.action,'double');
+  assert.equal(bot.hand.length,2);
+}
+
+console.log('✓ V16: todos os testes do motor do Mau-Mau passaram.');

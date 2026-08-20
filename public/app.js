@@ -2,7 +2,7 @@ const socket = io();
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
-let state=null, pendingCard=null, pendingBurn=false, soundOn=true, previousHandIds=new Set();
+let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=true, previousHandIds=new Set();
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
 
@@ -142,6 +142,11 @@ $('#rulesClose').onclick=()=>rules.close();
 
 $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
   const suit=btn.dataset.suit;$('#suitDialog').close();
+  if(pendingDouble){
+    socket.emit('playDoubleCard',{firstCardId:pendingDouble.cardIds[0],secondCardId:pendingDouble.cardIds[1],chosenSuit:suit});
+    pendingDouble=null;pendingCard=null;pendingBurn=false;
+    return;
+  }
   socket.emit('playCard',{cardId:pendingCard.id,chosenSuit:suit});
   pendingCard=null;pendingBurn=false;
 });
@@ -205,7 +210,7 @@ socket.on('connect_error',()=>setConnection('offline'));
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
-  state=null;pendingCard=null;pendingBurn=false;previousHandIds=new Set();chatMessages=[];unreadChat=0;activeSideTab='log';
+  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();chatMessages=[];unreadChat=0;activeSideTab='log';
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
     const url=new URL(location.href);
@@ -280,6 +285,7 @@ function renderCenter(){
   if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.avatar||''} ${current?.name||''}`);
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id) banner='🔥 Complete a queima: jogue mais 1 carta';
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Carta igual à mesa + mais uma';
+  else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use o botão ×2';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
   $('#turnBanner').textContent=banner;
@@ -290,7 +296,10 @@ function renderCenter(){
 }
 
 function renderHand(){
-  const h=$('#hand');h.innerHTML='';const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds);
+  const h=$('#hand');h.innerHTML='';
+  const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds);
+  const doublePairs=state.me.doublePairs||[];
+  const doubleByFirst=new Map(doublePairs.map(pair=>[pair.cardIds[0],pair]));
   state.me.hand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
     if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
@@ -300,14 +309,22 @@ function renderHand(){
     if(canBurn) el.classList.add('burnable');
     if(ok)el.onclick=()=>play(card,false);
     if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa e depois mais uma compatível';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
+    const doublePair=doubleByFirst.get(card.id);
+    const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.me.justDrawnCardId&&!state.continuationPlayerId);
+    if(canDouble){
+      el.classList.add('double-available');
+      const d=document.createElement('button');d.className='double-btn';d.textContent='×2';
+      d.title='CARTA DUPLA: jogar duas cartas comuns idênticas juntas';
+      d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};el.appendChild(d);
+    }
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
   });
   const myTurn=canAct();
   const burnOpportunity=state.me.burnableCardIds.length>0;
-  // Mau-Mau pode ser anunciado na vez normal com 2 cartas ou, fora da vez,
-  // antes de uma queima de 3 para 1. Batendo pode ser anunciado fora da vez.
-  const canDeclareMau=(myTurn&&state.me.hand.length===2)||(state.me.hand.length===3&&burnOpportunity);
+  const doubleOpportunity=(state.me.doublePairs||[]).length>0;
+  // Mau-Mau também pode anteceder uma Carta Dupla que reduza a mão de 3 para 1.
+  const canDeclareMau=(myTurn&&state.me.hand.length===2)||(state.me.hand.length===3&&(burnOpportunity||doubleOpportunity));
   $('#mauBtn').disabled=!canDeclareMau;$('#batendoBtn').disabled=!canBatendo();
   // V11: a segunda carta da queima é obrigatória; não existe mais 'Encerrar queima'.
   $('#endBurnBtn').classList.add('hidden');
@@ -401,8 +418,17 @@ function play(card,burn){
   socket.emit('playCard',{cardId:card.id});
   pendingCard=null;pendingBurn=false;
 }
+function playDouble(pair){
+  if(!pair?.cardIds?.length||pair.cardIds.length<2)return;
+  pendingDouble=pair;
+  const first=state.me.hand.find(c=>c.id===pair.cardIds[0]);
+  const remainingAfter=state.me.hand.length-2;
+  if(first?.rank==='J'&&remainingAfter>0){$('#suitDialog').showModal();return}
+  socket.emit('playDoubleCard',{firstCardId:pair.cardIds[0],secondCardId:pair.cardIds[1]});
+  pendingDouble=null;
+}
 function canBatendo(){
-  return state.me.hand.length===2 && state.me.burnableCardIds.length>0;
+  return state.me.hand.length===2 && (state.me.burnableCardIds.length>0 || (state.me.doublePairs||[]).length>0);
 }
 function cardHTML(c,small){const red=c.suit==='hearts'||c.suit==='diamonds';return `<div class="playing-card ${red?'red-suit':'black-suit'}"><div class="corner">${c.rank}<br>${suitGlyph[c.suit]}</div><div class="suit-big">${suitGlyph[c.suit]}</div><div class="corner bottom">${c.rank}<br>${suitGlyph[c.suit]}</div>${specialName[c.rank]?`<div class="special-tag">${specialName[c.rank]}</div>`:''}</div>`}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
