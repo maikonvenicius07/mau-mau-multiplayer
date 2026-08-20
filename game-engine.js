@@ -436,7 +436,7 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
 }
 
 
-// V16 — CARTA DUPLA (SOMENTE CARTAS COMUNS)
+// V17 — CARTA DUPLA CORRIGIDA (SOMENTE CARTAS COMUNS)
 // Na própria vez, se o jogador possuir duas cartas exatamente idênticas
 // (mesmo valor + mesmo naipe) e a carta for legal sobre o topo da mesa,
 // ele pode descartar as duas juntas como UMA jogada composta.
@@ -446,7 +446,6 @@ function canPlayDouble(room, player) {
   if (!player || !player.connected || player.finishedRound) return [];
   if (room.players[room.currentPlayer]?.id !== player.id) return [];
   if (room.continuationPlayerId) return [];
-  if (player.justDrawnCardId) return []; // após compra, vale a regra específica da carta comprada
 
   const groups = new Map();
   for (const c of player.hand) {
@@ -461,6 +460,14 @@ function canPlayDouble(room, player) {
     const first = cards[0], second = cards[1];
     if (isSpecial(first)) continue; // Carta Dupla não vale para A, 7, 8, J, Q e K
     if (!legalCard(room, first, player)) continue;
+
+    // V17: depois de comprar, a Carta Dupla continua disponível SOMENTE
+    // quando a carta recém-comprada fizer parte da dupla. Isso preserva a
+    // regra de que, após a compra, não se pode escolher uma carta antiga
+    // qualquer para jogar, mas permite usar a nova carta se ela completar
+    // uma dupla idêntica.
+    if (player.justDrawnCardId && !cards.slice(0,2).some(c => c.id === player.justDrawnCardId)) continue;
+
     pairs.push({
       cardIds: [first.id, second.id],
       rank: first.rank,
@@ -487,7 +494,6 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
   if (!room.rules.doubleCardEnabled) throw new Error('A regra Carta Dupla está desativada.');
   if (room.continuationPlayerId === player.id) throw new Error('Complete primeiro a segunda carta obrigatória da queima.');
-  if (player.justDrawnCardId) throw new Error('Depois de comprar, jogue somente a carta comprada ou passe a vez.');
 
   const first = player.hand.find(c => c.id === firstCardId);
   const second = player.hand.find(c => c.id === secondCardId);
@@ -495,6 +501,9 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   if (!sameCard(first, second)) throw new Error('Carta Dupla exige duas cartas idênticas: mesmo valor e mesmo naipe.');
   if (isSpecial(first) || isSpecial(second)) throw new Error('Carta Dupla não pode ser usada com cartas especiais (A, 7, 8, J, Q e K).');
   if (!legalCard(room, first, player)) throw new Error('Essa dupla não pode ser jogada sobre a carta atual da mesa.');
+  if (player.justDrawnCardId && first.id !== player.justDrawnCardId && second.id !== player.justDrawnCardId) {
+    throw new Error('Depois de comprar, a Carta Dupla só pode ser usada se incluir a carta recém-comprada.');
+  }
 
   // Quando as duas últimas cartas forem usadas juntas, preservamos a regra
   // original do projeto: é necessário anunciar Mau-Mau batendo/queimando.

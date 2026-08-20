@@ -1,0 +1,8 @@
+MAU-MAU V17 — CARTA DUPLA CORRIGIDA
+
+- As duas cartas idênticas agora ficam destacadas.
+- O botão ×2 aparece nas duas cartas do par.
+- Novo botão grande “🃏🃏 Carta Dupla” na barra de ações.
+- Se houver várias duplas válidas, abre uma janela de escolha.
+- Após comprar, se a carta comprada completar uma dupla comum idêntica, a dupla pode ser jogada.
+- Cartas especiais A, 7, 8, J, Q e K continuam proibidas na Carta Dupla.

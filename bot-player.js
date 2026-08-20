@@ -4,6 +4,7 @@
 // V11: entende a QUEIMA DINÂMICA — se outro jogador baixar uma carta exatamente
 // igual a uma carta da máquina, e a máquina tiver uma segunda carta compatível,
 // ela pode interromper a ordem, queimar a carta igual e completar com mais uma.
+// V15: também entende CARTA DUPLA na própria vez.
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 
@@ -40,6 +41,19 @@ function selectLegalCard(room, bot, Engine, legal) {
 function declareIfNeeded(room, bot, Engine, cardsToRemove=1) {
   const after = bot.hand.length - cardsToRemove;
   if (after === 1) Engine.declare(room, bot.id, 'mau-mau');
+}
+
+
+function playDoubleChosen(room, bot, Engine, pair) {
+  if (!pair?.cardIds?.length) return false;
+  if (bot.hand.length === 2) Engine.declare(room, bot.id, 'batendo');
+  else if (bot.hand.length === 3) Engine.declare(room, bot.id, 'mau-mau');
+
+  const first = bot.hand.find(c => c.id === pair.cardIds[0]);
+  const remaining = bot.hand.filter(c => !pair.cardIds.includes(c.id));
+  const chosenSuit = first?.rank === 'J' && remaining.length > 0 ? chooseSuit(remaining) : null;
+  Engine.playDoubleCard(room, bot.id, pair.cardIds[0], pair.cardIds[1], chosenSuit);
+  return true;
 }
 
 function playChosen(room, bot, Engine, card, drawn=false) {
@@ -79,6 +93,14 @@ function takeTurn(room, bot, Engine) {
   }
 
   if (bot.justDrawnCardId) {
+    // V17: se a carta recém-comprada completar uma Carta Dupla comum válida,
+    // o bot pode usar a dupla; caso contrário mantém a lógica normal da compra.
+    const drawnDoubles = Engine.canPlayDouble(room, bot);
+    if (drawnDoubles.length) {
+      const pair = drawnDoubles[0];
+      playDoubleChosen(room, bot, Engine, pair);
+      return {action:'double-after-draw',pair};
+    }
     const card = bot.hand.find(c => c.id === bot.justDrawnCardId);
     if (card && Engine.legalCard(room,card,bot)) {
       playChosen(room,bot,Engine,card,true);
@@ -96,6 +118,17 @@ function takeTurn(room, bot, Engine) {
     }
     Engine.drawAction(room,bot.id);
     return {action:'draw-seven'};
+  }
+
+  const doubles = Engine.canPlayDouble(room, bot);
+  if (doubles.length) {
+    const pair = doubles.slice().sort((a,b) => {
+      const ca = bot.hand.find(c => c.id === a.cardIds[0]);
+      const cb = bot.hand.find(c => c.id === b.cardIds[0]);
+      return cardPriority(cb,room,bot) - cardPriority(ca,room,bot);
+    })[0];
+    playDoubleChosen(room, bot, Engine, pair);
+    return {action:'double',pair};
   }
 
   const legal = bot.hand.filter(c => Engine.legalCard(room,c,bot));
