@@ -96,3 +96,16 @@ As regras do usuário são a fonte principal do projeto. As referências abaixo 
 - Bicycle — Crazy Eights: https://bicyclecards.com/how-to-play/crazy-eights/
 - Pagat — Eights Group / Crazy Eights: https://www.pagat.com/eights/
 
+
+
+## V7 — Jogador automático
+
+- Botão **Jogar contra a máquina** na tela inicial.
+- O anfitrião pode adicionar/remover bots no lobby e entre rodadas (respeitando o limite de 5 participantes e a entrada até a 3ª rodada).
+- O bot joga no servidor, usa cartas especiais, escolhe naipe no Valete, rebate cadeia de 7, anuncia Mau-Mau e usa queima quando possível.
+- É possível misturar jogadores humanos e automáticos na mesma sala.
+
+
+## V8 — Dama (Q) em partidas com 2 jogadores
+
+A Dama continua invertendo o sentido do jogo. Quando existirem exatamente dois jogadores ativos, a inversão faz com que o jogador que descartou a Dama jogue novamente. Com três ou mais jogadores, o turno segue normalmente para o próximo participante no novo sentido.

@@ -385,8 +385,16 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
     room.currentPlayer = next;
   } else if (played.rank === 'Q') {
     room.direction *= -1;
-    log(room, `A Dama inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'}.`, 'special');
-    room.currentPlayer = nextIndex(room, idx, 1);
+    const ativos = activePlayers(room);
+    if (ativos.length === 2) {
+      // Regra do Mau-Mau desta versão: com apenas dois jogadores, inverter o
+      // sentido equivale a devolver a vez a quem jogou a Dama.
+      room.currentPlayer = idx;
+      log(room, `A Dama inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'} e, com 2 jogadores, ${player.name} joga novamente.`, 'special');
+    } else {
+      room.currentPlayer = nextIndex(room, idx, 1);
+      log(room, `A Dama inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'}.`, 'special');
+    }
   } else if (played.rank === 'K') {
     const target = previousIndex(room, idx);
     drawCards(room, room.players[target], 1);

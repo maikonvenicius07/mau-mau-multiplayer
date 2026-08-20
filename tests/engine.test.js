@@ -182,3 +182,36 @@ console.log('✓ Compra e jogada automática do bot validada.');
 }
 
 console.log('✓ Mau-Mau antes de queima de 3 para 1 validado.');
+
+
+// V8: Dama com 2 jogadores inverte o sentido e devolve a vez ao mesmo jogador.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.direction=-1;
+  r.currentPlayer=0;
+  r.discard=[card('5','hearts','topQ2')];
+  a.hand=[card('Q','hearts','q2'),card('3','clubs','a3')];
+  b.hand=[card('4','spades','b4')];
+  E.playCard(r,a.id,'q2');
+  assert.equal(r.direction,1,'a Dama deve inverter o sentido');
+  assert.equal(r.currentPlayer,0,'com 2 jogadores, quem joga a Dama deve jogar novamente');
+}
+
+// V8: com 3 jogadores a Dama inverte o sentido e passa ao próximo no novo sentido.
+{
+  const r=room2();
+  r.status='lobby';
+  E.addPlayer(r,{name:'Carla',avatar:'👩',socketId:'s3',token:'t3'});
+  const a=r.players[0],c=r.players[2];
+  r.status='playing'; r.round=1; r.direction=-1; r.currentPlayer=0;
+  r.players.forEach(p=>{p.finishedRound=false;p.connected=true;p.hand=[];});
+  r.discard=[card('5','hearts','topQ3')];
+  a.hand=[card('Q','hearts','q3'),card('3','clubs','a3b')];
+  r.players[1].hand=[card('4','clubs','b4c')];
+  c.hand=[card('6','spades','c6')];
+  E.playCard(r,a.id,'q3');
+  assert.equal(r.direction,1);
+  assert.equal(r.currentPlayer,1,'com 3 jogadores, deve seguir para o próximo no sentido invertido');
+}
+
+console.log('✓ Regra da Dama (Q) para 2 jogadores validada.');
