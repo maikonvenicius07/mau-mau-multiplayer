@@ -1,3 +1,19 @@
+# Mau-Mau V9 — Chat e efeitos sonoros
+
+Esta versão mantém as regras e o jogador automático da V8 e acrescenta **chat em tempo real** e **efeitos sonoros compartilhados entre os jogadores da sala**.
+
+## Novidades da V9
+
+- 💬 Chat em tempo real com histórico das últimas 60 mensagens da sala.
+- 🔔 Indicador de mensagens não lidas.
+- 📱 Painel de chat adaptado para celular, aberto pelo botão 💬 no topo.
+- 🔊 Efeitos compartilhados: aplausos, risada, corneta, tambores, vitória e “uau”.
+- 🎭 Reação visual na mesa quando um efeito é enviado.
+- 🔇 O botão de som continua sendo local: cada jogador pode silenciar os efeitos no próprio aparelho.
+- 🛡️ Limite de 180 caracteres, escape de HTML e pequeno intervalo anti-spam no servidor.
+
+> Observação: alguns navegadores bloqueiam áudio automático antes da primeira interação do usuário. O efeito visual continuará aparecendo; após um clique/toque na página, o áudio passa a funcionar normalmente.
+
 # Mau-Mau Multiplayer — Baralho Tradicional
 
 Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras fornecidas pelo usuário e organizado para partidas online em redes diferentes.

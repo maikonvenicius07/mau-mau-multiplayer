@@ -137,6 +137,23 @@ function withRoom(socket, fn) {
   } catch(e) { err(socket,e); }
 }
 
+
+const SOCIAL_EFFECTS = new Set(['applause','laugh','horn','drum','victory','wow']);
+function ensureSocial(room) {
+  if (!Array.isArray(room.chat)) room.chat = [];
+}
+function cleanChatText(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+}
+function emitChatHistory(socket, room) {
+  ensureSocial(room);
+  socket.emit('chatHistory', room.chat.slice(-60));
+}
+
 io.on('connection', socket => {
   socket.on('createRoom', payload => {
     try {
@@ -148,11 +165,13 @@ io.on('connection', socket => {
         avatar:payload?.avatar,
       });
       rooms.set(code,room);
+      ensureSocial(room);
       if (payload?.withBot) addBotToRoom(room);
       const p=room.players[0];
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
       socket.emit('joined',{code,playerId:p.id,token:p.token});
+      emitChatHistory(socket, room);
       emitRoom(room);
     } catch(e){err(socket,e);}
   });
@@ -162,6 +181,7 @@ io.on('connection', socket => {
       const code=String(payload?.code||'').trim().toUpperCase();
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
+      ensureSocial(room);
       let p = null;
       if (payload?.token) {
         const existing = room.players.find(x => x.token === payload.token);
@@ -174,6 +194,7 @@ io.on('connection', socket => {
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
       socket.emit('joined',{code,playerId:p.id,token:p.token});
+      emitChatHistory(socket, room);
       emitRoom(room);
     } catch(e){err(socket,e);}
   });
@@ -270,6 +291,60 @@ io.on('connection', socket => {
   socket.on('endBurn', () => withRoom(socket,(room,p)=> Engine.endBurnContinuation(room,p.id)));
   socket.on('draw', () => withRoom(socket,(room,p)=> Engine.drawAction(room,p.id)));
   socket.on('passAfterDraw', () => withRoom(socket,(room,p)=> Engine.passAfterDraw(room,p.id)));
+
+
+  socket.on('chatMessage', payload => {
+    try {
+      const room = rooms.get(socket.data.roomCode);
+      if (!room) throw new Error('Sala não encontrada.');
+      const player = room.players.find(p => p.id === socket.data.playerId);
+      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para conversar.');
+      ensureSocial(room);
+
+      const now = Date.now();
+      if (socket.data.lastChatAt && now - socket.data.lastChatAt < 550) {
+        throw new Error('Aguarde um instante antes de enviar outra mensagem.');
+      }
+      const text = cleanChatText(payload?.text);
+      if (!text) return;
+      socket.data.lastChatAt = now;
+
+      const message = {
+        id: `chat-${now}-${Math.random().toString(36).slice(2,8)}`,
+        at: now,
+        playerId: player.id,
+        name: player.name,
+        avatar: player.avatar,
+        text,
+      };
+      room.chat.push(message);
+      if (room.chat.length > 60) room.chat.splice(0, room.chat.length - 60);
+      io.to(room.code).emit('chatMessage', message);
+    } catch(e) { err(socket,e); }
+  });
+
+  socket.on('sendEffect', payload => {
+    try {
+      const room = rooms.get(socket.data.roomCode);
+      if (!room) throw new Error('Sala não encontrada.');
+      const player = room.players.find(p => p.id === socket.data.playerId);
+      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para enviar efeito.');
+      const effect = String(payload?.effect || '');
+      if (!SOCIAL_EFFECTS.has(effect)) throw new Error('Efeito sonoro inválido.');
+
+      const now = Date.now();
+      if (socket.data.lastEffectAt && now - socket.data.lastEffectAt < 900) return;
+      socket.data.lastEffectAt = now;
+      io.to(room.code).emit('soundEffect', {
+        id: `fx-${now}-${Math.random().toString(36).slice(2,8)}`,
+        at: now,
+        playerId: player.id,
+        name: player.name,
+        avatar: player.avatar,
+        effect,
+      });
+    } catch(e) { err(socket,e); }
+  });
 
   socket.on('updateProfile', payload => withRoom(socket,(room,p)=>{
     if(room.status==='playing') throw new Error('Altere nome/avatar somente fora de uma rodada.');

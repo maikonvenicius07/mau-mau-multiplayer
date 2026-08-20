@@ -45,11 +45,12 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V8 • BOT • Q 2J</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V9 • CHAT • SONS</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
       <button id="leaveBtn" class="leave-btn" title="Sair da sala">🚪 Sair</button>
+      <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Som">🔊</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
@@ -83,10 +84,36 @@
         <div id="hand" class="hand"></div>
       </section>
 
-      <aside class="log-panel">
-        <div class="log-title">Mesa</div>
-        <div id="log" class="log"></div>
+      <aside id="sidePanel" class="log-panel">
+        <div class="side-tabs">
+          <button id="logTabBtn" class="side-tab active">Mesa</button>
+          <button id="chatTabBtn" class="side-tab">💬 Chat <span id="chatBadge" class="chat-badge hidden">0</span></button>
+          <button id="sideCloseBtn" class="side-close" title="Fechar">×</button>
+        </div>
+
+        <div id="logView" class="side-view">
+          <div id="log" class="log"></div>
+        </div>
+
+        <div id="chatView" class="side-view chat-view hidden">
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="chatInput" maxlength="180" autocomplete="off" placeholder="Escreva uma mensagem..." />
+            <button type="submit" title="Enviar mensagem">➤</button>
+          </form>
+          <div class="effects-title">Efeitos para a mesa</div>
+          <div class="effect-grid">
+            <button data-effect="applause" title="Aplausos">👏<span>Aplausos</span></button>
+            <button data-effect="laugh" title="Risada">😂<span>Risada</span></button>
+            <button data-effect="horn" title="Corneta">📯<span>Corneta</span></button>
+            <button data-effect="drum" title="Tambores">🥁<span>Tambores</span></button>
+            <button data-effect="victory" title="Vitória">🎉<span>Vitória</span></button>
+            <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
+          </div>
+          <div class="sound-note">Os efeitos são enviados para todos na sala. O botão 🔊 controla apenas o som no seu aparelho.</div>
+        </div>
       </aside>
+      <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
     </main>
   </section>
 
@@ -110,6 +137,8 @@
         <p>São 5 rodadas. Cada rodada termina quando alguém fica sem cartas. Os demais somam os pontos que sobraram na mão. Ao final, vence quem tiver <strong>menos pontos</strong>.</p>
         <h3>🃏 Preparação</h3>
         <p>2 baralhos tradicionais completos, sem coringas (104 cartas). De 2 a 5 jogadores, incluindo jogadores automáticos. Cada um recebe 6 cartas. A rodada começa no sentido anti-horário.</p>
+        <h3>💬 Conversa e efeitos</h3>
+        <p>A sala possui chat em tempo real e botões de efeitos sonoros. Os efeitos são compartilhados com todos os jogadores conectados e podem ser silenciados localmente pelo botão 🔊.</p>
         <h3>🤖 Jogador automático</h3>
         <p>O anfitrião pode adicionar máquinas à sala fora das rodadas. O bot joga sozinho, anuncia Mau-Mau, escolhe naipe no Valete, rebate o 7 quando possível e usa a regra de queimar.</p>
         <h3>▶️ Jogada normal</h3>

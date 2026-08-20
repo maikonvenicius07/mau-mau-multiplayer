@@ -2,11 +2,13 @@ const socket = io();
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let state=null, pendingCard=null, pendingBurn=false, soundOn=true, previousHandIds=new Set();
+let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
 
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
 const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +1','8':'ANTERIOR +2'};
+const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'}};
 
 function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:$('#avatarSelect').value}; }
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
@@ -18,14 +20,52 @@ function setConnection(status){
   chip.textContent=status==='online'?'● Online':status==='offline'?'● Sem conexão':'● Conectando';
 }
 
+function audioCtx(){
+  try{
+    const ac=audioCtx.ac||(audioCtx.ac=new (window.AudioContext||window.webkitAudioContext)());
+    if(ac.state==='suspended') ac.resume().catch(()=>{});
+    return ac;
+  }catch{return null}
+}
+function tone(ac,freq,start,dur,type='sine',gain=.035){
+  if(!ac)return;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,start);
+  g.gain.setValueAtTime(gain,start);g.gain.exponentialRampToValueAtTime(.001,start+dur);
+  o.connect(g).connect(ac.destination);o.start(start);o.stop(start+dur+.02);
+}
+function noiseBurst(ac,start,dur=.08,gain=.025){
+  if(!ac)return;
+  const len=Math.max(1,Math.floor(ac.sampleRate*dur));
+  const buffer=ac.createBuffer(1,len,ac.sampleRate),data=buffer.getChannelData(0);
+  for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*(1-i/len);
+  const src=ac.createBufferSource(),g=ac.createGain(),filter=ac.createBiquadFilter();
+  src.buffer=buffer;filter.type='bandpass';filter.frequency.value=1500;filter.Q.value=.7;
+  g.gain.value=gain;src.connect(filter).connect(g).connect(ac.destination);src.start(start);
+}
 function beep(type='play'){
   if(!soundOn) return;
-  try{
-    const ac=beep.ac||(beep.ac=new (window.AudioContext||window.webkitAudioContext)());
-    const o=ac.createOscillator(), g=ac.createGain();
-    const map={play:[420,.055],draw:[220,.06],special:[610,.08],burn:[760,.11],winner:[880,.18],penalty:[150,.09],mau:[980,.12]};
-    const [f,d]=map[type]||map.play;o.frequency.value=f;o.type=type==='winner'?'triangle':'sine';g.gain.setValueAtTime(.035,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d);
-  }catch{}
+  const ac=audioCtx(); if(!ac)return;
+  const map={play:[420,.055],draw:[220,.06],special:[610,.08],burn:[760,.11],winner:[880,.18],penalty:[150,.09],mau:[980,.12]};
+  const [f,d]=map[type]||map.play;tone(ac,f,ac.currentTime,d,type==='winner'?'triangle':'sine',.035);
+}
+function playSocialEffect(effect){
+  if(!soundOn)return;
+  const ac=audioCtx(); if(!ac)return;
+  const t=ac.currentTime+.02;
+  if(effect==='applause'){
+    for(let i=0;i<12;i++) noiseBurst(ac,t+i*.045+Math.random()*.018,.055,.018+Math.random()*.014);
+  } else if(effect==='laugh'){
+    [520,440,540,410,500,370].forEach((f,i)=>tone(ac,f,t+i*.095,.075,'sine',.028));
+  } else if(effect==='horn'){
+    [392,523,659].forEach((f,i)=>tone(ac,f,t+i*.12,.19,'sawtooth',.025));
+  } else if(effect==='drum'){
+    [0,.18,.36].forEach((off,i)=>{tone(ac,i===2?70:92,t+off,.14,'sine',.055);noiseBurst(ac,t+off,.045,.014)});
+  } else if(effect==='victory'){
+    [523,659,784,1046].forEach((f,i)=>tone(ac,f,t+i*.13,i===3?.34:.16,'triangle',.035));
+  } else if(effect==='wow'){
+    [280,360,470,620].forEach((f,i)=>tone(ac,f,t+i*.07,.12,'sine',.026));
+  }
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
@@ -63,7 +103,25 @@ $('#leaveBtn').onclick=()=>{
   }
   socket.emit('leaveRoom');
 };
-$('#soundBtn').onclick=()=>{soundOn=!soundOn;$('#soundBtn').textContent=soundOn?'🔊':'🔇'};
+
+$('#soundBtn').onclick=()=>{soundOn=!soundOn;$('#soundBtn').textContent=soundOn?'🔊':'🔇';if(soundOn)audioCtx()};
+$('#chatToggleBtn').onclick=()=>{setSideTab('chat',true)};
+$('#logTabBtn').onclick=()=>setSideTab('log',true);
+$('#chatTabBtn').onclick=()=>setSideTab('chat',true);
+$('#sideCloseBtn').onclick=()=>$('#sidePanel').classList.remove('open');
+$('#chatForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!state||!socket.connected)return toast('Sem conexão com a sala.');
+  const input=$('#chatInput'),text=input.value.trim();
+  if(!text)return;
+  socket.emit('chatMessage',{text});input.value='';input.focus();
+});
+$$('[data-effect]').forEach(btn=>btn.onclick=()=>{
+  if(!state||!socket.connected)return toast('Sem conexão com a sala.');
+  audioCtx();
+  socket.emit('sendEffect',{effect:btn.dataset.effect});
+});
+
 $('#drawPile').onclick=()=>{if(canAct()) socket.emit('draw')};
 $('#mauBtn').onclick=()=>socket.emit('declare',{type:'mau-mau'});
 $('#batendoBtn').onclick=()=>socket.emit('declare',{type:'batendo'});
@@ -86,6 +144,18 @@ socket.on('joined',data=>{
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
 });
 socket.on('state',s=>{const prev=state;state=s;render();if(prev){const last=s.log.at(-1);const old=prev.log.at(-1);if(last&&last.id!==old?.id)beep(last.kind)}});
+socket.on('chatHistory',messages=>{chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;renderChat();renderChatBadge()});
+socket.on('chatMessage',message=>{
+  chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
+  const panelOpen=$('#sidePanel').classList.contains('open')||window.innerWidth>900;
+  if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
+  renderChat();renderChatBadge();
+  if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
+});
+socket.on('soundEffect',event=>{
+  const fx=effectCatalog[event.effect];if(!fx)return;
+  playSocialEffect(event.effect);showReaction(`${event.avatar||'🙂'} ${event.name||'Jogador'}`,fx.emoji,fx.label);
+});
 socket.on('gameError',e=>{toast(e.message);renderControls();});
 socket.on('leftRoom',()=>{
   clearSession();
@@ -112,7 +182,8 @@ socket.on('connect_error',()=>setConnection('offline'));
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
-  state=null;pendingCard=null;pendingBurn=false;previousHandIds=new Set();
+  state=null;pendingCard=null;pendingBurn=false;previousHandIds=new Set();chatMessages=[];unreadChat=0;activeSideTab='log';
+  $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
     const url=new URL(location.href);
     url.searchParams.delete('room');
@@ -122,6 +193,37 @@ function returnToLanding(message=''){
   $('#landing').classList.remove('hidden');
   $('#roomInput').value='';
   if(message) toast(message);
+}
+
+
+function setSideTab(tab,openMobile=false){
+  activeSideTab=tab==='chat'?'chat':'log';
+  $('#logTabBtn').classList.toggle('active',activeSideTab==='log');
+  $('#chatTabBtn').classList.toggle('active',activeSideTab==='chat');
+  $('#logView').classList.toggle('hidden',activeSideTab!=='log');
+  $('#chatView').classList.toggle('hidden',activeSideTab!=='chat');
+  if(openMobile) $('#sidePanel').classList.add('open');
+  if(activeSideTab==='chat'){unreadChat=0;renderChatBadge();setTimeout(()=>$('#chatInput')?.focus(),30)}
+}
+function renderChatBadge(){
+  const text=unreadChat>9?'9+':String(unreadChat);
+  for(const el of [$('#chatBadge'),$('#chatTopBadge')]){if(!el)continue;el.textContent=text;el.classList.toggle('hidden',unreadChat===0)}
+}
+function renderChat(){
+  const box=$('#chatMessages');if(!box)return;
+  if(!chatMessages.length){box.innerHTML='<div class="chat-empty">Converse com os jogadores da sala.</div>';return}
+  box.innerHTML=chatMessages.map(m=>{
+    const mine=m.playerId===state?.me?.id;
+    const time=new Date(m.at||Date.now()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="chat-message ${mine?'mine':''}"><div class="chat-meta">${esc(m.avatar||'🙂')} ${esc(m.name||'Jogador')} <span>${time}</span></div><div class="chat-bubble">${esc(m.text)}</div></div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function showReaction(name,emoji,label){
+  const layer=$('#reactionLayer');if(!layer)return;
+  const el=document.createElement('div');el.className='reaction-pop';
+  el.innerHTML=`<div class="reaction-emoji">${emoji}</div><div><strong>${esc(name)}</strong><span>${esc(label)}</span></div>`;
+  layer.appendChild(el);setTimeout(()=>el.remove(),2100);
 }
 
 function canAct(){return socket.connected&&state?.status==='playing'&&state.currentPlayerId===state.me?.id}
