@@ -1,15 +1,35 @@
+# Mau-Mau V17 — Regras de cartas iguais corrigidas
+
+## Correção central da V17
+
+A V17 reorganiza a lógica de reação do jogo para que **Queima**, **Ação Rápida** e **Carta Dupla** funcionem como três mecânicas diferentes, sem interferir nas demais regras já existentes.
+
+- **🔥 Queima:** ao possuir uma carta exatamente igual à recém-jogada e outra carta compatível, o jogador pode reagir, descartar a igual, assumir a jogada e obrigatoriamente baixar a segunda carta.
+- **⚡ Ação Rápida:** se não for o próximo da vez e possuir carta exatamente igual à recém-jogada, pode descartar apenas essa carta. A vez continua com o jogador que já seria o próximo.
+- **×2 Carta Dupla:** na própria vez, duas cartas idênticas normais podem ser descartadas juntas. A, 7, 8, J, Q e K continuam proibidas para Carta Dupla.
+
+O motor agora mantém uma **janela única de reação**, registrando qual carta abriu a reação, quem a jogou e quem seria o próximo jogador. A primeira reação aceita fecha essa janela. Quando o próximo jogador começa a jogar ou comprar, a oportunidade anterior também é encerrada.
+
+Na interface, o botão **🔥** indica Queima, **⚡** indica Ação Rápida e **×2** indica Carta Dupla. O botão ×2 passa a aparecer em qualquer uma das duas cópias que formam a dupla.
+
+## Testes da V17
+
+O pacote inclui testes automatizados do motor, testes de regressão e testes de ligação entre interface/servidor. Foram executados também 500 cenários repetidos de Queima, Ação Rápida e Carta Dupla.
+
 # Mau-Mau V16 — Carta Dupla sem cartas especiais
 
 ## Novidade principal
 
 Na própria vez, se o jogador possuir duas cartas exatamente idênticas — mesmo valor e mesmo naipe — e essa carta for válida sobre o topo, pode clicar em **×2** e jogar as duas juntas na mesma jogada.
 
+**V16:** a Carta Dupla é permitida **somente para cartas normais**. As cartas especiais **A, 7, 8, J, Q e K não podem formar Carta Dupla**.
+
 - As duas cartas saem da mão de uma vez.
 - A segunda cópia fica no topo do descarte.
-- Carta Dupla é permitida somente para cartas comuns; A, 7, 8, J, Q e K ficam excluídas.
+- Carta Dupla não funciona com cartas especiais (A, 7, 8, J, Q e K).
 - De 3 cartas para 1: anuncie **Mau-Mau** antes.
 - Se forem as duas últimas cartas: anuncie **Mau-Mau batendo/queimando** antes.
-- O jogador automático também usa Carta Dupla quando houver oportunidade, mas nunca com cartas especiais.
+- O jogador automático também usa Carta Dupla quando houver oportunidade.
 
 A V15 mantém as correções anteriores de passar após compra, Queima Dinâmica, bot, chat, sons e regra da Dama em partidas com dois jogadores.
 

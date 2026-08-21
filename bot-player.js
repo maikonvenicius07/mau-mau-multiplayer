@@ -4,7 +4,8 @@
 // V11: entende a QUEIMA DINÂMICA — se outro jogador baixar uma carta exatamente
 // igual a uma carta da máquina, e a máquina tiver uma segunda carta compatível,
 // ela pode interromper a ordem, queimar a carta igual e completar com mais uma.
-// V15: também entende CARTA DUPLA na própria vez.
+// V17: também entende CARTA DUPLA na própria vez, somente com cartas normais,
+// e AÇÃO RÁPIDA quando a máquina não seria a próxima da vez.
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 
@@ -79,6 +80,19 @@ function takeBurnOpportunity(room, bot, Engine) {
   return {action:'burn-match', card:first};
 }
 
+
+// Ação Rápida: uma única carta exatamente igual à recém-jogada, sem tomar a vez.
+// O servidor usa atraso para dar aos jogadores humanos a chance de reagir primeiro.
+function takeQuickActionOpportunity(room, bot, Engine) {
+  if (!room || !bot || room.status !== 'playing') return {action:'none'};
+  const quick = Engine.canQuickAction(room, bot);
+  if (!quick.length) return {action:'none'};
+  if (bot.hand.length === 2) Engine.declare(room, bot.id, 'mau-mau');
+  const card = quick[0];
+  Engine.quickAction(room, bot.id, card.id);
+  return {action:'quick-action', card};
+}
+
 function takeTurn(room, bot, Engine) {
   if (!room || !bot || room.status !== 'playing') return {action:'none'};
   if (room.players[room.currentPlayer]?.id !== bot.id) return {action:'none'};
@@ -93,14 +107,6 @@ function takeTurn(room, bot, Engine) {
   }
 
   if (bot.justDrawnCardId) {
-    // V17: se a carta recém-comprada completar uma Carta Dupla comum válida,
-    // o bot pode usar a dupla; caso contrário mantém a lógica normal da compra.
-    const drawnDoubles = Engine.canPlayDouble(room, bot);
-    if (drawnDoubles.length) {
-      const pair = drawnDoubles[0];
-      playDoubleChosen(room, bot, Engine, pair);
-      return {action:'double-after-draw',pair};
-    }
     const card = bot.hand.find(c => c.id === bot.justDrawnCardId);
     if (card && Engine.legalCard(room,card,bot)) {
       playChosen(room,bot,Engine,card,true);
@@ -142,4 +148,4 @@ function takeTurn(room, bot, Engine) {
   return {action:'play',card};
 }
 
-module.exports = { chooseSuit, selectLegalCard, takeBurnOpportunity, takeTurn };
+module.exports = { chooseSuit, selectLegalCard, takeBurnOpportunity, takeQuickActionOpportunity, takeTurn };

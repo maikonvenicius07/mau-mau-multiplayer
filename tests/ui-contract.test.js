@@ -1,0 +1,24 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
+
+assert(app.includes('quickActionCardIds'),'cliente precisa receber oportunidades de Ação Rápida');
+assert(app.includes("socket.emit('quickAction'"),'cliente precisa enviar Ação Rápida ao servidor');
+assert(app.includes("q.textContent='⚡'"),'botão ⚡ precisa existir na carta');
+assert(app.includes('doubleByCard'),'Carta Dupla deve mapear as duas cópias');
+assert(app.includes('(pair.cardIds||[]).forEach'),'as duas cartas da dupla devem receber o botão ×2');
+assert(css.includes('.quick-btn'),'CSS do botão de Ação Rápida ausente');
+assert(css.includes('.playing-card.quickable'),'destaque visual da Ação Rápida ausente');
+assert(server.includes("socket.on('quickAction'"),'servidor precisa ouvir Ação Rápida');
+assert(engine.includes('function canQuickAction'),'motor precisa detectar Ação Rápida');
+assert(engine.includes('function quickAction'),'motor precisa executar Ação Rápida');
+assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regras visuais precisam explicar Ação Rápida');
+assert(html.includes('V17'),'interface precisa identificar a versão V17');
+console.log('✓ V17 UI/servidor: ligações de botões e eventos conferidas.');

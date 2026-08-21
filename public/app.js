@@ -47,7 +47,7 @@ function noiseBurst(ac,start,dur=.08,gain=.025){
 function beep(type='play'){
   if(!soundOn) return;
   const ac=audioCtx(); if(!ac)return;
-  const map={play:[420,.055],draw:[220,.06],special:[610,.08],burn:[760,.11],winner:[880,.18],penalty:[150,.09],mau:[980,.12]};
+  const map={play:[420,.055],draw:[220,.06],special:[610,.08],burn:[760,.11],quick:[920,.075],winner:[880,.18],penalty:[150,.09],mau:[980,.12]};
   const [f,d]=map[type]||map.play;tone(ac,f,ac.currentTime,d,type==='winner'?'triangle':'sine',.035);
 }
 function playSocialEffect(effect){
@@ -284,8 +284,10 @@ function renderCenter(){
   let banner='Aguardando jogadores...';
   if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.avatar||''} ${current?.name||''}`);
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id) banner='🔥 Complete a queima: jogue mais 1 carta';
-  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Carta igual à mesa + mais uma';
-  else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use o botão ×2';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Jogue a igual + mais uma';
+  else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner='⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
+  else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
   $('#turnBanner').textContent=banner;
@@ -297,34 +299,41 @@ function renderCenter(){
 
 function renderHand(){
   const h=$('#hand');h.innerHTML='';
-  const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds);
+  const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds),quick=new Set(state.me.quickActionCardIds||[]);
   const doublePairs=state.me.doublePairs||[];
-  const doubleByFirst=new Map(doublePairs.map(pair=>[pair.cardIds[0],pair]));
+  // O botão ×2 aparece nas DUAS cópias da dupla, para o jogador não depender
+  // de qual delas o servidor listou primeiro.
+  const doubleByCard=new Map();
+  doublePairs.forEach(pair=>(pair.cardIds||[]).forEach(id=>doubleByCard.set(id,pair)));
   state.me.hand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
     if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
     const ok=legal.has(card.id)&&canAct();
     const canBurn=burn.has(card.id)&&socket.connected&&!state.paused&&!state.me.justDrawnCardId;
+    const canQuick=quick.has(card.id)&&socket.connected&&!state.paused&&!state.me.justDrawnCardId;
     el.classList.add(ok?'playable':'disabled');
     if(canBurn) el.classList.add('burnable');
+    if(canQuick) el.classList.add('quickable');
     if(ok)el.onclick=()=>play(card,false);
     if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa e depois mais uma compatível';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
-    const doublePair=doubleByFirst.get(card.id);
+    if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
+    const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.me.justDrawnCardId&&!state.continuationPlayerId);
     if(canDouble){
       el.classList.add('double-available');
       const d=document.createElement('button');d.className='double-btn';d.textContent='×2';
-      d.title='CARTA DUPLA: jogar duas cartas comuns idênticas juntas';
+      d.title='CARTA DUPLA: jogar as duas cartas idênticas juntas';
       d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};el.appendChild(d);
     }
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
   });
   const myTurn=canAct();
-  const burnOpportunity=state.me.burnableCardIds.length>0;
+  const burnOpportunity=(state.me.burnableCardIds||[]).length>0;
+  const quickOpportunity=(state.me.quickActionCardIds||[]).length>0;
   const doubleOpportunity=(state.me.doublePairs||[]).length>0;
-  // Mau-Mau também pode anteceder uma Carta Dupla que reduza a mão de 3 para 1.
-  const canDeclareMau=(myTurn&&state.me.hand.length===2)||(state.me.hand.length===3&&(burnOpportunity||doubleOpportunity));
+  // Mau-Mau pode ser anunciado fora da vez quando uma reação válida deixará 1 carta.
+  const canDeclareMau=(state.me.hand.length===2&&(myTurn||burnOpportunity||quickOpportunity))||(state.me.hand.length===3&&(burnOpportunity||doubleOpportunity));
   $('#mauBtn').disabled=!canDeclareMau;$('#batendoBtn').disabled=!canBatendo();
   // V11: a segunda carta da queima é obrigatória; não existe mais 'Encerrar queima'.
   $('#endBurnBtn').classList.add('hidden');
@@ -418,6 +427,11 @@ function play(card,burn){
   socket.emit('playCard',{cardId:card.id});
   pendingCard=null;pendingBurn=false;
 }
+function playQuick(card){
+  if(!card||!socket.connected||state?.paused)return;
+  socket.emit('quickAction',{cardId:card.id});
+}
+
 function playDouble(pair){
   if(!pair?.cardIds?.length||pair.cardIds.length<2)return;
   pendingDouble=pair;
@@ -428,7 +442,7 @@ function playDouble(pair){
   pendingDouble=null;
 }
 function canBatendo(){
-  return state.me.hand.length===2 && (state.me.burnableCardIds.length>0 || (state.me.doublePairs||[]).length>0);
+  return state.me.hand.length===2 && ((state.me.burnableCardIds||[]).length>0 || (state.me.doublePairs||[]).length>0);
 }
 function cardHTML(c,small){const red=c.suit==='hearts'||c.suit==='diamonds';return `<div class="playing-card ${red?'red-suit':'black-suit'}"><div class="corner">${c.rank}<br>${suitGlyph[c.suit]}</div><div class="suit-big">${suitGlyph[c.suit]}</div><div class="corner bottom">${c.rank}<br>${suitGlyph[c.suit]}</div>${specialName[c.rank]?`<div class="special-tag">${specialName[c.rank]}</div>`:''}</div>`}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}

@@ -35,11 +35,13 @@ function scheduleBotTurn(room) {
   if (!room || room.status !== 'playing' || room.botTimer) return;
   if (room.players.some(p => !p.isBot && !p.connected)) return;
 
-  // V11: antes da jogada normal, uma máquina também pode aproveitar uma
-  // oportunidade de QUEIMA fora da vez. A primeira oportunidade válida vence.
+  // V17: antes da jogada normal, uma máquina também pode reagir fora da vez.
+  // Queima tem prioridade estratégica sobre Ação Rápida porque descarta duas cartas.
+  // O atraso do timer deixa uma pequena janela para jogadores humanos reagirem primeiro.
   const burnBot = room.players.find(p => p.isBot && !p.finishedRound && Engine.canBurnMatch(room,p).length > 0);
+  const quickBot = burnBot ? null : room.players.find(p => p.isBot && !p.finishedRound && Engine.canQuickAction(room,p).length > 0);
   const turnBot = room.players[room.currentPlayer];
-  const actingBot = burnBot || (turnBot?.isBot && !turnBot.finishedRound ? turnBot : null);
+  const actingBot = burnBot || quickBot || (turnBot?.isBot && !turnBot.finishedRound ? turnBot : null);
   if (!actingBot) return;
 
   room.botTimer = setTimeout(() => {
@@ -52,7 +54,9 @@ function scheduleBotTurn(room) {
     const isCurrentTurn = liveRoom.players[liveRoom.currentPlayer]?.id === liveBot.id;
     try {
       const burns = Engine.canBurnMatch(liveRoom, liveBot);
+      const quicks = burns.length ? [] : Engine.canQuickAction(liveRoom, liveBot);
       if (burns.length) BotPlayer.takeBurnOpportunity(liveRoom, liveBot, Engine);
+      else if (quicks.length) BotPlayer.takeQuickActionOpportunity(liveRoom, liveBot, Engine);
       else if (isCurrentTurn) BotPlayer.takeTurn(liveRoom, liveBot, Engine);
       else { emitRoom(liveRoom); return; }
     } catch (e) {
@@ -74,7 +78,7 @@ function scheduleBotTurn(room) {
       }
     }
     emitRoom(liveRoom);
-  }, burnBot ? 650 : 1250);
+  }, burnBot ? 750 : quickBot ? 950 : 1250);
   if (typeof room.botTimer.unref === 'function') room.botTimer.unref();
 }
 
@@ -129,6 +133,9 @@ function cancelCurrentRoundAfterLeave(room, leavingName) {
   room.continuationPlayerId = null;
   room.lastPlayedById = null;
   room.burnTopCardId = null;
+  room.reactionTopCardId = null;
+  room.reactionSourcePlayerId = null;
+  room.reactionNextPlayerId = null;
   room.finishPendingSeven = false;
   room.roundRoles = null;
   for (const p of room.players) {
@@ -301,7 +308,11 @@ io.on('connection', socket => {
       Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
     }
   }));
+  socket.on('playDoubleCard', payload => withRoom(socket,(room,p)=> {
+    Engine.playDoubleCard(room,p.id,payload?.firstCardId,payload?.secondCardId,payload?.chosenSuit);
+  }));
   socket.on('burnMatch', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
+  socket.on('quickAction', payload => withRoom(socket,(room,p)=> Engine.quickAction(room,p.id,payload.cardId)));
   // Compatibilidade temporária com clientes V10/V9.
   socket.on('burnPair', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
   socket.on('endBurn', () => withRoom(socket,(room,p)=> Engine.endBurnContinuation(room,p.id)));

@@ -12,6 +12,7 @@ const DEFAULT_RULES = {
   safeStarter: true,
   allowLateJoinUntilRound: 3,
   burnEnabled: true,
+  quickActionEnabled: true,
   doubleCardEnabled: true,
 };
 
@@ -130,6 +131,9 @@ function createRoom(code, hostInfo) {
     continuationPlayerId: null,
     lastPlayedById: null,
     burnTopCardId: null,
+    reactionTopCardId: null,
+    reactionSourcePlayerId: null,
+    reactionNextPlayerId: null,
     finishPendingSeven: false,
     lastPass: null,
     roundRoles: null,
@@ -189,6 +193,9 @@ function startRound(room) {
   room.continuationPlayerId = null;
   room.lastPlayedById = null;
   room.burnTopCardId = null;
+  room.reactionTopCardId = null;
+  room.reactionSourcePlayerId = null;
+  room.reactionNextPlayerId = null;
   room.finishPendingSeven = false;
   room.discard = [];
   room.deck = shuffle(createDeck());
@@ -198,6 +205,7 @@ function startRound(room) {
     p.roundScore = 0;
     p.finishedRound = false;
     p.declaration = null;
+    p.justDrawnCardId = null;
   });
 
   // Papéis simbólicos da rodada: embaralha -> distribui -> vira.
@@ -258,6 +266,25 @@ function topCard(room) {
   return room.discard[room.discard.length-1] || null;
 }
 
+// V17 — janela única de reação para Queima e Ação Rápida.
+// Ela permanece aberta somente até o próximo jogador começar sua jogada
+// (jogar, comprar ou usar Carta Dupla), ou até alguém reagir primeiro.
+function closeReaction(room) {
+  room.burnTopCardId = null;
+  room.reactionTopCardId = null;
+  room.reactionSourcePlayerId = null;
+  room.reactionNextPlayerId = null;
+}
+
+function openReaction(room, sourcePlayerId, cardId) {
+  if (room.status !== 'playing' || room.currentPlayer < 0) { closeReaction(room); return; }
+  room.lastPlayedById = sourcePlayerId;
+  room.burnTopCardId = cardId; // compatibilidade com versões anteriores do cliente
+  room.reactionTopCardId = cardId;
+  room.reactionSourcePlayerId = sourcePlayerId;
+  room.reactionNextPlayerId = room.players[room.currentPlayer]?.id || null;
+}
+
 function legalCard(room, card, player) {
   if (!card || !player) return false;
   if (room.pendingSeven > 0) return card.rank === '7';
@@ -288,9 +315,10 @@ function declare(room, playerId, type) {
   // o anúncio imediatamente antes de uma queima válida, mesmo fora da vez.
   const isTurn = room.players[room.currentPlayer]?.id === p.id;
   const hasBurnOpportunity = canBurnMatch(room,p).length > 0;
+  const hasQuickOpportunity = canQuickAction(room,p).length > 0;
   const doublePairs = canPlayDouble(room,p);
   const hasDoubleOpportunity = doublePairs.length > 0;
-  if (!isTurn && !hasBurnOpportunity) throw new Error('Não é a sua vez.');
+  if (!isTurn && !hasBurnOpportunity && !hasQuickOpportunity) throw new Error('Não é a sua vez.');
 
   if (type === 'mau-mau') {
     const canReachOneByBurn = p.hand.length === 3 && hasBurnOpportunity;
@@ -337,14 +365,14 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (card.rank === 'J' && player.hand.length > 1 && !SUITS.includes(chosenSuit)) {
     throw new Error('Escolha um naipe ao jogar o Valete.');
   }
+
+  // Só fechamos a reação anterior depois de validar completamente a jogada.
+  // Assim, um clique inválido do próximo jogador não elimina uma Queima/Ação Rápida legítima.
+  closeReaction(room);
   const before = player.hand.length;
   const played = removeCard(player, cardId);
   room.discard.push(played);
   room.requestedSuit = null;
-  // Toda carta jogada normalmente abre uma oportunidade de queima para OUTRO jogador.
-  // A própria pessoa que baixou a carta não pode queimar a sua própria jogada.
-  room.lastPlayedById = player.id;
-  room.burnTopCardId = played.id;
   log(room, `${player.name} jogou ${cardLabel(played)}.`, isSpecial(played) ? 'special' : 'play');
 
   if (played.rank === 'J' && player.hand.length > 0) {
@@ -433,19 +461,24 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   } else {
     room.currentPlayer = nextIndex(room, idx, 1);
   }
+
+  // Só agora, com o próximo jogador já definido (inclusive após A/Q/K/8),
+  // abrimos a janela de reação para Queima/Ação Rápida.
+  openReaction(room, player.id, played.id);
 }
 
 
-// V17 — CARTA DUPLA CORRIGIDA (SOMENTE CARTAS COMUNS)
+// V17 — CARTA DUPLA (SOMENTE CARTAS NORMAIS)
 // Na própria vez, se o jogador possuir duas cartas exatamente idênticas
 // (mesmo valor + mesmo naipe) e a carta for legal sobre o topo da mesa,
 // ele pode descartar as duas juntas como UMA jogada composta.
-// A regra NÃO se aplica às cartas especiais A, 7, 8, J, Q e K.
+// A Carta Dupla NÃO pode ser usada com cartas especiais: A, 7, 8, J, Q e K.
 function canPlayDouble(room, player) {
   if (!room?.rules?.doubleCardEnabled || room.status !== 'playing') return [];
   if (!player || !player.connected || player.finishedRound) return [];
   if (room.players[room.currentPlayer]?.id !== player.id) return [];
   if (room.continuationPlayerId) return [];
+  if (player.justDrawnCardId) return []; // após compra, vale a regra específica da carta comprada
 
   const groups = new Map();
   for (const c of player.hand) {
@@ -458,16 +491,8 @@ function canPlayDouble(room, player) {
   for (const cards of groups.values()) {
     if (cards.length < 2) continue;
     const first = cards[0], second = cards[1];
-    if (isSpecial(first)) continue; // Carta Dupla não vale para A, 7, 8, J, Q e K
+    if (isSpecial(first)) continue; // V17: Carta Dupla não vale para A, 7, 8, J, Q e K
     if (!legalCard(room, first, player)) continue;
-
-    // V17: depois de comprar, a Carta Dupla continua disponível SOMENTE
-    // quando a carta recém-comprada fizer parte da dupla. Isso preserva a
-    // regra de que, após a compra, não se pode escolher uma carta antiga
-    // qualquer para jogar, mas permite usar a nova carta se ela completar
-    // uma dupla idêntica.
-    if (player.justDrawnCardId && !cards.slice(0,2).some(c => c.id === player.justDrawnCardId)) continue;
-
     pairs.push({
       cardIds: [first.id, second.id],
       rank: first.rank,
@@ -494,16 +519,17 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
   if (!room.rules.doubleCardEnabled) throw new Error('A regra Carta Dupla está desativada.');
   if (room.continuationPlayerId === player.id) throw new Error('Complete primeiro a segunda carta obrigatória da queima.');
+  if (player.justDrawnCardId) throw new Error('Depois de comprar, jogue somente a carta comprada ou passe a vez.');
 
   const first = player.hand.find(c => c.id === firstCardId);
   const second = player.hand.find(c => c.id === secondCardId);
   if (!first || !second || first.id === second.id) throw new Error('Selecione duas cartas diferentes da sua mão.');
   if (!sameCard(first, second)) throw new Error('Carta Dupla exige duas cartas idênticas: mesmo valor e mesmo naipe.');
-  if (isSpecial(first) || isSpecial(second)) throw new Error('Carta Dupla não pode ser usada com cartas especiais (A, 7, 8, J, Q e K).');
+  if (isSpecial(first)) throw new Error('Carta Dupla não pode ser usada com cartas especiais (A, 7, 8, J, Q e K).');
   if (!legalCard(room, first, player)) throw new Error('Essa dupla não pode ser jogada sobre a carta atual da mesa.');
-  if (player.justDrawnCardId && first.id !== player.justDrawnCardId && second.id !== player.justDrawnCardId) {
-    throw new Error('Depois de comprar, a Carta Dupla só pode ser usada se incluir a carta recém-comprada.');
-  }
+
+  // A dupla foi validada: agora ela fecha qualquer janela de reação anterior.
+  closeReaction(room);
 
   // Quando as duas últimas cartas forem usadas juntas, preservamos a regra
   // original do projeto: é necessário anunciar Mau-Mau batendo/queimando.
@@ -517,7 +543,6 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   room.discard.push(played1, played2);
   room.requestedSuit = null;
   room.lastPlayedById = player.id;
-  room.burnTopCardId = played2.id;
   player.justDrawnCardId = null;
 
   log(room, `${player.name} jogou CARTA DUPLA: ${cardLabel(played1)} + ${cardLabel(played2)}.`, 'play');
@@ -533,6 +558,7 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
   applyDoubleMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
   room.currentPlayer = nextIndex(room, idx, 1);
+  openReaction(room, player.id, played2.id);
 }
 
 function burnFollowUpLegal(baseCard, nextCard) {
@@ -560,10 +586,10 @@ function burnMatch(room, playerId, cardId) {
   const top = topCard(room);
   const first = player.hand.find(c => c.id === cardId);
   if (!first) throw new Error('Carta não encontrada na mão.');
-  if (!top || room.burnTopCardId !== top.id || !room.lastPlayedById) {
+  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId) {
     throw new Error('Não há uma carta recém-jogada disponível para queima.');
   }
-  if (room.lastPlayedById === player.id) throw new Error('Você não pode queimar a carta que acabou de jogar.');
+  if (room.reactionSourcePlayerId === player.id) throw new Error('Você não pode queimar a carta que acabou de jogar.');
   if (isSpecial(first)) throw new Error('Não é permitido queimar Ás, Dama, Valete, Rei, Oito ou Sete.');
   if (!sameCard(first, top)) throw new Error('Para queimar, sua primeira carta deve ser exatamente igual à carta da mesa: mesmo valor e mesmo naipe.');
 
@@ -577,6 +603,7 @@ function burnMatch(room, playerId, cardId) {
   }
 
   const interrupted = room.players[room.currentPlayer];
+  closeReaction(room);
   removeCard(player, first.id);
   room.discard.push(first);
   room.requestedSuit = null;
@@ -587,7 +614,6 @@ function burnMatch(room, playerId, cardId) {
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
   room.lastPlayedById = player.id;
-  room.burnTopCardId = null;
 
   const interruptedText = interrupted && interrupted.id !== player.id
     ? ` e interrompeu a vez de ${interrupted.name}`
@@ -616,8 +642,8 @@ function nextEligiblePenaltyTarget(room, fromIdx) {
 function drawAction(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
-  // Ao iniciar uma compra, encerra-se a janela de queima da jogada anterior.
-  room.burnTopCardId = null;
+  // Ao iniciar uma compra, encerra-se qualquer janela de reação da jogada anterior.
+  closeReaction(room);
   if (room.continuationPlayerId === p.id) {
     throw new Error('Após uma queima, jogue uma carta adicional ou encerre a continuação; não é permitido comprar.');
   }
@@ -675,7 +701,7 @@ function passTurn(room, playerId) {
     throw new Error('Para passar a vez, primeiro compre 1 carta do monte.');
   }
 
-  room.burnTopCardId = null;
+  closeReaction(room);
   const keptCardId = p.justDrawnCardId;
   p.justDrawnCardId = null;
   p.declaration = null;
@@ -723,6 +749,9 @@ function finalizeRound(room) {
   room.continuationPlayerId = null;
   room.lastPlayedById = null;
   room.burnTopCardId = null;
+  room.reactionTopCardId = null;
+  room.reactionSourcePlayerId = null;
+  room.reactionNextPlayerId = null;
   room.finishPendingSeven = false;
 
   if (room.status === 'finished') {
@@ -736,13 +765,71 @@ function canBurnMatch(room, player) {
   if (!room.rules.burnEnabled || room.status !== 'playing' || room.pendingSeven > 0 || room.continuationPlayerId) return [];
   if (!player || !player.connected || player.finishedRound) return [];
   const top = topCard(room);
-  if (!top || room.burnTopCardId !== top.id || !room.lastPlayedById || room.lastPlayedById === player.id) return [];
+  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || room.reactionSourcePlayerId === player.id) return [];
   if (isSpecial(top)) return [];
 
   return player.hand.filter(first => {
     if (isSpecial(first) || !sameCard(first, top)) return false;
     return player.hand.some(second => second.id !== first.id && burnFollowUpLegal(first, second));
   });
+}
+
+// V17 — AÇÃO RÁPIDA
+// Um jogador que NÃO seria o próximo da vez pode descartar imediatamente uma carta
+// exatamente igual à recém-jogada. É uma intervenção de uma única carta: não toma a vez,
+// não altera o sentido e não dispara novamente o efeito especial da carta. A ordem normal
+// continua com quem já seria o próximo. A primeira reação aceita pelo servidor fecha a janela.
+function canQuickAction(room, player) {
+  if (!room?.rules?.quickActionEnabled || room.status !== 'playing') return [];
+  if (room.pendingSeven > 0 || room.continuationPlayerId) return [];
+  if (!player || !player.connected || player.finishedRound) return [];
+  const top = topCard(room);
+  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || !room.reactionNextPlayerId) return [];
+  if (room.reactionSourcePlayerId === player.id) return [];
+  if (room.reactionNextPlayerId === player.id) return []; // pela regra, quem já seria o próximo não usa Ação Rápida
+  return player.hand.filter(c => sameCard(c, top));
+}
+
+function quickAction(room, playerId, cardId) {
+  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
+  if (!room.rules.quickActionEnabled) throw new Error('A regra de Ação Rápida está desativada.');
+  if (room.pendingSeven > 0) throw new Error('A Ação Rápida fica suspensa enquanto uma cadeia de 7 está sendo resolvida.');
+  if (room.continuationPlayerId) throw new Error('Aguarde a queima atual ser concluída.');
+
+  const idx = room.players.findIndex(p => p.id === playerId);
+  if (idx < 0) throw new Error('Jogador não encontrado.');
+  const player = room.players[idx];
+  const allowed = canQuickAction(room, player);
+  if (!allowed.some(c => c.id === cardId)) {
+    throw new Error('Ação Rápida indisponível: a carta deve ser exatamente igual à recém-jogada e você não pode ser o próximo da vez.');
+  }
+
+  const normalNextId = room.reactionNextPlayerId;
+  const before = player.hand.length;
+  const played = removeCard(player, cardId);
+  room.discard.push(played);
+  player.justDrawnCardId = null;
+  closeReaction(room); // a primeira Ação Rápida válida vence; não há encadeamento
+  room.lastPlayedById = player.id;
+
+  // Mantemos rigorosamente a ordem original. A carta rápida é apenas descartada;
+  // seu efeito especial não é reexecutado, pois a regra manda a ordem normal continuar.
+  const nextIdx = room.players.findIndex(p => p.id === normalNextId);
+  if (nextIdx >= 0 && !room.players[nextIdx].finishedRound) room.currentPlayer = nextIdx;
+
+  log(room, `${player.name} fez AÇÃO RÁPIDA com ${cardLabel(played)}. A vez continua com ${room.players[room.currentPlayer]?.name || 'o próximo jogador'}.`, 'quick');
+
+  if (player.hand.length === 0) {
+    room.winnerId = player.id;
+    room.lastWinnerCard = played;
+    player.finishedRound = true;
+    player.declaration = null;
+    finalizeRound(room);
+    return;
+  }
+
+  applyMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
 }
 
 function roomPublicState(room, viewerId) {
@@ -765,6 +852,8 @@ function roomPublicState(room, viewerId) {
     winnerId: room.winnerId,
     lastWinnerCard: room.lastWinnerCard,
     continuationPlayerId: room.continuationPlayerId,
+    reactionSourcePlayerId: room.reactionSourcePlayerId,
+    reactionNextPlayerId: room.reactionNextPlayerId,
     lastPass: room.lastPass,
     roundRoles: room.roundRoles,
     players: room.players.map(p => ({
@@ -795,6 +884,9 @@ function roomPublicState(room, viewerId) {
       burnableCardIds: room.status === 'playing'
         ? canBurnMatch(room,viewer).map(c=>c.id)
         : [],
+      quickActionCardIds: room.status === 'playing'
+        ? canQuickAction(room,viewer).map(c=>c.id)
+        : [],
       doublePairs: room.status === 'playing'
         ? canPlayDouble(room,viewer)
         : [],
@@ -818,7 +910,7 @@ module.exports = {
   SUITS,RANKS,SPECIAL_RANKS,DEFAULT_RULES,
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
   createRoom,addPlayer,reconnectPlayer,startRound,
-  legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,
+  legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,quickAction,canQuickAction,
   drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
   appendLog: log,

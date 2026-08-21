@@ -1,0 +1,17 @@
+=== NODE SYNTAX ===
+OK game-engine.js
+OK bot-player.js
+OK server.js
+OK public/app.js
+OK tests/engine.test.js
+OK tests/reaction-stress.test.js
+OK tests/ui-contract.test.js
+
+=== NPM TEST ===
+
+> mau-mau-multiplayer@17.0.0 test
+> node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/ui-contract.test.js
+
+✓ V17: testes de Queima, Ação Rápida e Carta Dupla passaram.
+✓ V17 stress: 500 cenários de Queima/Ação Rápida/Carta Dupla passaram.
+✓ V17 UI/servidor: ligações de botões e eventos conferidas.

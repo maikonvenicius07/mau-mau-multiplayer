@@ -23,7 +23,7 @@ Exemplo: sobre 9 de Copas, são válidos qualquer 9, qualquer carta de Copas ou 
 O jogador também pode optar por comprar uma única carta mesmo tendo jogada válida. Depois da compra, pode jogar apenas a carta recém-comprada se ela for válida ou usar **Passar a vez**, mantendo-a na mão. Não é permitido comprar uma segunda carta na mesma jogada normal.
 
 
-## 4. Carta Dupla — regra V16
+## 4. Carta Dupla — regra V17
 
 Na própria vez, se o jogador possuir **duas cartas idênticas** na mão — mesmo valor e mesmo naipe — e essa carta for válida sobre o topo do descarte, ele pode jogar as duas juntas na mesma jogada.
 
@@ -38,7 +38,7 @@ Carta Dupla: 5♣ + 5♣
 
 As duas cartas são retiradas da mão e a segunda cópia fica como carta visível no topo do descarte. No aplicativo, uma dupla disponível recebe o botão **×2**.
 
-A Carta Dupla é tratada como **uma única jogada composta**, porém é permitida **somente para cartas comuns**. Não pode ser utilizada com **Ás (A), Sete (7), Oito (8), Valete (J), Dama (Q) ou Rei (K)**. Essas cartas especiais devem ser jogadas individualmente, preservando integralmente seus efeitos próprios.
+A Carta Dupla é tratada como **uma única jogada composta**, mas é permitida **somente com cartas normais**. Não podem ser usadas como Carta Dupla as cartas especiais **Ás (A), 7, 8, Valete (J), Dama (Q) e Rei (K)**. Se o jogador tiver duas cópias idênticas de uma dessas cartas especiais, deverá jogá-las separadamente, cada uma em sua respectiva vez ou conforme outra regra aplicável.
 
 Se a Carta Dupla reduzir a mão de 3 para 1 carta, o jogador deve anunciar **Mau-Mau** antes da jogada. Se as duas cartas idênticas forem as duas últimas da mão, deve anunciar **Mau-Mau batendo/queimando** antes de descartá-las.
 
@@ -105,7 +105,24 @@ Se a queima de duas cartas fizer o jogador terminar com apenas uma carta, ele de
 
 Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima, deve anunciar **“Mau-Mau batendo/queimando”** antes de iniciar. As duas cartas não precisam ser iguais entre si: a primeira precisa ser exatamente igual à carta da mesa e a segunda precisa ser compatível com ela.
 
-## 8. Pontuação
+
+## 8. Ação Rápida — regra V17
+
+A Ação Rápida é diferente da Queima. Depois que um jogador descarta uma carta, um participante que **não seria o próximo da vez** pode descartar imediatamente uma carta exatamente igual — mesmo valor e mesmo naipe — antes que o próximo jogador inicie sua jogada.
+
+A Ação Rápida remove **uma única carta** da mão e **não transfere a vez** para quem reagiu. Depois da intervenção, a ordem normal continua com o jogador que já seria o próximo. A primeira reação válida recebida pelo servidor fecha a janela, evitando duas reações sobre a mesma jogada.
+
+Para preservar a regra de que a ordem normal continua, uma carta especial utilizada como Ação Rápida é descartada, mas **não executa novamente seu efeito especial**. A Ação Rápida fica suspensa durante uma cadeia ativa de 7 e enquanto uma Queima estiver aguardando a segunda carta obrigatória.
+
+Se a Ação Rápida reduzir a mão de duas para uma carta, o jogador deve anunciar **Mau-Mau** antes da reação; caso contrário, recebe a penalidade configurada de +2 cartas.
+
+### Diferença entre as três mecânicas de cartas iguais
+
+- **Queima:** carta igual à mesa + segunda carta compatível; quem queima assume a jogada.
+- **Ação Rápida:** uma carta igual à mesa; quem reage não assume a vez e o próximo original continua.
+- **Carta Dupla:** na própria vez, duas cartas idênticas da mão são descartadas juntas; não vale para cartas especiais.
+
+## 9. Pontuação
 
 - A = 1 ponto
 - 2 a 10 = valor da carta
@@ -115,13 +132,13 @@ Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima,
 
 O vencedor da rodada recebe 0. Os demais somam as cartas restantes. Se a batida ocorrer com Valete, a pontuação dos demais é dobrada.
 
-## 9. Entrada de novos jogadores
+## 10. Entrada de novos jogadores
 
 Não é permitido entrar durante uma rodada. Um jogador pode entrar no intervalo entre rodadas até antes do início da terceira rodada.
 
 Quem entrar depois do início da partida recebe como pontuação inicial o maior total acumulado pelos jogadores que já estavam participando.
 
-## 10. Regras técnicas para o aplicativo
+## 11. Regras técnicas para o aplicativo
 
 - Carta inicial especial é devolvida ao monte e outra carta normal é virada.
 - Se o monte acabar, o descarte é reembaralhado, preservando a carta do topo.

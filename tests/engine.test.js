@@ -16,6 +16,19 @@ function openBurn(r,sourcePlayer,top){
   r.discard=[top];
   r.lastPlayedById=sourcePlayer.id;
   r.burnTopCardId=top.id;
+  r.reactionTopCardId=top.id;
+  r.reactionSourcePlayerId=sourcePlayer.id;
+  r.reactionNextPlayerId=r.players[r.currentPlayer]?.id||null;
+}
+function room4(){
+  const r=E.createRoom('R4',{name:'Ana',avatar:'A',socketId:'s1',token:'t1'});
+  E.addPlayer(r,{name:'Bruno',avatar:'B',socketId:'s2',token:'t2'});
+  E.addPlayer(r,{name:'Carla',avatar:'C',socketId:'s3',token:'t3'});
+  E.addPlayer(r,{name:'Diego',avatar:'D',socketId:'s4',token:'t4'});
+  r.status='playing';r.round=1;r.direction=-1;r.currentPlayer=0;r.deck=E.createDeck();
+  r.discard=[card('5','hearts','top4')];
+  r.players.forEach(p=>{p.hand=[];p.roundHistory=[];p.score=0;p.connected=true;p.finishedRound=false;p.declaration=null;p.justDrawnCardId=null;});
+  return r;
 }
 
 assert.equal(E.createDeck().length,104,'dois baralhos sem curingas = 104 cartas');
@@ -374,15 +387,19 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(a.hand.length,1);
 }
 
-// V16: Carta Dupla NÃO funciona com cartas especiais A, 7, 8, J, Q e K.
+// V16: Carta Dupla NÃO funciona com cartas especiais.
 {
-  const specials=['A','7','8','J','Q','K'];
-  for (const rank of specials) {
+  const especiais=['A','7','8','J','Q','K'];
+  for (const rank of especiais) {
     const r=room2(),a=r.players[0];
     r.currentPlayer=0;r.discard=[card(rank,'hearts',`top-special-${rank}`)];
-    a.hand=[card(rank,'clubs',`s1-${rank}`),card(rank,'clubs',`s2-${rank}`),card('3','spades',`x-${rank}`)];
-    assert.equal(E.canPlayDouble(r,a).length,0,`não deve oferecer Carta Dupla para ${rank}`);
-    assert.throws(()=>E.playDoubleCard(r,a.id,`s1-${rank}`,`s2-${rank}`),/não pode ser usada com cartas especiais/);
+    a.hand=[card(rank,'clubs',`s1-${rank}`),card(rank,'clubs',`s2-${rank}`),card('3','spades',`s3-${rank}`)];
+    assert.equal(E.canPlayDouble(r,a).length,0,`${rank} não deve aparecer como Carta Dupla`);
+    assert.throws(
+      ()=>E.playDoubleCard(r,a.id,`s1-${rank}`,`s2-${rank}`),
+      /não pode ser usada com cartas especiais/,
+      `${rank} deve ser recusada pelo servidor`
+    );
   }
 }
 
@@ -398,4 +415,157 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(bot.hand.length,2);
 }
 
-console.log('✓ V16: todos os testes do motor do Mau-Mau passaram.');
+
+// V17: Ação Rápida — jogador que NÃO seria o próximo pode descartar a carta idêntica
+// e a ordem normal continua com o próximo original.
+{
+  const r=room4(),a=r.players[0],b=r.players[1],c=r.players[2],d=r.players[3];
+  r.currentPlayer=0;r.discard=[card('5','clubs','before-quick')];
+  a.hand=[card('5','hearts','a5'),card('2','clubs','a2'),card('10','diamonds','a10')];
+  b.hand=[card('5','hearts','b5'),card('4','clubs','b4'),card('8','spades','b8')];
+  c.hand=[card('3','spades','c3')];
+  d.hand=[card('7','diamonds','d7')];
+  E.playCard(r,a.id,'a5');
+  assert.equal(r.currentPlayer,3,'com sentido anti-horário, Diego seria o próximo');
+  assert.equal(E.canQuickAction(r,b).map(x=>x.id).join(','),'b5');
+  assert.equal(E.canQuickAction(r,d).length,0,'quem já seria o próximo não pode usar Ação Rápida');
+  E.quickAction(r,b.id,'b5');
+  assert.equal(b.hand.length,2);
+  assert.equal(r.currentPlayer,3,'Ação Rápida não toma a vez');
+  assert.equal(r.discard.at(-1).id,'b5');
+}
+
+// V17: a primeira reação aceita fecha a janela. Depois de Ação Rápida não pode haver Queima atrasada.
+{
+  const r=room4(),a=r.players[0],b=r.players[1],c=r.players[2];
+  r.currentPlayer=0;r.discard=[card('5','clubs','race-base')];
+  a.hand=[card('5','hearts','race-a'),card('2','clubs','race-a2'),card('10','diamonds','race-a3')];
+  b.hand=[card('5','hearts','race-b'),card('9','hearts','race-follow')];
+  c.hand=[card('5','hearts','race-c'),card('10','hearts','race-cfollow')];
+  E.playCard(r,a.id,'race-a');
+  assert(E.canQuickAction(r,b).length>0);
+  assert(E.canBurnMatch(r,b).length>0);
+  E.quickAction(r,b.id,'race-b');
+  assert.equal(E.canBurnMatch(r,c).length,0);
+  assert.throws(()=>E.burnMatch(r,c.id,'race-c'),/recém-jogada|disponível|queima/i);
+}
+
+// V17: Queima continua funcionando fora da vez e toma a jogada para quem queimou.
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','clubs','burn-base17')];
+  a.hand=[card('5','hearts','burn-source17'),card('2','clubs','a-left17'),card('10','diamonds','a-left17b')];
+  b.hand=[card('5','hearts','burn-first17'),card('9','hearts','burn-second17'),card('4','clubs','b-left17')];
+  E.playCard(r,a.id,'burn-source17');
+  assert.equal(r.currentPlayer,3,'ordem normal iria para Diego');
+  assert.equal(E.canBurnMatch(r,b).length,1);
+  E.burnMatch(r,b.id,'burn-first17');
+  assert.equal(r.currentPlayer,1,'quem queimou assume a jogada');
+  assert.equal(r.continuationPlayerId,b.id);
+  E.playCard(r,b.id,'burn-second17');
+  assert.equal(r.continuationPlayerId,null);
+  assert.equal(r.currentPlayer,0,'após a segunda carta, segue a partir de quem queimou');
+}
+
+// V17: a segunda carta da Queima pode ser especial e seu efeito funciona normalmente.
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','clubs','burn-q-base')];
+  a.hand=[card('5','hearts','burn-q-source'),card('2','clubs','a-q-left'),card('10','diamonds','a-q-left2')];
+  b.hand=[card('5','hearts','burn-q-first'),card('Q','hearts','burn-q-second'),card('4','clubs','b-q-left')];
+  E.playCard(r,a.id,'burn-q-source');
+  E.burnMatch(r,b.id,'burn-q-first');
+  const beforeDir=r.direction;
+  E.playCard(r,b.id,'burn-q-second');
+  assert.equal(r.direction,-beforeDir,'Dama como segunda carta da queima deve inverter o sentido');
+  assert.equal(r.currentPlayer,2,'com direção invertida, a ordem segue a partir de Bruno para Carla');
+}
+
+// V17: Ação Rápida com carta especial NÃO reaplica o efeito; a ordem permanece a original.
+{
+  const r=room4(),a=r.players[0],b=r.players[1],c=r.players[2];
+  r.direction=-1;r.currentPlayer=0;r.discard=[card('5','hearts','quick-q-base')];
+  a.hand=[card('Q','hearts','quick-q-source'),card('2','clubs','aqq'),card('10','diamonds','aqq2')];
+  c.hand=[card('Q','hearts','quick-q-copy'),card('3','clubs','cqq')];
+  E.playCard(r,a.id,'quick-q-source');
+  assert.equal(r.direction,1);
+  assert.equal(r.currentPlayer,1,'após Q de Ana, Bruno é o próximo no novo sentido');
+  assert.equal(E.canQuickAction(r,c).length,1);
+  E.quickAction(r,c.id,'quick-q-copy');
+  assert.equal(r.direction,1,'Q usada em Ação Rápida não deve inverter outra vez');
+  assert.equal(r.currentPlayer,1,'Bruno continua sendo o próximo original');
+}
+
+// V17: a janela de reação fecha quando o próximo jogador começa sua ação normal.
+{
+  const r=room4(),a=r.players[0],b=r.players[1],d=r.players[3];
+  r.currentPlayer=0;r.discard=[card('5','clubs','close-base')];
+  a.hand=[card('5','hearts','close-source'),card('2','clubs','aclose'),card('10','diamonds','aclose2')];
+  b.hand=[card('5','hearts','close-b'),card('4','clubs','bclose')];
+  d.hand=[card('2','spades','dclose')];
+  r.deck=[card('3','diamonds','draw-close')];
+  E.playCard(r,a.id,'close-source');
+  assert(E.canQuickAction(r,b).length>0);
+  E.drawAction(r,d.id);
+  assert.equal(E.canQuickAction(r,b).length,0);
+}
+
+// V17: Mau-Mau também funciona antes de Ação Rápida que deixa apenas 1 carta.
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','clubs','qm-base')];
+  a.hand=[card('5','hearts','qm-source'),card('2','clubs','aqm'),card('10','diamonds','aqm2')];
+  b.hand=[card('5','hearts','qm-copy'),card('4','clubs','qm-last')];
+  E.playCard(r,a.id,'qm-source');
+  E.declare(r,b.id,'mau-mau');
+  E.quickAction(r,b.id,'qm-copy');
+  assert.equal(b.hand.length,1);
+}
+
+// V17: sem anunciar Mau-Mau antes da Ação Rápida de 2 para 1, recebe +2.
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('5','clubs','qmp-base')];
+  a.hand=[card('5','hearts','qmp-source'),card('2','clubs','aqmp'),card('10','diamonds','aqmp2')];
+  b.hand=[card('5','hearts','qmp-copy'),card('4','clubs','qmp-last')];
+  r.deck=[card('2','diamonds','pen1'),card('3','diamonds','pen2')];
+  E.playCard(r,a.id,'qmp-source');
+  E.quickAction(r,b.id,'qmp-copy');
+  assert.equal(b.hand.length,3,'ficaria com 1, mas compra +2 sem Mau-Mau');
+}
+
+// V17: Carta Dupla continua na própria vez, somente com cartas normais.
+{
+  const r=room4(),a=r.players[0];
+  r.currentPlayer=0;r.discard=[card('6','hearts','double17-top')];
+  a.hand=[card('6','clubs','double17-1'),card('6','clubs','double17-2'),card('3','spades','double17-left'),card('4','diamonds','double17-left2')];
+  const pairs=E.canPlayDouble(r,a);
+  assert.equal(pairs.length,1);
+  E.playDoubleCard(r,a.id,'double17-1','double17-2');
+  assert.equal(a.hand.length,2);
+}
+
+// V17: Carta Dupla não pode ser usada fora da vez.
+{
+  const r=room4(),b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('6','hearts','double-out-top')];
+  b.hand=[card('6','clubs','double-out-1'),card('6','clubs','double-out-2'),card('3','spades','double-out-left')];
+  assert.equal(E.canPlayDouble(r,b).length,0);
+  assert.throws(()=>E.playDoubleCard(r,b.id,'double-out-1','double-out-2'),/Não é a sua vez/);
+}
+
+// V17: bot consegue usar Ação Rápida quando não seria o próximo.
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  b.isBot=true;b.name='Máquina';
+  r.currentPlayer=0;r.discard=[card('5','clubs','botq-base')];
+  a.hand=[card('5','hearts','botq-source'),card('2','clubs','abotq'),card('10','diamonds','abotq2')];
+  b.hand=[card('5','hearts','botq-copy'),card('4','clubs','botq-last'),card('6','spades','botq-extra')];
+  E.playCard(r,a.id,'botq-source');
+  const result=Bot.takeQuickActionOpportunity(r,b,E);
+  assert.equal(result.action,'quick-action');
+  assert.equal(r.currentPlayer,3);
+}
+
+console.log('✓ V17: testes de Queima, Ação Rápida e Carta Dupla passaram.');
+
