@@ -2,7 +2,7 @@ const socket = io();
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
-let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=true, previousHandIds=new Set();
+let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set();
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
 
@@ -44,12 +44,95 @@ function noiseBurst(ac,start,dur=.08,gain=.025){
   src.buffer=buffer;filter.type='bandpass';filter.frequency.value=1500;filter.Q.value=.7;
   g.gain.value=gain;src.connect(filter).connect(g).connect(ac.destination);src.start(start);
 }
-function beep(type='play'){
+function playGameSound(type='play'){
   if(!soundOn) return;
   const ac=audioCtx(); if(!ac)return;
-  const map={play:[420,.055],draw:[220,.06],special:[610,.08],burn:[760,.11],quick:[920,.075],winner:[880,.18],penalty:[150,.09],mau:[980,.12]};
-  const [f,d]=map[type]||map.play;tone(ac,f,ac.currentTime,d,type==='winner'?'triangle':'sine',.035);
+  const t=ac.currentTime+.015;
+  const seq=(notes,shape='sine',gain=.032)=>notes.forEach(([freq,off,dur])=>tone(ac,freq,t+off,dur,shape,gain));
+  if(type==='play'){
+    noiseBurst(ac,t,.035,.018); tone(ac,420,t,.045,'triangle',.024);
+  } else if(type==='draw'){
+    noiseBurst(ac,t,.085,.026); tone(ac,210,t+.02,.07,'sine',.022);
+  } else if(type==='yourTurn'){
+    seq([[660,0,.07],[880,.09,.10]],'triangle',.032);
+  } else if(type==='pass'){
+    seq([[430,0,.055],[330,.07,.075]],'sine',.024);
+  } else if(type==='burn'){
+    noiseBurst(ac,t,.16,.03); seq([[520,0,.06],[760,.055,.08],[1040,.12,.12]],'sawtooth',.026);
+  } else if(type==='quick'){
+    seq([[980,0,.045],[1320,.05,.065],[880,.10,.055]],'square',.018);
+  } else if(type==='double'){
+    noiseBurst(ac,t,.032,.018); noiseBurst(ac,t+.105,.032,.018); seq([[470,0,.045],[470,.105,.045]],'triangle',.025);
+  } else if(type==='reverse'){
+    seq([[660,0,.07],[520,.08,.07],[660,.16,.09]],'triangle',.027);
+  } else if(type==='skip'){
+    seq([[620,0,.045],[310,.065,.075]],'square',.019);
+  } else if(type==='suit'){
+    seq([[523,0,.07],[659,.075,.07],[784,.15,.10]],'sine',.027);
+  } else if(type==='seven'){
+    seq([[310,0,.07],[245,.08,.08],[185,.17,.12]],'sawtooth',.022);
+  } else if(type==='penalty'){
+    seq([[180,0,.10],[135,.11,.13]],'sawtooth',.022);
+  } else if(type==='mau'){
+    seq([[740,0,.07],[980,.08,.07],[1240,.16,.15]],'triangle',.036);
+  } else if(type==='round'){
+    for(let i=0;i<7;i++) noiseBurst(ac,t+i*.055,.045,.014+Math.random()*.006);
+    seq([[392,.05,.08],[523,.16,.08],[659,.27,.11]],'triangle',.018);
+  } else if(type==='winner'){
+    seq([[523,0,.11],[659,.12,.11],[784,.24,.11],[1046,.36,.28]],'triangle',.038);
+  } else if(type==='champion'){
+    seq([[523,0,.12],[659,.12,.12],[784,.24,.12],[1046,.36,.18],[1318,.55,.30]],'triangle',.043);
+    for(let i=0;i<10;i++) noiseBurst(ac,t+.18+i*.055,.045,.012);
+  } else if(type==='chat'){
+    seq([[720,0,.045],[900,.055,.065]],'sine',.018);
+  } else if(type==='error'){
+    seq([[180,0,.11],[150,.08,.14]],'square',.018);
+  } else {
+    tone(ac,420,t,.055,'sine',.028);
+  }
 }
+function soundForLog(entry){
+  if(!entry)return null;
+  const m=String(entry.message||'');
+  if(entry.kind==='champion') return 'champion';
+  if(entry.kind==='winner') return 'winner';
+  if(entry.kind==='burn') return 'burn';
+  if(entry.kind==='quick') return 'quick';
+  if(entry.kind==='mau') return 'mau';
+  if(entry.kind==='penalty') return 'penalty';
+  if(entry.kind==='draw') return 'draw';
+  if(entry.kind==='round') return 'round';
+  if(entry.kind==='turn' && /passou a vez/i.test(m)) return 'pass';
+  if(entry.kind==='play' && /CARTA DUPLA/i.test(m)) return 'double';
+  if(entry.kind==='play') return 'play';
+  if(entry.kind==='special'){
+    if(/Dama|inverteu o sentido/i.test(m)) return 'reverse';
+    if(/Ás|perdeu a vez/i.test(m)) return 'skip';
+    if(/escolheu|naipe/i.test(m)) return 'suit';
+    if(/7|cadeia/i.test(m)) return 'seven';
+    if(/Rei|Oito|comprou/i.test(m)) return 'penalty';
+    return 'play';
+  }
+  return null;
+}
+function speakMauMau(){
+  if(!soundOn || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined') return;
+  try{
+    // Evita sobreposição caso dois avisos sejam disparados quase ao mesmo tempo.
+    window.speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance('Mau-Mau!');
+    utterance.lang='pt-BR';
+    utterance.rate=.92;
+    utterance.pitch=1.12;
+    utterance.volume=1;
+    const voices=window.speechSynthesis.getVoices?.()||[];
+    const ptBr=voices.find(v=>String(v.lang||'').toLowerCase()==='pt-br');
+    const pt=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('pt'));
+    if(ptBr||pt) utterance.voice=ptBr||pt;
+    window.speechSynthesis.speak(utterance);
+  }catch{}
+}
+function beep(type='play'){ playGameSound(type); }
 function playSocialEffect(effect){
   if(!soundOn)return;
   const ac=audioCtx(); if(!ac)return;
@@ -105,7 +188,9 @@ $('#leaveBtn').onclick=()=>{
   socket.emit('leaveRoom');
 };
 
-$('#soundBtn').onclick=()=>{soundOn=!soundOn;$('#soundBtn').textContent=soundOn?'🔊':'🔇';if(soundOn)audioCtx()};
+$('#soundBtn').textContent=soundOn?'🔊':'🔇';
+$('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
+document.addEventListener('pointerdown',()=>audioCtx(),{once:true});
 $('#chatToggleBtn').onclick=()=>{setSideTab('chat',true)};
 $('#logTabBtn').onclick=()=>setSideTab('log',true);
 $('#chatTabBtn').onclick=()=>setSideTab('chat',true);
@@ -170,7 +255,15 @@ socket.on('state',s=>{
   if(prev){
     const last=s.log.at(-1);
     const old=prev.log.at(-1);
-    if(last&&last.id!==old?.id)beep(last.kind);
+    if(last&&last.id!==old?.id){
+      const fx=soundForLog(last);
+      if(fx){
+        playGameSound(fx);
+        if(fx==='mau') speakMauMau();
+      }
+    }
+    const becameMyTurn=prev.currentPlayerId!==s.currentPlayerId && s.status==='playing' && !s.paused && s.currentPlayerId===s.me?.id;
+    if(becameMyTurn) setTimeout(()=>playGameSound('yourTurn'),120);
   }
 });
 socket.on('chatHistory',messages=>{chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;renderChat();renderChatBadge()});
@@ -180,6 +273,7 @@ socket.on('chatMessage',message=>{
   if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
   renderChat();renderChatBadge();
   if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
+  if(message.playerId!==state?.me?.id) playGameSound('chat');
 });
 socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
@@ -189,7 +283,7 @@ socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
-socket.on('gameError',e=>{passPending=false;toast(e.message);render();});
+socket.on('gameError',e=>{passPending=false;playGameSound('error');toast(e.message);render();});
 socket.on('leftRoom',()=>{
   clearSession();
   returnToLanding('Você saiu da sala.');

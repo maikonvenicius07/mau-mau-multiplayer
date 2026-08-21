@@ -1,8 +1,15 @@
-# Mau-Mau V18 — Queima Flexível
+# Mau-Mau V20 — Mau-Mau Falado
 
-## Correção central da V18
+## V20 — anúncio falado de Mau-Mau
 
-A V18 mantém **Queima**, **Ação Rápida** e **Carta Dupla** como mecânicas separadas, mas altera a continuação da Queima conforme a nova regra definida para o jogo.
+Quando qualquer jogador anuncia **Mau-Mau**, todos os participantes que estiverem com o som ligado ouvem a voz do navegador dizer **“Mau-Mau!”**. A fala usa `SpeechSynthesisUtterance` com preferência por voz em português do Brasil (`pt-BR`). Se o aparelho/navegador não disponibilizar síntese de voz, o efeito sonoro de Mau-Mau da V19 continua funcionando como fallback.
+
+O botão **🔊 / 🔇** também controla a fala: com o som desligado, a voz não é reproduzida naquele aparelho.
+
+
+## Correção central da V19
+
+A V19 mantém **Queima**, **Ação Rápida** e **Carta Dupla** como mecânicas separadas, mas altera a continuação da Queima conforme a nova regra definida para o jogo.
 
 - **🔥 Queima:** basta possuir uma carta exatamente igual à recém-jogada (mesmo valor e mesmo naipe). Depois de queimá-la, o jogador assume a jogada.
 - Se ainda possuir carta compatível (mesmo valor, mesmo naipe ou Valete), pode **jogá-la ou passar a vez**.
@@ -13,7 +20,7 @@ A V18 mantém **Queima**, **Ação Rápida** e **Carta Dupla** como mecânicas s
 
 A interface informa claramente três estados após a Queima: **jogar ou passar**, **comprar 1 carta**, ou **jogar a comprada ou passar**.
 
-## Testes da V18
+## Testes da V19
 
 O pacote mantém todos os testes anteriores e acrescenta testes específicos dos exemplos de Carla e Paulo, além de **1.000 cenários automatizados de Queima Flexível** com passe imediato, compra obrigatória quando não há continuação e conservação de carta jogável comprada.
 
@@ -209,3 +216,9 @@ O botão não pode ser usado para evitar obrigações pendentes: durante uma cad
 
 ## V13 — Compra obrigatória para passar a vez
 Para encerrar voluntariamente a própria jogada com o botão **⏭️ Passar a vez**, o participante precisa primeiro comprar **1 carta do monte**. A compra é permitida mesmo quando ele já possui carta válida. Após comprar, somente a carta recém-comprada poderá ser jogada naquela decisão; se não quiser jogá-la, ou se ela não for válida, o jogador pode clicar em **Passar a vez**. Não é permitido comprar uma segunda carta na mesma jogada normal. A regra não altera a penalidade da cadeia de 7 nem a segunda carta obrigatória da queima dinâmica.
+
+## V19 — Efeitos sonoros automáticos
+
+Foram acrescentados sons automáticos, gerados pelo próprio navegador via Web Audio API, sem arquivos MP3 externos. Há sons distintos para: carta jogada, compra, sua vez, passar, Queima, Ação Rápida, Carta Dupla, Dama/inversão, Ás/pulo, Valete/escolha de naipe, cadeia de 7, penalidade, Mau-Mau, início de rodada, vitória, campeão, chat e erro.
+
+O botão 🔊/🔇 silencia ou ativa todos os sons no aparelho do jogador e a preferência fica salva no navegador.
