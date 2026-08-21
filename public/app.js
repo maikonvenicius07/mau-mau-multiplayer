@@ -132,7 +132,12 @@ $('#passTurnBtn').onclick=()=>{
   passPending=true;
   $('#passTurnBtn').disabled=true;
   $('#passTurnBtn').textContent='⏳ Passando...';
-  toast('⏭️ Passando a vez. A carta comprada ficará na sua mão.');
+  const afterBurn=state?.continuationPlayerId===state?.me?.id;
+  toast(afterBurn
+    ? (state?.me?.justDrawnCardId
+      ? '⏭️ Passando a vez após a queima. A carta comprada ficará na sua mão.'
+      : '⏭️ Passando a vez após a queima sem jogar outra carta.')
+    : '⏭️ Passando a vez. A carta comprada ficará na sua mão.');
   socket.emit('passTurn');
 };
 
@@ -283,9 +288,13 @@ function renderCenter(){
   const current=state.players.find(p=>p.id===state.currentPlayerId);
   let banner='Aguardando jogadores...';
   if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.avatar||''} ${current?.name||''}`);
-  if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id) banner='🔥 Complete a queima: jogue mais 1 carta';
+  if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
+    if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue a carta comprada ou passe e guarde-a';
+    else if(state.me?.burnMustDraw) banner='🔥 Após a queima: sem carta compatível — compre 1 carta';
+    else banner='🔥 Após a queima: jogue mais uma carta compatível ou passe a vez';
+  }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
-  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Jogue a igual + mais uma';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Jogue a carta igual e decida se continua ou passa';
   else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner='⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
@@ -315,7 +324,7 @@ function renderHand(){
     if(canBurn) el.classList.add('burnable');
     if(canQuick) el.classList.add('quickable');
     if(ok)el.onclick=()=>play(card,false);
-    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa e depois mais uma compatível';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
+    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
     if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.me.justDrawnCardId&&!state.continuationPlayerId);
@@ -335,33 +344,55 @@ function renderHand(){
   // Mau-Mau pode ser anunciado fora da vez quando uma reação válida deixará 1 carta.
   const canDeclareMau=(state.me.hand.length===2&&(myTurn||burnOpportunity||quickOpportunity))||(state.me.hand.length===3&&(burnOpportunity||doubleOpportunity));
   $('#mauBtn').disabled=!canDeclareMau;$('#batendoBtn').disabled=!canBatendo();
-  // V11: a segunda carta da queima é obrigatória; não existe mais 'Encerrar queima'.
+  // V18: a continuação da queima é opcional.
   $('#endBurnBtn').classList.add('hidden');
-  // V13: para passar a vez é obrigatório comprar 1 carta antes.
-  // O jogador pode escolher comprar mesmo tendo carta válida, mas só uma vez por turno.
+
   const passBlockedBySeven=state.pendingSeven>0;
-  const passBlockedByBurn=state.continuationPlayerId===state.me.id;
+  const inBurn=state.continuationPlayerId===state.me.id;
   const boughtThisTurn=!!state.me.justDrawnCardId;
-  const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&!passBlockedByBurn&&boughtThisTurn);
+  const legalAfterBurn=(state.me.legalCardIds||[]).length>0;
+
+  // Regra normal: só passa depois de comprar.
+  // Regra especial da queima:
+  //   - se já há carta compatível, pode jogar OU passar sem comprar;
+  //   - se não há carta compatível, primeiro compra 1;
+  //   - depois da compra, pode jogar a comprada OU passar e guardá-la.
+  const canPassBurn=!!(inBurn&&(boughtThisTurn||legalAfterBurn));
+  const canPassNormal=!!(!inBurn&&boughtThisTurn);
+  const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&(canPassBurn||canPassNormal));
+
   $('#passTurnBtn').classList.toggle('hidden',state.status!=='playing');
   $('#passTurnBtn').disabled=!canPassTurn;
   $('#passTurnBtn').textContent=passPending?'⏳ Passando...':'⏭️ Passar a vez';
   $('#passTurnBtn').title=canPassTurn
-    ? 'Passar a vez após a compra obrigatória de 1 carta.'
+    ? (inBurn
+      ? (boughtThisTurn
+        ? 'Passar após a queima e guardar a carta comprada.'
+        : 'Passar após a queima sem jogar uma segunda carta.')
+      : 'Passar a vez após a compra obrigatória de 1 carta.')
     : passBlockedBySeven
       ? 'Resolva primeiro a cadeia de 7: rebata ou compre a penalidade.'
-      : passBlockedByBurn
-        ? 'Complete primeiro a segunda carta obrigatória da queima.'
+      : inBurn&&state.me.burnMustDraw
+        ? 'Você não tem carta compatível após a queima. Compre 1 carta antes de passar.'
         : myTurn
-          ? 'Para passar a vez, primeiro compre 1 carta do monte.'
+          ? 'Para passar a vez normal, primeiro compre 1 carta do monte.'
           : 'Aguarde sua vez.';
 
-  // Só é permitido comprar uma carta normal por turno. A cadeia de 7 é tratada
-  // separadamente pelo motor do jogo.
-  $('#drawPile').disabled=!!(passPending||(myTurn&&state.me.justDrawnCardId&&!state.pendingSeven));
-  $('#drawPile').title=state.me.justDrawnCardId
-    ? 'Você já comprou nesta vez. Jogue a carta comprada se puder ou passe a vez.'
-    : 'Comprar 1 carta';
+  // Compra normal: uma carta por turno.
+  // Após a queima, a compra só é habilitada quando não existe carta compatível.
+  const burnDrawBlocked=inBurn&&!boughtThisTurn&&!state.me.burnMustDraw;
+  $('#drawPile').disabled=!!(passPending
+    ||(myTurn&&boughtThisTurn&&!state.pendingSeven)
+    ||(myTurn&&burnDrawBlocked));
+  $('#drawPile').title=boughtThisTurn
+    ? (inBurn
+      ? 'Você já comprou após a queima. Jogue a carta comprada se quiser ou passe e guarde-a.'
+      : 'Você já comprou nesta vez. Jogue a carta comprada se puder ou passe a vez.')
+    : inBurn
+      ? (state.me.burnMustDraw
+        ? 'Comprar 1 carta porque não há continuação compatível.'
+        : 'Você já tem carta compatível: jogue-a ou passe a vez sem comprar.')
+      : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}
@@ -442,7 +473,7 @@ function playDouble(pair){
   pendingDouble=null;
 }
 function canBatendo(){
-  return state.me.hand.length===2 && ((state.me.burnableCardIds||[]).length>0 || (state.me.doublePairs||[]).length>0);
+  return state.me.hand.length===2 && ((state.me.burnFinishableCardIds||[]).length>0 || (state.me.doublePairs||[]).length>0);
 }
 function cardHTML(c,small){const red=c.suit==='hearts'||c.suit==='diamonds';return `<div class="playing-card ${red?'red-suit':'black-suit'}"><div class="corner">${c.rank}<br>${suitGlyph[c.suit]}</div><div class="suit-big">${suitGlyph[c.suit]}</div><div class="corner bottom">${c.rank}<br>${suitGlyph[c.suit]}</div>${specialName[c.rank]?`<div class="special-tag">${specialName[c.rank]}</div>`:''}</div>`}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}

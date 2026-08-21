@@ -1,20 +1,21 @@
-# Mau-Mau V17 — Regras de cartas iguais corrigidas
+# Mau-Mau V18 — Queima Flexível
 
-## Correção central da V17
+## Correção central da V18
 
-A V17 reorganiza a lógica de reação do jogo para que **Queima**, **Ação Rápida** e **Carta Dupla** funcionem como três mecânicas diferentes, sem interferir nas demais regras já existentes.
+A V18 mantém **Queima**, **Ação Rápida** e **Carta Dupla** como mecânicas separadas, mas altera a continuação da Queima conforme a nova regra definida para o jogo.
 
-- **🔥 Queima:** ao possuir uma carta exatamente igual à recém-jogada e outra carta compatível, o jogador pode reagir, descartar a igual, assumir a jogada e obrigatoriamente baixar a segunda carta.
-- **⚡ Ação Rápida:** se não for o próximo da vez e possuir carta exatamente igual à recém-jogada, pode descartar apenas essa carta. A vez continua com o jogador que já seria o próximo.
-- **×2 Carta Dupla:** na própria vez, duas cartas idênticas normais podem ser descartadas juntas. A, 7, 8, J, Q e K continuam proibidas para Carta Dupla.
+- **🔥 Queima:** basta possuir uma carta exatamente igual à recém-jogada (mesmo valor e mesmo naipe). Depois de queimá-la, o jogador assume a jogada.
+- Se ainda possuir carta compatível (mesmo valor, mesmo naipe ou Valete), pode **jogá-la ou passar a vez**.
+- Se não possuir nenhuma carta compatível, deve **comprar 1 carta**.
+- Depois da compra, pode jogar somente a carta comprada se ela for válida ou **passar e guardá-la**, mesmo quando a carta comprada seria jogável — inclusive um Valete.
+- **⚡ Ação Rápida:** continua descartando uma única carta igual fora da vez sem tomar a jogada.
+- **×2 Carta Dupla:** continua disponível apenas na própria vez e somente para cartas normais; A, 7, 8, J, Q e K não formam Carta Dupla.
 
-O motor agora mantém uma **janela única de reação**, registrando qual carta abriu a reação, quem a jogou e quem seria o próximo jogador. A primeira reação aceita fecha essa janela. Quando o próximo jogador começa a jogar ou comprar, a oportunidade anterior também é encerrada.
+A interface informa claramente três estados após a Queima: **jogar ou passar**, **comprar 1 carta**, ou **jogar a comprada ou passar**.
 
-Na interface, o botão **🔥** indica Queima, **⚡** indica Ação Rápida e **×2** indica Carta Dupla. O botão ×2 passa a aparecer em qualquer uma das duas cópias que formam a dupla.
+## Testes da V18
 
-## Testes da V17
-
-O pacote inclui testes automatizados do motor, testes de regressão e testes de ligação entre interface/servidor. Foram executados também 500 cenários repetidos de Queima, Ação Rápida e Carta Dupla.
+O pacote mantém todos os testes anteriores e acrescenta testes específicos dos exemplos de Carla e Paulo, além de **1.000 cenários automatizados de Queima Flexível** com passe imediato, compra obrigatória quando não há continuação e conservação de carta jogável comprada.
 
 # Mau-Mau V16 — Carta Dupla sem cartas especiais
 

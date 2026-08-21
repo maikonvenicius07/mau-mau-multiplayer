@@ -20,5 +20,9 @@ assert(server.includes("socket.on('quickAction'"),'servidor precisa ouvir Ação
 assert(engine.includes('function canQuickAction'),'motor precisa detectar Ação Rápida');
 assert(engine.includes('function quickAction'),'motor precisa executar Ação Rápida');
 assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regras visuais precisam explicar Ação Rápida');
-assert(html.includes('V17'),'interface precisa identificar a versão V17');
-console.log('✓ V17 UI/servidor: ligações de botões e eventos conferidas.');
+assert(html.includes('V18'),'interface precisa identificar a versão V18');
+assert(app.includes('burnMustDraw'),'cliente precisa distinguir quando a compra é obrigatória após a queima');
+assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
+assert(engine.includes('Depois da queima você já possui carta compatível'),'motor deve bloquear compra desnecessária após a queima');
+assert(engine.includes('passou a vez após a queima'),'motor deve registrar passe após queima');
+console.log('✓ V18 UI/servidor: Queima Flexível, Ação Rápida e Carta Dupla conferidas.');

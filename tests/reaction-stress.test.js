@@ -57,4 +57,4 @@ for(let i=0;i<250;i++){
   assert.equal(r.currentPlayer,3);
 }
 
-console.log('✓ V17 stress: 500 cenários de Queima/Ação Rápida/Carta Dupla passaram.');
+console.log('✓ V18 regressão: 500 cenários de Queima/Ação Rápida/Carta Dupla passaram.');

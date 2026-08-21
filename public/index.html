@@ -45,7 +45,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V17 • QUEIMA • AÇÃO RÁPIDA • CARTA DUPLA</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V18 • QUEIMA FLEXÍVEL • AÇÃO RÁPIDA • CARTA DUPLA</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -143,7 +143,7 @@
         <h3>🤖 Jogador automático</h3>
         <p>O anfitrião pode adicionar máquinas à sala fora das rodadas. O bot joga sozinho, anuncia Mau-Mau, escolhe naipe no Valete, rebate o 7 quando possível, usa Queima, Ação Rápida e também aproveita a Carta Dupla quando disponível.</p>
         <h3>▶️ Jogada normal</h3>
-        <p>Jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> do topo. Para usar <strong>⏭️ Passar a vez</strong>, é obrigatório <strong>comprar 1 carta antes</strong>. Você pode optar por comprar mesmo tendo carta válida na mão. Depois da compra, pode jogar a carta comprada se ela for válida ou passar a vez. Ao passar, a carta comprada permanece na mão e nenhuma carta sua poderá ser jogada até a próxima vez. Não é permitido comprar uma segunda carta na mesma jogada normal. O botão não pode ser usado para fugir de uma <strong>cadeia de 7</strong> nem durante a <strong>segunda carta obrigatória de uma queima</strong>.</p>
+        <p>Jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> do topo. Na jogada normal, para usar <strong>⏭️ Passar a vez</strong>, é obrigatório <strong>comprar 1 carta antes</strong>. Você pode optar por comprar mesmo tendo carta válida na mão. Depois da compra, pode jogar a carta comprada se ela for válida ou passar a vez. Ao passar, a carta comprada permanece na mão e nenhuma carta sua poderá ser jogada até a próxima vez. Não é permitido comprar uma segunda carta na mesma jogada normal. A <strong>Queima</strong> possui uma regra própria de continuação e passe.</p>
         <h3>📣 Mau-Mau</h3>
         <p>Antes de uma jogada que deixe apenas 1 carta na mão, anuncie “Mau-Mau”. No aplicativo, o esquecimento gera +2 cartas, usando a penalidade tradicional encontrada nas regras da Copag.</p>
       </article>
@@ -157,16 +157,16 @@
           <li><b>K</b> — o jogador anterior, no sentido atual, compra 1.</li>
           <li><b>8</b> — o jogador anterior, no sentido atual, compra 2.</li>
         </ul>
-        <h3>🃏🃏 Carta Dupla — V17</h3>
+        <h3>🃏🃏 Carta Dupla — V18</h3>
         <p>Na sua própria vez, se você tiver <strong>duas cartas idênticas</strong> — mesmo valor e mesmo naipe — e essa carta puder ser jogada sobre o topo da mesa, poderá descartar as duas juntas usando o botão <strong>×2</strong>.</p>
         <p><strong>Importante:</strong> Carta Dupla só vale para cartas normais. Não pode ser utilizada com <strong>Ás (A), 7, 8, Valete (J), Dama (Q) ou Rei (K)</strong>.</p>
         <p>Se a Carta Dupla reduzir sua mão de 3 para 1 carta, anuncie <strong>Mau-Mau</strong> antes. Se forem suas duas últimas cartas, anuncie <strong>Mau-Mau batendo/queimando</strong> antes de jogar a dupla.</p>
-        <h3>🔥 Queimar — V11</h3>
+        <h3>🔥 Queimar — V18</h3>
         <p>Quando <strong>outro jogador</strong> colocar uma carta na mesa e você tiver na mão uma carta <strong>exatamente igual</strong> — mesmo valor e mesmo naipe — você pode queimá-la, mesmo que ainda não fosse a sua vez.</p>
-        <p>Ao queimar, você baixa essa carta igual e passa a controlar a jogada. Em seguida é <strong>obrigatório jogar mais uma carta</strong> que tenha o mesmo valor, o mesmo naipe ou seja um Valete. Assim, a queima retira <strong>duas cartas na mesma jogada</strong>.</p>
-        <p>A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7. Durante a segunda carta, os efeitos especiais funcionam normalmente.</p>
-        <p>Se você tiver apenas duas cartas e puder encerrar a rodada com a queima, anuncie <strong>“Mau-Mau batendo/queimando”</strong> antes de iniciar.</p>
-        <h3>⚡ Ação Rápida — V17</h3>
+        <p>Ao queimar, você baixa a carta igual e passa a controlar a jogada. A segunda carta agora é <strong>opcional</strong>: se você tiver uma carta do mesmo valor, do mesmo naipe ou um Valete, poderá jogá-la <strong>ou simplesmente passar a vez</strong>.</p>
+        <p>Se, depois da queima, você <strong>não tiver nenhuma carta compatível</strong>, deverá comprar 1 carta. Mesmo que a carta comprada possa ser jogada — por exemplo, um <strong>Valete (J)</strong> — você pode optar por guardá-la e clicar em <strong>Passar a vez</strong>.</p>
+        <p>A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7. Se você jogar uma segunda carta especial, o efeito dela funciona normalmente. Se tiver duas cartas antes da queima, anuncie <strong>Mau-Mau</strong> para ficar com uma; se pretende descartar também a última carta e encerrar, use <strong>Mau-Mau batendo/queimando</strong>.</p>
+        <h3>⚡ Ação Rápida — V18</h3>
         <p>Quando outro jogador baixar uma carta e você <strong>não for o próximo da vez</strong>, se tiver uma carta exatamente igual — mesmo valor e mesmo naipe — poderá clicar em <strong>⚡</strong> e descartá-la imediatamente antes do próximo jogador.</p>
         <p>A Ação Rápida descarta <strong>somente uma carta</strong>, não toma a vez e não altera a ordem: depois dela, continua jogando quem já seria o próximo. Se a carta for especial, o efeito especial <strong>não é executado novamente</strong> nessa intervenção. Durante uma cadeia ativa de 7, a Ação Rápida fica suspensa.</p>
         <h3>🏆 Pontuação</h3>

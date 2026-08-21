@@ -35,8 +35,8 @@ function scheduleBotTurn(room) {
   if (!room || room.status !== 'playing' || room.botTimer) return;
   if (room.players.some(p => !p.isBot && !p.connected)) return;
 
-  // V17: antes da jogada normal, uma máquina também pode reagir fora da vez.
-  // Queima tem prioridade estratégica sobre Ação Rápida porque descarta duas cartas.
+  // V18: antes da jogada normal, uma máquina também pode reagir fora da vez.
+  // Queima tem prioridade estratégica sobre Ação Rápida porque transfere o controle da jogada ao bot.
   // O atraso do timer deixa uma pequena janela para jogadores humanos reagirem primeiro.
   const burnBot = room.players.find(p => p.isBot && !p.finishedRound && Engine.canBurnMatch(room,p).length > 0);
   const quickBot = burnBot ? null : room.players.find(p => p.isBot && !p.finishedRound && Engine.canQuickAction(room,p).length > 0);

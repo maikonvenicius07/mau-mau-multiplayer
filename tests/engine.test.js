@@ -95,13 +95,16 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(E.canBurnMatch(r,b).length,0);
 }
 
-// Não pode iniciar queima sem a segunda carta compatível.
+// V18: pode iniciar a queima mesmo sem possuir previamente uma segunda carta compatível.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   openBurn(r,a,card('5','hearts','top-no-follow'));
-  b.hand=[card('5','hearts','same'),card('2','clubs','no-follow')];
-  assert.equal(E.canBurnMatch(r,b).length,0);
-  assert.throws(()=>E.burnMatch(r,b.id,'same'),/segunda carta/);
+  b.hand=[card('5','hearts','same'),card('2','clubs','no-follow'),card('3','spades','no-follow-2')];
+  assert.equal(E.canBurnMatch(r,b).length,1);
+  E.burnMatch(r,b.id,'same');
+  assert.equal(r.continuationPlayerId,b.id);
+  assert.equal(r.currentPlayer,1);
+  assert.equal(b.hand.length,2);
 }
 
 // Não pode queimar a própria carta recém-jogada.
@@ -301,13 +304,16 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,0);
 }
 
-// V13: a segunda carta da queima continua obrigatória.
+// V18: após a queima, se houver carta compatível, o jogador pode passar sem jogá-la.
 {
   const r=room2(),a=r.players[0];
   r.currentPlayer=0;r.continuationPlayerId=a.id;
-  a.hand=[card('9','hearts','v13burn')];
-  assert.throws(()=>E.passTurn(r,a.id),/continuação de uma queima/);
-  assert.equal(r.currentPlayer,0);
+  r.discard=[card('9','hearts','v18-burn-top')];
+  a.hand=[card('9','clubs','v18-burn-legal'),card('2','spades','v18-burn-other')];
+  E.passTurn(r,a.id);
+  assert.equal(r.currentPlayer,1);
+  assert.equal(r.continuationPlayerId,null);
+  assert.equal(a.hand.length,2);
 }
 
 // V14: depois de passar, o jogador não pode jogar mais nenhuma carta até a próxima vez.
@@ -567,5 +573,133 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,3);
 }
 
-console.log('✓ V17: testes de Queima, Ação Rápida e Carta Dupla passaram.');
+
+// V18 — CASO DO USUÁRIO 1:
+// Carla joga 5♥. Paulo queima 5♥, não tem continuação, compra J e decide guardar o J passando.
+{
+  const r=room2(),carla=r.players[0],paulo=r.players[1];
+  carla.name='Carla';paulo.name='Paulo';
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-c1-base')];
+  carla.hand=[card('5','hearts','v18-c1-carla'),card('3','clubs','v18-c1-c-left'),card('4','diamonds','v18-c1-c-left2')];
+  paulo.hand=[card('5','hearts','v18-c1-paulo'),card('2','clubs','v18-c1-p-left'),card('3','diamonds','v18-c1-p-left2')];
+  r.deck=[card('J','spades','v18-c1-j')];
+
+  E.playCard(r,carla.id,'v18-c1-carla');
+  assert.equal(r.currentPlayer,1);
+  assert(E.canBurnMatch(r,paulo).some(c=>c.id==='v18-c1-paulo'));
+
+  E.burnMatch(r,paulo.id,'v18-c1-paulo');
+  assert.equal(r.continuationPlayerId,paulo.id);
+  assert.equal(paulo.hand.length,2);
+  assert(paulo.hand.some(c=>c.id==='v18-c1-p-left'));
+  assert.equal(paulo.hand.filter(c=>E.legalCard(r,c,paulo)).length,0);
+
+  E.drawAction(r,paulo.id);
+  assert.equal(paulo.justDrawnCardId,'v18-c1-j');
+  assert(E.legalCard(r,paulo.hand.find(c=>c.id==='v18-c1-j'),paulo),'J comprado é jogável');
+
+  E.passTurn(r,paulo.id);
+  assert.equal(r.currentPlayer,0,'Paulo passa e a vez vai para Carla');
+  assert.equal(r.continuationPlayerId,null);
+  assert.equal(paulo.justDrawnCardId,null);
+  assert(paulo.hand.some(c=>c.id==='v18-c1-j'),'Paulo guarda o Valete na mão');
+}
+
+// V18 — CASO DO USUÁRIO 2:
+// Após queimar 5♥ sem possuir continuação, compra 5♣ e pode guardar essa carta passando.
+{
+  const r=room2(),carla=r.players[0],paulo=r.players[1];
+  carla.name='Carla';paulo.name='Paulo';
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-c2-base')];
+  carla.hand=[card('5','hearts','v18-c2-carla'),card('3','clubs','v18-c2-c-left'),card('4','diamonds','v18-c2-c-left2')];
+  paulo.hand=[card('5','hearts','v18-c2-paulo'),card('2','clubs','v18-c2-p-left'),card('3','diamonds','v18-c2-p-left2')];
+  r.deck=[card('5','clubs','v18-c2-draw')];
+
+  E.playCard(r,carla.id,'v18-c2-carla');
+  E.burnMatch(r,paulo.id,'v18-c2-paulo');
+  assert.throws(()=>E.passTurn(r,paulo.id),/Compre 1 carta/i,'sem continuação, precisa comprar antes de passar');
+
+  E.drawAction(r,paulo.id);
+  assert.equal(paulo.justDrawnCardId,'v18-c2-draw');
+  assert(E.legalCard(r,paulo.hand.find(c=>c.id==='v18-c2-draw'),paulo),'5♣ comprado é jogável');
+  E.passTurn(r,paulo.id);
+  assert.equal(r.currentPlayer,0);
+  assert(paulo.hand.some(c=>c.id==='v18-c2-draw'),'5♣ comprado permanece na mão');
+}
+
+// V18: se após queimar já houver carta compatível, pode passar sem comprar.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-pass-base')];
+  a.hand=[card('5','hearts','v18-pass-source'),card('4','clubs','v18-pass-a')];
+  b.hand=[card('5','hearts','v18-pass-burn'),card('9','hearts','v18-pass-legal'),card('2','clubs','v18-pass-other')];
+
+  E.playCard(r,a.id,'v18-pass-source');
+  E.burnMatch(r,b.id,'v18-pass-burn');
+  assert(E.legalCard(r,b.hand.find(c=>c.id==='v18-pass-legal'),b));
+  E.passTurn(r,b.id);
+  assert.equal(r.currentPlayer,0);
+  assert(b.hand.some(c=>c.id==='v18-pass-legal'));
+}
+
+// V18: se existe carta compatível após a queima, não é permitido comprar; deve jogar ou passar.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-no-draw-base')];
+  a.hand=[card('5','hearts','v18-no-draw-source'),card('4','clubs','v18-no-draw-a')];
+  b.hand=[card('5','hearts','v18-no-draw-burn'),card('9','hearts','v18-no-draw-legal'),card('2','clubs','v18-no-draw-other')];
+
+  E.playCard(r,a.id,'v18-no-draw-source');
+  E.burnMatch(r,b.id,'v18-no-draw-burn');
+  assert.throws(()=>E.drawAction(r,b.id),/já possui carta compatível/i);
+}
+
+// V18: ainda pode continuar a queima normalmente e jogar uma segunda carta.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-continue-base')];
+  a.hand=[card('5','hearts','v18-continue-source'),card('4','clubs','v18-continue-a')];
+  b.hand=[card('5','hearts','v18-continue-burn'),card('9','hearts','v18-continue-second'),card('2','clubs','v18-continue-left')];
+
+  E.playCard(r,a.id,'v18-continue-source');
+  E.burnMatch(r,b.id,'v18-continue-burn');
+  E.declare(r,b.id,'mau-mau');
+  E.playCard(r,b.id,'v18-continue-second');
+  assert.equal(r.continuationPlayerId,null);
+  assert.equal(r.currentPlayer,0);
+  assert.equal(b.hand.length,1);
+}
+
+// V18: com duas cartas, Mau-Mau comum permite queimar uma e passar com uma;
+// batendo continua reservado para quem pretende descartar as duas.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-mau-base')];
+  a.hand=[card('5','hearts','v18-mau-source'),card('4','clubs','v18-mau-a')];
+  b.hand=[card('5','hearts','v18-mau-burn'),card('9','hearts','v18-mau-last')];
+
+  E.playCard(r,a.id,'v18-mau-source');
+  assert.throws(()=>E.burnMatch(r,b.id,'v18-mau-burn'),/anuncie “Mau-Mau”/);
+  E.declare(r,b.id,'mau-mau');
+  E.burnMatch(r,b.id,'v18-mau-burn');
+  assert.equal(b.hand.length,1);
+  E.passTurn(r,b.id);
+  assert.equal(b.hand.length,1);
+}
+
+// V18: para encerrar com a segunda carta da queima, continua obrigatório anunciar batendo.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('2','hearts','v18-bat-base')];
+  a.hand=[card('5','hearts','v18-bat-source'),card('4','clubs','v18-bat-a')];
+  b.hand=[card('5','hearts','v18-bat-burn'),card('9','hearts','v18-bat-last')];
+
+  E.playCard(r,a.id,'v18-bat-source');
+  E.declare(r,b.id,'mau-mau');
+  E.burnMatch(r,b.id,'v18-bat-burn');
+  assert.throws(()=>E.playCard(r,b.id,'v18-bat-last'),/batendo\/queimando/);
+}
+
+console.log('✓ V18: queima flexível, compra e passe após a queima passaram.');
+
 

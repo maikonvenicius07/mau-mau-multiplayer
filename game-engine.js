@@ -328,7 +328,7 @@ function declare(room, playerId, type) {
     }
   }
   if (type === 'batendo') {
-    const canFinishByBurn = p.hand.length === 2 && hasBurnOpportunity;
+    const canFinishByBurn = p.hand.length === 2 && canFinishBurn(room,p).length > 0;
     const canFinishByDouble = p.hand.length === 2 && hasDoubleOpportunity;
     if (!canFinishByBurn && !canFinishByDouble) {
       throw new Error('Mau-Mau batendo exige uma jogada válida que descarte suas duas últimas cartas, por Queima ou Carta Dupla.');
@@ -362,6 +362,11 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (!card) throw new Error('Carta não encontrada.');
   if (!legalCard(room, card, player)) throw new Error('Essa carta não pode ser jogada agora.');
 
+  const wasContinuation = room.continuationPlayerId === player.id;
+  if (wasContinuation && player.hand.length === 1 && player.declaration !== 'batendo') {
+    throw new Error('Para encerrar a rodada com a segunda carta da queima, anuncie “Mau-Mau batendo/queimando” antes de iniciar a queima.');
+  }
+
   if (card.rank === 'J' && player.hand.length > 1 && !SUITS.includes(chosenSuit)) {
     throw new Error('Escolha um naipe ao jogar o Valete.');
   }
@@ -381,7 +386,6 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   }
 
   // Se a carta for usada como continuação de uma queima, esta jogada encerra o turno.
-  const wasContinuation = room.continuationPlayerId === player.id;
   if (wasContinuation) room.continuationPlayerId = null;
 
   // Efeitos especiais. O 7 tem precedência e é resolvido como cadeia.
@@ -518,7 +522,7 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   const player = room.players[idx];
 
   if (!room.rules.doubleCardEnabled) throw new Error('A regra Carta Dupla está desativada.');
-  if (room.continuationPlayerId === player.id) throw new Error('Complete primeiro a segunda carta obrigatória da queima.');
+  if (room.continuationPlayerId === player.id) throw new Error('Resolva primeiro a Queima: jogue uma carta compatível, compre quando for obrigatório ou passe a vez.');
   if (player.justDrawnCardId) throw new Error('Depois de comprar, jogue somente a carta comprada ou passe a vez.');
 
   const first = player.hand.find(c => c.id === firstCardId);
@@ -566,11 +570,26 @@ function burnFollowUpLegal(baseCard, nextCard) {
   return nextCard.rank === 'J' || nextCard.rank === baseCard.rank || nextCard.suit === baseCard.suit;
 }
 
-// V11 — QUEIMA DINÂMICA
-// Quando OUTRO jogador coloca uma carta na mesa e você possui exatamente a
-// mesma carta (mesmo valor + mesmo naipe), pode interromper a ordem normal,
-// baixar a sua carta igual e, obrigatoriamente, baixar mais UMA carta compatível.
-// A segunda carta pode ter o mesmo valor, o mesmo naipe ou ser um Valete.
+function burnFollowUps(player, baseCard) {
+  if (!player || !baseCard) return [];
+  return player.hand.filter(c => c.id !== baseCard.id && burnFollowUpLegal(baseCard, c));
+}
+
+function canFinishBurn(room, player) {
+  return canBurnMatch(room, player).filter(first =>
+    burnFollowUps(player, first).length > 0
+  );
+}
+
+// V18 — QUEIMA FLEXÍVEL
+// Quando outro jogador coloca uma carta na mesa e você possui exatamente a
+// mesma carta (mesmo valor + mesmo naipe), pode queimá-la e assumir a jogada.
+// Depois da queima, a segunda carta NÃO é mais obrigatória:
+//   • se houver carta compatível, o jogador pode jogá-la OU passar a vez;
+//   • se não houver carta compatível, deve comprar 1 carta;
+//   • após a compra, pode jogar somente a carta comprada (se válida) OU passar,
+//     mantendo-a na mão.
+// A carta que inicia a queima continua proibida para A, 7, 8, J, Q e K.
 function burnMatch(room, playerId, cardId) {
   if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
@@ -593,32 +612,45 @@ function burnMatch(room, playerId, cardId) {
   if (isSpecial(first)) throw new Error('Não é permitido queimar Ás, Dama, Valete, Rei, Oito ou Sete.');
   if (!sameCard(first, top)) throw new Error('Para queimar, sua primeira carta deve ser exatamente igual à carta da mesa: mesmo valor e mesmo naipe.');
 
-  const followUps = player.hand.filter(c => c.id !== first.id && burnFollowUpLegal(first, c));
-  if (!followUps.length) {
-    throw new Error('Para queimar, você precisa ter também uma segunda carta do mesmo valor, do mesmo naipe ou um Valete.');
-  }
-
-  if (player.hand.length === 2 && player.declaration !== 'batendo') {
-    throw new Error('Para encerrar com duas cartas na queima, anuncie “Mau-Mau batendo/queimando” antes.');
+  if (player.hand.length === 2 && !['mau-mau','batendo'].includes(player.declaration)) {
+    throw new Error('Antes de queimar e ficar com uma carta, anuncie “Mau-Mau”. Se pretende usar também a última carta e encerrar a rodada, anuncie “Mau-Mau batendo/queimando”.');
   }
 
   const interrupted = room.players[room.currentPlayer];
+  const before = player.hand.length;
   closeReaction(room);
-  removeCard(player, first.id);
-  room.discard.push(first);
+  const played = removeCard(player, first.id);
+  room.discard.push(played);
   room.requestedSuit = null;
   player.justDrawnCardId = null;
+  room.lastPlayedById = player.id;
 
-  // A queima toma a vez para quem queimou. Durante a continuação ninguém mais
-  // pode atravessar a jogada. A segunda carta é obrigatória.
+  if (player.hand.length === 0) {
+    room.winnerId = player.id;
+    room.lastWinnerCard = played;
+    player.finishedRound = true;
+    player.declaration = null;
+    finalizeRound(room);
+    return;
+  }
+
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
-  room.lastPlayedById = player.id;
 
   const interruptedText = interrupted && interrupted.id !== player.id
     ? ` e interrompeu a vez de ${interrupted.name}`
     : '';
-  log(room, `${player.name} QUEIMOU ${cardLabel(first)}${interruptedText}. Agora deve jogar mais uma carta do mesmo valor/naipe ou um Valete.`, 'burn');
+
+  const followUps = player.hand.filter(c => legalCard(room,c,player));
+  if (followUps.length) {
+    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${interruptedText}. Pode jogar mais uma carta compatível ou passar a vez.`, 'burn');
+  } else {
+    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${interruptedText}, mas não possui carta compatível. Deve comprar 1 carta e então poderá jogar a comprada, se quiser, ou passar a vez.`, 'burn');
+  }
+
+  if (before === 2 && player.hand.length === 1 && player.declaration === 'mau-mau') {
+    log(room, `${player.name} ficou com uma carta após a queima e havia anunciado Mau-Mau.`, 'mau');
+  }
 }
 
 // Mantido como alias para não quebrar clientes antigos durante a atualização.
@@ -627,10 +659,7 @@ function burnPair(room, playerId, cardId) {
 }
 
 function endBurnContinuation(room, playerId) {
-  const idx = ensureTurn(room, playerId);
-  const p = room.players[idx];
-  if (room.continuationPlayerId !== p.id) throw new Error('Você não está em uma continuação de queima.');
-  throw new Error('Nesta regra de queima, a segunda carta é obrigatória. Jogue uma carta do mesmo valor, do mesmo naipe ou um Valete.');
+  return passTurn(room, playerId);
 }
 
 function nextEligiblePenaltyTarget(room, fromIdx) {
@@ -644,8 +673,24 @@ function drawAction(room, playerId) {
   const p = room.players[idx];
   // Ao iniciar uma compra, encerra-se qualquer janela de reação da jogada anterior.
   closeReaction(room);
+
+  // V18: durante a continuação de uma queima, a compra é obrigatória somente
+  // quando não existe nenhuma carta compatível na mão. Depois de comprar uma,
+  // o jogador pode jogá-la (se for válida) ou passar a vez e guardá-la.
   if (room.continuationPlayerId === p.id) {
-    throw new Error('Após uma queima, jogue uma carta adicional ou encerre a continuação; não é permitido comprar.');
+    if (p.justDrawnCardId) {
+      throw new Error('Você já comprou uma carta após a queima. Jogue a carta comprada, se quiser e ela for válida, ou passe a vez.');
+    }
+    const legalFollowUps = p.hand.filter(c => legalCard(room,c,p));
+    if (legalFollowUps.length) {
+      throw new Error('Depois da queima você já possui carta compatível. Pode jogá-la ou passar a vez sem comprar.');
+    }
+    const drawn = drawOne(room);
+    p.hand.push(drawn);
+    p.justDrawnCardId = drawn.id;
+    if (p.declaration === 'batendo') p.declaration = null;
+    log(room, `${p.name} comprou 1 carta após a queima. Pode jogar somente essa carta se ela for válida ou passar a vez e guardá-la.`, 'draw');
+    return;
   }
 
   if (room.pendingSeven > 0) {
@@ -682,11 +727,12 @@ function drawAction(room, playerId) {
   }
 }
 
-// V13 — COMPRA OBRIGATÓRIA PARA PASSAR
-// O jogador pode optar por passar a vez, mas somente DEPOIS de comprar uma carta
-// naquela jogada normal. Isso vale inclusive quando ele já possuía carta válida.
-// Exceções: não pode usar Passar para escapar da penalidade do 7 nem durante a
-// segunda carta obrigatória de uma queima dinâmica.
+// V18 — PASSAR A VEZ
+// Regra normal: continua obrigatório comprar 1 carta antes de passar.
+// Exceção da QUEIMA: após queimar, o jogador pode passar sem jogar outra carta.
+// Se não houver nenhuma carta compatível na mão, ele precisa comprar 1 antes;
+// depois da compra, mesmo que a carta comprada seja jogável (inclusive Valete),
+// pode guardá-la e passar a vez.
 function passTurn(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
@@ -694,9 +740,44 @@ function passTurn(room, playerId) {
   if (room.pendingSeven > 0) {
     throw new Error('Não é possível passar a vez durante uma cadeia de 7. Rebate com outro 7 ou compre a penalidade.');
   }
-  if (room.continuationPlayerId === p.id) {
-    throw new Error('Não é possível passar a vez durante a continuação de uma queima. Jogue a segunda carta obrigatória.');
+
+  const inBurnContinuation = room.continuationPlayerId === p.id;
+
+  if (inBurnContinuation) {
+    const hasDrawn = !!p.justDrawnCardId;
+    const legalFollowUps = hasDrawn ? [] : p.hand.filter(c => legalCard(room,c,p));
+
+    if (!hasDrawn && legalFollowUps.length === 0) {
+      throw new Error('Após a queima, você não possui carta compatível. Compre 1 carta antes de passar a vez.');
+    }
+
+    const keptCardId = p.justDrawnCardId || null;
+    p.justDrawnCardId = null;
+    p.declaration = null;
+    room.continuationPlayerId = null;
+    closeReaction(room);
+
+    const next = nextIndex(room, idx, 1);
+    room.currentPlayer = next;
+    room.lastPass = {
+      playerId: p.id,
+      keptCardId,
+      nextPlayerId: room.players[next]?.id || null,
+      afterBurn: true,
+      at: Date.now(),
+    };
+
+    const top = topCard(room);
+    if (top && room.status === 'playing') openReaction(room, p.id, top.id);
+
+    if (keptCardId) {
+      log(room, `${p.name} passou a vez após a queima e guardou a carta comprada. Agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
+    } else {
+      log(room, `${p.name} decidiu não jogar uma segunda carta após a queima e passou a vez. Agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
+    }
+    return;
   }
+
   if (!p.justDrawnCardId) {
     throw new Error('Para passar a vez, primeiro compre 1 carta do monte.');
   }
@@ -712,6 +793,7 @@ function passTurn(room, playerId) {
     playerId: p.id,
     keptCardId,
     nextPlayerId: room.players[next]?.id || null,
+    afterBurn: false,
     at: Date.now(),
   };
 
@@ -768,10 +850,9 @@ function canBurnMatch(room, player) {
   if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || room.reactionSourcePlayerId === player.id) return [];
   if (isSpecial(top)) return [];
 
-  return player.hand.filter(first => {
-    if (isSpecial(first) || !sameCard(first, top)) return false;
-    return player.hand.some(second => second.id !== first.id && burnFollowUpLegal(first, second));
-  });
+  // V18: basta possuir a carta exatamente igual para iniciar a queima.
+  // Se não houver continuação compatível depois, compra-se 1 carta.
+  return player.hand.filter(first => !isSpecial(first) && sameCard(first, top));
 }
 
 // V17 — AÇÃO RÁPIDA
@@ -884,13 +965,20 @@ function roomPublicState(room, viewerId) {
       burnableCardIds: room.status === 'playing'
         ? canBurnMatch(room,viewer).map(c=>c.id)
         : [],
+      burnFinishableCardIds: room.status === 'playing'
+        ? canFinishBurn(room,viewer).map(c=>c.id)
+        : [],
       quickActionCardIds: room.status === 'playing'
         ? canQuickAction(room,viewer).map(c=>c.id)
         : [],
       doublePairs: room.status === 'playing'
         ? canPlayDouble(room,viewer)
         : [],
-      burnSecondRequired: room.continuationPlayerId === viewer.id,
+      burnSecondRequired: false,
+      burnContinuationActive: room.continuationPlayerId === viewer.id,
+      burnMustDraw: room.continuationPlayerId === viewer.id
+        && !viewer.justDrawnCardId
+        && viewer.hand.filter(c => legalCard(room,c,viewer)).length === 0,
     } : null,
     log: room.log.slice(-30),
   };
@@ -910,7 +998,7 @@ module.exports = {
   SUITS,RANKS,SPECIAL_RANKS,DEFAULT_RULES,
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
   createRoom,addPlayer,reconnectPlayer,startRound,
-  legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,quickAction,canQuickAction,
+  legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,canFinishBurn,quickAction,canQuickAction,
   drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,
   appendLog: log,

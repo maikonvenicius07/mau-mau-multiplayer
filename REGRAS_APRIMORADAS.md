@@ -81,30 +81,50 @@ Quando estiver com duas cartas e for fazer uma jogada que deixará apenas uma, a
 
 No aplicativo, esquecer o anúncio gera compra de 2 cartas.
 
-## 7. Queimar cartas — regra V11
+## 7. Queimar cartas — regra V18
 
-A queima passa a funcionar como uma jogada de reação. Quando **outro jogador** coloca uma carta na mesa e você possui na mão uma carta **exatamente igual** — mesmo valor e mesmo naipe — você pode queimar essa carta, inclusive fora da sua vez.
+A Queima funciona como uma jogada de reação. Quando **outro jogador** coloca uma carta na mesa e você possui na mão uma carta **exatamente igual** — mesmo valor e mesmo naipe — você pode queimá-la, inclusive fora da sua vez.
 
-Para iniciar a queima, você também precisa possuir uma segunda carta que possa ser jogada imediatamente depois da carta queimada. Essa segunda carta deve ser:
+A partir da V18, **não é obrigatório possuir uma segunda carta compatível para iniciar a Queima**. Ao baixar a carta igual, você assume a jogada e passa a ter as seguintes opções:
 
-- do mesmo valor; ou
-- do mesmo naipe; ou
-- um Valete (J).
+- se possuir uma carta do mesmo valor, do mesmo naipe ou um Valete (J), pode **jogá-la ou passar a vez**;
+- se não possuir nenhuma carta compatível, deve **comprar 1 carta**;
+- depois da compra, pode jogar somente a carta recém-comprada se ela for válida ou **passar a vez e mantê-la na mão**;
+- mesmo que a carta comprada seja jogável — inclusive um Valete (J) — o jogador não é obrigado a usá-la.
 
-A sequência é obrigatoriamente: **carta igual à mesa + segunda carta compatível**. Portanto, a queima elimina duas cartas na mesma jogada. Depois que a primeira carta da queima é baixada, não é permitido desistir nem comprar; o jogador deve completar a queima com a segunda carta.
+Exemplo:
 
-A primeira carta usada para queimar não pode ser Ás, Dama, Valete, Rei, Oito ou Sete. A segunda carta pode ser especial e, nesse caso, seu efeito é aplicado normalmente.
+```text
+Carla joga 5♥
+Paulo possui 5♥
+Paulo queima 5♥
+Paulo não possui outra carta compatível
+→ compra 1 carta
 
-Quem queima assume a jogada. Depois da segunda carta, a ordem da partida continua a partir do jogador que realizou a queima, respeitando o sentido atual e os efeitos da segunda carta.
+Se vier J♠:
+→ pode jogar J♠
+OU
+→ passar e guardar o J♠
+```
 
-### Mau-Mau na queima
+Outro exemplo:
 
-Se a queima de duas cartas fizer o jogador terminar com apenas uma carta, ele deve anunciar **“Mau-Mau”** antes de ficar com uma carta.
+```text
+Carla joga 5♥
+Paulo queima 5♥
+Paulo compra 5♣
+→ 5♣ é jogável
+→ mesmo assim Paulo pode passar
+→ 5♣ permanece na mão
+```
 
-### Mau-Mau batendo/queimando
+Se, depois da Queima, o jogador já tiver uma carta compatível, a compra não é necessária: ele pode **jogar essa carta ou passar imediatamente**.
 
-Se o jogador tiver apenas duas cartas e puder encerrar a rodada usando a queima, deve anunciar **“Mau-Mau batendo/queimando”** antes de iniciar. As duas cartas não precisam ser iguais entre si: a primeira precisa ser exatamente igual à carta da mesa e a segunda precisa ser compatível com ela.
+A primeira carta usada para Queimar não pode ser Ás, Dama, Valete, Rei, Oito ou Sete. Se o jogador optar por baixar uma segunda carta e ela for especial, seu efeito é aplicado normalmente.
 
+### Mau-Mau na Queima
+
+Se a primeira carta da Queima fizer o jogador passar de duas cartas para uma, ele deve anunciar **Mau-Mau** antes de queimar. Se pretende usar também a última carta e encerrar a rodada na mesma sequência, deve anunciar **Mau-Mau batendo/queimando**.
 
 ## 8. Ação Rápida — regra V17
 
@@ -112,13 +132,13 @@ A Ação Rápida é diferente da Queima. Depois que um jogador descarta uma cart
 
 A Ação Rápida remove **uma única carta** da mão e **não transfere a vez** para quem reagiu. Depois da intervenção, a ordem normal continua com o jogador que já seria o próximo. A primeira reação válida recebida pelo servidor fecha a janela, evitando duas reações sobre a mesma jogada.
 
-Para preservar a regra de que a ordem normal continua, uma carta especial utilizada como Ação Rápida é descartada, mas **não executa novamente seu efeito especial**. A Ação Rápida fica suspensa durante uma cadeia ativa de 7 e enquanto uma Queima estiver aguardando a segunda carta obrigatória.
+Para preservar a regra de que a ordem normal continua, uma carta especial utilizada como Ação Rápida é descartada, mas **não executa novamente seu efeito especial**. A Ação Rápida fica suspensa durante uma cadeia ativa de 7 e enquanto outro jogador estiver resolvendo uma continuação de Queima.
 
 Se a Ação Rápida reduzir a mão de duas para uma carta, o jogador deve anunciar **Mau-Mau** antes da reação; caso contrário, recebe a penalidade configurada de +2 cartas.
 
 ### Diferença entre as três mecânicas de cartas iguais
 
-- **Queima:** carta igual à mesa + segunda carta compatível; quem queima assume a jogada.
+- **Queima:** carta igual à mesa; quem queima assume a jogada e pode continuar, comprar quando necessário ou passar conforme a regra V18.
 - **Ação Rápida:** uma carta igual à mesa; quem reage não assume a vez e o próximo original continua.
 - **Carta Dupla:** na própria vez, duas cartas idênticas da mão são descartadas juntas; não vale para cartas especiais.
 

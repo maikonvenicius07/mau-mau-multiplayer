@@ -1,11 +1,11 @@
 'use strict';
 
 // Jogador automático do Mau-Mau.
-// V11: entende a QUEIMA DINÂMICA — se outro jogador baixar uma carta exatamente
-// igual a uma carta da máquina, e a máquina tiver uma segunda carta compatível,
-// ela pode interromper a ordem, queimar a carta igual e completar com mais uma.
-// V17: também entende CARTA DUPLA na própria vez, somente com cartas normais,
-// e AÇÃO RÁPIDA quando a máquina não seria a próxima da vez.
+// V18: entende a QUEIMA FLEXÍVEL — se outro jogador baixar uma carta exatamente
+// igual a uma carta da máquina, ela pode queimar mesmo sem possuir previamente
+// uma segunda carta compatível. Depois escolhe entre continuar ou passar; se não
+// houver continuação possível, compra uma carta e pode jogá-la ou guardá-la.
+// Também entende CARTA DUPLA e AÇÃO RÁPIDA.
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 
@@ -72,10 +72,15 @@ function takeBurnOpportunity(room, bot, Engine) {
   const burnable = Engine.canBurnMatch(room, bot);
   if (!burnable.length) return {action:'none'};
 
-  // Com apenas duas cartas, a queima + segunda carta encerra a mão.
-  if (bot.hand.length === 2) Engine.declare(room, bot.id, 'batendo');
-
   const first = burnable[0];
+  const finishable = Engine.canFinishBurn(room, bot).some(c => c.id === first.id);
+
+  // Com duas cartas, se houver continuação válida a máquina tenta bater.
+  // Se não houver, anuncia Mau-Mau, queima uma e depois terá de comprar.
+  if (bot.hand.length === 2) {
+    Engine.declare(room, bot.id, finishable ? 'batendo' : 'mau-mau');
+  }
+
   Engine.burnMatch(room, bot.id, first.id);
   return {action:'burn-match', card:first};
 }
@@ -97,11 +102,33 @@ function takeTurn(room, bot, Engine) {
   if (!room || !bot || room.status !== 'playing') return {action:'none'};
   if (room.players[room.currentPlayer]?.id !== bot.id) return {action:'none'};
 
-  // Segunda carta da queima dinâmica: é OBRIGATÓRIA.
+  // V18: após a queima, continuar é opcional.
   if (room.continuationPlayerId === bot.id) {
+    if (bot.justDrawnCardId) {
+      const drawn = bot.hand.find(c => c.id === bot.justDrawnCardId);
+      // Estratégia simples: preserve o Valete comprado quando houver outras cartas,
+      // demonstrando a mesma opção oferecida ao jogador humano.
+      if (drawn && Engine.legalCard(room,drawn,bot) && !(drawn.rank === 'J' && bot.hand.length > 1)) {
+        playChosen(room,bot,Engine,drawn,true);
+        return {action:'burn-play-drawn',card:drawn};
+      }
+      Engine.passTurn(room,bot.id);
+      return {action:'burn-pass-drawn',card:drawn||null};
+    }
+
     const legal = bot.hand.filter(c => Engine.legalCard(room,c,bot));
-    if (!legal.length) throw new Error('Máquina iniciou uma queima sem segunda carta compatível.');
+    if (!legal.length) {
+      Engine.drawAction(room,bot.id);
+      return {action:'burn-draw'};
+    }
+
+    // Se a melhor continuação for um Valete e a máquina ainda tiver outras cartas,
+    // ela prefere guardar o Valete e passar. Caso contrário, continua a queima.
     const card = selectLegalCard(room,bot,Engine,legal);
+    if (card?.rank === 'J' && bot.hand.length > 1) {
+      Engine.passTurn(room,bot.id);
+      return {action:'burn-pass-keep-j',card};
+    }
     playChosen(room,bot,Engine,card);
     return {action:'burn-second-card',card};
   }

@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "17.0.0",
-  "description": "Mau-Mau multiplayer V17 com Queima, Ação Rápida, Carta Dupla normal, bots, chat, sons e compra obrigatória para passar.",
+  "version": "18.0.0",
+  "description": "Mau-Mau multiplayer V18 com Queima Flexível, Ação Rápida, Carta Dupla normal, bots, chat, sons e passe após compra.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/ui-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js"
   },
   "engines": {
     "node": ">=18"
