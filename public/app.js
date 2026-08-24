@@ -274,7 +274,7 @@ async function loadRanking(){
     if(!rank.rows?.length){
       body.innerHTML='<tr><td colspan="7" class="ranking-empty">Ainda não há partidas concluídas neste ranking.</td></tr>';
     }else{
-      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos">${rankMedal(r.rank)}</td><td><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td>${r.games}</td><td><strong>${r.wins}</strong></td><td>${pct(r.wins,r.games)}</td><td>${scoreFmt(r.avgScore)}</td><td>${r.bestScore??'-'}</td></tr>`).join('');
+      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td data-label="Jogos">${r.games}</td><td data-label="Vitórias"><strong>${r.wins}</strong></td><td data-label="Aproveit.">${pct(r.wins,r.games)}</td><td data-label="Média">${scoreFmt(r.avgScore)}</td><td data-label="Melhor">${r.bestScore??'-'}</td></tr>`).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
@@ -522,9 +522,20 @@ function render(){
 }
 function renderPlayers(){
   const ring=$('#playersRing');ring.innerHTML='';const n=state.players.length;
-  const spots=n===2?[[50,12],[50,88]]:n===3?[[50,10],[18,72],[82,72]]:n===4?[[50,8],[12,50],[50,90],[88,50]]:[[50,7],[12,35],[22,84],[78,84],[88,35]];
+  const mobile=window.innerWidth<=900;
+  const desktopSpots=n===2?[[50,12],[50,88]]:n===3?[[50,10],[18,72],[82,72]]:n===4?[[50,8],[12,50],[50,90],[88,50]]:[[50,7],[12,35],[22,84],[78,84],[88,35]];
+  // No celular, a própria posição fica escondida (a mão já identifica você),
+  // e os adversários ocupam a parte superior/lateral da mesa para liberar o centro.
+  const opponents=state.players.filter(p=>p.id!==state.me.id);
+  const mobileSpots=opponents.length===1?[[50,12]]:
+    opponents.length===2?[[25,13],[75,13]]:
+    opponents.length===3?[[18,18],[50,10],[82,18]]:
+    [[17,18],[39,9],[61,9],[83,18]];
+  let oi=0;
   state.players.forEach((p,i)=>{
-    const d=document.createElement('div');d.className='player-seat';d.style.left=spots[i][0]+'%';d.style.top=spots[i][1]+'%';
+    const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
+    const spot=mobile?(p.id===state.me.id?[50,90]:mobileSpots[oi++]):desktopSpots[i];
+    d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';
     const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
     const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
@@ -731,3 +742,6 @@ function canBatendo(){
 }
 function cardHTML(c,small){const red=c.suit==='hearts'||c.suit==='diamonds';return `<div class="playing-card ${red?'red-suit':'black-suit'}"><div class="corner">${c.rank}<br>${suitGlyph[c.suit]}</div><div class="suit-big">${suitGlyph[c.suit]}</div><div class="corner bottom">${c.rank}<br>${suitGlyph[c.suit]}</div>${specialName[c.rank]?`<div class="special-tag">${specialName[c.rank]}</div>`:''}</div>`}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
+
+let mobileResizeTimer;window.addEventListener('resize',()=>{clearTimeout(mobileResizeTimer);mobileResizeTimer=setTimeout(()=>{if(state)renderPlayers()},120)});
+window.addEventListener('orientationchange',()=>setTimeout(()=>{if(state)renderPlayers()},180));

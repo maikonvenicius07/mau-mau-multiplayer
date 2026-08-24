@@ -1,3 +1,11 @@
+# MAU-MAU V26 — MOBILE
+
+A V26 mantém todas as regras, ranking PostgreSQL, avatares, bots, chat, sons e efeitos da V25, mas reorganiza a interface para jogar com conforto em celulares e tablets.
+
+Principais melhorias: cabeçalho compacto, suporte a notch/áreas seguras, botões de toque maiores, placar horizontal, adversários reposicionados, contagem de cartas preservada, mão com rolagem horizontal, botões 🔥/⚡/×2 maiores, chat em painel inferior, ranking em cartões no telefone e ajustes próprios para orientação paisagem.
+
+---
+
 ## V25 — Novo efeito falado
 
 Foi adicionado ao painel de efeitos o botão **📢 JOGA BOCA ABERTA!**. Ao ser acionado, todos os participantes com som ligado recebem um alerta forte e a voz do navegador fala **“JOGA BOCA ABERTA!”** em volume máximo permitido.
