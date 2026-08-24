@@ -129,3 +129,36 @@ button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-col
   .avatar-grid-5,.avatar-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
   .avatar-group .avatar-option img{width:min(84px,100%)}
 }
+
+
+/* V23 — quantidade de cartas muito mais visível + alerta de Mau-Mau do adversário */
+.player-card{position:relative;min-width:188px;padding-right:8px}
+.player-card .player-meta{min-width:70px}
+.player-card .player-stats{font-size:11px;color:#b8c9c0;font-weight:750}
+.card-count-badge{
+  min-width:66px;height:52px;margin-left:4px;padding:4px 8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:13px;border:2px solid #628171;
+  background:linear-gradient(180deg,#1a382b,#0d2118);
+  box-shadow:inset 0 0 0 1px #ffffff12,0 5px 13px #0005;
+  color:#fff;line-height:.92;text-align:center;
+}
+.card-count-badge strong{font-size:25px;line-height:.86;font-weight:1000;letter-spacing:-.04em}
+.card-count-badge span{margin-top:5px;font-size:8px;font-weight:950;letter-spacing:.10em;color:#cfe0d7}
+.card-count-badge.warning-count{border-color:#e9b54e;background:linear-gradient(180deg,#614617,#30230d);color:#ffe094}
+.card-count-badge.warning-count span{color:#ffe7a9}
+.player-card.mau-count{border-color:#ff737b!important;box-shadow:0 0 0 3px #ff4c5840,0 0 30px #ff253e55,0 8px 22px #0007!important}
+.card-count-badge.mau-count{
+  border-color:#ff7c83;background:linear-gradient(180deg,#a81728,#590b13);color:#fff;
+  box-shadow:inset 0 0 0 1px #ffffff25,0 0 20px #ff2e4680;
+  animation:mauCardCountPulse .7s ease-in-out infinite alternate;
+}
+.card-count-badge.mau-count strong{font-size:29px}
+.card-count-badge.mau-count span{color:#fff;font-size:9px}
+@keyframes mauCardCountPulse{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.08);filter:brightness(1.32)}}
+@media(max-width:700px){
+  .player-card{min-width:158px;gap:6px;padding:6px 7px}
+  .card-count-badge{min-width:55px;height:45px;padding:3px 6px}
+  .card-count-badge strong{font-size:21px}.card-count-badge span{font-size:7px;margin-top:4px}
+  .card-count-badge.mau-count strong{font-size:25px}
+}

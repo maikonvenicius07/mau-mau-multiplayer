@@ -19,7 +19,7 @@ for(const id of ids){
 assert(html.includes('🐾 Animais'),'grupo Animais ausente');
 assert(html.includes('🏆 Mascotes'),'grupo Mascotes ausente');
 assert(html.includes('👤 Pessoas'),'grupo Pessoas ausente');
-assert(html.includes('V22 • 10 AVATARES HD'),'identificação V22 ausente');
+assert(html.includes('10 AVATARES HD'),'identificação da galeria de 10 avatares ausente');
 assert(app.includes('function avatarHTML'),'renderização de avatar ilustrado ausente');
 assert(app.includes('function setAvatarSelection'),'seleção de avatar ausente');
 assert(css.includes('.avatar-option.selected'),'destaque do avatar selecionado ausente');
@@ -27,4 +27,4 @@ assert(css.includes('.avatar-photo'),'estilo dos avatares na mesa ausente');
 for(const botAvatar of ['preta','costela','perna','homem','mulher']){
   assert(server.includes(`'${botAvatar}'`),`bot não contempla avatar ${botAvatar}`);
 }
-console.log('✓ V22: 10 avatares HD, grupos, seletor, renderização e bots conferidos.');
+console.log('✓ galeria de 10 avatares HD, grupos, seletor, renderização e bots conferidos.');

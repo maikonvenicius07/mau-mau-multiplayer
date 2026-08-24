@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "22.0.0",
-  "description": "Mau-Mau multiplayer V22 com 10 avatares ilustrados HD (5 animais, 3 mascotes e 2 pessoas), bots com avatares, Mau-Mau falado, efeitos sonoros, Queima Flexível, Ação Rápida, Carta Dupla e chat.",
+  "version": "23.0.0",
+  "description": "Mau-Mau multiplayer V23 com contagem de cartas dos adversários em destaque e alerta sonoro/falado forte quando um adversário fica com 1 carta, mantendo 10 avatares HD, bots, Queima Flexível, Ação Rápida, Carta Dupla, chat e demais regras.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js"
   },
   "engines": {
     "node": ">=18"

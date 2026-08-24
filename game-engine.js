@@ -87,8 +87,10 @@ function activePlayers(room) {
   return room.players.filter(p => !p.finishedRound);
 }
 
-function log(room, message, kind='info') {
-  room.log.push({ id:id('log'), ts:Date.now(), message, kind });
+function log(room, message, kind='info', meta=null) {
+  const entry={ id:id('log'), ts:Date.now(), message, kind };
+  if (meta && typeof meta==='object') Object.assign(entry, meta);
+  room.log.push(entry);
   if (room.log.length > 80) room.log.splice(0, room.log.length-80);
 }
 
@@ -335,7 +337,7 @@ function declare(room, playerId, type) {
     }
   }
   p.declaration = type;
-  log(room, `${p.name} anunciou ${type === 'batendo' ? '“Mau-Mau batendo/queimando!”' : '“Mau-Mau!”'}`, 'mau');
+  log(room, `${p.name} anunciou ${type === 'batendo' ? '“Mau-Mau batendo/queimando!”' : '“Mau-Mau!”'}`, 'mau', {playerId:p.id,declaration:type});
 }
 
 function removeCard(player, cardId) {

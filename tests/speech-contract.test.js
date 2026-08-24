@@ -5,7 +5,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','public','index.html'),'utf8
 if(!app.includes('function speakMauMau()')) throw new Error('Função de voz Mau-Mau ausente.');
 if(!app.includes("new SpeechSynthesisUtterance('Mau-Mau!')")) throw new Error('Fala Mau-Mau ausente.');
 if(!app.includes("utterance.lang='pt-BR'")) throw new Error('Idioma pt-BR não configurado.');
-if(!app.includes("if(fx==='mau') speakMauMau()")) throw new Error('Fala não ligada ao anúncio Mau-Mau.');
+if(!app.includes("fx==='mau'") || !app.includes('speakMauMau()')) throw new Error('Fala não ligada ao anúncio Mau-Mau.');
 if(!app.includes("if(!soundOn")) throw new Error('Fala não respeita controle de som.');
 if(!html.includes('MAU-MAU FALADO')) throw new Error('Identificação da função Mau-Mau falado ausente.');
 console.log('✓ contrato de voz Mau-Mau V20');

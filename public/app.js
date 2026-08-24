@@ -103,6 +103,11 @@ function playGameSound(type='play'){
     seq([[180,0,.10],[135,.11,.13]],'sawtooth',.022);
   } else if(type==='mau'){
     seq([[740,0,.07],[980,.08,.07],[1240,.16,.15]],'triangle',.036);
+  } else if(type==='opponentMau'){
+    // Alerta forte e inconfundível quando um adversário realmente fica com 1 carta.
+    noiseBurst(ac,t,.18,.052); noiseBurst(ac,t+.23,.16,.048);
+    seq([[880,0,.11],[1175,.12,.13],[880,.27,.11],[1320,.40,.22]],'square',.065);
+    seq([[440,.03,.18],[587,.30,.18]],'sawtooth',.038);
   } else if(type==='round'){
     for(let i=0;i<7;i++) noiseBurst(ac,t+i*.055,.045,.014+Math.random()*.006);
     seq([[392,.05,.08],[523,.16,.08],[659,.27,.11]],'triangle',.018);
@@ -159,6 +164,39 @@ function speakMauMau(){
     if(ptBr||pt) utterance.voice=ptBr||pt;
     window.speechSynthesis.speak(utterance);
   }catch{}
+}
+function speakOpponentMauMau(name='Adversário'){
+  if(!soundOn || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined') return;
+  try{
+    window.speechSynthesis.cancel();
+    const safeName=String(name||'Adversário').slice(0,24);
+    const utterance=new SpeechSynthesisUtterance(`Atenção! ${safeName} está de Mau-Mau! Uma carta!`);
+    utterance.lang='pt-BR';
+    utterance.rate=.86;
+    utterance.pitch=.96;
+    utterance.volume=1;
+    const voices=window.speechSynthesis.getVoices?.()||[];
+    const ptBr=voices.find(v=>String(v.lang||'').toLowerCase()==='pt-br');
+    const pt=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('pt'));
+    if(ptBr||pt) utterance.voice=ptBr||pt;
+    window.speechSynthesis.speak(utterance);
+  }catch{}
+}
+function announceOpponentMauMau(player){
+  if(!player || player.id===state?.me?.id) return;
+  playGameSound('opponentMau');
+  showReaction(player.name||'Adversário','🚨','MAU-MAU! • 1 CARTA',player.avatar);
+  setTimeout(()=>speakOpponentMauMau(player.name||'Adversário'),280);
+}
+function detectOpponentMauMau(prev,next){
+  if(!prev?.players || !next?.players || next.status!=='playing') return;
+  for(const player of next.players){
+    if(player.id===next.me?.id || player.finishedRound || player.cardCount!==1) continue;
+    const before=prev.players.find(p=>p.id===player.id);
+    if(before && before.cardCount>1){
+      announceOpponentMauMau(player);
+    }
+  }
 }
 function beep(type='play'){ playGameSound(type); }
 function playSocialEffect(effect){
@@ -290,9 +328,12 @@ socket.on('state',s=>{
       const fx=soundForLog(last);
       if(fx){
         playGameSound(fx);
-        if(fx==='mau') speakMauMau();
+        // O anúncio falado simples continua para o próprio jogador. Para adversários,
+        // o alerta mais forte é disparado quando a mão realmente chega a 1 carta.
+        if(fx==='mau' && last.playerId===s.me?.id) speakMauMau();
       }
     }
+    detectOpponentMauMau(prev,s);
     const becameMyTurn=prev.currentPlayerId!==s.currentPlayerId && s.status==='playing' && !s.paused && s.currentPlayerId===s.me?.id;
     if(becameMyTurn) setTimeout(()=>playGameSound('yourTurn'),120);
   }
@@ -401,7 +442,9 @@ function renderPlayers(){
     const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
     const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
-    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
+    const countClass=p.cardCount===1?' mau-count':p.cardCount===2?' warning-count':'';
+    const countWord=p.cardCount===1?'CARTA':'CARTAS';
+    d.innerHTML=`<div class="player-card${active}${disc}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">${p.score} pts</div></div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
 }
