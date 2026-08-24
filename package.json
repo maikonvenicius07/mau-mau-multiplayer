@@ -1,17 +1,18 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "23.0.0",
-  "description": "Mau-Mau multiplayer V23 com contagem de cartas dos adversários em destaque e alerta sonoro/falado forte quando um adversário fica com 1 carta, mantendo 10 avatares HD, bots, Queima Flexível, Ação Rápida, Carta Dupla, chat e demais regras.",
+  "version": "24.0.0",
+  "description": "Mau-Mau multiplayer V24 com Ranking por Hoje/Mês/Ano/Geral, perfil persistente de jogador, rankings separados para partidas com pessoas e com máquina, mantendo as regras e recursos da V23.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "pg": "^8.13.1"
   }
 }

@@ -5,6 +5,8 @@ let passPending=false;
 let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set();
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
+const playerKeyStorage='maumauPlayerKeyV1';
+let rankingPeriod='day', rankingMode='human';
 
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
@@ -39,7 +41,15 @@ function setAvatarSelection(value='macaco'){
   });
 }
 
-function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:$('#avatarSelect').value}; }
+function permanentPlayerKey(){
+  let key=localStorage.getItem(playerKeyStorage);
+  if(!key){
+    key=(crypto.randomUUID?crypto.randomUUID():`plr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem(playerKeyStorage,key);
+  }
+  return key;
+}
+function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
 function clearSession(){localStorage.removeItem(sessionKey)}
@@ -218,6 +228,59 @@ function playSocialEffect(effect){
   }
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+
+
+const rankPeriodLabel={day:'Hoje',month:'Mês',year:'Ano',all:'Geral'};
+const rankModeLabel={human:'Pessoas',bot:'Com máquina'};
+function rankMedal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':String(rank)}
+function pct(wins,games){return games?`${((wins/games)*100).toFixed(1).replace('.',',')}%`:'0%'}
+function scoreFmt(value){return Number(value||0).toFixed(1).replace('.',',')}
+async function loadRanking(){
+  const body=$('#rankingBody'), mine=$('#rankingMine');
+  if(!body||!mine)return;
+  body.innerHTML='<tr><td colspan="7" class="ranking-empty">Carregando ranking...</td></tr>';
+  mine.innerHTML='<span class="ranking-loading">Consultando seu perfil...</span>';
+  $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]}`;
+  try{
+    const [rankRes,profileRes]=await Promise.all([
+      fetch(`/api/ranking?period=${encodeURIComponent(rankingPeriod)}&mode=${encodeURIComponent(rankingMode)}`),
+      fetch(`/api/profile?playerKey=${encodeURIComponent(permanentPlayerKey())}&period=${encodeURIComponent(rankingPeriod)}&mode=${encodeURIComponent(rankingMode)}`)
+    ]);
+    const rank=await rankRes.json(), prof=await profileRes.json();
+    if(!rank.ok) throw new Error(rank.message||'Ranking indisponível.');
+    if(!rank.rows?.length){
+      body.innerHTML='<tr><td colspan="7" class="ranking-empty">Ainda não há partidas concluídas neste ranking.</td></tr>';
+    }else{
+      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos">${rankMedal(r.rank)}</td><td><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td>${r.games}</td><td><strong>${r.wins}</strong></td><td>${pct(r.wins,r.games)}</td><td>${scoreFmt(r.avgScore)}</td><td>${r.bestScore??'-'}</td></tr>`).join('');
+    }
+    if(prof.ok&&prof.stats){
+      const r=prof.stats;
+      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU DESEMPENHO</small><strong>${esc(r.name)}</strong><span>${r.wins} vitória(s) em ${r.games} partida(s) • ${pct(r.wins,r.games)} • média ${scoreFmt(r.avgScore)} pts</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+    }else{
+      mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui resultado neste período e modalidade.</div>';
+    }
+  }catch(e){
+    body.innerHTML=`<tr><td colspan="7" class="ranking-empty">${esc(e.message||'Não foi possível carregar o ranking.')}</td></tr>`;
+    mine.innerHTML='<div class="ranking-new-player">Tente novamente em alguns instantes.</div>';
+  }
+}
+function openRanking(){
+  const dlg=$('#rankingDialog'); if(!dlg)return;
+  dlg.showModal(); loadRanking();
+}
+$$('[data-rank-period]').forEach(btn=>btn.onclick=()=>{
+  rankingPeriod=btn.dataset.rankPeriod;
+  $$('[data-rank-period]').forEach(x=>x.classList.toggle('active',x===btn));
+  loadRanking();
+});
+$$('[data-rank-mode]').forEach(btn=>btn.onclick=()=>{
+  rankingMode=btn.dataset.rankMode;
+  $$('[data-rank-mode]').forEach(x=>x.classList.toggle('active',x===btn));
+  loadRanking();
+});
+$('#rankingOpen').onclick=openRanking;
+$('#rankingOpen2').onclick=openRanking;
+$('#rankingClose').onclick=()=>$('#rankingDialog').close();
 
 $$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
 setAvatarSelection($('#avatarSelect')?.value||'macaco');

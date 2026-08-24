@@ -185,3 +185,12 @@ Se a carta comprada não puder ser jogada, a vez passa automaticamente. Durante 
 Em uma jogada normal, o jogador pode optar por **passar a vez**, mas precisa primeiro **comprar 1 carta do monte**. A compra é permitida mesmo quando já existem cartas válidas na mão. Depois de comprar, o participante pode jogar a carta recém-comprada caso ela seja válida ou clicar em **Passar a vez**, mantendo a carta na mão. Não é permitido comprar uma segunda carta na mesma jogada normal.
 
 A passagem voluntária **não pode** ser utilizada para evitar uma cadeia de 7: nessa situação, o jogador deve rebater com outro 7 ou comprar a quantidade acumulada. Também não pode ser utilizada durante a continuação de uma queima dinâmica, pois a segunda carta da queima é obrigatória.
+
+
+## Efeitos sonoros (V19)
+Os efeitos sonoros não alteram nenhuma regra. São apenas feedback da interface para jogada de carta, compra, mudança de vez, Queima, Ação Rápida, Carta Dupla, cartas especiais, Mau-Mau, penalidades, começo e fim de rodada. Cada jogador pode silenciar localmente pelo botão 🔊/🔇.
+
+
+## Ranking V24
+
+As partidas completas de 5 rodadas passam a registrar os resultados dos jogadores humanos. Há rankings de Hoje, Mês, Ano e Geral, separados entre partidas somente com pessoas e partidas que incluam máquina. O ranking usa vitórias como critério principal e menor média de pontos como primeiro desempate.

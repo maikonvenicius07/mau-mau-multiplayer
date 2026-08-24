@@ -94,13 +94,14 @@ function log(room, message, kind='info', meta=null) {
   if (room.log.length > 80) room.log.splice(0, room.log.length-80);
 }
 
-function makePlayer({socketId, token, name, avatar, isBot=false}) {
+function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}) {
   return {
     id: id('p'),
     socketId: socketId || null,
     token: token || id('t'),
     name: String(name || 'Jogador').slice(0,24),
     avatar: avatar || '🂡',
+    playerKey: isBot ? null : (String(playerKey || '').trim().slice(0,80) || null),
     hand: [],
     score: 0,
     roundScore: 0,
@@ -141,6 +142,9 @@ function createRoom(code, hostInfo) {
     roundRoles: null,
     log: [],
     createdAt: Date.now(),
+    finishedAt: null,
+    rankingRecorded: false,
+    rankingRecording: false,
   };
 }
 
@@ -839,6 +843,7 @@ function finalizeRound(room) {
   room.finishPendingSeven = false;
 
   if (room.status === 'finished') {
+    room.finishedAt = Date.now();
     const min = Math.min(...room.players.map(p => p.score));
     const winners = room.players.filter(p => p.score === min);
     log(room, `Fim das 5 rodadas. ${winners.map(p=>p.name).join(' e ')} ${winners.length>1?'empataram':'venceu'} com ${min} ponto(s).`, 'champion');

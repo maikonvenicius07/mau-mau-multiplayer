@@ -5,15 +5,46 @@ const express = require('express');
 const { Server } = require('socket.io');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
+const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode } = require('./ranking-store');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+const rankingStore = new RankingStore();
+const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size}));
+app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind}));
+
+app.get('/api/ranking', async (req,res)=>{
+  try {
+    const period=normalizePeriod(req.query.period);
+    const mode=normalizeMode(req.query.mode);
+    if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
+    const rows=await rankingStore.getLeaderboard({period,mode,limit:50});
+    res.json({ok:true,period,mode,timezone:'America/Porto_Velho',rows});
+  } catch(e) {
+    console.error('[ranking] consulta falhou:',e);
+    res.status(500).json({ok:false,message:'Não foi possível carregar o ranking agora.'});
+  }
+});
+
+app.get('/api/profile', async (req,res)=>{
+  try {
+    const playerKey=String(req.query.playerKey||'').trim().slice(0,80);
+    if(!playerKey) return res.status(400).json({ok:false,message:'Jogador não informado.'});
+    const period=normalizePeriod(req.query.period||'all');
+    const mode=normalizeMode(req.query.mode);
+    if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
+    const stats=await rankingStore.getPlayerStats({playerKey,period,mode});
+    res.json({ok:true,period,mode,stats});
+  } catch(e) {
+    console.error('[ranking] perfil falhou:',e);
+    res.status(500).json({ok:false,message:'Não foi possível carregar o perfil agora.'});
+  }
+});
 
 function roomCode() {
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -24,7 +55,22 @@ function roomCode() {
   return code;
 }
 
+function maybeRecordFinished(room) {
+  if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
+  const record=buildMatchRecord(room);
+  if (!record.results.length) { room.rankingRecorded=true; return; }
+  room.rankingRecording=true;
+  rankingReady.then(ready=>{ if(!ready) throw new Error('Armazenamento do ranking indisponível.'); return rankingStore.recordMatch(record); }).then(inserted=>{
+    room.rankingRecorded=true;
+    if(inserted) Engine.appendLog(room, `🏆 Resultado registrado no ranking ${record.mode==='human'?'contra pessoas':'com máquina'}.`, 'system');
+  }).catch(e=>{
+    console.error('[ranking] gravação falhou:',e);
+    room.rankingRecording=false;
+  });
+}
+
 function emitRoom(room) {
+  maybeRecordFinished(room);
   for (const p of room.players) {
     if (p.socketId) io.to(p.socketId).emit('state', Engine.roomPublicState(room,p.id));
   }
@@ -184,6 +230,7 @@ io.on('connection', socket => {
         token:payload?.token,
         name:payload?.name,
         avatar:payload?.avatar,
+        playerKey:payload?.playerKey,
       });
       rooms.set(code,room);
       ensureSocial(room);
@@ -211,7 +258,7 @@ io.on('connection', socket => {
         }
         p = Engine.reconnectPlayer(room,payload.token,socket.id);
       }
-      if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name, avatar:payload?.avatar});
+      if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name, avatar:payload?.avatar, playerKey:payload?.playerKey});
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
       socket.emit('joined',{code,playerId:p.id,token:p.token});

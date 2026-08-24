@@ -1,6 +1,6 @@
-# MAU-MAU V23 — CONTAGEM VISÍVEL + ALERTA DE MAU-MAU
+# MAU-MAU V24 — CONTAGEM VISÍVEL + ALERTA DE MAU-MAU
 
-A V23 mantém as regras e funções da V22 e melhora a leitura da mesa: a quantidade de cartas de cada jogador aparece em um contador grande; com 2 cartas o contador ganha destaque amarelo e, com 1 carta, fica vermelho e pulsante.
+A V24 mantém as regras e funções da V22 e melhora a leitura da mesa: a quantidade de cartas de cada jogador aparece em um contador grande; com 2 cartas o contador ganha destaque amarelo e, com 1 carta, fica vermelho e pulsante.
 
 Quando um adversário passa de 2 ou mais cartas para exatamente 1 carta durante a rodada, todos os demais jogadores com som ligado recebem um alerta forte e uma voz em português: “Atenção! NOME está de Mau-Mau! Uma carta!”. O alerta ocorre somente na transição real para uma carta, evitando repetição a cada atualização da mesa.
 
@@ -234,3 +234,18 @@ O botão 🔊/🔇 silencia ou ativa todos os sons no aparelho do jogador e a pr
 
 ## V21 — Avatares HD
 A tela inicial ganhou cinco avatares ilustrados em alta qualidade: Macaco, Boi, Jacaré, Veado e Cachorro. Os arquivos ficam em `public/assets/avatars/` e são exibidos na mesa, placar, chat e perfil do jogador.
+
+## V24 — Ranking e Estatísticas
+
+A V24 adiciona ranking por **Hoje, Mês, Ano e Geral**, com duas modalidades separadas: **Pessoas** (somente partidas sem bot) e **Com máquina** (partidas que possuem pelo menos um bot). O critério é: mais vitórias, depois menor média de pontos, menor total de pontos e maior número de partidas.
+
+Cada navegador recebe um `playerKey` permanente salvo no `localStorage`. Assim, o jogador pode trocar nome e avatar sem perder seu histórico naquele dispositivo.
+
+### Persistência
+
+- Se `DATABASE_URL` estiver configurada, o jogo usa **PostgreSQL** e cria automaticamente as tabelas `mm_players`, `mm_matches` e `mm_match_results`. Esta é a opção indicada para produção no Render.
+- Sem `DATABASE_URL`, o jogo usa `data/ranking.json` como fallback local. Isso é ótimo para testes, mas em hospedagens com filesystem efêmero o histórico pode ser perdido após reinicializações/deploys.
+
+### No Render
+
+Crie/conecte um PostgreSQL ao serviço e disponibilize a variável de ambiente `DATABASE_URL`. Depois faça novo deploy. Não é necessário criar as tabelas manualmente.

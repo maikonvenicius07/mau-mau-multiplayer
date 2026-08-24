@@ -162,3 +162,23 @@ button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-col
   .card-count-badge strong{font-size:21px}.card-count-badge span{font-size:7px;margin-top:4px}
   .card-count-badge.mau-count strong{font-size:25px}
 }
+
+
+/* V24 — Ranking diário, mensal, anual e geral */
+.landing-links{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.ranking-link-btn{border:1px solid #ddb650;background:linear-gradient(180deg,#6f531c,#3e2d0e);color:#ffe49a;font-weight:900;border-radius:999px;padding:9px 16px;cursor:pointer}
+.ranking-link-btn:hover{filter:brightness(1.12)}
+.ranking-modal{width:min(920px,94vw);max-width:920px;background:#0b1b14;color:#eef8f2;border:1px solid #4e755f;border-radius:22px;padding:24px;box-shadow:0 24px 80px #000a}
+.ranking-modal::backdrop{background:#020a0790;backdrop-filter:blur(5px)}
+.ranking-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-right:40px}
+.ranking-head h2{font-size:30px;margin:2px 0 3px}.ranking-head p{margin:0;color:#a9beb2;font-size:13px}
+.ranking-scope{padding:9px 13px;border-radius:999px;border:1px solid #b58a38;background:#3c2c0d;color:#ffe09a;font-weight:900;white-space:nowrap}
+.ranking-filters{display:flex;justify-content:space-between;gap:12px;margin:20px 0;flex-wrap:wrap}
+.rank-filter-group{display:flex;gap:6px;padding:5px;background:#08130e;border:1px solid #294a39;border-radius:13px}
+.rank-filter-group button{border:0;border-radius:9px;background:transparent;color:#abc1b5;padding:8px 13px;font-weight:850;cursor:pointer}
+.rank-filter-group button.active{background:#dca83e;color:#1f1707;box-shadow:0 4px 12px #0005}
+.ranking-mine{min-height:74px;display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:14px;border:1px solid #416d56;border-radius:16px;background:linear-gradient(90deg,#102b20,#0c2119)}
+.ranking-mine .mine-avatar{flex:0 0 auto}.ranking-mine>div:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}.ranking-mine small{font-size:9px;color:#e2bd64;font-weight:950;letter-spacing:.10em}.ranking-mine strong{font-size:17px}.ranking-mine span{color:#b7cbbf;font-size:12px}.mine-rank{margin-left:auto;text-align:center;font-size:25px;font-weight:1000;color:#ffe099}.mine-rank small{display:block;font-size:8px;color:#a9beb2}.ranking-new-player,.ranking-loading{color:#b9c9c0;font-size:13px}
+.ranking-table-wrap{overflow:auto;border:1px solid #294a39;border-radius:15px;background:#07120d;max-height:min(52vh,520px)}
+.ranking-table{width:100%;border-collapse:collapse;min-width:690px}.ranking-table th{position:sticky;top:0;background:#10271c;color:#d9b75f;text-transform:uppercase;font-size:9px;letter-spacing:.09em;text-align:center;padding:11px 9px;border-bottom:1px solid #315541}.ranking-table th:nth-child(2){text-align:left}.ranking-table td{padding:10px 9px;border-bottom:1px solid #183326;text-align:center;font-size:12px}.ranking-table tr:last-child td{border-bottom:0}.ranking-table td:nth-child(2){text-align:left}.ranking-table tbody tr:hover{background:#10271c}.ranking-table .ranking-me-row{background:#28421e!important;box-shadow:inset 3px 0 #e3b64b}.rank-pos{font-size:18px!important;font-weight:1000;color:#ffe099}.rank-player{display:flex;align-items:center;gap:9px;font-weight:900}.ranking-empty{text-align:center!important;color:#9fb5a8;padding:26px!important}.ranking-note{margin-top:10px;color:#809b8b;font-size:10px;text-align:center}
+@media(max-width:650px){.ranking-modal{padding:18px 12px}.ranking-head{display:block;padding-right:28px}.ranking-scope{display:inline-block;margin-top:10px}.ranking-filters{display:block}.rank-filter-group{margin-bottom:8px;overflow:auto}.rank-filter-group button{white-space:nowrap;flex:1}.ranking-mine{padding:9px}.ranking-mine span{font-size:10px}.mine-rank{font-size:20px}}
