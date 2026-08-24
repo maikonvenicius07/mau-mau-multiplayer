@@ -1,0 +1,13 @@
+MAU-MAU V25 — EFEITO FALADO "JOGA BOCA ABERTA!"
+
+NOVO:
+- Botão 📢 JOGA BOCA ABERTA! no painel de efeitos sociais.
+- O efeito é enviado para todos os jogadores da sala.
+- Toca uma chamada forte e, em seguida, a voz do navegador fala:
+  "JOGA BOCA ABERTA!"
+- Volume da voz configurado no máximo permitido pela Web Speech API.
+- Respeita o botão 🔊 / 🔇 de cada jogador.
+- Mantém todas as regras, ranking PostgreSQL, avatares, chat e sons da V24.
+
+OBSERVAÇÃO:
+O volume final também depende do volume físico/configuração de áudio de cada aparelho.

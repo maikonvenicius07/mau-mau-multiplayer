@@ -1,6 +1,10 @@
-# MAU-MAU V24 — CONTAGEM VISÍVEL + ALERTA DE MAU-MAU
+## V25 — Novo efeito falado
 
-A V24 mantém as regras e funções da V22 e melhora a leitura da mesa: a quantidade de cartas de cada jogador aparece em um contador grande; com 2 cartas o contador ganha destaque amarelo e, com 1 carta, fica vermelho e pulsante.
+Foi adicionado ao painel de efeitos o botão **📢 JOGA BOCA ABERTA!**. Ao ser acionado, todos os participantes com som ligado recebem um alerta forte e a voz do navegador fala **“JOGA BOCA ABERTA!”** em volume máximo permitido.
+
+# MAU-MAU V25 — CONTAGEM VISÍVEL + ALERTA DE MAU-MAU
+
+A V25 mantém as regras e funções da V22 e melhora a leitura da mesa: a quantidade de cartas de cada jogador aparece em um contador grande; com 2 cartas o contador ganha destaque amarelo e, com 1 carta, fica vermelho e pulsante.
 
 Quando um adversário passa de 2 ou mais cartas para exatamente 1 carta durante a rodada, todos os demais jogadores com som ligado recebem um alerta forte e uma voz em português: “Atenção! NOME está de Mau-Mau! Uma carta!”. O alerta ocorre somente na transição real para uma carta, evitando repetição a cada atualização da mesa.
 
@@ -235,9 +239,9 @@ O botão 🔊/🔇 silencia ou ativa todos os sons no aparelho do jogador e a pr
 ## V21 — Avatares HD
 A tela inicial ganhou cinco avatares ilustrados em alta qualidade: Macaco, Boi, Jacaré, Veado e Cachorro. Os arquivos ficam em `public/assets/avatars/` e são exibidos na mesa, placar, chat e perfil do jogador.
 
-## V24 — Ranking e Estatísticas
+## V25 — Ranking e Estatísticas
 
-A V24 adiciona ranking por **Hoje, Mês, Ano e Geral**, com duas modalidades separadas: **Pessoas** (somente partidas sem bot) e **Com máquina** (partidas que possuem pelo menos um bot). O critério é: mais vitórias, depois menor média de pontos, menor total de pontos e maior número de partidas.
+A V25 adiciona ranking por **Hoje, Mês, Ano e Geral**, com duas modalidades separadas: **Pessoas** (somente partidas sem bot) e **Com máquina** (partidas que possuem pelo menos um bot). O critério é: mais vitórias, depois menor média de pontos, menor total de pontos e maior número de partidas.
 
 Cada navegador recebe um `playerKey` permanente salvo no `localStorage`. Assim, o jogador pode trocar nome e avatar sem perder seu histórico naquele dispositivo.
 

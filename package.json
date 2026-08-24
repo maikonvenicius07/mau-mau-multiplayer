@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "24.0.0",
-  "description": "Mau-Mau multiplayer V24 com Ranking por Hoje/Mês/Ano/Geral, perfil persistente de jogador, rankings separados para partidas com pessoas e com máquina, mantendo as regras e recursos da V23.",
+  "version": "25.0.0",
+  "description": "Mau-Mau multiplayer V25 com efeito social falado 'JOGA BOCA ABERTA!' em volume máximo do navegador, mantendo ranking PostgreSQL e todos os recursos da V24.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js"
   },
   "engines": {
     "node": ">=18"

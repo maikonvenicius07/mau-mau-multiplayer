@@ -205,7 +205,7 @@ function withRoom(socket, fn) {
 }
 
 
-const SOCIAL_EFFECTS = new Set(['applause','laugh','horn','drum','victory','wow']);
+const SOCIAL_EFFECTS = new Set(['applause','laugh','horn','drum','victory','wow','jogaBoca']);
 function ensureSocial(room) {
   if (!Array.isArray(room.chat)) room.chat = [];
 }

@@ -11,7 +11,7 @@ let rankingPeriod='day', rankingMode='human';
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
 const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +1','8':'ANTERIOR +2'};
-const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'}};
+const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'},jogaBoca:{emoji:'📢',label:'JOGA BOCA ABERTA!'}};
 
 const avatarCatalog={
   macaco:{label:'Macaco',src:'assets/avatars/macaco.webp',grupo:'Animais'},
@@ -192,6 +192,24 @@ function speakOpponentMauMau(name='Adversário'){
     window.speechSynthesis.speak(utterance);
   }catch{}
 }
+function speakJogaBocaAberta(){
+  if(!soundOn || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined') return;
+  try{
+    window.speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance('JOGA BOCA ABERTA!');
+    utterance.lang='pt-BR';
+    // Volume máximo permitido pelo navegador. Ritmo mais lento e voz firme
+    // deixam a frase mais destacada nos celulares e computadores.
+    utterance.rate=.78;
+    utterance.pitch=1.02;
+    utterance.volume=1;
+    const voices=window.speechSynthesis.getVoices?.()||[];
+    const ptBr=voices.find(v=>String(v.lang||'').toLowerCase()==='pt-br');
+    const pt=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('pt'));
+    if(ptBr||pt) utterance.voice=ptBr||pt;
+    window.speechSynthesis.speak(utterance);
+  }catch{}
+}
 function announceOpponentMauMau(player){
   if(!player || player.id===state?.me?.id) return;
   playGameSound('opponentMau');
@@ -225,6 +243,11 @@ function playSocialEffect(effect){
     [523,659,784,1046].forEach((f,i)=>tone(ac,f,t+i*.13,i===3?.34:.16,'triangle',.035));
   } else if(effect==='wow'){
     [280,360,470,620].forEach((f,i)=>tone(ac,f,t+i*.07,.12,'sine',.026));
+  } else if(effect==='jogaBoca'){
+    // Chamada forte antes da fala para o efeito se destacar na mesa.
+    noiseBurst(ac,t,.20,.075);
+    [330,440,660,880].forEach((f,i)=>tone(ac,f,t+i*.07,.15,'sawtooth',.060));
+    setTimeout(()=>speakJogaBocaAberta(),180);
   }
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
