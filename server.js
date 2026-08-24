@@ -98,7 +98,7 @@ function ensureHost(room) {
 
 function nextBotInfo(room) {
   const bots = room.players.filter(p => p.isBot);
-  const avatars = ['🤖','🦾','🧠','🎩'];
+  const avatars = ['preta','costela','perna','homem','mulher'];
   const n = bots.length + 1;
   return {
     socketId: null,

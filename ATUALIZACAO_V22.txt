@@ -1,0 +1,18 @@
+MAU-MAU V22 — AVATARES EXPANDIDOS
+
+Novidades:
+- 10 avatares ilustrados em alta definição.
+- Animais: Macaco, Boi, Jacaré, Veado e Cachorro.
+- Mascotes: Tela Preta, Costela e Perna.
+- Pessoas: Homem e Mulher.
+- Tela de seleção reorganizada em três grupos.
+- Avatares aparecem na mesa, placar, chat e reações.
+- Jogadores automáticos passam a usar os novos mascotes/pessoas em vez de emojis.
+- Mantidas todas as regras e funções da V21.
+
+Arquivos novos:
+public/assets/avatars/preta.webp
+public/assets/avatars/costela.webp
+public/assets/avatars/perna.webp
+public/assets/avatars/homem.webp
+public/assets/avatars/mulher.webp

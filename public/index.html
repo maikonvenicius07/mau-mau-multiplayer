@@ -29,22 +29,52 @@
         <div class="avatar-field">
           <div class="avatar-field-title">Escolha seu avatar</div>
           <input id="avatarSelect" type="hidden" value="macaco" />
-          <div id="avatarPicker" class="avatar-picker" role="radiogroup" aria-label="Escolha seu avatar">
-            <button type="button" class="avatar-option selected" data-avatar="macaco" role="radio" aria-checked="true" title="Macaco">
-              <img src="assets/avatars/macaco.webp" alt="Macaco" /><span>Macaco</span>
-            </button>
-            <button type="button" class="avatar-option" data-avatar="boi" role="radio" aria-checked="false" title="Boi">
-              <img src="assets/avatars/boi.webp" alt="Boi" /><span>Boi</span>
-            </button>
-            <button type="button" class="avatar-option" data-avatar="jacare" role="radio" aria-checked="false" title="Jacaré">
-              <img src="assets/avatars/jacare.webp" alt="Jacaré" /><span>Jacaré</span>
-            </button>
-            <button type="button" class="avatar-option" data-avatar="veado" role="radio" aria-checked="false" title="Veado">
-              <img src="assets/avatars/veado.webp" alt="Veado" /><span>Veado</span>
-            </button>
-            <button type="button" class="avatar-option" data-avatar="cachorro" role="radio" aria-checked="false" title="Cachorro">
-              <img src="assets/avatars/cachorro.webp" alt="Cachorro" /><span>Cachorro</span>
-            </button>
+          <div id="avatarPicker" class="avatar-picker avatar-categories" role="radiogroup" aria-label="Escolha seu avatar">
+            <section class="avatar-group animals">
+              <div class="avatar-group-title">🐾 Animais</div>
+              <div class="avatar-group-grid avatar-grid-5">
+                <button type="button" class="avatar-option selected" data-avatar="macaco" role="radio" aria-checked="true" title="Macaco">
+                  <img src="assets/avatars/macaco.webp" alt="Macaco" /><span>Macaco</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="boi" role="radio" aria-checked="false" title="Boi">
+                  <img src="assets/avatars/boi.webp" alt="Boi" /><span>Boi</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="jacare" role="radio" aria-checked="false" title="Jacaré">
+                  <img src="assets/avatars/jacare.webp" alt="Jacaré" /><span>Jacaré</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="veado" role="radio" aria-checked="false" title="Veado">
+                  <img src="assets/avatars/veado.webp" alt="Veado" /><span>Veado</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="cachorro" role="radio" aria-checked="false" title="Cachorro">
+                  <img src="assets/avatars/cachorro.webp" alt="Cachorro" /><span>Cachorro</span>
+                </button>
+              </div>
+            </section>
+            <section class="avatar-group mascots">
+              <div class="avatar-group-title">🏆 Mascotes</div>
+              <div class="avatar-group-grid avatar-grid-3">
+                <button type="button" class="avatar-option" data-avatar="preta" role="radio" aria-checked="false" title="Tela Preta">
+                  <img src="assets/avatars/preta.webp" alt="Tela Preta" /><span>Tela Preta</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="costela" role="radio" aria-checked="false" title="Costela">
+                  <img src="assets/avatars/costela.webp" alt="Costela" /><span>Costela</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="perna" role="radio" aria-checked="false" title="Perna">
+                  <img src="assets/avatars/perna.webp" alt="Perna" /><span>Perna</span>
+                </button>
+              </div>
+            </section>
+            <section class="avatar-group people">
+              <div class="avatar-group-title">👤 Pessoas</div>
+              <div class="avatar-group-grid avatar-grid-2">
+                <button type="button" class="avatar-option" data-avatar="homem" role="radio" aria-checked="false" title="Homem">
+                  <img src="assets/avatars/homem.webp" alt="Homem" /><span>Homem</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="mulher" role="radio" aria-checked="false" title="Mulher">
+                  <img src="assets/avatars/mulher.webp" alt="Mulher" /><span>Mulher</span>
+                </button>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -61,7 +91,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V21 • AVATARES HD • MAU-MAU FALADO</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V22 • 10 AVATARES HD • MAU-MAU FALADO</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>

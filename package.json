@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "21.0.0",
-  "description": "Mau-Mau multiplayer V21 com avatares ilustrados HD (macaco, boi, jacaré, veado e cachorro), Mau-Mau falado, efeitos sonoros, Queima Flexível, Ação Rápida, Carta Dupla, bots e chat.",
+  "version": "22.0.0",
+  "description": "Mau-Mau multiplayer V22 com 10 avatares ilustrados HD (5 animais, 3 mascotes e 2 pessoas), bots com avatares, Mau-Mau falado, efeitos sonoros, Queima Flexível, Ação Rápida, Carta Dupla e chat.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

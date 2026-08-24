@@ -87,3 +87,45 @@ button.bot-primary{background:linear-gradient(135deg,#275d48,#3f8b6a);border-col
 .reaction-pop .avatar-photo{margin-left:-2px}
 @media(max-width:700px){.avatar-picker{grid-template-columns:repeat(3,1fr)}.avatar-option img{width:min(92px,100%)}.hero-card .avatar-option{padding:7px 5px}}
 @media(max-width:420px){.avatar-picker{grid-template-columns:repeat(2,1fr)}.avatar-option img{width:86px}}
+
+
+/* V22 — galeria ampliada: Animais, Mascotes e Pessoas */
+.avatar-picker.avatar-categories{
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(0,2fr);
+  gap:12px;
+}
+.avatar-group{
+  min-width:0;
+  padding:10px;
+  border:1px solid #294c3c;
+  border-radius:16px;
+  background:linear-gradient(160deg,#10251caa,#091711b8);
+}
+.avatar-group.animals{grid-column:1/-1}
+.avatar-group-title{
+  margin:0 0 8px 2px;
+  color:#f0c96f;
+  font-size:10px;
+  line-height:1;
+  font-weight:950;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.avatar-group-grid{display:grid;gap:8px}
+.avatar-grid-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.avatar-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.avatar-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.avatar-group .avatar-option img{width:min(96px,100%)}
+.avatar-group .avatar-option span{white-space:nowrap}
+@media(max-width:700px){
+  .avatar-picker.avatar-categories{grid-template-columns:1fr}
+  .avatar-group.animals{grid-column:auto}
+  .avatar-grid-5{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .avatar-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .avatar-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:420px){
+  .avatar-grid-5,.avatar-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .avatar-group .avatar-option img{width:min(84px,100%)}
+}

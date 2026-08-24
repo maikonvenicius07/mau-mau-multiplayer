@@ -12,11 +12,16 @@ const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +
 const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'}};
 
 const avatarCatalog={
-  macaco:{label:'Macaco',src:'assets/avatars/macaco.webp'},
-  boi:{label:'Boi',src:'assets/avatars/boi.webp'},
-  jacare:{label:'Jacaré',src:'assets/avatars/jacare.webp'},
-  veado:{label:'Veado',src:'assets/avatars/veado.webp'},
-  cachorro:{label:'Cachorro',src:'assets/avatars/cachorro.webp'},
+  macaco:{label:'Macaco',src:'assets/avatars/macaco.webp',grupo:'Animais'},
+  boi:{label:'Boi',src:'assets/avatars/boi.webp',grupo:'Animais'},
+  jacare:{label:'Jacaré',src:'assets/avatars/jacare.webp',grupo:'Animais'},
+  veado:{label:'Veado',src:'assets/avatars/veado.webp',grupo:'Animais'},
+  cachorro:{label:'Cachorro',src:'assets/avatars/cachorro.webp',grupo:'Animais'},
+  preta:{label:'Tela Preta',src:'assets/avatars/preta.webp',grupo:'Mascotes'},
+  costela:{label:'Costela',src:'assets/avatars/costela.webp',grupo:'Mascotes'},
+  perna:{label:'Perna',src:'assets/avatars/perna.webp',grupo:'Mascotes'},
+  homem:{label:'Homem',src:'assets/avatars/homem.webp',grupo:'Pessoas'},
+  mulher:{label:'Mulher',src:'assets/avatars/mulher.webp',grupo:'Pessoas'},
 };
 function avatarInfo(value){return avatarCatalog[value]||null}
 function avatarHTML(value,size='md'){
@@ -562,7 +567,7 @@ function renderControls(){
     box.appendChild(info);
     if(state.status==='between-rounds'&&state.round<3){const s=document.createElement('div');s.className='wait';s.textContent='Novos jogadores ainda podem entrar antes do início da próxima rodada.';box.appendChild(s)}
   } else if(state.status==='lobby') {
-    const hostName=host?`${host.avatar} ${esc(host.name)}`:'outro jogador';
+    const hostName=host?`${avatarHTML(host.avatar,'xs')} ${esc(host.name)}`:'outro jogador';
     box.innerHTML=`<div class="wait">Aguardando o anfitrião ★ ${hostName} iniciar a partida.<br><small>O jogador marcado com ★ controla o início da rodada.</small></div>`;
   }
 }
