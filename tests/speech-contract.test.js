@@ -7,5 +7,5 @@ if(!app.includes("new SpeechSynthesisUtterance('Mau-Mau!')")) throw new Error('F
 if(!app.includes("utterance.lang='pt-BR'")) throw new Error('Idioma pt-BR não configurado.');
 if(!app.includes("if(fx==='mau') speakMauMau()")) throw new Error('Fala não ligada ao anúncio Mau-Mau.');
 if(!app.includes("if(!soundOn")) throw new Error('Fala não respeita controle de som.');
-if(!html.includes('V20 • MAU-MAU FALADO')) throw new Error('Identificação V20 ausente.');
+if(!html.includes('MAU-MAU FALADO')) throw new Error('Identificação da função Mau-Mau falado ausente.');
 console.log('✓ contrato de voz Mau-Mau V20');

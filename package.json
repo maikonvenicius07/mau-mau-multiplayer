@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "20.0.0",
-  "description": "Mau-Mau multiplayer V20 com voz falada ao anunciar Mau-Mau, efeitos sonoros automáticos, Queima Flexível, Ação Rápida, Carta Dupla, bots e chat.",
+  "version": "21.0.0",
+  "description": "Mau-Mau multiplayer V21 com avatares ilustrados HD (macaco, boi, jacaré, veado e cachorro), Mau-Mau falado, efeitos sonoros, Queima Flexível, Ação Rápida, Carta Dupla, bots e chat.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js"
   },
   "engines": {
     "node": ">=18"

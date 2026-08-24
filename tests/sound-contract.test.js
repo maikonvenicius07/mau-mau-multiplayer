@@ -8,5 +8,5 @@ for(const x of required){
 }
 if(!app.includes("localStorage.setItem('maumauSound'")) throw new Error('Preferência de som não persistida.');
 if(!app.includes("document.addEventListener('pointerdown'")) throw new Error('AudioContext não é desbloqueado por gesto.');
-if(!html.includes('V20 • MAU-MAU FALADO')) throw new Error('Identificação V20 ausente.');
+if(!html.includes('EFEITOS SONOROS') && !html.includes('MAU-MAU FALADO')) throw new Error('Identificação dos efeitos sonoros ausente.');
 console.log('✓ contrato de efeitos sonoros V20');

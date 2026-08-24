@@ -11,6 +11,29 @@ const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
 const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +1','8':'ANTERIOR +2'};
 const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'}};
 
+const avatarCatalog={
+  macaco:{label:'Macaco',src:'assets/avatars/macaco.webp'},
+  boi:{label:'Boi',src:'assets/avatars/boi.webp'},
+  jacare:{label:'Jacaré',src:'assets/avatars/jacare.webp'},
+  veado:{label:'Veado',src:'assets/avatars/veado.webp'},
+  cachorro:{label:'Cachorro',src:'assets/avatars/cachorro.webp'},
+};
+function avatarInfo(value){return avatarCatalog[value]||null}
+function avatarHTML(value,size='md'){
+  const info=avatarInfo(value);
+  if(info) return `<img class="avatar-photo avatar-${size}" src="${info.src}" alt="${info.label}" title="${info.label}" />`;
+  return `<span class="avatar-emoji avatar-${size}">${esc(value||'🂡')}</span>`;
+}
+function setAvatarSelection(value='macaco'){
+  const chosen=avatarCatalog[value]?value:'macaco';
+  const input=$('#avatarSelect');if(input)input.value=chosen;
+  $$('.avatar-option').forEach(btn=>{
+    const active=btn.dataset.avatar===chosen;
+    btn.classList.toggle('selected',active);
+    btn.setAttribute('aria-checked',active?'true':'false');
+  });
+}
+
 function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:$('#avatarSelect').value}; }
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
@@ -153,6 +176,9 @@ function playSocialEffect(effect){
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
+$$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
+setAvatarSelection($('#avatarSelect')?.value||'macaco');
+
 $('#createBtn').onclick=()=>{
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
@@ -277,7 +303,7 @@ socket.on('chatMessage',message=>{
 });
 socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
-  playSocialEffect(event.effect);showReaction(`${event.avatar||'🙂'} ${event.name||'Jogador'}`,fx.emoji,fx.label);
+  playSocialEffect(event.effect);showReaction(event.name||'Jogador',fx.emoji,fx.label,event.avatar);
 });
 socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
@@ -300,7 +326,7 @@ socket.on('connect',()=>{
     return;
   }
   if(sess?.code&&sess?.token){
-    $('#nameInput').value=sess.name||'Jogador';$('#avatarSelect').value=sess.avatar||'🧑';
+    $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
     socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
   } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
@@ -342,14 +368,14 @@ function renderChat(){
   box.innerHTML=chatMessages.map(m=>{
     const mine=m.playerId===state?.me?.id;
     const time=new Date(m.at||Date.now()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-    return `<div class="chat-message ${mine?'mine':''}"><div class="chat-meta">${esc(m.avatar||'🙂')} ${esc(m.name||'Jogador')} <span>${time}</span></div><div class="chat-bubble">${esc(m.text)}</div></div>`;
+    return `<div class="chat-message ${mine?'mine':''}"><div class="chat-meta">${avatarHTML(m.avatar,'xs')} <b>${esc(m.name||'Jogador')}</b> <span>${time}</span></div><div class="chat-bubble">${esc(m.text)}</div></div>`;
   }).join('');
   box.scrollTop=box.scrollHeight;
 }
-function showReaction(name,emoji,label){
+function showReaction(name,emoji,label,avatar=null){
   const layer=$('#reactionLayer');if(!layer)return;
   const el=document.createElement('div');el.className='reaction-pop';
-  el.innerHTML=`<div class="reaction-emoji">${emoji}</div><div><strong>${esc(name)}</strong><span>${esc(label)}</span></div>`;
+  el.innerHTML=`<div class="reaction-emoji">${emoji}</div>${avatar?avatarHTML(avatar,'sm'):''}<div><strong>${esc(name)}</strong><span>${esc(label)}</span></div>`;
   layer.appendChild(el);setTimeout(()=>el.remove(),2100);
 }
 
@@ -359,7 +385,7 @@ function render(){
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
-  $('#meLabel').textContent=`${state.me.avatar} ${state.me.name}`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;
+  $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;
   renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();
 }
 function renderPlayers(){
@@ -370,18 +396,18 @@ function renderPlayers(){
     const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
     const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
-    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${p.avatar}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
+    d.innerHTML=`<div class="player-card${active}${disc}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">🂠 ${p.cardCount} • ${p.score} pts</div></div></div>`;
     ring.appendChild(d);
   });
 }
 function renderScore(){
-  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span>${p.avatar}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
+  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
   const current=state.players.find(p=>p.id===state.currentPlayerId);
   let banner='Aguardando jogadores...';
-  if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.avatar||''} ${current?.name||''}`);
+  if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.name||'Jogador'}`);
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
     if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue a carta comprada ou passe e guarde-a';
     else if(state.me?.burnMustDraw) banner='🔥 Após a queima: sem carta compatível — compre 1 carta';
