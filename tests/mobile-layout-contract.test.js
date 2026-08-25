@@ -4,7 +4,7 @@ const html=fs.readFileSync('public/index.html','utf8');
 const app=fs.readFileSync('public/app.js','utf8');
 function ok(cond,msg){if(!cond)throw new Error(msg)}
 ok(html.includes('viewport-fit=cover'),'viewport-fit=cover ausente');
-ok(html.includes('V26 • MOBILE'),'identificação V26 ausente');
+ok(html.includes('V28 • TROCAR LADOS'),'identificação V28 ausente');
 ok(css.includes('V26 — MOBILE FIRST'),'bloco mobile V26 ausente');
 ok(css.includes('env(safe-area-inset-bottom'),'safe-area inferior ausente');
 ok(css.includes('scroll-snap-type:x proximity'),'rolagem de mão otimizada ausente');

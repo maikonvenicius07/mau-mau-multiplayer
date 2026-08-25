@@ -7,6 +7,40 @@ let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
 const playerKeyStorage='maumauPlayerKeyV1';
 let rankingPeriod='day', rankingMode='human';
+const pileSideStorage='maumauPileSideV1';
+let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
+
+function applyPileSide(mode=pileSide){
+  pileSide=mode==='deck-left'?'deck-left':'deck-right';
+  const draw=$('#drawPile'),discard=$('#discardPile'),btn=$('#pileSideBtn');
+  if(draw&&discard){
+    const piles=draw.parentElement;
+    // Ordem forçada por JS para não depender de media queries ou cache de regras antigas.
+    if(piles) piles.style.setProperty('flex-direction','row','important');
+    if(pileSide==='deck-right'){
+      discard.style.setProperty('order','1','important');
+      draw.style.setProperty('order','2','important');
+    }else{
+      draw.style.setProperty('order','1','important');
+      discard.style.setProperty('order','2','important');
+    }
+  }
+  if(btn){
+    btn.dataset.side=pileSide;
+    btn.title=pileSide==='deck-right'
+      ? 'Atual: carta da mesa à esquerda e baralho à direita. Clique para inverter.'
+      : 'Atual: baralho à esquerda e carta da mesa à direita. Clique para inverter.';
+    btn.setAttribute('aria-label',btn.title);
+  }
+  localStorage.setItem(pileSideStorage,pileSide);
+}
+
+function togglePileSide(){
+  applyPileSide(pileSide==='deck-right'?'deck-left':'deck-right');
+  toast(pileSide==='deck-right'
+    ? '🃏 Carta da mesa à esquerda • baralho à direita.'
+    : '🂠 Baralho à esquerda • carta da mesa à direita.');
+}
 
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
@@ -342,6 +376,9 @@ $('#leaveBtn').onclick=()=>{
   }
   socket.emit('leaveRoom');
 };
+
+applyPileSide();
+$('#pileSideBtn').onclick=togglePileSide;
 
 $('#soundBtn').textContent=soundOn?'🔊':'🔇';
 $('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
