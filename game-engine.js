@@ -380,6 +380,12 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   // Só fechamos a reação anterior depois de validar completamente a jogada.
   // Assim, um clique inválido do próximo jogador não elimina uma Queima/Ação Rápida legítima.
   closeReaction(room);
+
+  // V29 — COMPRA LIVRE: depois de comprar 1 carta, qualquer carta válida da mão
+  // pode ser jogada. A carta comprada pode ficar guardada. Ao escolher uma jogada,
+  // encerramos o estado de decisão pós-compra sem remover a carta comprada da mão.
+  if (player.justDrawnCardId) player.justDrawnCardId = null;
+
   const before = player.hand.length;
   const played = removeCard(player, cardId);
   room.discard.push(played);
@@ -488,7 +494,8 @@ function canPlayDouble(room, player) {
   if (!player || !player.connected || player.finishedRound) return [];
   if (room.players[room.currentPlayer]?.id !== player.id) return [];
   if (room.continuationPlayerId) return [];
-  if (player.justDrawnCardId) return []; // após compra, vale a regra específica da carta comprada
+  // V29: depois de comprar, o jogador continua livre para usar qualquer jogada válida,
+  // inclusive Carta Dupla, ou simplesmente passar a vez.
 
   const groups = new Map();
   for (const c of player.hand) {
@@ -529,7 +536,6 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
   if (!room.rules.doubleCardEnabled) throw new Error('A regra Carta Dupla está desativada.');
   if (room.continuationPlayerId === player.id) throw new Error('Resolva primeiro a Queima: jogue uma carta compatível, compre quando for obrigatório ou passe a vez.');
-  if (player.justDrawnCardId) throw new Error('Depois de comprar, jogue somente a carta comprada ou passe a vez.');
 
   const first = player.hand.find(c => c.id === firstCardId);
   const second = player.hand.find(c => c.id === secondCardId);
@@ -593,8 +599,8 @@ function canFinishBurn(room, player) {
 // Depois da queima, a segunda carta NÃO é mais obrigatória:
 //   • se houver carta compatível, o jogador pode jogá-la OU passar a vez;
 //   • se não houver carta compatível, deve comprar 1 carta;
-//   • após a compra, pode jogar somente a carta comprada (se válida) OU passar,
-//     mantendo-a na mão.
+//   • após a compra, pode jogar qualquer carta válida da mão OU passar,
+//     mantendo a carta comprada na mão se não quiser usá-la.
 // A carta que inicia a queima continua proibida para A, 7, 8, J, Q e K.
 function burnMatch(room, playerId, cardId) {
   if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
@@ -685,7 +691,7 @@ function drawAction(room, playerId) {
   // o jogador pode jogá-la (se for válida) ou passar a vez e guardá-la.
   if (room.continuationPlayerId === p.id) {
     if (p.justDrawnCardId) {
-      throw new Error('Você já comprou uma carta após a queima. Jogue a carta comprada, se quiser e ela for válida, ou passe a vez.');
+      throw new Error('Você já comprou uma carta após a queima. Jogue qualquer carta válida da mão, se quiser, ou passe a vez.');
     }
     const legalFollowUps = p.hand.filter(c => legalCard(room,c,p));
     if (legalFollowUps.length) {
@@ -695,7 +701,7 @@ function drawAction(room, playerId) {
     p.hand.push(drawn);
     p.justDrawnCardId = drawn.id;
     if (p.declaration === 'batendo') p.declaration = null;
-    log(room, `${p.name} comprou 1 carta após a queima. Pode jogar somente essa carta se ela for válida ou passar a vez e guardá-la.`, 'draw');
+    log(room, `${p.name} comprou 1 carta após a queima. Pode jogar qualquer carta válida da mão ou passar a vez e guardar a carta comprada.`, 'draw');
     return;
   }
 
@@ -718,18 +724,19 @@ function drawAction(room, playerId) {
   // Porém, só pode comprar UMA carta na jogada normal. A compra é o requisito
   // para habilitar o botão "Passar a vez".
   if (p.justDrawnCardId) {
-    throw new Error('Você já comprou uma carta nesta vez. Jogue a carta comprada, se possível, ou passe a vez.');
+    throw new Error('Você já comprou uma carta nesta vez. Jogue qualquer carta válida da sua mão ou passe a vez.');
   }
 
   const drawn = drawOne(room);
   p.hand.push(drawn);
   p.justDrawnCardId = drawn.id;
-  log(room, `${p.name} comprou 1 carta. Agora pode jogar a carta comprada, se ela for válida, ou passar a vez.`, 'draw');
+  log(room, `${p.name} comprou 1 carta. Agora pode jogar qualquer carta válida da mão ou passar a vez e guardar a carta comprada.`, 'draw');
 
-  if (legalCard(room, drawn, p)) {
-    log(room, `A carta comprada por ${p.name} pode ser jogada ou o jogador pode passar a vez.`, 'turn');
+  const legalNow = p.hand.filter(c => legalCard(room, c, p));
+  if (legalNow.length) {
+    log(room, `${p.name} possui ${legalNow.length} opção(ões) válida(s) após a compra e pode escolher qualquer uma delas ou passar a vez.`, 'turn');
   } else {
-    log(room, `A carta comprada por ${p.name} não pode ser jogada. O jogador deve passar a vez.`, 'turn');
+    log(room, `${p.name} não possui carta válida após a compra e deve passar a vez.`, 'turn');
   }
 }
 
@@ -737,8 +744,8 @@ function drawAction(room, playerId) {
 // Regra normal: continua obrigatório comprar 1 carta antes de passar.
 // Exceção da QUEIMA: após queimar, o jogador pode passar sem jogar outra carta.
 // Se não houver nenhuma carta compatível na mão, ele precisa comprar 1 antes;
-// depois da compra, mesmo que a carta comprada seja jogável (inclusive Valete),
-// pode guardá-la e passar a vez.
+// depois da compra, pode jogar qualquer carta válida da mão ou simplesmente
+// guardar a carta comprada e passar a vez.
 function passTurn(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
@@ -811,11 +818,9 @@ function passAfterDraw(room, playerId) {
 }
 
 function playDrawnCard(room, playerId, cardId, chosenSuit=null) {
-  const idx = ensureTurn(room, playerId);
-  const p = room.players[idx];
-  if (p.justDrawnCardId !== cardId) throw new Error('Depois da compra, apenas a carta que acabou de ser comprada pode ser jogada.');
-  p.justDrawnCardId = null;
-  playCard(room, playerId, cardId, chosenSuit);
+  // V29: após comprar, o jogador não fica preso à carta comprada.
+  // Esta função é mantida apenas por compatibilidade com versões anteriores do cliente.
+  return playCard(room, playerId, cardId, chosenSuit);
 }
 
 function finalizeRound(room) {
@@ -967,7 +972,7 @@ function roomPublicState(room, viewerId) {
       declaration: viewer.declaration,
       justDrawnCardId: viewer.justDrawnCardId || null,
       legalCardIds: room.status === 'playing' && room.players[room.currentPlayer]?.id === viewer.id
-        ? (viewer.justDrawnCardId ? viewer.hand.filter(c => c.id === viewer.justDrawnCardId && legalCard(room,c,viewer)).map(c=>c.id) : viewer.hand.filter(c => legalCard(room,c,viewer)).map(c=>c.id))
+        ? viewer.hand.filter(c => legalCard(room,c,viewer)).map(c=>c.id)
         : [],
       burnableCardIds: room.status === 'playing'
         ? canBurnMatch(room,viewer).map(c=>c.id)

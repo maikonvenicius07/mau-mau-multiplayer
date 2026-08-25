@@ -89,7 +89,7 @@ A partir da V18, **não é obrigatório possuir uma segunda carta compatível pa
 
 - se possuir uma carta do mesmo valor, do mesmo naipe ou um Valete (J), pode **jogá-la ou passar a vez**;
 - se não possuir nenhuma carta compatível, deve **comprar 1 carta**;
-- depois da compra, pode jogar somente a carta recém-comprada se ela for válida ou **passar a vez e mantê-la na mão**;
+- depois da compra, pode jogar **qualquer carta válida da mão** ou **passar a vez e manter a carta comprada na mão**;
 - mesmo que a carta comprada seja jogável — inclusive um Valete (J) — o jogador não é obrigado a usá-la.
 
 Exemplo:
@@ -178,7 +178,7 @@ Quando o jogador não possuir carta válida, ele compra apenas 1 carta. Se essa 
 - jogar a carta recém-comprada; ou
 - clicar em **Passar a vez**, mantendo a carta na mão.
 
-Se a carta comprada não puder ser jogada, a vez passa automaticamente. Durante essa decisão, somente a carta recém-comprada pode ser jogada.
+Se a carta comprada não puder ser jogada, a vez passa automaticamente. Durante essa decisão, qualquer carta válida da mão pode ser jogada; a carta comprada pode ser guardada.
 
 
 ## Compra obrigatória para passar a vez (V13)

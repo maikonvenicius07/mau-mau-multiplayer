@@ -34,7 +34,7 @@ A V19 mantém **Queima**, **Ação Rápida** e **Carta Dupla** como mecânicas s
 - **🔥 Queima:** basta possuir uma carta exatamente igual à recém-jogada (mesmo valor e mesmo naipe). Depois de queimá-la, o jogador assume a jogada.
 - Se ainda possuir carta compatível (mesmo valor, mesmo naipe ou Valete), pode **jogá-la ou passar a vez**.
 - Se não possuir nenhuma carta compatível, deve **comprar 1 carta**.
-- Depois da compra, pode jogar somente a carta comprada se ela for válida ou **passar e guardá-la**, mesmo quando a carta comprada seria jogável — inclusive um Valete.
+- Depois da compra, pode jogar **qualquer carta válida da mão** ou **passar e guardar a carta comprada**, inclusive quando a carta comprada for um Valete.
 - **⚡ Ação Rápida:** continua descartando uma única carta igual fora da vez sem tomar a jogada.
 - **×2 Carta Dupla:** continua disponível apenas na própria vez e somente para cartas normais; A, 7, 8, J, Q e K não formam Carta Dupla.
 
@@ -235,7 +235,7 @@ O botão não pode ser usado para evitar obrigações pendentes: durante uma cad
 
 
 ## V13 — Compra obrigatória para passar a vez
-Para encerrar voluntariamente a própria jogada com o botão **⏭️ Passar a vez**, o participante precisa primeiro comprar **1 carta do monte**. A compra é permitida mesmo quando ele já possui carta válida. Após comprar, somente a carta recém-comprada poderá ser jogada naquela decisão; se não quiser jogá-la, ou se ela não for válida, o jogador pode clicar em **Passar a vez**. Não é permitido comprar uma segunda carta na mesma jogada normal. A regra não altera a penalidade da cadeia de 7 nem a segunda carta obrigatória da queima dinâmica.
+Para encerrar voluntariamente a própria jogada com o botão **⏭️ Passar a vez**, o participante precisa primeiro comprar **1 carta do monte**. A compra é permitida mesmo quando ele já possui carta válida. Após comprar, o jogador pode escolher **qualquer carta válida da mão**; se não quiser jogar, pode clicar em **Passar a vez** e guardar a carta comprada. Não é permitido comprar uma segunda carta na mesma jogada normal. A regra não altera a penalidade da cadeia de 7 nem a segunda carta obrigatória da queima dinâmica.
 
 ## V19 — Efeitos sonoros automáticos
 

@@ -134,10 +134,27 @@ function takeTurn(room, bot, Engine) {
   }
 
   if (bot.justDrawnCardId) {
-    const card = bot.hand.find(c => c.id === bot.justDrawnCardId);
-    if (card && Engine.legalCard(room,card,bot)) {
-      playChosen(room,bot,Engine,card,true);
-      return {action:'play-drawn',card};
+    const drawn = bot.hand.find(c => c.id === bot.justDrawnCardId);
+    const legal = bot.hand.filter(c => Engine.legalCard(room,c,bot));
+
+    // V29: o bot também pode escolher qualquer carta válida depois da compra.
+    // Se comprou um Valete e tiver outra opção válida, preserva o J para tentar
+    // uma batida futura com pontuação dobrada.
+    const alternatives = legal.filter(c => c.id !== drawn?.id);
+    if (drawn?.rank === 'J' && bot.hand.length > 1) {
+      if (alternatives.length) {
+        const card = selectLegalCard(room,bot,Engine,alternatives);
+        playChosen(room,bot,Engine,card,false);
+        return {action:'play-other-after-draw',card,kept:drawn};
+      }
+      Engine.passAfterDraw(room,bot.id);
+      return {action:'pass-keep-drawn-j',card:drawn};
+    }
+
+    if (legal.length) {
+      const card = selectLegalCard(room,bot,Engine,legal);
+      playChosen(room,bot,Engine,card,false);
+      return {action:card.id===drawn?.id?'play-drawn':'play-other-after-draw',card};
     }
     Engine.passAfterDraw(room,bot.id);
     return {action:'pass-drawn'};

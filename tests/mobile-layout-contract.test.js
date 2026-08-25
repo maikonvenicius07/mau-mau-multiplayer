@@ -4,7 +4,7 @@ const html=fs.readFileSync('public/index.html','utf8');
 const app=fs.readFileSync('public/app.js','utf8');
 function ok(cond,msg){if(!cond)throw new Error(msg)}
 ok(html.includes('viewport-fit=cover'),'viewport-fit=cover ausente');
-ok(html.includes('V28 • TROCAR LADOS'),'identificação V28 ausente');
+ok(html.includes('V29 • COMPRA LIVRE'),'identificação V29 ausente');
 ok(css.includes('V26 — MOBILE FIRST'),'bloco mobile V26 ausente');
 ok(css.includes('env(safe-area-inset-bottom'),'safe-area inferior ausente');
 ok(css.includes('scroll-snap-type:x proximity'),'rolagem de mão otimizada ausente');
@@ -13,4 +13,4 @@ ok(css.includes('.self-seat{display:none}'),'ocultação da própria cadeira no 
 ok(css.includes('min-height:44px'),'alvos de toque mínimos ausentes');
 ok(app.includes('const mobile=window.innerWidth<=900'),'posicionamento mobile dos jogadores ausente');
 ok(app.includes('data-label="Jogos"'),'ranking mobile por cartões ausente');
-console.log('✓ V26: layout mobile, toque, safe-area, mão, mesa e ranking responsivos conferidos.');
+console.log('✓ V29: layout mobile preservado e identificação atualizada.');

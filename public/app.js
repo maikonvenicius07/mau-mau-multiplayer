@@ -591,7 +591,7 @@ function renderCenter(){
   let banner='Aguardando jogadores...';
   if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.name||'Jogador'}`);
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
-    if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue a carta comprada ou passe e guarde-a';
+    if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue qualquer carta válida ou passe e guarde a comprada';
     else if(state.me?.burnMustDraw) banner='🔥 Após a queima: sem carta compatível — compre 1 carta';
     else banner='🔥 Após a queima: jogue mais uma carta compatível ou passe a vez';
   }
@@ -629,7 +629,7 @@ function renderHand(){
     if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
     if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
     const doublePair=doubleByCard.get(card.id);
-    const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.me.justDrawnCardId&&!state.continuationPlayerId);
+    const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
       el.classList.add('double-available');
       const d=document.createElement('button');d.className='double-btn';d.textContent='×2';
@@ -658,7 +658,7 @@ function renderHand(){
   // Regra especial da queima:
   //   - se já há carta compatível, pode jogar OU passar sem comprar;
   //   - se não há carta compatível, primeiro compra 1;
-  //   - depois da compra, pode jogar a comprada OU passar e guardá-la.
+  //   - depois da compra, pode jogar qualquer carta válida OU passar e guardar a comprada.
   const canPassBurn=!!(inBurn&&(boughtThisTurn||legalAfterBurn));
   const canPassNormal=!!(!inBurn&&boughtThisTurn);
   const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&(canPassBurn||canPassNormal));
@@ -688,8 +688,8 @@ function renderHand(){
     ||(myTurn&&burnDrawBlocked));
   $('#drawPile').title=boughtThisTurn
     ? (inBurn
-      ? 'Você já comprou após a queima. Jogue a carta comprada se quiser ou passe e guarde-a.'
-      : 'Você já comprou nesta vez. Jogue a carta comprada se puder ou passe a vez.')
+      ? 'Você já comprou após a queima. Jogue qualquer carta válida ou passe e guarde a comprada.'
+      : 'Você já comprou nesta vez. Jogue qualquer carta válida da mão ou passe a vez.')
     : inBurn
       ? (state.me.burnMustDraw
         ? 'Comprar 1 carta porque não há continuação compatível.'

@@ -349,11 +349,8 @@ io.on('connection', socket => {
 
   socket.on('declare', payload => withRoom(socket,(room,p)=> Engine.declare(room,p.id,payload?.type)));
   socket.on('playCard', payload => withRoom(socket,(room,p)=> {
-    if(p.justDrawnCardId) {
-      Engine.playDrawnCard(room,p.id,payload.cardId,payload.chosenSuit);
-    } else {
-      Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
-    }
+    // V29: após comprar, o jogador pode jogar qualquer carta válida da mão.
+    Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
   }));
   socket.on('playDoubleCard', payload => withRoom(socket,(room,p)=> {
     Engine.playDoubleCard(room,p.id,payload?.firstCardId,payload?.secondCardId,payload?.chosenSuit);

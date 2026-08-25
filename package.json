@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "28.0.0",
-  "description": "Mau-Mau multiplayer V28 com botão para alternar a posição do baralho e da carta da mesa, preservando todos os recursos da V26.",
+  "version": "29.0.0",
+  "description": "Mau-Mau multiplayer V29: após comprar 1 carta, o jogador pode jogar qualquer carta válida da mão ou passar e guardar a comprada.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js"
   },
   "engines": {
     "node": ">=18"
