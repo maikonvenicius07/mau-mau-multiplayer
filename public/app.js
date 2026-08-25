@@ -9,6 +9,35 @@ const playerKeyStorage='maumauPlayerKeyV1';
 let rankingPeriod='day', rankingMode='human';
 const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
+const handSortStorage='maumauHandSortV1';
+let handSort=localStorage.getItem(handSortStorage)==='suit'?'suit':'rank';
+
+const rankSortOrder={A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13};
+const suitSortOrder={hearts:1,diamonds:2,clubs:3,spades:4};
+function compareHandCards(a,b){
+  const rankA=rankSortOrder[a.rank]??99,rankB=rankSortOrder[b.rank]??99;
+  const suitA=suitSortOrder[a.suit]??99,suitB=suitSortOrder[b.suit]??99;
+  if(handSort==='suit') return suitA-suitB||rankA-rankB||String(a.id).localeCompare(String(b.id));
+  return rankA-rankB||suitA-suitB||String(a.id).localeCompare(String(b.id));
+}
+function updateHandSortButton(){
+  const btn=$('#sortHandBtn');if(!btn)return;
+  if(handSort==='suit'){
+    btn.textContent='♠ Naipe';
+    btn.title='Organização atual: por naipe. Clique para organizar por número.';
+  }else{
+    btn.textContent='🔢 Número';
+    btn.title='Organização atual: por número. Clique para organizar por naipe.';
+  }
+  btn.setAttribute('aria-label',btn.title);
+}
+function toggleHandSort(){
+  handSort=handSort==='rank'?'suit':'rank';
+  localStorage.setItem(handSortStorage,handSort);
+  updateHandSortButton();
+  if(state?.me) renderHand();
+  toast(handSort==='rank'?'🔢 Mão organizada por número.':'♠ Mão organizada por naipe.');
+}
 
 function applyPileSide(mode=pileSide){
   pileSide=mode==='deck-left'?'deck-left':'deck-right';
@@ -379,6 +408,8 @@ $('#leaveBtn').onclick=()=>{
 
 applyPileSide();
 $('#pileSideBtn').onclick=togglePileSide;
+updateHandSortButton();
+$('#sortHandBtn').onclick=toggleHandSort;
 
 $('#soundBtn').textContent=soundOn?'🔊':'🔇';
 $('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
@@ -616,7 +647,8 @@ function renderHand(){
   // de qual delas o servidor listou primeiro.
   const doubleByCard=new Map();
   doublePairs.forEach(pair=>(pair.cardIds||[]).forEach(id=>doubleByCard.set(id,pair)));
-  state.me.hand.forEach(card=>{
+  const visibleHand=[...state.me.hand].sort(compareHandCards);
+  visibleHand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
     if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
     const ok=legal.has(card.id)&&canAct();
