@@ -261,3 +261,7 @@ Cada navegador recebe um `playerKey` permanente salvo no `localStorage`. Assim, 
 ### No Render
 
 Crie/conecte um PostgreSQL ao serviço e disponibilize a variável de ambiente `DATABASE_URL`. Depois faça novo deploy. Não é necessário criar as tabelas manualmente.
+
+## V31 — Cartas especiais somente na vez normal
+
+As cartas A, 7, 8, J, Q e K não podem ser usadas em Queima, Ação Rápida, continuação de Queima ou Carta Dupla. Elas permanecem válidas e produzem seus efeitos normalmente quando jogadas na vez normal do jogador.

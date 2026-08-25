@@ -300,6 +300,14 @@ function legalCard(room, card, player) {
   return card.rank === 'J' || card.rank === top.rank || card.suit === top.suit;
 }
 
+// V31 — cartas especiais NÃO podem iniciar Queima nem Ação Rápida fora da vez.
+// Porém, depois que o jogador queima uma carta NORMAL exatamente igual à mesa,
+// ele assume a jogada. Nesse momento pode usar como continuação QUALQUER carta
+// legal, inclusive A, 7, 8, J, Q ou K; se for especial, seu efeito é aplicado normalmente.
+function burnContinuationCardLegal(room, card, player) {
+  return !!card && legalCard(room, card, player);
+}
+
 function ensureTurn(room, playerId) {
   if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
@@ -369,6 +377,8 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (!legalCard(room, card, player)) throw new Error('Essa carta não pode ser jogada agora.');
 
   const wasContinuation = room.continuationPlayerId === player.id;
+  // V31: uma Queima válida transfere a jogada para quem queimou. Por isso, a
+  // segunda carta pode ser especial e deve executar o mesmo efeito da jogada normal.
   if (wasContinuation && player.hand.length === 1 && player.declaration !== 'batendo') {
     throw new Error('Para encerrar a rodada com a segunda carta da queima, anuncie “Mau-Mau batendo/queimando” antes de iniciar a queima.');
   }
@@ -579,6 +589,8 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
 function burnFollowUpLegal(baseCard, nextCard) {
   if (!baseCard || !nextCard) return false;
+  // Valete continua sendo coringa; as demais cartas (inclusive especiais)
+  // precisam combinar pelo valor ou pelo naipe da carta que iniciou a Queima.
   return nextCard.rank === 'J' || nextCard.rank === baseCard.rank || nextCard.suit === baseCard.suit;
 }
 
@@ -601,7 +613,9 @@ function canFinishBurn(room, player) {
 //   • se não houver carta compatível, deve comprar 1 carta;
 //   • após a compra, pode jogar qualquer carta válida da mão OU passar,
 //     mantendo a carta comprada na mão se não quiser usá-la.
-// A carta que inicia a queima continua proibida para A, 7, 8, J, Q e K.
+// V31: cartas especiais A, 7, 8, J, Q e K não podem INICIAR a Queima.
+// Depois que uma carta normal idêntica é queimada, a continuação pode ser uma
+// carta especial legal, e seu efeito será executado normalmente.
 function burnMatch(room, playerId, cardId) {
   if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
@@ -653,7 +667,7 @@ function burnMatch(room, playerId, cardId) {
     ? ` e interrompeu a vez de ${interrupted.name}`
     : '';
 
-  const followUps = player.hand.filter(c => legalCard(room,c,player));
+  const followUps = player.hand.filter(c => burnContinuationCardLegal(room,c,player));
   if (followUps.length) {
     log(room, `${player.name} QUEIMOU ${cardLabel(played)}${interruptedText}. Pode jogar mais uma carta compatível ou passar a vez.`, 'burn');
   } else {
@@ -693,7 +707,7 @@ function drawAction(room, playerId) {
     if (p.justDrawnCardId) {
       throw new Error('Você já comprou uma carta após a queima. Jogue qualquer carta válida da mão, se quiser, ou passe a vez.');
     }
-    const legalFollowUps = p.hand.filter(c => legalCard(room,c,p));
+    const legalFollowUps = p.hand.filter(c => burnContinuationCardLegal(room,c,p));
     if (legalFollowUps.length) {
       throw new Error('Depois da queima você já possui carta compatível. Pode jogá-la ou passar a vez sem comprar.');
     }
@@ -758,7 +772,7 @@ function passTurn(room, playerId) {
 
   if (inBurnContinuation) {
     const hasDrawn = !!p.justDrawnCardId;
-    const legalFollowUps = hasDrawn ? [] : p.hand.filter(c => legalCard(room,c,p));
+    const legalFollowUps = hasDrawn ? [] : p.hand.filter(c => burnContinuationCardLegal(room,c,p));
 
     if (!hasDrawn && legalFollowUps.length === 0) {
       throw new Error('Após a queima, você não possui carta compatível. Compre 1 carta antes de passar a vez.');
@@ -880,7 +894,8 @@ function canQuickAction(room, player) {
   if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || !room.reactionNextPlayerId) return [];
   if (room.reactionSourcePlayerId === player.id) return [];
   if (room.reactionNextPlayerId === player.id) return []; // pela regra, quem já seria o próximo não usa Ação Rápida
-  return player.hand.filter(c => sameCard(c, top));
+  if (isSpecial(top)) return []; // V30: especial nunca entra em Ação Rápida
+  return player.hand.filter(c => !isSpecial(c) && sameCard(c, top));
 }
 
 function quickAction(room, playerId, cardId) {
@@ -893,9 +908,13 @@ function quickAction(room, playerId, cardId) {
   const idx = room.players.findIndex(p => p.id === playerId);
   if (idx < 0) throw new Error('Jogador não encontrado.');
   const player = room.players[idx];
+  const requested = player.hand.find(c => c.id === cardId);
+  if (requested && isSpecial(requested)) {
+    throw new Error('Cartas especiais (A, 7, 8, J, Q e K) não podem ser usadas em Ação Rápida; só podem ser jogadas na vez normal.');
+  }
   const allowed = canQuickAction(room, player);
   if (!allowed.some(c => c.id === cardId)) {
-    throw new Error('Ação Rápida indisponível: a carta deve ser exatamente igual à recém-jogada e você não pode ser o próximo da vez.');
+    throw new Error('Ação Rápida indisponível: use apenas carta normal exatamente igual à recém-jogada e somente fora da vez do próximo jogador.');
   }
 
   const normalNextId = room.reactionNextPlayerId;
@@ -990,7 +1009,7 @@ function roomPublicState(room, viewerId) {
       burnContinuationActive: room.continuationPlayerId === viewer.id,
       burnMustDraw: room.continuationPlayerId === viewer.id
         && !viewer.justDrawnCardId
-        && viewer.hand.filter(c => legalCard(room,c,viewer)).length === 0,
+        && viewer.hand.filter(c => burnContinuationCardLegal(room,c,viewer)).length === 0,
     } : null,
     log: room.log.slice(-30),
   };

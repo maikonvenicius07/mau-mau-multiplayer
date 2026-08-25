@@ -194,3 +194,10 @@ Os efeitos sonoros não alteram nenhuma regra. São apenas feedback da interface
 ## Ranking V24
 
 As partidas completas de 5 rodadas passam a registrar os resultados dos jogadores humanos. Há rankings de Hoje, Mês, Ano e Geral, separados entre partidas somente com pessoas e partidas que incluam máquina. O ranking usa vitórias como critério principal e menor média de pontos como primeiro desempate.
+
+
+## V31 — Cartas especiais somente na vez normal
+
+As cartas **A, 7, 8, J, Q e K** possuem funções especiais e, por isso, só podem ser jogadas quando chegar a **vez normal** do jogador. Elas não podem ser usadas para iniciar ou continuar uma **Queima**, não podem ser usadas em **Ação Rápida** e não podem ser jogadas em **Carta Dupla**. Na vez normal, seus efeitos permanecem inalterados.
+
+**Exemplo:** se João joga **J de Paus** e Rosa também possui **J de Paus**, Rosa não pode descartar seu Valete imediatamente por Ação Rápida; deve aguardar sua própria vez normal.

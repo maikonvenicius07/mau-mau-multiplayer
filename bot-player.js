@@ -8,6 +8,7 @@
 // Também entende CARTA DUPLA e AÇÃO RÁPIDA.
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+const SPECIAL_RANKS = new Set(['A','7','8','J','Q','K']);
 
 function chooseSuit(hand) {
   const counts = Object.fromEntries(SUITS.map(s => [s, 0]));
@@ -108,7 +109,7 @@ function takeTurn(room, bot, Engine) {
       const drawn = bot.hand.find(c => c.id === bot.justDrawnCardId);
       // Estratégia simples: preserve o Valete comprado quando houver outras cartas,
       // demonstrando a mesma opção oferecida ao jogador humano.
-      if (drawn && Engine.legalCard(room,drawn,bot) && !(drawn.rank === 'J' && bot.hand.length > 1)) {
+      if (drawn && !SPECIAL_RANKS.has(drawn.rank) && Engine.legalCard(room,drawn,bot)) {
         playChosen(room,bot,Engine,drawn,true);
         return {action:'burn-play-drawn',card:drawn};
       }
@@ -122,13 +123,9 @@ function takeTurn(room, bot, Engine) {
       return {action:'burn-draw'};
     }
 
-    // Se a melhor continuação for um Valete e a máquina ainda tiver outras cartas,
-    // ela prefere guardar o Valete e passar. Caso contrário, continua a queima.
+    // V31: após uma Queima válida, cartas especiais também podem ser usadas
+    // como continuação e produzem seus efeitos normais.
     const card = selectLegalCard(room,bot,Engine,legal);
-    if (card?.rank === 'J' && bot.hand.length > 1) {
-      Engine.passTurn(room,bot.id);
-      return {action:'burn-pass-keep-j',card};
-    }
     playChosen(room,bot,Engine,card);
     return {action:'burn-second-card',card};
   }

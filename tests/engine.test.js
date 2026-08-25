@@ -473,7 +473,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,0,'após a segunda carta, segue a partir de quem queimou');
 }
 
-// V17: a segunda carta da Queima pode ser especial e seu efeito funciona normalmente.
+// V31: carta especial PODE ser a segunda carta após uma Queima normal e aplica o efeito.
 {
   const r=room4(),a=r.players[0],b=r.players[1];
   r.currentPlayer=0;r.discard=[card('5','clubs','burn-q-base')];
@@ -483,11 +483,11 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.burnMatch(r,b.id,'burn-q-first');
   const beforeDir=r.direction;
   E.playCard(r,b.id,'burn-q-second');
-  assert.equal(r.direction,-beforeDir,'Dama como segunda carta da queima deve inverter o sentido');
-  assert.equal(r.currentPlayer,2,'com direção invertida, a ordem segue a partir de Bruno para Carla');
+  assert.equal(r.direction,beforeDir*-1,'Dama usada após Queima deve inverter o sentido');
+  assert.equal(r.continuationPlayerId,null);
 }
 
-// V17: Ação Rápida com carta especial NÃO reaplica o efeito; a ordem permanece a original.
+// V31: Ação Rápida continua sem aceitar cartas especiais.
 {
   const r=room4(),a=r.players[0],b=r.players[1],c=r.players[2];
   r.direction=-1;r.currentPlayer=0;r.discard=[card('5','hearts','quick-q-base')];
@@ -496,10 +496,10 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.playCard(r,a.id,'quick-q-source');
   assert.equal(r.direction,1);
   assert.equal(r.currentPlayer,1,'após Q de Ana, Bruno é o próximo no novo sentido');
-  assert.equal(E.canQuickAction(r,c).length,1);
-  E.quickAction(r,c.id,'quick-q-copy');
-  assert.equal(r.direction,1,'Q usada em Ação Rápida não deve inverter outra vez');
-  assert.equal(r.currentPlayer,1,'Bruno continua sendo o próximo original');
+  assert.equal(E.canQuickAction(r,c).length,0);
+  assert.throws(()=>E.quickAction(r,c.id,'quick-q-copy'),/especiais|vez normal/i);
+  assert.equal(r.direction,1);
+  assert.equal(r.currentPlayer,1);
 }
 
 // V17: a janela de reação fecha quando o próximo jogador começa sua ação normal.

@@ -77,7 +77,12 @@ for(let i=0;i<500;i++){
   assert.throws(()=>E.passTurn(r,paulo.id),/Compre 1 carta/i);
   E.drawAction(r,paulo.id);
   assert.equal(paulo.justDrawnCardId,`draw-${i}`);
-  assert(E.legalCard(r,paulo.hand.find(c=>c.id===`draw-${i}`),paulo));
+  const bought=paulo.hand.find(c=>c.id===`draw-${i}`);
+  if (bought.rank === 'J') {
+    assert(E.legalCard(r,bought,paulo),'V31: Valete comprado após a Queima deve poder ser jogado como continuação');
+  } else {
+    assert(E.legalCard(r,bought,paulo));
+  }
   E.passTurn(r,paulo.id);
   assert(paulo.hand.some(c=>c.id===`draw-${i}`),'a carta jogável comprada deve poder ser guardada');
   assert.equal(paulo.justDrawnCardId,null);
