@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "31.0.0",
-  "description": "Mau-Mau multiplayer V31: especiais não iniciam Queima/Ação Rápida/Carta Dupla, mas podem ser a segunda carta de uma Queima válida e aplicam seu efeito normal.",
+  "version": "32.0.0",
+  "description": "Mau-Mau multiplayer V32: cartas especiais mantêm seu efeito ao bater; 8/K compram antes da pontuação e a cadeia final de 7 pode completar uma volta sem compra.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js"
   },
   "engines": {
     "node": ">=18"

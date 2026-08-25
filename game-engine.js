@@ -410,30 +410,24 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   // Se a carta for usada como continuação de uma queima, esta jogada encerra o turno.
   if (wasContinuation) room.continuationPlayerId = null;
 
-  // Efeitos especiais. O 7 tem precedência e é resolvido como cadeia.
+  // V32 — o efeito da carta especial continua valendo mesmo quando ela é
+  // usada para BATER. O 7 permanece com tratamento próprio porque sua cadeia
+  // precisa ser resolvida antes de calcular a pontuação da rodada.
   if (played.rank === '7') {
     room.pendingSeven += 2;
-    if (player.hand.length === 0) {
-      // Se já existe um vencedor, este 7 faz apenas parte da resolução da penalidade final.
-      if (room.finishPendingSeven && room.winnerId) {
+
+    // Se a rodada já tem um vencedor que bateu com 7, qualquer 7 jogado em
+    // resposta continua a cadeia final — mesmo que o jogador ainda tenha
+    // outras cartas na mão. A cadeia percorre os demais jogadores uma vez.
+    if (room.finishPendingSeven && room.winnerId) {
+      if (player.hand.length === 0) {
         player.finishedRound = true;
         log(room, `${player.name} rebateu o 7 durante a resolução final e ficou sem cartas.`, 'special');
-        const target = nextEligiblePenaltyTarget(room, idx);
-        if (target < 0) {
-          room.finishPendingSeven = false;
-          finalizeRound(room);
-        } else {
-          room.currentPlayer = target;
-        }
-        return;
       }
-      room.winnerId = player.id;
-      room.lastWinnerCard = played;
-      player.finishedRound = true;
-      room.finishPendingSeven = true;
-      log(room, `${player.name} bateu com um 7. A penalidade de ${room.pendingSeven} carta(s) ainda precisa ser resolvida.`, 'winner');
+      applyMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
       const target = nextEligiblePenaltyTarget(room, idx);
       if (target < 0) {
+        log(room, 'A cadeia final de 7 completou a volta pela mesa: todos rebateram e ninguém compra cartas.', 'special');
         room.finishPendingSeven = false;
         finalizeRound(room);
       } else {
@@ -441,12 +435,56 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
       }
       return;
     }
+
+    if (player.hand.length === 0) {
+      room.winnerId = player.id;
+      room.lastWinnerCard = played;
+      player.finishedRound = true;
+      room.finishPendingSeven = true;
+      log(room, `${player.name} bateu com um 7. A penalidade de ${room.pendingSeven} carta(s) continua ativa e os demais podem rebater com outro 7.`, 'winner');
+      const target = nextEligiblePenaltyTarget(room, idx);
+      if (target < 0) {
+        log(room, 'A cadeia final de 7 não encontrou outro jogador: ninguém compra cartas.', 'special');
+        room.finishPendingSeven = false;
+        finalizeRound(room);
+      } else {
+        room.currentPlayer = target;
+      }
+      return;
+    }
+
     room.currentPlayer = nextIndex(room, idx, 1);
     applyMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
     return;
   }
 
+  // Se a carta zerou a mão, aplicamos PRIMEIRO o efeito especial que altera
+  // cartas/pontuação. Só depois a rodada é finalizada. Assim, bater com 8 ou K
+  // faz o jogador anterior comprar antes do cálculo; J continua dobrando os
+  // pontos; Q/A registram seu efeito normal antes do encerramento.
   if (player.hand.length === 0) {
+    if (played.rank === 'A') {
+      const skipped = nextIndex(room, idx, 1, false);
+      if (skipped >= 0 && room.players[skipped]) {
+        log(room, `${room.players[skipped].name} perdeu a vez por causa do Ás usado na batida.`, 'special');
+      }
+    } else if (played.rank === 'Q') {
+      room.direction *= -1;
+      log(room, `A Dama usada na batida inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'}.`, 'special');
+    } else if (played.rank === 'K') {
+      const target = previousIndex(room, idx);
+      if (target >= 0 && room.players[target] && room.players[target].id !== player.id) {
+        drawCards(room, room.players[target], 1);
+        log(room, `${room.players[target].name} comprou 1 carta pelo Rei usado na batida.`, 'penalty');
+      }
+    } else if (played.rank === '8') {
+      const target = previousIndex(room, idx);
+      if (target >= 0 && room.players[target] && room.players[target].id !== player.id) {
+        drawCards(room, room.players[target], 2);
+        log(room, `${room.players[target].name} comprou 2 cartas pelo Oito usado na batida.`, 'penalty');
+      }
+    }
+
     room.winnerId = player.id;
     room.lastWinnerCard = played;
     player.finishedRound = true;
@@ -689,9 +727,22 @@ function endBurnContinuation(room, playerId) {
 }
 
 function nextEligiblePenaltyTarget(room, fromIdx) {
-  const candidates = room.players.filter(p => !p.finishedRound);
-  if (!candidates.length) return -1;
-  return nextIndex(room, fromIdx, 1, true);
+  const n = room.players.length;
+  if (!n) return -1;
+
+  // V32 — quando a batida ocorreu com 7, a cadeia final pode dar UMA volta
+  // completa pela mesa. Se todos os jogadores restantes responderem com 7 e
+  // a vez chegaria novamente ao vencedor original, a penalidade se encerra
+  // sem compra. Não pulamos o vencedor para iniciar uma segunda volta.
+  let cursor = fromIdx;
+  for (let guard = 0; guard < n; guard++) {
+    cursor = (cursor + room.direction + n) % n;
+    const candidate = room.players[cursor];
+    if (!candidate) continue;
+    if (room.finishPendingSeven && room.winnerId && candidate.id === room.winnerId) return -1;
+    if (!candidate.finishedRound) return cursor;
+  }
+  return -1;
 }
 
 function drawAction(room, playerId) {

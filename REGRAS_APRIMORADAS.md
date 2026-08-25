@@ -201,3 +201,9 @@ As partidas completas de 5 rodadas passam a registrar os resultados dos jogadore
 As cartas **A, 7, 8, J, Q e K** possuem funções especiais e, por isso, só podem ser jogadas quando chegar a **vez normal** do jogador. Elas não podem ser usadas para iniciar ou continuar uma **Queima**, não podem ser usadas em **Ação Rápida** e não podem ser jogadas em **Carta Dupla**. Na vez normal, seus efeitos permanecem inalterados.
 
 **Exemplo:** se João joga **J de Paus** e Rosa também possui **J de Paus**, Rosa não pode descartar seu Valete imediatamente por Ação Rápida; deve aguardar sua própria vez normal.
+
+## V32 — Carta especial usada para bater
+Quando a última carta do jogador possui função especial, seu efeito continua válido antes do encerramento da rodada. Assim, o 8 faz o jogador anterior comprar 2 cartas, o K faz o jogador anterior comprar 1, o J mantém a pontuação dobrada dos adversários e o 7 mantém ativa a cadeia de +2.
+
+### Cadeia final do 7
+Se a batida ocorrer com 7, os jogadores seguintes podem rebater com outro 7, acumulando a penalidade. Se algum jogador não puder responder, compra o total acumulado e então a rodada termina. Se todos os jogadores restantes responderem com 7 e a cadeia completar uma volta até o vencedor original, ninguém compra e a rodada é encerrada normalmente.

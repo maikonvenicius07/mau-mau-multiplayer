@@ -265,3 +265,6 @@ Crie/conecte um PostgreSQL ao serviço e disponibilize a variável de ambiente `
 ## V31 — Cartas especiais somente na vez normal
 
 As cartas A, 7, 8, J, Q e K não podem ser usadas em Queima, Ação Rápida, continuação de Queima ou Carta Dupla. Elas permanecem válidas e produzem seus efeitos normalmente quando jogadas na vez normal do jogador.
+
+### V32 — efeitos especiais na batida
+A carta especial mantém seu efeito quando é a última carta. Em especial, 8 e K aplicam a compra antes da pontuação, e o 7 mantém a cadeia ativa. Se a cadeia final de 7 completar uma volta por todos os demais jogadores, ela termina sem compra.
