@@ -1,0 +1,30 @@
+MAU-MAU V17 — CORREÇÃO DAS REGRAS DE CARTAS IGUAIS
+
+1. QUEIMA
+- Carta inicial deve ser exatamente igual à recém-jogada.
+- Primeira carta da queima não pode ser A, 7, 8, J, Q ou K.
+- Exige uma segunda carta compatível: mesmo valor, mesmo naipe ou J.
+- Quem queima assume a jogada.
+- A segunda carta é obrigatória e seus efeitos especiais funcionam normalmente.
+
+2. AÇÃO RÁPIDA
+- Nova implementação real no motor, servidor e interface.
+- Somente quem NÃO seria o próximo pode usar.
+- Exige carta exatamente igual à recém-jogada.
+- Descarta apenas uma carta e não toma a vez.
+- A ordem continua com o próximo original.
+- A primeira reação aceita fecha a janela.
+- Efeito especial não é repetido na Ação Rápida.
+- Suspensa durante cadeia ativa de 7.
+
+3. CARTA DUPLA
+- Somente na própria vez.
+- Duas cartas idênticas: mesmo valor e mesmo naipe.
+- Somente cartas normais: 2, 3, 4, 5, 6, 9 e 10.
+- Botão ×2 aparece nas duas cópias da dupla.
+
+4. TESTES
+- Testes antigos preservados.
+- Novos testes de reação e concorrência.
+- 500 cenários de stress.
+- Verificação de interface/servidor.

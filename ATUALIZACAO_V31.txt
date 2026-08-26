@@ -1,0 +1,16 @@
+MAU-MAU V31 — CARTA ESPECIAL COMO CONTINUAÇÃO DA QUEIMA
+
+Regra consolidada:
+1. A, 7, 8, J, Q e K NÃO podem iniciar uma Queima fora da vez.
+2. A, 7, 8, J, Q e K NÃO podem ser usadas em Ação Rápida.
+3. A, 7, 8, J, Q e K NÃO podem ser jogadas em Carta Dupla.
+4. Se o jogador queimar corretamente uma carta NORMAL exatamente igual à carta da mesa, ele assume a jogada.
+5. Depois dessa Queima, ele pode jogar uma segunda carta legal, inclusive uma carta especial.
+6. A carta especial usada como segunda carta executa seu efeito normal.
+
+Exemplo:
+Mesa: 5 de Copas. Paulo possui 5 de Copas + 8 de Copas.
+Paulo queima o 5 de Copas e depois joga o 8 de Copas. O jogador anterior compra 2 cartas.
+
+Valete:
+Após queimar uma carta normal, o Valete pode ser usado como continuação por ser coringa. O jogador escolhe o novo naipe normalmente.

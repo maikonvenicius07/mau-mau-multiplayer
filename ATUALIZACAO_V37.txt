@@ -1,0 +1,17 @@
+MAU-MAU V37 — CONSOLIDADA
+
+Alterações consolidadas:
+- Ação Rápida fora da vez descarta somente uma carta e nunca rouba o turno.
+- Segunda carta somente após Queima feita na própria vez normal.
+- Cartas especiais continuam proibidas em Ação Rápida e Carta Dupla; podem ser segunda carta após Queima válida na própria vez e aplicam seu efeito normalmente.
+- Markup de valor/naipe das cartas alinhado ao CSS mobile, evitando sobreposição.
+- Front-end canônico mantido somente em public/; removidos app.js, index.html e styles.css duplicados da raiz.
+- Regras consolidadas em REGRAS_APRIMORADAS.md, removendo contradições históricas.
+- Testes atualizados e adicionada proteção contra regressão de turno e regressão visual das cartas.
+
+PRESERVADO SEM ALTERAÇÃO DE MANUTENÇÃO:
+- ranking-store.js
+- PostgreSQL / configuração do banco
+- render.yaml
+- CONFIGURAR_RANKING_RENDER.txt
+- testes específicos do ranking

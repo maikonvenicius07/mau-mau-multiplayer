@@ -1,0 +1,14 @@
+MAU-MAU V32 — EFEITO ESPECIAL CONTINUA NA BATIDA
+
+Regra consolidada:
+- Quando um jogador bate com uma carta especial, o efeito da carta continua valendo antes de encerrar e pontuar a rodada.
+- 8: o jogador anterior compra 2 cartas antes do cálculo da pontuação.
+- K: o jogador anterior compra 1 carta antes do cálculo da pontuação.
+- J: a rodada é encerrada com a regra já existente de dobrar os pontos dos demais jogadores.
+- Q: o efeito de inversão é registrado normalmente.
+- A: o efeito de perda da vez é registrado normalmente.
+- 7: a cadeia continua ativa mesmo após a batida. Cada jogador seguinte pode rebater com outro 7 e acumular +2. Se alguém não puder rebater, compra toda a penalidade acumulada e a rodada termina.
+- Se todos os jogadores restantes rebaterem com 7 e a cadeia completar uma volta até o vencedor original, ninguém compra cartas e a rodada termina normalmente.
+
+Exemplo com quatro jogadores:
+Jogador 1 bate com 7 (+2). Jogador 2 rebate (+4), Jogador 3 rebate (+6) e Jogador 4 rebate (+8). Ao voltar ao Jogador 1, que já bateu, a cadeia é encerrada: ninguém compra.

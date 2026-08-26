@@ -1,0 +1,8 @@
+MAU-MAU V23 — CONTAGEM VISÍVEL + ALERTA MAU-MAU
+
+1. Quantidade de cartas dos jogadores agora aparece em um badge grande na mesa.
+2. Com 2 cartas, o badge fica amarelo.
+3. Com 1 carta, o badge fica vermelho, maior e pulsante.
+4. Quando um adversário realmente chega a 1 carta, toca um alerta forte e a voz anuncia: “Atenção! <nome> está de Mau-Mau! Uma carta!”.
+5. O alerta respeita o botão de som ligado/desligado.
+6. Todas as regras anteriores foram mantidas.

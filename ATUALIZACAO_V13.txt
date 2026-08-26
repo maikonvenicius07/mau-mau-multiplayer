@@ -1,0 +1,7 @@
+MAU-MAU V13 — COMPRA OBRIGATÓRIA PARA PASSAR
+
+- O botão “⏭️ Passar a vez” só é habilitado depois que o jogador compra 1 carta naquela jogada.
+- O jogador pode comprar 1 carta mesmo possuindo carta válida na mão.
+- Depois da compra, pode jogar somente a carta recém-comprada se ela for válida, ou passar a vez.
+- Não é permitido comprar uma segunda carta na mesma jogada normal.
+- Cadeia de 7 e continuação da queima continuam obrigatórias.

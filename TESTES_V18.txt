@@ -1,0 +1,21 @@
+MAU-MAU V18 — RELATÓRIO DE TESTES
+
+1) Validação de sintaxe:
+  ✓ game-engine.js
+  ✓ server.js
+  ✓ bot-player.js
+  ✓ public/app.js
+
+2) Suíte automatizada:
+
+> mau-mau-multiplayer@18.0.0 test
+> node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js
+
+✓ V18: queima flexível, compra e passe após a queima passaram.
+✓ V18 regressão: 500 cenários de Queima/Ação Rápida/Carta Dupla passaram.
+✓ V18 stress: 1.000 cenários de passe/compra após Queima Flexível passaram.
+✓ V18 bot: compra e guarda Valete após Queima Flexível.
+✓ V18 integração: 50 partidas completas entre 4 bots terminaram (15620 ações).
+✓ V18 UI/servidor: Queima Flexível, Ação Rápida e Carta Dupla conferidas.
+
+Observação: a instalação local de Express/Socket.IO não concluiu dentro do limite de tempo deste ambiente; por isso o teste final navegador + servidor real deve ser repetido após o deploy no Render.

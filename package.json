@@ -1,0 +1,18 @@
+{
+  "name": "mau-mau-multiplayer",
+  "version": "37.0.0",
+  "description": "Mau-Mau multiplayer V37 consolidada: Ação Rápida não rouba a vez, Queima com segunda carta só na própria vez e cartas legíveis no mobile. Ranking/PostgreSQL preservados.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js && node tests/card-corner-mobile.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "pg": "^8.13.1"
+  }
+}
