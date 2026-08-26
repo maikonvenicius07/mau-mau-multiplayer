@@ -65,13 +65,13 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.pendingSeven,0);
 }
 
-// V11: outro jogador baixa 5♥; Bruno tem 5♥ e 9♥. Mesmo fora da vez,
-// ele pode queimar 5♥ e depois é obrigado a completar com 9♥.
+// V36: quando chega a vez de Bruno, se ele tem uma carta normal exatamente igual
+// à mesa, pode QUEIMAR e então jogar uma segunda carta compatível.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   const top=card('5','hearts','burn-top');
+  r.currentPlayer=1;
   openBurn(r,a,top);
-  r.currentPlayer=0; // ainda seria a vez de Ana/ordem normal; Bruno vai atravessar.
   a.hand=[card('3','clubs','a3')];
   b.hand=[card('5','hearts','b5h'),card('9','hearts','b9h'),card('2','clubs','b2'),card('3','spades','b3')];
   const burnable=E.canBurnMatch(r,b);
@@ -79,7 +79,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(burnable[0].id,'b5h');
   E.burnMatch(r,b.id,'b5h');
   assert.equal(r.currentPlayer,1,'quem queima deve assumir a jogada');
-  assert.equal(r.continuationPlayerId,b.id,'segunda carta deve ser obrigatória');
+  assert.equal(r.continuationPlayerId,b.id,'Queima na própria vez abre direito à segunda carta');
   assert.equal(b.hand.length,3);
   E.playCard(r,b.id,'b9h');
   assert.equal(r.continuationPlayerId,null);
@@ -90,7 +90,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // A primeira carta da queima precisa ser exatamente igual ao topo.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('5','hearts','top-exact'));
+  r.currentPlayer=1; openBurn(r,a,card('5','hearts','top-exact'));
   b.hand=[card('5','diamonds','wrong-suit'),card('9','diamonds','follow')];
   assert.equal(E.canBurnMatch(r,b).length,0);
 }
@@ -98,7 +98,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // V18: pode iniciar a queima mesmo sem possuir previamente uma segunda carta compatível.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('5','hearts','top-no-follow'));
+  r.currentPlayer=1; openBurn(r,a,card('5','hearts','top-no-follow'));
   b.hand=[card('5','hearts','same'),card('2','clubs','no-follow'),card('3','spades','no-follow-2')];
   assert.equal(E.canBurnMatch(r,b).length,1);
   E.burnMatch(r,b.id,'same');
@@ -107,20 +107,21 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(b.hand.length,2);
 }
 
-// Não pode queimar a própria carta recém-jogada.
+// V36: fora da própria vez não existe Queima com segunda carta.
 {
-  const r=room2(),a=r.players[0];
+  const r=room2(),a=r.players[0],b=r.players[1];
   const top=card('5','hearts','own-top');
+  r.currentPlayer=1;
   openBurn(r,a,top);
   a.hand=[card('5','hearts','own-match'),card('9','hearts','own-follow')];
   assert.equal(E.canBurnMatch(r,a).length,0);
-  assert.throws(()=>E.burnMatch(r,a.id,'own-match'),/própria|acabou de jogar/);
+  assert.throws(()=>E.burnMatch(r,a.id,'own-match'),/sua vez normal|Ação Rápida/i);
 }
 
 // Cartas especiais continuam proibidas como primeira carta de queima.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('Q','hearts','qtop'));
+  r.currentPlayer=1; openBurn(r,a,card('Q','hearts','qtop'));
   b.hand=[card('Q','hearts','qmatch'),card('9','hearts','qfollow')];
   assert.equal(E.canBurnMatch(r,b).length,0);
 }
@@ -128,7 +129,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // Mau-Mau: se a queima de 3 cartas + segunda jogada deixa 1, precisa anunciar.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('4','clubs','mau-top'));
+  r.currentPlayer=1; openBurn(r,a,card('4','clubs','mau-top'));
   b.hand=[card('4','clubs','mau-burn'),card('9','clubs','mau-second'),card('2','spades','mau-last')];
   E.burnMatch(r,b.id,'mau-burn');
   E.playCard(r,b.id,'mau-second');
@@ -136,9 +137,9 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 }
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('4','clubs','mau-top-ok'));
+  r.currentPlayer=1; openBurn(r,a,card('4','clubs','mau-top-ok'));
   b.hand=[card('4','clubs','mau-burn-ok'),card('9','clubs','mau-second-ok'),card('2','spades','mau-last-ok')];
-  E.declare(r,b.id,'mau-mau'); // permitido fora da vez por haver queima válida
+  E.declare(r,b.id,'mau-mau'); // permitido porque é a vez de Bruno e há Queima válida
   E.burnMatch(r,b.id,'mau-burn-ok');
   E.playCard(r,b.id,'mau-second-ok');
   assert.equal(b.hand.length,1,'com Mau-Mau, não recebe penalidade');
@@ -148,7 +149,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // A primeira deve ser igual à mesa e a segunda compatível.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  openBurn(r,a,card('6','diamonds','bat-top'));
+  r.currentPlayer=1; openBurn(r,a,card('6','diamonds','bat-top'));
   b.hand=[card('6','diamonds','bat-first'),card('10','diamonds','bat-second')];
   assert.throws(()=>E.burnMatch(r,b.id,'bat-first'),/Mau-Mau batendo/);
   E.declare(r,b.id,'batendo');
@@ -206,10 +207,10 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(bot.hand.length,1);
 }
 
-// V11: bot também pode queimar fora da vez.
+// V36: bot só pode Queimar quando é a vez normal dele.
 {
   const r=room2(),human=r.players[0],bot=r.players[1];
-  bot.isBot=true;bot.name='Máquina';r.currentPlayer=0;
+  bot.isBot=true;bot.name='Máquina';r.currentPlayer=1;
   openBurn(r,human,card('5','hearts','bot-burn-top'));
   bot.hand=[card('5','hearts','bot-burn'),card('10','hearts','bot-second'),card('2','clubs','bot-left')];
   const burn=Bot.takeBurnOpportunity(r,bot,E);
@@ -441,7 +442,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.discard.at(-1).id,'b5');
 }
 
-// V17: a primeira reação aceita fecha a janela. Depois de Ação Rápida não pode haver Queima atrasada.
+// V36: Ação Rápida é a única reação fora da vez e não abre Queima para terceiros.
 {
   const r=room4(),a=r.players[0],b=r.players[1],c=r.players[2];
   r.currentPlayer=0;r.discard=[card('5','clubs','race-base')];
@@ -450,33 +451,44 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   c.hand=[card('5','hearts','race-c'),card('10','hearts','race-cfollow')];
   E.playCard(r,a.id,'race-a');
   assert(E.canQuickAction(r,b).length>0);
-  assert(E.canBurnMatch(r,b).length>0);
+  assert.equal(E.canBurnMatch(r,b).length,0,'fora da vez não existe Queima');
   E.quickAction(r,b.id,'race-b');
   assert.equal(E.canBurnMatch(r,c).length,0);
-  assert.throws(()=>E.burnMatch(r,c.id,'race-c'),/recém-jogada|disponível|queima/i);
+  assert.throws(()=>E.burnMatch(r,c.id,'race-c'),/sua vez normal|Ação Rápida|queima/i);
 }
 
-// V17: Queima continua funcionando fora da vez e toma a jogada para quem queimou.
+// V36: fora da vez Bruno só pode Ação Rápida; para Queimar e jogar segunda carta,
+// ele precisa ser o jogador da vez normal.
 {
   const r=room4(),a=r.players[0],b=r.players[1];
   r.currentPlayer=0;r.discard=[card('5','clubs','burn-base17')];
   a.hand=[card('5','hearts','burn-source17'),card('2','clubs','a-left17'),card('10','diamonds','a-left17b')];
   b.hand=[card('5','hearts','burn-first17'),card('9','hearts','burn-second17'),card('4','clubs','b-left17')];
   E.playCard(r,a.id,'burn-source17');
-  assert.equal(r.currentPlayer,3,'ordem normal iria para Diego');
+  assert.equal(r.currentPlayer,3,'ordem normal vai para Diego');
+  assert.equal(E.canBurnMatch(r,b).length,0,'Bruno está fora da vez e não pode Queimar');
+  assert(E.canQuickAction(r,b).some(c=>c.id==='burn-first17'),'fora da vez, Bruno pode apenas Ação Rápida');
+  assert.throws(()=>E.burnMatch(r,b.id,'burn-first17'),/sua vez normal|Ação Rápida/i);
+}
+{
+  const r=room4(),a=r.players[0],b=r.players[1];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('5','clubs','burn-own-base36')];
+  a.hand=[card('5','hearts','burn-own-source36'),card('2','clubs','a-own-left36'),card('10','diamonds','a-own-left36b')];
+  b.hand=[card('5','hearts','burn-own-first36'),card('9','hearts','burn-own-second36'),card('4','clubs','b-own-left36')];
+  E.playCard(r,a.id,'burn-own-source36');
+  assert.equal(r.currentPlayer,1,'Bruno é o próximo e está na própria vez');
   assert.equal(E.canBurnMatch(r,b).length,1);
-  E.burnMatch(r,b.id,'burn-first17');
-  assert.equal(r.currentPlayer,1,'quem queimou assume a jogada');
+  E.burnMatch(r,b.id,'burn-own-first36');
   assert.equal(r.continuationPlayerId,b.id);
-  E.playCard(r,b.id,'burn-second17');
+  E.playCard(r,b.id,'burn-own-second36');
   assert.equal(r.continuationPlayerId,null);
-  assert.equal(r.currentPlayer,0,'após a segunda carta, segue a partir de quem queimou');
+  assert.equal(r.currentPlayer,2,'após a segunda carta, a ordem segue normalmente');
 }
 
 // V31: carta especial PODE ser a segunda carta após uma Queima normal e aplica o efeito.
 {
   const r=room4(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('5','clubs','burn-q-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('5','clubs','burn-q-base')];
   a.hand=[card('5','hearts','burn-q-source'),card('2','clubs','a-q-left'),card('10','diamonds','a-q-left2')];
   b.hand=[card('5','hearts','burn-q-first'),card('Q','hearts','burn-q-second'),card('4','clubs','b-q-left')];
   E.playCard(r,a.id,'burn-q-source');
@@ -630,7 +642,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // V18: se após queimar já houver carta compatível, pode passar sem comprar.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('2','hearts','v18-pass-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-pass-base')];
   a.hand=[card('5','hearts','v18-pass-source'),card('4','clubs','v18-pass-a')];
   b.hand=[card('5','hearts','v18-pass-burn'),card('9','hearts','v18-pass-legal'),card('2','clubs','v18-pass-other')];
 
@@ -645,7 +657,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // V18: se existe carta compatível após a queima, não é permitido comprar; deve jogar ou passar.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('2','hearts','v18-no-draw-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-no-draw-base')];
   a.hand=[card('5','hearts','v18-no-draw-source'),card('4','clubs','v18-no-draw-a')];
   b.hand=[card('5','hearts','v18-no-draw-burn'),card('9','hearts','v18-no-draw-legal'),card('2','clubs','v18-no-draw-other')];
 
@@ -657,7 +669,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // V18: ainda pode continuar a queima normalmente e jogar uma segunda carta.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('2','hearts','v18-continue-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-continue-base')];
   a.hand=[card('5','hearts','v18-continue-source'),card('4','clubs','v18-continue-a')];
   b.hand=[card('5','hearts','v18-continue-burn'),card('9','hearts','v18-continue-second'),card('2','clubs','v18-continue-left')];
 
@@ -674,7 +686,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // batendo continua reservado para quem pretende descartar as duas.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('2','hearts','v18-mau-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-mau-base')];
   a.hand=[card('5','hearts','v18-mau-source'),card('4','clubs','v18-mau-a')];
   b.hand=[card('5','hearts','v18-mau-burn'),card('9','hearts','v18-mau-last')];
 
@@ -690,7 +702,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 // V18: para encerrar com a segunda carta da queima, continua obrigatório anunciar batendo.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.currentPlayer=0;r.discard=[card('2','hearts','v18-bat-base')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-bat-base')];
   a.hand=[card('5','hearts','v18-bat-source'),card('4','clubs','v18-bat-a')];
   b.hand=[card('5','hearts','v18-bat-burn'),card('9','hearts','v18-bat-last')];
 

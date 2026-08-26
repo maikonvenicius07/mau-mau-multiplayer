@@ -18,6 +18,7 @@ const suits=['hearts','diamonds','clubs','spades'];
 
 for(let i=0;i<500;i++){
   const r=room3(`pass-${i}`),carla=r.players[0],paulo=r.players[1];
+  r.direction=1;
   const rank=ranks[i%ranks.length], suit=suits[i%suits.length];
   const baseSuit=suits[(i+1)%suits.length];
   r.discard=[card(rank,baseSuit,`base-${i}`)];
@@ -47,6 +48,7 @@ for(let i=0;i<500;i++){
 
 for(let i=0;i<500;i++){
   const r=room3(`draw-${i}`),carla=r.players[0],paulo=r.players[1];
+  r.direction=1;
   const rank=ranks[i%ranks.length], suit=suits[i%suits.length];
   const baseSuit=suits[(i+1)%suits.length];
   let otherSuit=suits[(i+2)%suits.length];
@@ -89,12 +91,13 @@ for(let i=0;i<500;i++){
   assert.equal(r.continuationPlayerId,null);
 }
 
-console.log('✓ V18 stress: 1.000 cenários de passe/compra após Queima Flexível passaram.');
+console.log('✓ V36 stress: 1.000 cenários de Queima na própria vez com passe/compra passaram.');
 
 // V18: bot também respeita a nova Queima Flexível e pode guardar um Valete comprado.
 {
   const Bot=require('../bot-player');
   const r=room3('bot-flex'),carla=r.players[0],bot=r.players[1];
+  r.direction=1;
   bot.isBot=true;bot.name='Máquina';
   r.discard=[card('2','hearts','bot-flex-base')];
   carla.hand=[card('5','hearts','bot-flex-source'),card('3','clubs','bot-flex-c1'),card('4','diamonds','bot-flex-c2')];

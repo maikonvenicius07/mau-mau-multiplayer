@@ -67,9 +67,10 @@ function playChosen(room, bot, Engine, card, drawn=false) {
   else Engine.playCard(room, bot.id, card.id, chosenSuit);
 }
 
-// Pode ser chamada mesmo quando NÃO é a vez do bot.
+// V36: Queima com continuação só pode ser executada quando já é a vez normal do bot.
 function takeBurnOpportunity(room, bot, Engine) {
   if (!room || !bot || room.status !== 'playing') return {action:'none'};
+  if (room.players[room.currentPlayer]?.id !== bot.id) return {action:'none'};
   const burnable = Engine.canBurnMatch(room, bot);
   if (!burnable.length) return {action:'none'};
 

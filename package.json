@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "33.0.0",
-  "description": "Mau-Mau multiplayer V33: mão do jogador pode ser organizada por número ou por naipe, com preferência salva no navegador.",
+  "version": "36.0.0",
+  "description": "Mau-Mau multiplayer V36: Ação Rápida descarta apenas uma carta e nunca rouba a vez; Queima com segunda carta somente na vez normal.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js"
   },
   "engines": {
     "node": ">=18"

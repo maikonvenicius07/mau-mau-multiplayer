@@ -22,12 +22,13 @@ for(let i=0;i<250;i++){
   r.discard=[card(rank,topSuit,`base-${i}`)];
   a.hand=[card(rank,suit,`src-${i}`),card('A',topSuit,`a1-${i}`),card('K',topSuit,`a2-${i}`)];
   b.hand=[card(rank,suit,`copy-${i}`),card('9',suit,`follow-${i}`),card('4',topSuit,`left-${i}`)];
+  if(i%2===0) r.direction=1; // B será o próximo: pode Queimar e ganhar segunda carta
   E.playCard(r,a.id,`src-${i}`);
-  assert.equal(r.currentPlayer,3);
-  assert(E.canBurnMatch(r,b).some(c=>c.id===`copy-${i}`));
-  assert(E.canQuickAction(r,b).some(c=>c.id===`copy-${i}`));
 
   if(i%2===0){
+    assert.equal(r.currentPlayer,1);
+    assert(E.canBurnMatch(r,b).some(c=>c.id===`copy-${i}`));
+    assert.equal(E.canQuickAction(r,b).length,0,'quem está na vez usa Queima, não Ação Rápida');
     E.declare(r,b.id,'mau-mau');
     E.burnMatch(r,b.id,`copy-${i}`);
     assert.equal(r.currentPlayer,1);
@@ -35,8 +36,11 @@ for(let i=0;i<250;i++){
     E.playCard(r,b.id,`follow-${i}`);
     assert.equal(b.hand.length,1);
     assert.equal(r.continuationPlayerId,null);
-    assert.equal(r.currentPlayer,0);
+    assert.equal(r.currentPlayer,2);
   }else{
+    assert.equal(r.currentPlayer,3);
+    assert.equal(E.canBurnMatch(r,b).length,0,'fora da vez não há Queima');
+    assert(E.canQuickAction(r,b).some(c=>c.id===`copy-${i}`));
     E.quickAction(r,b.id,`copy-${i}`);
     assert.equal(b.hand.length,2);
     assert.equal(r.currentPlayer,3);
@@ -57,4 +61,4 @@ for(let i=0;i<250;i++){
   assert.equal(r.currentPlayer,3);
 }
 
-console.log('✓ V18 regressão: 500 cenários de Queima/Ação Rápida/Carta Dupla passaram.');
+console.log('✓ V36 regressão: Queima só na vez, Ação Rápida fora da vez e Carta Dupla passaram.');

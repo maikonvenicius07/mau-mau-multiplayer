@@ -325,8 +325,9 @@ function declare(room, playerId, type) {
   const p = room.players[idx];
   if (!['mau-mau','batendo'].includes(type)) throw new Error('Declaração inválida.');
 
-  // Na V11, a queima pode ser feita fora da vez. Por isso também permitimos
-  // o anúncio imediatamente antes de uma queima válida, mesmo fora da vez.
+  // V36: Queima com direito à segunda carta só existe na vez normal do jogador.
+  // Fora da vez, a única intervenção permitida é a Ação Rápida, que descarta uma
+  // única carta idêntica e não transfere a vez.
   const isTurn = room.players[room.currentPlayer]?.id === p.id;
   const hasBurnOpportunity = canBurnMatch(room,p).length > 0;
   const hasQuickOpportunity = canQuickAction(room,p).length > 0;
@@ -643,9 +644,10 @@ function canFinishBurn(room, player) {
   );
 }
 
-// V18 — QUEIMA FLEXÍVEL
-// Quando outro jogador coloca uma carta na mesa e você possui exatamente a
-// mesma carta (mesmo valor + mesmo naipe), pode queimá-la e assumir a jogada.
+// V36 — QUEIMA NA PRÓPRIA VEZ
+// Quando chega a sua vez e você possui exatamente a mesma carta da mesa
+// (mesmo valor + mesmo naipe), pode queimá-la e ganhar o direito à continuação.
+// Fora da vez, essa mesma carta só pode ser usada em Ação Rápida e não dá segunda jogada.
 // Depois da queima, a segunda carta NÃO é mais obrigatória:
 //   • se houver carta compatível, o jogador pode jogá-la OU passar a vez;
 //   • se não houver carta compatível, deve comprar 1 carta;
@@ -666,13 +668,14 @@ function burnMatch(room, playerId, cardId) {
   const player = room.players[idx];
   if (!player.connected || player.finishedRound) throw new Error('Jogador não pode realizar a queima agora.');
 
+  if (idx !== room.currentPlayer) {
+    throw new Error('A Queima com direito à segunda carta só pode ser feita na sua vez normal. Fora da vez, use apenas Ação Rápida.');
+  }
+
   const top = topCard(room);
   const first = player.hand.find(c => c.id === cardId);
   if (!first) throw new Error('Carta não encontrada na mão.');
-  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId) {
-    throw new Error('Não há uma carta recém-jogada disponível para queima.');
-  }
-  if (room.reactionSourcePlayerId === player.id) throw new Error('Você não pode queimar a carta que acabou de jogar.');
+  if (!top) throw new Error('Não há carta na mesa para realizar a Queima.');
   if (isSpecial(first)) throw new Error('Não é permitido queimar Ás, Dama, Valete, Rei, Oito ou Sete.');
   if (!sameCard(first, top)) throw new Error('Para queimar, sua primeira carta deve ser exatamente igual à carta da mesa: mesmo valor e mesmo naipe.');
 
@@ -680,7 +683,6 @@ function burnMatch(room, playerId, cardId) {
     throw new Error('Antes de queimar e ficar com uma carta, anuncie “Mau-Mau”. Se pretende usar também a última carta e encerrar a rodada, anuncie “Mau-Mau batendo/queimando”.');
   }
 
-  const interrupted = room.players[room.currentPlayer];
   const before = player.hand.length;
   closeReaction(room);
   const played = removeCard(player, first.id);
@@ -701,15 +703,11 @@ function burnMatch(room, playerId, cardId) {
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
 
-  const interruptedText = interrupted && interrupted.id !== player.id
-    ? ` e interrompeu a vez de ${interrupted.name}`
-    : '';
-
   const followUps = player.hand.filter(c => burnContinuationCardLegal(room,c,player));
   if (followUps.length) {
-    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${interruptedText}. Pode jogar mais uma carta compatível ou passar a vez.`, 'burn');
+    log(room, `${player.name} QUEIMOU ${cardLabel(played)} na própria vez. Pode jogar mais uma carta compatível ou passar a vez.`, 'burn');
   } else {
-    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${interruptedText}, mas não possui carta compatível. Deve comprar 1 carta e então poderá jogar a comprada, se quiser, ou passar a vez.`, 'burn');
+    log(room, `${player.name} QUEIMOU ${cardLabel(played)} na própria vez, mas não possui carta compatível. Deve comprar 1 carta e então poderá jogar uma carta válida ou passar a vez.`, 'burn');
   }
 
   if (before === 2 && player.hand.length === 1 && player.declaration === 'mau-mau') {
@@ -923,12 +921,15 @@ function finalizeRound(room) {
 function canBurnMatch(room, player) {
   if (!room.rules.burnEnabled || room.status !== 'playing' || room.pendingSeven > 0 || room.continuationPlayerId) return [];
   if (!player || !player.connected || player.finishedRound) return [];
-  const top = topCard(room);
-  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || room.reactionSourcePlayerId === player.id) return [];
-  if (isSpecial(top)) return [];
 
-  // V18: basta possuir a carta exatamente igual para iniciar a queima.
-  // Se não houver continuação compatível depois, compra-se 1 carta.
+  // V36 — a Queima que dá direito a uma segunda carta pertence somente à vez normal.
+  // Quem está fora da vez pode apenas usar Ação Rápida, que descarta uma única carta
+  // idêntica e mantém o turno com o jogador original.
+  const current = room.players[room.currentPlayer];
+  if (!current || current.id !== player.id) return [];
+
+  const top = topCard(room);
+  if (!top || isSpecial(top)) return [];
   return player.hand.filter(first => !isSpecial(first) && sameCard(first, top));
 }
 

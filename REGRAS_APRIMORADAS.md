@@ -207,3 +207,10 @@ Quando a última carta do jogador possui função especial, seu efeito continua 
 
 ### Cadeia final do 7
 Se a batida ocorrer com 7, os jogadores seguintes podem rebater com outro 7, acumulando a penalidade. Se algum jogador não puder responder, compra o total acumulado e então a rodada termina. Se todos os jogadores restantes responderem com 7 e a cadeia completar uma volta até o vencedor original, ninguém compra e a rodada é encerrada normalmente.
+
+
+## V36 — diferença entre Queima e Ação Rápida
+
+- **Ação Rápida:** ocorre fora da vez, com uma carta normal exatamente igual à recém-jogada. Descarta apenas essa carta, não toma a vez e não dá direito a segunda carta.
+- **Queima:** somente o jogador que já está na sua vez normal pode queimar uma carta normal exatamente igual à carta da mesa. Depois da Queima, pode jogar uma segunda carta válida (inclusive uma carta especial, com efeito normal) ou passar, conforme as demais regras.
+- Portanto, **a segunda carta só pode ser jogada quando a Queima ocorreu na própria vez do jogador**.

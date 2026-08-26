@@ -1,0 +1,17 @@
+MAU-MAU V36 — AÇÃO RÁPIDA NÃO ROUBA A VEZ
+
+REGRA CONSOLIDADA
+1. AÇÃO RÁPIDA (fora da vez)
+- Jogador que não é o próximo pode descartar UMA carta normal exatamente igual à recém-jogada.
+- Não toma a vez.
+- Não permite jogar uma segunda carta.
+- Depois da Ação Rápida, a vez continua com o jogador que já era o próximo.
+
+2. QUEIMA (na própria vez)
+- Somente o jogador da vez pode usar uma carta normal exatamente igual à carta da mesa como Queima.
+- A Queima dá direito à continuação: jogar uma segunda carta válida ou passar, conforme as regras.
+- A segunda carta pode ser especial e aplica seu efeito normalmente, conforme regra já adotada.
+
+3. BOTS
+- Bots fora da vez usam somente Ação Rápida.
+- Um bot só pode usar Queima e jogar a segunda carta quando for realmente a vez dele.

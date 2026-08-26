@@ -42,7 +42,7 @@ for(const rank of specials){
 // e funciona como coringa, permitindo escolher o novo naipe.
 {
   const r=room4('burn-j'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2];
-  openReaction(r,joao,lucas,card('5','diamonds','top5d-j'));
+  openReaction(r,joao,rosa,card('5','diamonds','top5d-j'));
   rosa.hand=[card('5','diamonds','burn5d-j'),card('J','spades','jsp'),card('2','clubs','left-j')];
   E.burnMatch(r,rosa.id,'burn5d-j');
   let st=E.roomPublicState(r,rosa.id);
@@ -56,7 +56,7 @@ for(const rank of specials){
 // V31: 8 do mesmo naipe como segunda carta da Queima aplica +2 ao jogador anterior.
 {
   const r=room4('burn-8'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2];
-  openReaction(r,joao,lucas,card('5','diamonds','top5d-8'));
+  openReaction(r,joao,rosa,card('5','diamonds','top5d-8'));
   rosa.hand=[card('5','diamonds','burn5d-8'),card('8','diamonds','eightd'),card('2','clubs','left-8')];
   lucas.hand=[card('3','clubs','lucas-base')];
   const before=lucas.hand.length;
@@ -68,7 +68,7 @@ for(const rank of specials){
 // V31: Rei do mesmo naipe aplica +1 ao jogador anterior.
 {
   const r=room4('burn-k'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2];
-  openReaction(r,joao,lucas,card('5','hearts','top5h-k'));
+  openReaction(r,joao,rosa,card('5','hearts','top5h-k'));
   rosa.hand=[card('5','hearts','burn5h-k'),card('K','hearts','kh'),card('2','clubs','left-k')];
   lucas.hand=[card('3','clubs','lucas-k')];
   const before=lucas.hand.length;
@@ -79,7 +79,7 @@ for(const rank of specials){
 // V31: Dama do mesmo naipe inverte o sentido.
 {
   const r=room4('burn-q'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2];
-  openReaction(r,joao,lucas,card('5','clubs','top5c-q'));
+  openReaction(r,joao,rosa,card('5','clubs','top5c-q'));
   rosa.hand=[card('5','clubs','burn5c-q'),card('Q','clubs','qc'),card('2','diamonds','left-q')];
   const before=r.direction;
   E.burnMatch(r,rosa.id,'burn5c-q');E.playCard(r,rosa.id,'qc');
@@ -89,7 +89,7 @@ for(const rank of specials){
 // V31: Ás do mesmo naipe pula o próximo jogador.
 {
   const r=room4('burn-a'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2],ana=r.players[3];
-  openReaction(r,joao,lucas,card('5','spades','top5s-a'));
+  openReaction(r,joao,rosa,card('5','spades','top5s-a'));
   rosa.hand=[card('5','spades','burn5s-a'),card('A','spades','as'),card('2','diamonds','left-a')];
   E.burnMatch(r,rosa.id,'burn5s-a');E.playCard(r,rosa.id,'as');
   assert.equal(r.players[r.currentPlayer].id,joao.id,'Ás após Queima deve pular Ana e entregar a vez a João');
@@ -98,11 +98,11 @@ for(const rank of specials){
 // V31: 7 do mesmo naipe inicia normalmente a penalidade +2.
 {
   const r=room4('burn-7'),joao=r.players[0],lucas=r.players[1],rosa=r.players[2],ana=r.players[3];
-  openReaction(r,joao,lucas,card('5','hearts','top5h-7'));
+  openReaction(r,joao,rosa,card('5','hearts','top5h-7'));
   rosa.hand=[card('5','hearts','burn5h-7'),card('7','hearts','sevenh'),card('2','diamonds','left-7')];
   E.burnMatch(r,rosa.id,'burn5h-7');E.playCard(r,rosa.id,'sevenh');
   assert.equal(r.pendingSeven,2,'7 após Queima deve iniciar +2');
   assert.equal(r.players[r.currentPlayer].id,ana.id,'7 deve passar a penalidade ao próximo jogador');
 }
 
-console.log('✓ V31: especiais não iniciam Queima/Ação Rápida/Carta Dupla, mas funcionam como segunda carta após Queima normal.');
+console.log('✓ V36: especiais não entram em Ação Rápida/Carta Dupla e funcionam como segunda carta após Queima na própria vez.');
