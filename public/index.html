@@ -10,8 +10,25 @@
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <section id="landing" class="screen landing">
+  <section id="authGate" class="screen auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand-mark">M</div>
+      <div class="eyebrow">ACESSO AO MAU-MAU</div>
+      <h1>Entre com sua Conta Google</h1>
+      <p>O login é obrigatório para identificar cada jogador com segurança e manter a mesma identidade ao acessar por celular ou computador.</p>
+      <div id="googleSignInButton" class="google-signin-container" aria-label="Entrar com Google"></div>
+      <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
+      <p class="auth-privacy">O jogo recebe do Google apenas os dados básicos de identificação disponibilizados no login. Sua senha do Google nunca é enviada ao Mau-Mau.</p>
+    </div>
+  </section>
+
+  <section id="landing" class="screen landing hidden">
     <div class="hero-card">
+      <div class="google-account-bar">
+        <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da Conta Google" referrerpolicy="no-referrer" />
+        <div class="google-account-meta"><small>CONTA GOOGLE CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
+        <button id="googleLogoutBtn" class="google-logout-btn" type="button">Sair da conta</button>
+      </div>
       <div class="brand-row">
         <div class="brand-mark">M</div>
         <div>
@@ -25,7 +42,7 @@
       </div>
 
       <div class="setup-grid avatar-setup">
-        <label>Seu nome<input id="nameInput" maxlength="24" placeholder="Seu nome" value="Jogador" /></label>
+        <label>Nome na mesa<input id="nameInput" maxlength="24" placeholder="Seu nome na mesa" value="Jogador" /></label>
         <div class="avatar-field">
           <div class="avatar-field-title">Escolha seu avatar</div>
           <input id="avatarSelect" type="hidden" value="macaco" />
@@ -91,7 +108,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V37 • CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -257,9 +274,10 @@
         <tbody id="rankingBody"><tr><td colspan="7" class="ranking-empty">Carregando ranking...</td></tr></tbody>
       </table>
     </div>
-    <div class="ranking-note">O perfil é identificado por um código permanente salvo neste navegador. Alterar nome ou avatar não apaga suas estatísticas.</div>
+    <div class="ranking-note">O perfil desta versão é identificado pela Conta Google autenticada. Alterar o nome na mesa ou o avatar não muda a identidade do jogador.</div>
   </dialog>
 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
 </body>

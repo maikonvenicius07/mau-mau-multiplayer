@@ -15,6 +15,6 @@ assert(app.includes('card-count-badge'),'contador grande não renderizado');
 assert(css.includes('.card-count-badge'),'estilo do contador ausente');
 assert(css.includes('.card-count-badge.mau-count'),'destaque de 1 carta ausente');
 assert(css.includes('.card-count-badge.warning-count'),'destaque de 2 cartas ausente');
-assert(html.includes('V37 • CONSOLIDADA'),'identificação V37 ausente');
+assert(html.includes('V38 • LOGIN GOOGLE'),'identificação V38 ausente');
 assert(engine.includes('{playerId:p.id,declaration:type}'),'log de Mau-Mau sem identificação estruturada do jogador');
-console.log('✓ V37: contador visível e alerta sonoro/falado de adversário em Mau-Mau conferidos.');
+console.log('✓ V38: contador visível e alerta sonoro/falado de adversário em Mau-Mau conferidos.');

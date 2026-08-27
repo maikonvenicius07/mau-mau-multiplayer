@@ -1,11 +1,11 @@
-const socket = io();
+const socket = io({autoConnect:false});
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
 let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set();
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
-const playerKeyStorage='maumauPlayerKeyV1';
+let googleUser=null;
 let rankingPeriod='day', rankingMode='human';
 const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
@@ -104,15 +104,91 @@ function setAvatarSelection(value='macaco'){
   });
 }
 
-function permanentPlayerKey(){
-  let key=localStorage.getItem(playerKeyStorage);
-  if(!key){
-    key=(crypto.randomUUID?crypto.randomUUID():`plr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    localStorage.setItem(playerKeyStorage,key);
-  }
-  return key;
+function permanentPlayerKey(){ return googleUser?.playerKey || ''; }
+function profile(){ return {name:$('#nameInput').value.trim()||googleUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
+function authStatus(message='',kind=''){
+  const el=$('#authStatus');if(!el)return;
+  el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
-function profile(){ return {name:$('#nameInput').value.trim()||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
+function showAuthGate(message='Entre com sua Conta Google para continuar.'){
+  googleUser=null;
+  if(socket.connected) socket.disconnect();
+  $('#game')?.classList.add('hidden');
+  $('#landing')?.classList.add('hidden');
+  $('#authGate')?.classList.remove('hidden');
+  authStatus(message);
+}
+function applyGoogleUser(user,{connect=true}={}){
+  const priorRoomSession=saved();
+  if(priorRoomSession && priorRoomSession.playerKey!==user?.playerKey) clearSession();
+  googleUser=user;
+  $('#authGate')?.classList.add('hidden');
+  if(!state) $('#landing')?.classList.remove('hidden');
+  const name=$('#googleAccountName'),email=$('#googleAccountEmail'),photo=$('#googleAccountPhoto');
+  if(name)name.textContent=user?.name||'Jogador';
+  if(email)email.textContent=user?.email||'';
+  if(photo){
+    if(user?.picture){photo.src=user.picture;photo.classList.remove('hidden')}else{photo.removeAttribute('src');photo.classList.add('hidden')}
+  }
+  const input=$('#nameInput');
+  if(input && (!input.value || input.value==='Jogador')) input.value=(user?.name||'Jogador').slice(0,24);
+  if(connect && !socket.connected) socket.connect();
+}
+function waitForGoogleIdentity(timeout=10000){
+  return new Promise((resolve,reject)=>{
+    const started=Date.now();
+    const tick=()=>{
+      if(window.google?.accounts?.id) return resolve(window.google.accounts.id);
+      if(Date.now()-started>=timeout) return reject(new Error('Biblioteca de login do Google não carregou. Verifique sua internet e tente novamente.'));
+      setTimeout(tick,120);
+    };tick();
+  });
+}
+async function handleGoogleCredential(response){
+  try{
+    authStatus('Validando sua Conta Google...');
+    const res=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:response?.credential||''})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok) throw new Error(data.message||'Não foi possível entrar com Google.');
+    applyGoogleUser(data.user);
+    authStatus('Conta Google conectada.','success');
+    toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
+  }catch(e){authStatus(e.message||'Falha no login Google.','error')}
+}
+async function renderGoogleSignIn(){
+  const target=$('#googleSignInButton');if(!target)return;
+  try{
+    authStatus('Carregando login Google...');
+    const cfgRes=await fetch('/api/auth/config');
+    const cfg=await cfgRes.json();
+    if(!cfg?.configured||!cfg?.clientId) throw new Error('Login Google ainda não foi configurado no servidor.');
+    const gis=await waitForGoogleIdentity();
+    target.innerHTML='';
+    gis.initialize({client_id:cfg.clientId,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:false});
+    const buttonWidth=Math.min(300,Math.max(220,window.innerWidth-72));
+    gis.renderButton(target,{theme:'outline',size:'large',shape:'pill',text:'signin_with',logo_alignment:'left',width:buttonWidth});
+    authStatus('Escolha sua Conta Google para entrar.');
+  }catch(e){authStatus(e.message||'Não foi possível carregar o login Google.','error')}
+}
+async function initializeGoogleAuth(){
+  try{
+    const res=await fetch('/api/auth/me',{cache:'no-store'});
+    const data=await res.json().catch(()=>({ok:false}));
+    if(res.ok&&data.ok&&data.user){applyGoogleUser(data.user);return;}
+  }catch{}
+  showAuthGate('Entre com sua Conta Google para continuar.');
+  renderGoogleSignIn();
+}
+async function logoutGoogle(){
+  if(state) return toast('Saia da sala antes de desconectar a Conta Google.');
+  try{await fetch('/api/auth/logout',{method:'POST'});}catch{}
+  clearSession();
+  googleUser=null;
+  if(socket.connected)socket.disconnect();
+  try{window.google?.accounts?.id?.disableAutoSelect?.()}catch{}
+  showAuthGate('Você saiu da Conta Google. Entre novamente para jogar.');
+  renderGoogleSignIn();
+}
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
 function clearSession(){localStorage.removeItem(sessionKey)}
@@ -370,18 +446,22 @@ $('#rankingClose').onclick=()=>$('#rankingDialog').close();
 
 $$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
 setAvatarSelection($('#avatarSelect')?.value||'macaco');
+$('#googleLogoutBtn').onclick=logoutGoogle;
 
 $('#createBtn').onclick=()=>{
+  if(!googleUser) return showAuthGate('Entre com sua Conta Google para criar uma sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID()});
 };
 $('#botGameBtn').onclick=()=>{
+  if(!googleUser) return showAuthGate('Entre com sua Conta Google para jogar.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true});
 };
 $('#joinBtn').onclick=()=>{
+  if(!googleUser) return showAuthGate('Entre com sua Conta Google para entrar na sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   const code=$('#roomInput').value.trim().toUpperCase();
   if(!code) return toast('Informe o código da sala.');
@@ -465,7 +545,7 @@ $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
 });
 
 socket.on('joined',data=>{
-  saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar});
+  saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
 });
 socket.on('state',s=>{
@@ -531,7 +611,10 @@ socket.on('connect',()=>{
   } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
 socket.on('disconnect',()=>{setConnection('offline');toast('Conexão perdida. Tentando reconectar...');renderControls();});
-socket.on('connect_error',()=>setConnection('offline'));
+socket.on('connect_error',e=>{
+  setConnection('offline');
+  if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente com Google.');renderGoogleSignIn();}
+});
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
@@ -814,3 +897,7 @@ function esc(s){return String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&l
 
 let mobileResizeTimer;window.addEventListener('resize',()=>{clearTimeout(mobileResizeTimer);mobileResizeTimer=setTimeout(()=>{if(state)renderPlayers()},120)});
 window.addEventListener('orientationchange',()=>setTimeout(()=>{if(state)renderPlayers()},180));
+
+
+// V38: o jogo só conecta ao Socket.IO depois que a sessão Google foi validada.
+initializeGoogleAuth();

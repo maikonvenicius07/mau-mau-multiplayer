@@ -1,8 +1,10 @@
 'use strict';
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
+const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode } = require('./ranking-store');
@@ -14,6 +16,101 @@ const PORT = process.env.PORT || 3000;
 const rooms = new Map();
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
+
+const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+const AUTH_SESSION_SECRET = String(process.env.AUTH_SESSION_SECRET || '').trim() || crypto.randomBytes(32).toString('hex');
+const AUTH_COOKIE = 'maumau_google_session';
+const AUTH_TTL_SECONDS = 7 * 24 * 60 * 60;
+const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará bloqueado até configurar a variável no Render.');
+if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
+
+function googlePlayerKey(sub) {
+  // O "sub" é a identidade estável da Conta Google. O hash evita expor esse identificador
+  // diretamente e mantém o mesmo playerKey em celulares/computadores diferentes.
+  return `g_${crypto.createHash('sha256').update(`mau-mau-google:${sub}`).digest('hex').slice(0,40)}`;
+}
+function signAuthSession(user) {
+  const payload = Buffer.from(JSON.stringify({
+    playerKey:user.playerKey,
+    name:user.name,
+    email:user.email || '',
+    picture:user.picture || '',
+    exp:Date.now() + AUTH_TTL_SECONDS * 1000,
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', AUTH_SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+function verifyAuthSession(token) {
+  try {
+    const [payload, signature, extra] = String(token || '').split('.');
+    if (!payload || !signature || extra) return null;
+    const expected = crypto.createHmac('sha256', AUTH_SESSION_SECRET).update(payload).digest('base64url');
+    const a=Buffer.from(signature), b=Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) return null;
+    const session = JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
+    if (!session?.playerKey || !session?.exp || Date.now() >= Number(session.exp)) return null;
+    return session;
+  } catch { return null; }
+}
+function parseCookies(header='') {
+  const out={};
+  for (const part of String(header).split(';')) {
+    const i=part.indexOf('='); if(i<0) continue;
+    const key=part.slice(0,i).trim(); const value=part.slice(i+1).trim();
+    if(!key) continue;
+    try { out[key]=decodeURIComponent(value); } catch { out[key]=value; }
+  }
+  return out;
+}
+function authFromCookieHeader(header) {
+  return verifyAuthSession(parseCookies(header)[AUTH_COOKIE]);
+}
+function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
+  const forwarded=String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const secure=req.secure || forwarded==='https';
+  const value=token ? encodeURIComponent(token) : '';
+  const parts=[`${AUTH_COOKIE}=${value}`,'Path=/','HttpOnly','SameSite=Lax',`Max-Age=${maxAge}`];
+  if(secure) parts.push('Secure');
+  res.setHeader('Set-Cookie',parts.join('; '));
+}
+
+app.set('trust proxy', 1);
+app.use(express.json({limit:'16kb'}));
+
+app.get('/api/auth/config', (_,res)=>res.json({ok:true,configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID || null}));
+app.get('/api/auth/me', (req,res)=>{
+  const session=authFromCookieHeader(req.headers.cookie);
+  if(!session) return res.status(401).json({ok:false,message:'Login Google necessário.'});
+  res.json({ok:true,user:{playerKey:session.playerKey,name:session.name,email:session.email,picture:session.picture}});
+});
+app.post('/api/auth/google', async (req,res)=>{
+  try {
+    if(!googleAuthClient || !GOOGLE_CLIENT_ID) return res.status(503).json({ok:false,message:'Login Google ainda não foi configurado no servidor.'});
+    const credential=String(req.body?.credential || '').trim();
+    if(!credential) return res.status(400).json({ok:false,message:'Credencial Google não informada.'});
+    const ticket=await googleAuthClient.verifyIdToken({idToken:credential,audience:GOOGLE_CLIENT_ID});
+    const payload=ticket.getPayload();
+    if(!payload?.sub) throw new Error('Conta Google sem identificador válido.');
+    if(payload.email_verified === false) throw new Error('O e-mail desta Conta Google não está verificado.');
+    const user={
+      playerKey:googlePlayerKey(payload.sub),
+      name:String(payload.name || payload.given_name || 'Jogador').trim().slice(0,60),
+      email:String(payload.email || '').trim().slice(0,180),
+      picture:String(payload.picture || '').trim().slice(0,500),
+    };
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user});
+  } catch(e) {
+    console.error('[auth] falha no login Google:',e?.message || e);
+    res.status(401).json({ok:false,message:'Não foi possível validar esta Conta Google. Tente novamente.'});
+  }
+});
+app.post('/api/auth/logout', (req,res)=>{
+  setAuthCookie(req,res,'',0);
+  res.json({ok:true});
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind}));
@@ -199,6 +296,7 @@ function withRoom(socket, fn) {
     if (!room) throw new Error('Sala não encontrada.');
     const player = room.players.find(p => p.id === socket.data.playerId);
     if (!player) throw new Error('Jogador não encontrado na sala.');
+    if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra Conta Google.');
     fn(room, player);
     emitRoom(room);
   } catch(e) { err(socket,e); }
@@ -221,6 +319,13 @@ function emitChatHistory(socket, room) {
   socket.emit('chatHistory', room.chat.slice(-60));
 }
 
+io.use((socket,next)=>{
+  const session=authFromCookieHeader(socket.handshake.headers.cookie);
+  if(!session) return next(new Error('AUTH_REQUIRED'));
+  socket.data.auth=session;
+  next();
+});
+
 io.on('connection', socket => {
   socket.on('createRoom', payload => {
     try {
@@ -228,9 +333,9 @@ io.on('connection', socket => {
       const room = Engine.createRoom(code, {
         socketId:socket.id,
         token:payload?.token,
-        name:payload?.name,
+        name:payload?.name || socket.data.auth.name,
         avatar:payload?.avatar,
-        playerKey:payload?.playerKey,
+        playerKey:socket.data.auth.playerKey,
       });
       rooms.set(code,room);
       ensureSocial(room);
@@ -253,12 +358,15 @@ io.on('connection', socket => {
       let p = null;
       if (payload?.token) {
         const existing = room.players.find(x => x.token === payload.token);
+        if (existing?.playerKey && existing.playerKey !== socket.data.auth.playerKey) {
+          throw new Error('Esta vaga pertence a outra Conta Google.');
+        }
         if (existing?.socketId && existing.socketId !== socket.id) {
           io.to(existing.socketId).emit('sessionReplaced');
         }
         p = Engine.reconnectPlayer(room,payload.token,socket.id);
       }
-      if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name, avatar:payload?.avatar, playerKey:payload?.playerKey});
+      if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
       socket.emit('joined',{code,playerId:p.id,token:p.token});

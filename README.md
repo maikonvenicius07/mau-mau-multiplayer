@@ -1,4 +1,15 @@
-# MAU-MAU Multiplayer — V37 CONSOLIDADA
+# MAU-MAU Multiplayer — V38 LOGIN GOOGLE
+
+## V38 — Login obrigatório com Conta Google
+
+- Não existe modo visitante nesta versão.
+- O navegador recebe a credencial do Google Identity Services e a envia ao servidor.
+- O servidor valida o ID token para o `GOOGLE_CLIENT_ID` configurado e cria uma sessão própria em cookie HttpOnly.
+- O Socket.IO só aceita conexão de sessão autenticada.
+- A identidade usada pelo jogo/ranking é derivada do identificador estável da Conta Google; o navegador não pode escolher outro `playerKey`.
+- Nome na mesa e avatar continuam personalizáveis, mas não alteram a identidade autenticada.
+- As regras da V37 permanecem iguais.
+
 
 > Versão consolidada: Ação Rápida não rouba a vez; segunda carta somente após Queima na própria vez; leitura das cartas corrigida no mobile. A camada de ranking/PostgreSQL foi preservada.
 

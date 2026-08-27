@@ -1,4 +1,4 @@
-# Regras consolidadas do Mau-Mau — V37
+# Regras consolidadas do Mau-Mau — V38
 
 Este arquivo reúne **somente as regras vigentes** do aplicativo. Textos de atualização antigos permanecem no projeto apenas como histórico.
 
@@ -98,3 +98,7 @@ Bots seguem as mesmas regras dos humanos, inclusive Queima somente na própria v
 
 ## 12. Organização visual
 A mão pode ser organizada por número ou por naipe. Essa ordenação é somente visual e não altera as regras. No mobile, valor e naipe são renderizados separadamente para evitar sobreposição.
+
+
+## Login da V38
+O acesso ao jogo exige autenticação por Conta Google. Essa mudança não altera nenhuma regra das cartas ou da partida.

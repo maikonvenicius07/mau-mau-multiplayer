@@ -451,3 +451,20 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
     font-size:28px;
   }
 }
+
+
+/* V38 — LOGIN GOOGLE OBRIGATÓRIO */
+.auth-screen{display:grid;place-items:center;padding:28px;min-height:100vh}
+.auth-card{width:min(520px,94vw);text-align:center;background:linear-gradient(145deg,rgba(25,49,38,.98),rgba(12,25,20,.98));border:1px solid #315343;border-radius:28px;padding:34px;box-shadow:0 28px 80px #0008}
+.auth-brand-mark{width:70px;height:88px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(145deg,#f9d887,#c88b2d);color:#271c08;font-size:44px;font-weight:1000;border-radius:19px;box-shadow:inset 0 0 0 2px #fff5,0 8px 20px #0005;transform:rotate(-4deg)}
+.auth-card h1{margin:8px 0 10px;font-size:clamp(28px,7vw,43px);line-height:1.02;letter-spacing:-.035em}
+.auth-card>p{color:#c8d5ce;line-height:1.45}
+.google-signin-container{min-height:54px;margin:24px auto 12px;display:flex;align-items:center;justify-content:center}
+.auth-status{min-height:22px;color:#e8cd8d;font-size:12px;font-weight:800;margin-top:8px}
+.auth-status.error{color:#ff9696}.auth-status.success{color:#83e5ad}
+.auth-privacy{font-size:10px!important;color:#80968a!important;margin:18px auto 0;max-width:390px}
+.google-account-bar{display:flex;align-items:center;gap:10px;margin:-12px 0 18px;padding:8px 10px;background:#091a13;border:1px solid #315343;border-radius:14px;text-align:left}
+.google-account-photo{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid #d7b35d}
+.google-account-meta{display:flex;flex-direction:column;min-width:0;flex:1}.google-account-meta small{font-size:8px;color:#86a294;letter-spacing:.08em;font-weight:900}.google-account-meta strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.google-account-meta span{font-size:9px;color:#9fb1a7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.google-logout-btn{flex:0 0 auto!important;width:auto!important;margin:0!important;padding:8px 10px!important;min-height:36px!important;border:1px solid #76514a!important;background:#351e1a!important;color:#ffd7d1!important;border-radius:10px!important;font-size:10px!important;font-weight:900!important}
+@media(max-width:520px){.auth-screen{padding:14px}.auth-card{padding:28px 18px;border-radius:22px}.google-account-bar{margin:-7px 0 14px}.google-account-photo{width:36px;height:36px}.google-account-email{display:none}.google-logout-btn{padding:7px 8px!important;font-size:9px!important}}
