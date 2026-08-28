@@ -7,6 +7,7 @@ let chatMessages=[], unreadChat=0, activeSideTab='log';
 const sessionKey='maumauSessionV1';
 let googleUser=null;
 let rankingPeriod='day', rankingMode='human';
+let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
 const handSortStorage='maumauHandSortV1';
@@ -532,6 +533,11 @@ $('#passTurnBtn').onclick=()=>{
 const rules=$('#rulesDialog');
 $('#rulesOpen').onclick=$('#rulesOpen2').onclick=()=>rules.showModal();
 $('#rulesClose').onclick=()=>rules.close();
+$('#roundReviewClose').onclick=closeRoundReview;
+$('#roundReviewDone').onclick=closeRoundReview;
+$('#roundReviewDialog').addEventListener('click',e=>{
+  if(e.target===$('#roundReviewDialog')) closeRoundReview();
+});
 
 $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
   const suit=btn.dataset.suit;$('#suitDialog').close();
@@ -544,6 +550,66 @@ $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
   pendingCard=null;pendingBurn=false;
 });
 
+function closeRoundReview(){
+  const dlg=$('#roundReviewDialog');
+  if(dlg?.open) dlg.close();
+}
+function roundReviewCardHTML(card){
+  return `<div class="round-review-card-wrap">${cardHTML(card,true)}<div class="round-review-card-points">${Number(card.points)||0} pt${Number(card.points)===1?'':'s'}</div></div>`;
+}
+function openRoundReview(review=state?.roundReview){
+  const dlg=$('#roundReviewDialog');
+  if(!dlg||!review)return;
+  const winner=review.players?.find(p=>p.id===review.winnerId);
+  $('#roundReviewTitle').textContent=`🧮 Conferência — Rodada ${review.round}`;
+  $('#roundReviewWinner').innerHTML=`🏆 <strong>${esc(review.winnerName||winner?.name||'Jogador')}</strong> venceu a rodada.`;
+  $('#roundReviewBadge').textContent=`Rodada ${review.round}/${state?.rounds||5}`;
+  const jack=$('#roundReviewJackNote');
+  if(review.doubledByJack){
+    jack.classList.remove('hidden');
+    jack.innerHTML='🃏 <strong>Batida com Valete:</strong> a soma das cartas dos adversários foi multiplicada por 2.';
+  }else{
+    jack.classList.add('hidden');
+    jack.textContent='';
+  }
+  const box=$('#roundReviewPlayers');
+  const players=[...(review.players||[])].sort((a,b)=>{
+    if(a.isWinner!==b.isWinner)return a.isWinner?-1:1;
+    return (a.roundScore||0)-(b.roundScore||0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR');
+  });
+  box.innerHTML=players.map(p=>{
+    const cards=[...(p.cards||[])].sort(compareHandCards);
+    const cardList=cards.length?cards.map(roundReviewCardHTML).join(''):'<div class="round-review-empty">Sem cartas — venceu a rodada</div>';
+    const calc=p.isWinner
+      ? '<strong>0 ponto</strong>'
+      : `${p.basePoints||0}${p.multiplier===2?' × 2':''} = <strong>${p.roundScore||0} ponto${p.roundScore===1?'':'s'}</strong>`;
+    return `<article class="round-review-player ${p.isWinner?'winner':''}">
+      <div class="round-review-player-head">
+        <div class="round-review-person">${avatarHTML(p.avatar,'sm')}<div><strong>${esc(p.name||'Jogador')}</strong>${p.isBot?' <small class="score-bot">BOT</small>':''}${p.isWinner?'<span class="round-review-winner-tag">🏆 VENCEDOR</span>':''}</div></div>
+        <div class="round-review-score"><span>Rodada</span><b>+${p.roundScore||0}</b><span>Acumulado</span><strong>${p.scoreAfter||0}</strong></div>
+      </div>
+      <div class="round-review-cards">${cardList}</div>
+      <div class="round-review-calc"><span>Cálculo:</span> ${calc}</div>
+    </article>`;
+  }).join('');
+  if(!dlg.open) dlg.showModal();
+}
+function maybeShowRoundReview(nextState){
+  if(nextState?.status==='playing'){
+    closeRoundReview();
+    return;
+  }
+  const review=nextState?.roundReview;
+  if(!review?.id)return;
+  if(nextState.status!=='between-rounds'&&nextState.status!=='finished')return;
+  if(lastShownRoundReviewId===review.id)return;
+  lastShownRoundReviewId=review.id;
+  // Pequeno atraso para o aviso de vitória acontecer antes da conferência.
+  setTimeout(()=>{
+    if(state?.roundReview?.id===review.id) openRoundReview(review);
+  },420);
+}
+
 socket.on('joined',data=>{
   saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
@@ -555,6 +621,7 @@ socket.on('state',s=>{
     passPending=false;
   }
   render();
+  maybeShowRoundReview(s);
   if(prev){
     const last=s.log.at(-1);
     const old=prev.log.at(-1);
@@ -618,7 +685,8 @@ socket.on('connect_error',e=>{
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
-  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();chatMessages=[];unreadChat=0;activeSideTab='log';
+  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();chatMessages=[];unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
+  closeRoundReview();
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
     const url=new URL(location.href);
@@ -825,6 +893,14 @@ function renderControls(){
   const canTakeHost=!connectedHost;
   const canStart=(me?.host||canTakeHost)&&(state.status==='lobby'||state.status==='between-rounds');
   const bots=state.players.filter(p=>p.isBot);
+
+  if(state.roundReview && (state.status==='between-rounds'||state.status==='finished')){
+    const reviewBtn=document.createElement('button');
+    reviewBtn.className='round-review-open-btn';
+    reviewBtn.textContent='🔍 Conferir cartas e pontuação';
+    reviewBtn.onclick=()=>openRoundReview(state.roundReview);
+    box.appendChild(reviewBtn);
+  }
 
   if(canStart){
     if(me?.host){

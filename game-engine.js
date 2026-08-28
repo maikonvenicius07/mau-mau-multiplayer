@@ -140,6 +140,9 @@ function createRoom(code, hostInfo) {
     finishPendingSeven: false,
     lastPass: null,
     roundRoles: null,
+    // V38: resumo detalhado da ultima rodada. So e exposto aos clientes
+    // quando a rodada ja terminou, nunca durante o jogo.
+    roundReview: null,
     log: [],
     createdAt: Date.now(),
     finishedAt: null,
@@ -196,6 +199,9 @@ function startRound(room) {
   room.pendingSeven = 0;
   room.winnerId = null;
   room.lastWinnerCard = null;
+  // A conferencia da rodada anterior deixa de ser publica assim que a nova
+  // rodada comeca, evitando qualquer risco de misturar maos antigas e novas.
+  room.roundReview = null;
   room.continuationPlayerId = null;
   room.lastPlayedById = null;
   room.burnTopCardId = null;
@@ -890,13 +896,52 @@ function finalizeRound(room) {
   const winner = room.players.find(p => p.id === room.winnerId);
   if (!winner) throw new Error('Vencedor da rodada não encontrado.');
   const double = room.lastWinnerCard?.rank === 'J';
+
+  // V38 — CONFERENCIA DA RODADA
+  // Neste ponto todos os efeitos finais ja foram resolvidos. Isso inclui a
+  // compra causada por 8/K e a cadeia final de 7. Portanto, a fotografia das
+  // maos abaixo corresponde exatamente as cartas usadas na pontuacao.
+  const reviewPlayers = [];
   for (const p of room.players) {
-    let points = p.id === winner.id ? 0 : p.hand.reduce((sum,c) => sum + cardPoints(c), 0);
-    if (double && p.id !== winner.id) points *= 2;
+    const basePoints = p.id === winner.id ? 0 : p.hand.reduce((sum,c) => sum + cardPoints(c), 0);
+    const multiplier = double && p.id !== winner.id ? 2 : 1;
+    const points = basePoints * multiplier;
     p.roundScore = points;
     p.roundHistory.push(points);
     p.score += points;
+
+    reviewPlayers.push({
+      id: p.id,
+      name: p.name,
+      avatar: p.avatar,
+      isBot: !!p.isBot,
+      isWinner: p.id === winner.id,
+      cards: p.hand.map(c => ({
+        id: c.id,
+        suit: c.suit,
+        rank: c.rank,
+        copy: c.copy,
+        points: cardPoints(c),
+      })),
+      basePoints,
+      multiplier,
+      roundScore: points,
+      scoreAfter: p.score,
+    });
   }
+
+  room.roundReview = {
+    id: `round-review-${room.round}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+    round: room.round,
+    winnerId: winner.id,
+    winnerName: winner.name,
+    winnerAvatar: winner.avatar,
+    lastWinnerCard: room.lastWinnerCard ? { ...room.lastWinnerCard } : null,
+    doubledByJack: double,
+    players: reviewPlayers,
+    createdAt: Date.now(),
+  };
+
   log(room, `${winner.name} venceu a rodada${double ? ' com Valete: os pontos dos demais foram dobrados' : ''}.`, 'winner');
   room.status = room.round >= room.rules.rounds ? 'finished' : 'between-rounds';
   room.currentPlayer = -1;
@@ -1020,6 +1065,8 @@ function roomPublicState(room, viewerId) {
     reactionNextPlayerId: room.reactionNextPlayerId,
     lastPass: room.lastPass,
     roundRoles: room.roundRoles,
+    // As cartas dos adversarios so sao reveladas quando a rodada terminou.
+    roundReview: (room.status === 'between-rounds' || room.status === 'finished') ? room.roundReview : null,
     players: room.players.map(p => ({
       id:p.id,
       name:p.name,

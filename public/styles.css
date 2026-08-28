@@ -468,3 +468,39 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .google-account-meta{display:flex;flex-direction:column;min-width:0;flex:1}.google-account-meta small{font-size:8px;color:#86a294;letter-spacing:.08em;font-weight:900}.google-account-meta strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.google-account-meta span{font-size:9px;color:#9fb1a7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .google-logout-btn{flex:0 0 auto!important;width:auto!important;margin:0!important;padding:8px 10px!important;min-height:36px!important;border:1px solid #76514a!important;background:#351e1a!important;color:#ffd7d1!important;border-radius:10px!important;font-size:10px!important;font-weight:900!important}
 @media(max-width:520px){.auth-screen{padding:14px}.auth-card{padding:28px 18px;border-radius:22px}.google-account-bar{margin:-7px 0 14px}.google-account-photo{width:36px;height:36px}.google-account-email{display:none}.google-logout-btn{padding:7px 8px!important;font-size:9px!important}}
+
+
+/* ============================================================
+   V38 - CONFERENCIA VISUAL DA PONTUACAO AO FINAL DE CADA RODADA
+   ============================================================ */
+.round-review-modal{width:min(980px,95vw);max-width:980px;max-height:92vh;overflow:auto;background:linear-gradient(180deg,#102a20,#091a14);border:1px solid #587967;padding:22px;color:#f6f1e3}
+.round-review-modal::backdrop{background:#020705dc;backdrop-filter:blur(5px)}
+.round-review-close{position:sticky;float:right;top:0;z-index:4;width:38px;height:38px;padding:0!important;border-radius:50%!important;font-size:24px!important;background:#263f34!important}
+.round-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-right:50px;margin-bottom:10px}
+.round-review-head h2{margin:3px 0 4px;color:#ffe08d}
+.round-review-winner{margin:0;color:#d8e7df}.round-review-winner strong{color:#fff}
+.round-review-badge{flex:0 0 auto;border:1px solid #6d8c7c;background:#173b2d;color:#f8dda1;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:900}
+.round-review-jack{margin:10px 0 14px;background:#503415;border:1px solid #b88537;border-radius:12px;padding:10px 12px;color:#ffdf9a;font-size:13px}
+.round-review-players{display:grid;grid-template-columns:1fr;gap:10px}
+.round-review-player{background:#0b1d16;border:1px solid #2e5040;border-radius:16px;padding:12px;box-shadow:0 8px 20px #0003}
+.round-review-player.winner{border-color:#d8b85b;background:linear-gradient(135deg,#1b3428,#322a14)}
+.round-review-player-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.round-review-person{display:flex;align-items:center;gap:9px;min-width:0}.round-review-person>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.round-review-person strong{font-size:14px}
+.round-review-winner-tag{font-size:9px;font-weight:950;letter-spacing:.06em;color:#1c180b;background:#f1cf71;border-radius:999px;padding:4px 7px}
+.round-review-score{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:7px;row-gap:0;text-align:right}.round-review-score span{font-size:9px;color:#9bb1a5;text-transform:uppercase;letter-spacing:.07em}.round-review-score b{font-size:16px;color:#ffd777}.round-review-score strong{font-size:16px;color:#fff}
+.round-review-cards{display:flex;align-items:flex-end;gap:7px;overflow-x:auto;padding:7px 4px 10px;min-height:105px;background:#06120d;border-radius:12px;border:1px solid #ffffff0b}
+.round-review-card-wrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px}
+.round-review-card-wrap .playing-card{width:62px;height:89px;transform:none!important;filter:none!important;box-shadow:0 4px 10px #0007}.round-review-card-wrap .playing-card .corner{left:4px;top:4px;min-width:12px}.round-review-card-wrap .playing-card .corner.bottom{right:4px;bottom:4px}.round-review-card-wrap .playing-card .corner-rank{font-size:13px}.round-review-card-wrap .playing-card .corner-suit{font-size:9px}.round-review-card-wrap .playing-card .suit-big{font-size:31px}.round-review-card-wrap .playing-card .special-tag{font-size:6px;bottom:5px}
+.round-review-card-points{font-size:9px;font-weight:900;color:#e9c66e;background:#142c22;border:1px solid #375848;border-radius:999px;padding:2px 6px;white-space:nowrap}
+.round-review-empty{width:100%;display:grid;place-items:center;min-height:90px;color:#f0d17f;font-weight:900;font-size:12px}
+.round-review-calc{margin-top:8px;color:#c3d2ca;font-size:12px;text-align:right}.round-review-calc>span{color:#899f93}.round-review-calc strong{color:#ffe08a;font-size:14px}
+.round-review-legend{margin-top:12px;background:#07150f;border-left:4px solid #d3a64e;padding:10px 12px;border-radius:8px;color:#b9cac1;font-size:11px;line-height:1.5}.round-review-legend span{display:block}
+.round-review-actions{display:flex;justify-content:center;margin-top:14px}.round-review-actions button{min-width:230px}
+.round-review-open-btn{background:linear-gradient(135deg,#294f3e,#1b382c)!important;border-color:#d0ae59!important;color:#ffe29b!important}
+@media(max-width:650px){
+  .round-review-modal{width:calc(100vw - 10px);max-width:none;max-height:calc(100svh - 10px);padding:14px 10px;border-radius:16px}
+  .round-review-head{display:block;padding-right:38px}.round-review-badge{display:inline-block;margin-top:8px}
+  .round-review-player{padding:9px}.round-review-player-head{align-items:flex-start}.round-review-person strong{font-size:12px}.round-review-score b,.round-review-score strong{font-size:14px}
+  .round-review-cards{gap:4px;min-height:95px}.round-review-card-wrap .playing-card{width:56px;height:80px}.round-review-card-wrap .playing-card .suit-big{font-size:28px}
+  .round-review-calc{text-align:left;font-size:11px}
+}

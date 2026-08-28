@@ -108,7 +108,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • CONFERÊNCIA DA RODADA • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -184,6 +184,28 @@
     </main>
   </section>
 
+
+  <dialog id="roundReviewDialog" class="modal round-review-modal">
+    <button class="close round-review-close" id="roundReviewClose" type="button" aria-label="Fechar conferência">×</button>
+    <div class="round-review-head">
+      <div>
+        <div class="eyebrow">CONFERÊNCIA DA RODADA</div>
+        <h2 id="roundReviewTitle">🧮 Pontuação da rodada</h2>
+        <p id="roundReviewWinner" class="round-review-winner"></p>
+      </div>
+      <div id="roundReviewBadge" class="round-review-badge"></div>
+    </div>
+    <div id="roundReviewJackNote" class="round-review-jack hidden"></div>
+    <div id="roundReviewPlayers" class="round-review-players"></div>
+    <div class="round-review-legend">
+      <strong>Valores:</strong> A = 1 • J = 11 • Q = 12 • K = 13 • demais cartas = valor impresso.
+      <span>Se a batida for com J, a soma dos adversários é dobrada.</span>
+    </div>
+    <div class="round-review-actions">
+      <button id="roundReviewDone" type="button" class="primary">✅ Fechar conferência</button>
+    </div>
+  </dialog>
+
   <dialog id="suitDialog" class="modal">
     <h2>Escolha o naipe</h2>
     <p>O Valete permite escolher o naipe da próxima jogada.</p>
@@ -239,6 +261,7 @@
         <p>A Ação Rápida descarta <strong>somente uma carta</strong>, não toma a vez e não altera a ordem: depois dela, continua jogando quem já seria o próximo. Se a carta for especial, o efeito especial <strong>não é executado novamente</strong> nessa intervenção. Durante uma cadeia ativa de 7, a Ação Rápida fica suspensa.</p>
         <h3>🏆 Pontuação</h3>
         <p>A=1, J=11, Q=12, K=13 e as demais valem o número impresso. Se alguém bater com J, os pontos dos demais na rodada são dobrados.</p>
+        <p><strong>Conferência da rodada:</strong> ao final de cada rodada, depois de resolver todos os efeitos da última carta, o aplicativo revela as cartas que sobraram com cada jogador, mostra o valor de cada carta, o cálculo dos pontos da rodada e o placar acumulado. As mãos continuam ocultas durante a rodada.</p>
       </article>
     </div>
     <div class="rule-note">Clarificações do aplicativo: carta inicial especial é substituída por uma carta normal; quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; empate na menor pontuação após 5 rodadas gera vitória compartilhada.</div>
