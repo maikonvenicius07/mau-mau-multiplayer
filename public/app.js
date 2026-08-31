@@ -19,6 +19,9 @@ let googleUser=null;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
 const inviteCards=new Map();
+// V40.2 — estado da busca automática recebido do servidor.
+let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
+let matchmakingDialogDismissed=false;
 let rankingPeriod='day', rankingMode='human';
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
@@ -134,7 +137,9 @@ function authStatus(message='',kind=''){
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
 function showAuthGate(message='Entre com sua Conta Google para continuar.'){
-  googleUser=null;onlinePlayers=[];onlineCount=0;inviteCards.clear();renderOnlinePresence();renderInviteInbox();
+  googleUser=null;onlinePlayers=[];onlineCount=0;inviteCards.clear();
+  matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};matchmakingDialogDismissed=false;
+  renderOnlinePresence();renderInviteInbox();renderMatchmaking();
   $('#musicPanel')?.classList.add('hidden');
   if(socket.connected) socket.disconnect();
   $('#game')?.classList.add('hidden');
@@ -718,6 +723,69 @@ function renderOnlinePresence(){
 }
 function openOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(!dlg)return;renderOnlinePresence();if(!dlg.open)dlg.showModal();}
 function closeOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(dlg?.open)dlg.close();}
+
+function matchmakingSeconds(){
+  if(!matchmaking?.deadlineAt)return null;
+  return Math.max(0,Math.ceil((Number(matchmaking.deadlineAt)-Date.now())/1000));
+}
+function openMatchmaking(){const dlg=$('#matchmakingDialog');if(!dlg)return;matchmakingDialogDismissed=false;renderMatchmaking();if(!dlg.open)dlg.showModal();}
+function closeMatchmaking(markDismissed=true){const dlg=$('#matchmakingDialog');if(markDismissed)matchmakingDialogDismissed=true;if(dlg?.open)dlg.close();}
+function renderMatchmaking(){
+  const btn=$('#matchmakingStart'),title=$('#matchmakingBtnTitle'),sub=$('#matchmakingBtnSubtitle');
+  const searching=!!matchmaking?.searching;
+  if(btn)btn.classList.toggle('searching',searching);
+  if(title)title.textContent=searching?'PROCURANDO JOGADORES...':'BUSCAR JOGADORES';
+  if(sub)sub.textContent=searching?'Clique para acompanhar a busca':'Encontre alguém automaticamente';
+
+  const status=$('#matchmakingStatus'),count=$('#matchmakingFoundCount'),list=$('#matchmakingPlayersList'),countdown=$('#matchmakingCountdown');
+  if(count)count.textContent=String(matchmaking?.foundCount||0);
+  if(!searching){
+    if(status)status.textContent=matchmaking?.reason||'Encontre jogadores automaticamente para uma partida de 2 a 5 pessoas.';
+    if(list)list.innerHTML='<div class="matchmaking-empty">Clique em BUSCAR JOGADORES para entrar na fila.</div>';
+    if(countdown)countdown.innerHTML='<strong>Até 5 jogadores</strong><span>A partida começa quando houver pelo menos 2.</span>';
+    return;
+  }
+
+  const players=Array.isArray(matchmaking.players)?matchmaking.players:[];
+  if(list){
+    list.innerHTML=players.map((p,i)=>`<div class="matchmaking-player">
+      <div class="matchmaking-avatar">${avatarHTML(p.avatar||'macaco','md')}</div>
+      <div><strong>${esc(p.name||'Jogador')}</strong><small>${p.playerKey===permanentPlayerKey()?'VOCÊ':'ENCONTRADO'}</small></div>
+      <span class="matchmaking-check">✓</span>
+    </div>`).join('')||'<div class="matchmaking-empty">Entrando na fila...</div>';
+  }
+  const n=players.length;
+  if(status)status.textContent=n<2?'Aguardando mais um jogador...':n>=5?'5 jogadores encontrados! Iniciando...':'Mais jogadores podem entrar enquanto o relógio corre.';
+  updateMatchmakingCountdown();
+}
+function updateMatchmakingCountdown(){
+  const el=$('#matchmakingCountdown');if(!el||!matchmaking?.searching)return;
+  const n=Number(matchmaking?.foundCount||0);
+  if(n<2||!matchmaking.deadlineAt){
+    el.innerHTML='<strong>⏳ Aguardando</strong><span>A contagem começa quando o 2º jogador entrar.</span>';
+    return;
+  }
+  const sec=matchmakingSeconds();
+  if(n>=5||sec<=0){
+    el.innerHTML='<strong>🎮 Partida encontrada!</strong><span>Preparando a mesa...</span>';
+    return;
+  }
+  el.innerHTML=`<strong>⏱️ ${sec}s</strong><span>Com ${n} jogador${n===1?'':'es'} encontrado${n===1?'':'s'}. Se chegar a 5, começa imediatamente.</span>`;
+}
+function startMatchmaking(){
+  if(!googleUser)return showAuthGate('Entre com Google para buscar jogadores.');
+  if(!socket.connected)return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  if(matchmaking.searching){openMatchmaking();return;}
+  const btn=$('#matchmakingStart');if(btn)btn.disabled=true;
+  socket.emit('startMatchmaking',{profile:profile()});
+  setTimeout(()=>{if(btn)btn.disabled=false},700);
+  openMatchmaking();
+}
+function cancelMatchmaking(){
+  if(!matchmaking.searching){closeMatchmaking();return;}
+  if(!socket.connected)return toast('Sem conexão com o servidor.');
+  socket.emit('cancelMatchmaking');
+}
 function sendOnlineInvite(targetPlayerKey,button){
   if(!googleUser)return showAuthGate('Entre com Google para convidar jogadores.');
   if(!socket.connected)return toast('Sem conexão com o servidor.');
@@ -757,6 +825,10 @@ setInterval(()=>{
 $('#onlinePlayersOpen').onclick=openOnlinePlayers;
 $('#onlinePlayersOpen2').onclick=openOnlinePlayers;
 $('#onlinePlayersClose').onclick=closeOnlinePlayers;
+$('#matchmakingStart').onclick=startMatchmaking;
+$('#matchmakingClose').onclick=closeMatchmaking;
+$('#matchmakingCancel').onclick=cancelMatchmaking;
+setInterval(updateMatchmakingCountdown,250);
 
 $$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
 setAvatarSelection($('#avatarSelect')?.value||'macaco');
@@ -990,7 +1062,13 @@ setInterval(updateReconnectCountdown,250);
 socket.on('joined',data=>{
   saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
   if(data?.inviteId)removeInviteCard(data.inviteId);
+  if(data?.source==='matchmaking'){
+    matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:'Partida encontrada.'};
+    closeMatchmaking(false);
+    toast(`🎮 ${data?.matchSize||2} jogadores encontrados! Partida iniciada.`);
+  }
   closeOnlinePlayers();
+  renderMatchmaking();
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   syncPresenceProfile();
 });
@@ -1023,6 +1101,26 @@ socket.on('state',s=>{
 socket.on('presenceSnapshot',payload=>{
   onlineCount=Number(payload?.onlineCount||0);onlinePlayers=Array.isArray(payload?.players)?payload.players:[];renderOnlinePresence();
 });
+socket.on('matchmakingState',payload=>{
+  matchmaking={
+    searching:!!payload?.searching,
+    players:Array.isArray(payload?.players)?payload.players:[],
+    foundCount:Number(payload?.foundCount||0),
+    maxPlayers:Number(payload?.maxPlayers||5),
+    deadlineAt:payload?.deadlineAt?Number(payload.deadlineAt):null,
+    waitMs:Number(payload?.waitMs||15000),
+    reason:String(payload?.reason||''),
+  };
+  renderMatchmaking();
+  if(matchmaking.searching&&!matchmakingDialogDismissed&&$('#matchmakingDialog')?.open===false)openMatchmaking();
+  if(!matchmaking.searching&&$('#matchmakingDialog')?.open&&payload?.reason)closeMatchmaking(false);
+});
+socket.on('matchmakingMatched',info=>{
+  matchmaking={...matchmaking,searching:true,foundCount:Number(info?.count||matchmaking.foundCount||2),deadlineAt:Date.now(),players:Array.isArray(info?.players)?info.players:matchmaking.players};
+  renderMatchmaking();playGameSound('yourTurn');
+});
+socket.on('matchmakingCancelled',info=>{if(info?.message)toast(info.message);});
+socket.on('matchmakingError',info=>{toast(info?.message||'Não foi possível formar a partida agora.');});
 socket.on('inviteReceived',invite=>{
   upsertInviteCard(invite,'pending');playGameSound('chat');
   try{if(document.visibilityState!=='visible')navigator.vibrate?.([45,45,45])}catch{}

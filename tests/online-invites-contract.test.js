@@ -8,7 +8,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.1.0');
+assert.equal(pkg.version,'40.2.0');
 assert(server.includes('const onlinePresence = new Map()'),'presença online por identidade ausente');
 assert(server.includes('const INVITE_TTL_MS = 30 * 1000'),'convite de 30 s ausente');
 assert(server.includes('const INVITE_RESERVATION_MS = 20 * 60 * 1000'),'reserva temporária ausente');

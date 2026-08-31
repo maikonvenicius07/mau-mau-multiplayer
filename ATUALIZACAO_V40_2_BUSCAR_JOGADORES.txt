@@ -1,0 +1,34 @@
+MAU-MAU V40.2 — BUSCAR JOGADORES / MATCHMAKING AUTOMÁTICO
+
+Objetivo
+-------
+Permitir que uma pessoa entre sozinha e encontre outros jogadores sem código de sala.
+
+Fluxo implementado
+------------------
+1. Na tela inicial, clique em “🔎 BUSCAR JOGADORES”.
+2. O servidor registra a Conta Google uma única vez na fila.
+3. Com apenas 1 jogador, a busca aguarda sem cronômetro.
+4. Quando o 2º jogador entra, começa uma janela de 15 segundos.
+5. Durante essa janela, podem entrar o 3º e o 4º jogadores.
+6. Ao chegar a 5 jogadores, a partida inicia imediatamente.
+7. Se os 15 segundos terminarem com 2, 3 ou 4 jogadores, a partida inicia com os encontrados.
+8. O servidor cria a sala, coloca todos os jogadores e inicia automaticamente a 1ª rodada.
+9. “CANCELAR BUSCA” remove imediatamente a pessoa da fila.
+10. Aceitar um convite enquanto procura remove automaticamente a pessoa da fila antes de seguir o convite.
+
+Proteções
+---------
+- A identidade da fila usa playerKey da Conta Google, não socketId.
+- A mesma pessoa não entra duas vezes na fila.
+- Jogador já em uma mesa ativa não pode entrar na busca.
+- Se a conexão for perdida por completo, a pessoa sai da fila.
+- Toda a formação da partida acontece no servidor.
+- Limite máximo: 5 jogadores.
+- A fila é temporária em memória e não usa PostgreSQL.
+
+Compatibilidade
+---------------
+Mantidos V40.1 Jogadores Online/Convites, V39.1 Reconexão Inteligente,
+V39.2 SUA VEZ melhorado, Login Google, ranking PostgreSQL, música dinâmica,
+Áudio Rápido de 15 s e demais regras do jogo.

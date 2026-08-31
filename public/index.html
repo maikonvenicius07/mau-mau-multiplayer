@@ -53,8 +53,9 @@
         <div class="mini-card red">A♥</div><div class="mini-card black">7♣</div><div class="mini-card red">J♦</div><div class="mini-card black">Q♠</div>
       </div>
 
-      <section class="online-discovery" aria-label="Jogadores online">
+      <section class="online-discovery" aria-label="Encontrar jogadores">
         <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
+        <button id="matchmakingStart" class="matchmaking-main" type="button"><span>🔎</span><strong id="matchmakingBtnTitle">BUSCAR JOGADORES</strong><small id="matchmakingBtnSubtitle">Encontre alguém automaticamente</small></button>
         <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
       </section>
 
@@ -221,6 +222,27 @@
   </section>
 
 
+  <dialog id="matchmakingDialog" class="modal matchmaking-modal">
+    <button class="close matchmaking-close" id="matchmakingClose" type="button" aria-label="Fechar acompanhamento da busca">×</button>
+    <div class="matchmaking-head">
+      <div>
+        <div class="eyebrow">PARTIDA AUTOMÁTICA</div>
+        <h2>🔎 BUSCAR JOGADORES</h2>
+        <p id="matchmakingStatus">Encontre jogadores automaticamente para uma partida de 2 a 5 pessoas.</p>
+      </div>
+      <div class="matchmaking-count"><strong id="matchmakingFoundCount">0</strong><small>encontrados</small></div>
+    </div>
+    <div id="matchmakingCountdown" class="matchmaking-countdown"><strong>Até 5 jogadores</strong><span>A partida começa quando houver pelo menos 2.</span></div>
+    <div id="matchmakingPlayersList" class="matchmaking-players-list"><div class="matchmaking-empty">Clique em BUSCAR JOGADORES para entrar na fila.</div></div>
+    <div class="matchmaking-info">
+      <span>👥 2 a 5 jogadores</span>
+      <span>⏱️ 15 s após encontrar o 2º</span>
+      <span>⚡ 5 encontrados = início imediato</span>
+    </div>
+    <button id="matchmakingCancel" class="matchmaking-cancel" type="button">CANCELAR BUSCA</button>
+    <p class="matchmaking-note">Fechar esta janela não cancela a busca. Para sair da fila, use <strong>CANCELAR BUSCA</strong>.</p>
+  </dialog>
+
   <dialog id="onlinePlayersDialog" class="modal online-players-modal">
     <button class="close online-players-close" id="onlinePlayersClose" type="button" aria-label="Fechar jogadores online">×</button>
     <div class="online-dialog-head">
@@ -357,6 +379,7 @@
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
+      <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
       <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. Todos podem receber convites. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>; recusar não altera a atividade atual. Se aceitar enquanto joga contra a máquina, essa partida é encerrada sem resultado. Se aceitar durante uma partida multiplayer já iniciada, a partida atual não é interrompida: a entrada na nova mesa fica aguardando o término, com reserva temporária da vaga quando possível.</p>
     </div>
 

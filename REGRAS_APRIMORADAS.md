@@ -131,6 +131,9 @@ A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome
 - Áudio Rápido de até 15 segundos; os áudios são efêmeros, repassados à sala e não ficam no histórico do chat, PostgreSQL ou ranking.
 - Música original com controle separado de ligar/desligar e volume.
 - Organização da mão por número ou naipe, sem alterar as regras.
+- Jogadores Online: mostra quem está conectado, o status atual e permite enviar convites.
+- Buscar Jogadores: fila automática para partidas de 2 a 5 pessoas. O cronômetro de 15 segundos começa quando o 2º jogador é encontrado; com 5, a partida inicia imediatamente; com 2, 3 ou 4, inicia ao fim da contagem.
+- Cancelar Busca remove imediatamente o jogador da fila. Aceitar um convite enquanto procura também encerra a busca antes de seguir o convite.
 
 ## 15. Regras técnicas
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.

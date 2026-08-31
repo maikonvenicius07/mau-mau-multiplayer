@@ -1,18 +1,30 @@
-# MAU-MAU Multiplayer — V40.1
+# MAU-MAU Multiplayer — V40.2
 
+## V40.2 — Buscar Jogadores / Matchmaking Automático
+
+- A tela inicial ganhou **🔎 BUSCAR JOGADORES**.
+- A fila é controlada no servidor pela `playerKey` da Conta Google e não aceita o mesmo jogador duas vezes.
+- Com 1 jogador, a busca aguarda sem cronômetro.
+- Quando o 2º jogador entra, começa uma janela de **15 segundos** para encontrar mais pessoas.
+- Ao chegar a **5 jogadores**, a partida inicia imediatamente.
+- Se os 15 segundos terminarem com **2, 3 ou 4 jogadores**, o servidor cria a mesa e inicia automaticamente a 1ª rodada.
+- **CANCELAR BUSCA** remove imediatamente o jogador da fila.
+- Aceitar um convite enquanto procura encerra a busca automaticamente antes de seguir o convite.
+- Se a conexão for perdida por completo durante a busca, a entrada é retirada da fila.
+- O matchmaking é efêmero e não usa PostgreSQL; o ranking continua usando o armazenamento já configurado.
 
 ## V40.1 — Jogadores Online + Convites
 
 - A presença online é identificada pela `playerKey` da Conta Google; reconexões do Socket.IO não criam usuários duplicados na lista.
 - A tela inicial e a mesa possuem acesso a **Jogadores Online**, com avatar, nome e status.
-- Status visíveis: 🟢 Disponível, 🔎 Procurando partida (reservado para V40.2), 🤖 Jogando contra a máquina, 🎮 Jogando com pessoas e 🟠 Reconectando.
+- Status visíveis: 🟢 Disponível, 🔎 Procurando partida, 🤖 Jogando contra a máquina, 🎮 Jogando com pessoas e 🟠 Reconectando.
 - Qualquer jogador conectado pode receber convite e escolher **ACEITAR** ou **RECUSAR**.
 - Convites normais expiram em 30 segundos e convites idênticos simultâneos da mesma pessoa são bloqueados no servidor.
 - Recusar não altera a atividade atual.
 - Aceitar enquanto joga contra a máquina encerra essa partida sem registrar resultado.
 - Aceitar durante uma partida multiplayer em andamento não interrompe a mesa atual: a vaga fica reservada temporariamente quando possível e a entrada é liberada depois que a partida atual termina e a sala de destino aceita entrada.
 - As reservas também são consideradas pelo servidor ao adicionar bots ou novos jogadores, evitando ocupar uma vaga já prometida.
-- A fila automática **Buscar Jogadores** não faz parte desta etapa; ficará para a V40.2.
+- A fila automática **Buscar Jogadores** foi implementada na V40.2 e usa a mesma identidade Google da presença online.
 
 ## V38 — Login obrigatório com Conta Google
 
@@ -163,6 +175,7 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Reconexão Inteligente V39.1: 60 s de tolerância; depois a Máquina assume temporariamente a mesma mão/posição sem transformar o participante em bot para fins de ranking.
 - SUA VEZ V39.2: aviso grande, iluminação do jogador e das cartas válidas, campainha curta e vibração opcional em aparelhos compatíveis.
 - Jogadores Online + Convites V40.1: presença única pela Conta Google, lista de status, convites de 30 s e reserva temporária de vaga sem interromper partida multiplayer em andamento.
+- Buscar Jogadores V40.2: fila automática de 2 a 5 pessoas, janela de 15 s após o 2º jogador e início imediato ao chegar a 5.
 - Entrada tardia somente entre rodadas e até antes do início da 3ª rodada.
 
 ## Cartas especiais implementadas

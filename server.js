@@ -25,6 +25,14 @@ const invitations = new Map();
 const inviteTimers = new Map();
 const INVITE_TTL_MS = 30 * 1000;
 const INVITE_RESERVATION_MS = 20 * 60 * 1000;
+
+// V40.2 — fila simples de matchmaking automático.
+// A fila é efêmera: se o servidor reiniciar, os jogadores apenas clicam em Buscar novamente.
+const matchmakingQueue = new Map();
+let matchmakingTimer = null;
+let matchmakingDeadlineAt = null;
+const MATCHMAKING_WAIT_MS = 15 * 1000;
+const MATCHMAKING_MAX_PLAYERS = 5;
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 
@@ -473,6 +481,176 @@ function firstSocketForKey(playerKey) {
   for(const id of rec.sockets){const sock=io.sockets.sockets.get(id);if(sock)return sock;}
   return null;
 }
+
+function matchmakingSortedEntries() {
+  return [...matchmakingQueue.values()].sort((a,b)=>a.joinedAt-b.joinedAt);
+}
+function clearMatchmakingTimer() {
+  if(matchmakingTimer)clearTimeout(matchmakingTimer);
+  matchmakingTimer=null;
+  matchmakingDeadlineAt=null;
+}
+function setSearchingFlag(playerKey,value) {
+  const rec=presenceFor(playerKey);
+  if(rec)rec.searching=!!value;
+}
+function matchmakingPlayerPublic(playerKey) {
+  const rec=presenceFor(playerKey);
+  return {
+    playerKey,
+    name:cleanPresenceName(rec?.name||'Jogador'),
+    avatar:cleanAvatar(rec?.avatar||'macaco'),
+  };
+}
+function playerHasActiveRoom(playerKey) {
+  for(const room of rooms.values()){
+    if(room.status==='finished')continue;
+    if(room.players.some(p=>!p.isBot&&p.playerKey===playerKey))return true;
+  }
+  return false;
+}
+function playerHasAcceptedInvite(playerKey) {
+  return [...invitations.values()].some(inv=>inv.toKey===playerKey&&['accepted-waiting','ready'].includes(inv.status)&&inv.expiresAt>Date.now());
+}
+function matchmakingPayloadFor(playerKey,reason='') {
+  const players=matchmakingSortedEntries().slice(0,MATCHMAKING_MAX_PLAYERS).map(e=>matchmakingPlayerPublic(e.playerKey));
+  return {
+    searching:matchmakingQueue.has(playerKey),
+    players,
+    foundCount:players.length,
+    maxPlayers:MATCHMAKING_MAX_PLAYERS,
+    deadlineAt:players.length>=2?matchmakingDeadlineAt:null,
+    waitMs:MATCHMAKING_WAIT_MS,
+    reason:reason||'',
+  };
+}
+function emitMatchmakingState(reason='') {
+  for(const entry of matchmakingSortedEntries()){
+    emitToPlayerKey(entry.playerKey,'matchmakingState',matchmakingPayloadFor(entry.playerKey,reason));
+  }
+}
+function emitMatchmakingIdle(playerKey,reason='') {
+  emitToPlayerKey(playerKey,'matchmakingState',{
+    searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,
+    deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:reason||'',
+  });
+}
+function pruneMatchmakingQueue() {
+  let changed=false;
+  for(const [key] of [...matchmakingQueue]){
+    const rec=presenceFor(key);
+    if(!rec?.sockets?.size||playerHasActiveRoom(key)){
+      matchmakingQueue.delete(key);setSearchingFlag(key,false);changed=true;
+    }
+  }
+  return changed;
+}
+function removeFromMatchmaking(playerKey,{reason='',notify=true,reevaluate=true}={}) {
+  const key=String(playerKey||'');
+  const existed=matchmakingQueue.delete(key);
+  setSearchingFlag(key,false);
+  if(existed&&notify)emitMatchmakingIdle(key,reason);
+  if(reevaluate)evaluateMatchmakingQueue();
+  else if(existed)broadcastPresence();
+  return existed;
+}
+function scheduleMatchmakingCountdown() {
+  if(matchmakingTimer||matchmakingQueue.size<2)return;
+  matchmakingDeadlineAt=Date.now()+MATCHMAKING_WAIT_MS;
+  matchmakingTimer=setTimeout(()=>{
+    matchmakingTimer=null;matchmakingDeadlineAt=null;
+    if(matchmakingQueue.size>=2)formMatchmakingGroup();
+    else evaluateMatchmakingQueue();
+  },MATCHMAKING_WAIT_MS);
+  if(typeof matchmakingTimer.unref==='function')matchmakingTimer.unref();
+}
+function evaluateMatchmakingQueue() {
+  pruneMatchmakingQueue();
+  if(matchmakingQueue.size>=MATCHMAKING_MAX_PLAYERS){
+    clearMatchmakingTimer();
+    formMatchmakingGroup();
+    return;
+  }
+  if(matchmakingQueue.size>=2)scheduleMatchmakingCountdown();
+  else clearMatchmakingTimer();
+  emitMatchmakingState();
+  broadcastPresence();
+}
+function formMatchmakingGroup() {
+  pruneMatchmakingQueue();
+  const candidates=matchmakingSortedEntries().slice(0,MATCHMAKING_MAX_PLAYERS);
+  if(candidates.length<2){evaluateMatchmakingQueue();return;}
+  clearMatchmakingTimer();
+
+  const live=candidates.map(entry=>({
+    entry,
+    socket:firstSocketForKey(entry.playerKey),
+    rec:presenceFor(entry.playerKey),
+  })).filter(x=>x.socket&&x.rec?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey));
+
+  if(live.length<2){
+    for(const x of candidates){
+      if(!live.some(y=>y.entry.playerKey===x.playerKey)){matchmakingQueue.delete(x.playerKey);setSearchingFlag(x.playerKey,false);}
+    }
+    evaluateMatchmakingQueue();
+    return;
+  }
+
+  const group=live.slice(0,MATCHMAKING_MAX_PLAYERS);
+  for(const x of group){matchmakingQueue.delete(x.entry.playerKey);setSearchingFlag(x.entry.playerKey,false);}
+  const code=roomCode();
+  let room=null;
+  try{
+    const host=group[0];
+    room=Engine.createRoom(code,{
+      socketId:host.socket.id,token:crypto.randomUUID(),
+      name:cleanPresenceName(host.rec.name),avatar:cleanAvatar(host.rec.avatar),
+      playerKey:host.entry.playerKey,
+    });
+    rooms.set(code,room);ensureSocial(room);
+    const seatByKey=new Map([[host.entry.playerKey,room.players[0]]]);
+
+    for(const x of group.slice(1)){
+      const p=Engine.addPlayer(room,{
+        socketId:x.socket.id,token:crypto.randomUUID(),
+        name:cleanPresenceName(x.rec.name),avatar:cleanAvatar(x.rec.avatar),
+        playerKey:x.entry.playerKey,
+      });
+      seatByKey.set(x.entry.playerKey,p);
+    }
+
+    const matchPlayers=group.map(x=>matchmakingPlayerPublic(x.entry.playerKey));
+    const names=matchPlayers.map(x=>x.name);
+    Engine.appendLog(room,`🔎 Busca automática encontrou ${group.length} jogadores. Partida iniciada.`, 'system');
+
+    for(const x of group){
+      const p=seatByKey.get(x.entry.playerKey);
+      x.socket.data.roomCode=code;x.socket.data.playerId=p.id;x.socket.join(code);
+      updatePresenceFromSocket(x.socket,{name:p.name,avatar:p.avatar});
+      emitToPlayerKey(x.entry.playerKey,'matchmakingState',{searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:'Partida encontrada.'});
+      x.socket.emit('matchmakingMatched',{code,count:group.length,players:matchPlayers});
+      x.socket.emit('joined',{code,playerId:p.id,token:p.token,source:'matchmaking',matchSize:group.length,matchPlayers:names});
+      emitChatHistory(x.socket,room);
+    }
+
+    Engine.startRound(room);
+    emitRoom(room);
+    broadcastPresence();
+  }catch(e){
+    if(room){
+      for(const x of group){try{x.socket.leave(code)}catch{};x.socket.data.roomCode=null;x.socket.data.playerId=null;}
+      rooms.delete(code);
+    }
+    for(const x of group){
+      if(presenceFor(x.entry.playerKey)?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey)){
+        matchmakingQueue.set(x.entry.playerKey,{playerKey:x.entry.playerKey,joinedAt:x.entry.joinedAt||Date.now()});
+        setSearchingFlag(x.entry.playerKey,true);
+        emitToPlayerKey(x.entry.playerKey,'matchmakingError',{message:e?.message||'Não foi possível formar a partida agora.'});
+      }
+    }
+  }
+  evaluateMatchmakingQueue();
+}
 function ensureInviteReservations(room) {
   if(!(room.inviteReservations instanceof Map))room.inviteReservations=new Map();
   const now=Date.now();
@@ -561,6 +739,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   broadcastPresence();
 }
 function createRoomForSocket(socket,profileData={}) {
+  removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
   const code=roomCode();
   const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
   rooms.set(code,room);ensureSocial(room);const p=room.players[0];
@@ -571,6 +750,7 @@ function createRoomForSocket(socket,profileData={}) {
 }
 function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
+  removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
   if(p){
@@ -635,6 +815,7 @@ io.use((socket,next)=>{
 io.on('connection', socket => {
   registerPresenceSocket(socket);
   socket.emit('presenceSnapshot',buildPresenceSnapshot());
+  socket.emit('matchmakingState',matchmakingPayloadFor(socket.data.auth.playerKey));
   emitPendingInvitesFor(socket);
   setTimeout(broadcastPresence,0);
 
@@ -642,8 +823,36 @@ io.on('connection', socket => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
   });
 
+  socket.on('startMatchmaking', payload => {
+    try{
+      updatePresenceFromSocket(socket,payload?.profile||{});
+      const key=socket.data.auth.playerKey;
+      const current=currentSocketRoom(socket);
+      if(current&&current.room.status!=='finished')throw new Error('Saia da sala atual antes de buscar jogadores.');
+      if(playerHasActiveRoom(key))throw new Error('Você já possui uma vaga ativa em outra mesa.');
+      if(playerHasAcceptedInvite(key))throw new Error('Você possui um convite aceito com vaga reservada. Entre nele ou cancele a reserva antes de buscar.');
+      if(matchmakingQueue.has(key)){
+        socket.emit('matchmakingState',matchmakingPayloadFor(key));
+        return;
+      }
+      const rec=presenceFor(key);if(!rec?.sockets?.size)throw new Error('Sua conexão ainda não está pronta.');
+      rec.searching=true;
+      matchmakingQueue.set(key,{playerKey:key,joinedAt:Date.now()});
+      evaluateMatchmakingQueue();
+    }catch(e){err(socket,e);}
+  });
+
+  socket.on('cancelMatchmaking', () => {
+    try{
+      const key=socket.data.auth.playerKey;
+      if(removeFromMatchmaking(key,{reason:'Busca cancelada.'}))socket.emit('matchmakingCancelled',{message:'Busca cancelada.'});
+      else emitMatchmakingIdle(key,'Você não está na fila.');
+    }catch(e){err(socket,e);}
+  });
+
   socket.on('createRoom', payload => {
     try {
+      removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
       const code = roomCode();
       const room = Engine.createRoom(code, {
         socketId:socket.id,
@@ -709,6 +918,7 @@ io.on('connection', socket => {
         if(!roomHasInviteCapacity(room,socket.data.auth.playerKey))throw new Error('A sala está completa ou possui vaga reservada por convite.');
         p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
       }
+      removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você entrou em uma sala.',notify:true});
       const acceptedManualInvite=[...invitations.values()].find(i=>i.toKey===socket.data.auth.playerKey&&i.targetRoomCode===code&&['accepted-waiting','ready'].includes(i.status));
       releaseReservation(room,socket.data.auth.playerKey);
       socket.data.roomCode=code; socket.data.playerId=p.id;
@@ -896,6 +1106,7 @@ io.on('connection', socket => {
       if(!dest||!senderStillInDestination(invite,dest))throw new Error('A sala do convite não está mais disponível.');
       invite.expiresAt=Date.now()+INVITE_RESERVATION_MS;
       if(!reserveInviteSeat(invite))throw new Error('A sala ficou sem vagas antes da sua resposta.');
+      removeFromMatchmaking(invite.toKey,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
 
       const current=currentSocketRoom(socket),source=current?.room;
       const activeMulti=activeMultiplayerRoomForKey(invite.toKey,dest.code);
@@ -1051,7 +1262,13 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
-    queueMicrotask(()=>{unregisterPresenceSocket(socket);broadcastPresence();refreshInviteReadiness();});
+    const presenceKey=socket.data.auth?.playerKey;
+    queueMicrotask(()=>{
+      unregisterPresenceSocket(socket);
+      if(!presenceFor(presenceKey)?.sockets?.size)removeFromMatchmaking(presenceKey,{reason:'Busca encerrada porque a conexão foi perdida.',notify:false});
+      else broadcastPresence();
+      refreshInviteReadiness();
+    });
   });
 
   socket.on('disconnect', () => {

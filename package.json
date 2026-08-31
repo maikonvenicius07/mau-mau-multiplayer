@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.1.0",
-  "description": "Mau-Mau multiplayer V40.1: Jogadores Online + Convites por identidade Google, mantendo Reconexão Inteligente, SUA VEZ melhorado, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
+  "version": "40.2.0",
+  "description": "Mau-Mau multiplayer V40.2: Busca Automática de Jogadores + V40.1 Jogadores Online/Convites, mantendo Reconexão Inteligente, SUA VEZ melhorado, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js && node tests/card-corner-mobile.test.js && node tests/google-auth-contract.test.js && node tests/music-contract.test.js && node tests/quick-audio-contract.test.js && node tests/reconnection-intelligent.test.js && node tests/reconnection-contract.test.js && node tests/your-turn-enhanced.test.js && node tests/your-turn-logic.test.js && node tests/online-invites-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js && node tests/card-corner-mobile.test.js && node tests/google-auth-contract.test.js && node tests/music-contract.test.js && node tests/quick-audio-contract.test.js && node tests/reconnection-intelligent.test.js && node tests/reconnection-contract.test.js && node tests/your-turn-enhanced.test.js && node tests/your-turn-logic.test.js && node tests/online-invites-contract.test.js && node tests/matchmaking-contract.test.js"
   },
   "engines": {
     "node": ">=18"
