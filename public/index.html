@@ -108,7 +108,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • CONFERÊNCIA DA RODADA • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • MÚSICA DINÂMICA ORIGINAL • CONFERÊNCIA DA RODADA • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -116,8 +116,18 @@
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
+      <button id="musicBtn" class="icon-btn music-btn" title="Música da mesa">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
+
+    <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
+      <div class="music-panel-head"><div><small>TRILHA ORIGINAL</small><strong>🎵 Música da mesa</strong></div><button id="musicClose" type="button" aria-label="Fechar">×</button></div>
+      <button id="musicToggle" type="button" class="music-toggle active">🎵 Música ligada</button>
+      <label class="music-volume-label" for="musicVolume"><span>Volume</span><b id="musicVolumeValue">18%</b></label>
+      <input id="musicVolume" class="music-volume" type="range" min="0" max="45" step="1" value="18" aria-label="Volume da música" />
+      <div id="musicNow" class="music-now">Aguardando a mesa</div>
+      <p>A música muda automaticamente entre lobby, partida, última carta e conferência. Efeitos e vozes continuam com controle separado em 🔊.</p>
+    </div>
 
     <main class="table-shell">
       <div class="scoreboard" id="scoreboard"></div>
@@ -177,7 +187,7 @@
             <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
             <button data-effect="jogaBoca" class="effect-shout" title="Falar JOGA BOCA ABERTA!">📢<span>JOGA BOCA ABERTA!</span></button>
           </div>
-          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla no seu aparelho tanto esses efeitos quanto os sons automáticos da partida.</div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 🎵 controla separadamente a música de fundo.</div>
         </div>
       </aside>
       <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
@@ -230,6 +240,8 @@
         <p>Partidas concluídas alimentam rankings de <strong>Hoje, Mês, Ano e Geral</strong>. Partidas somente entre pessoas ficam separadas das partidas que possuem máquina. O ranking ordena primeiro por vitórias e, em caso de empate, pela menor média de pontos.</p>
         <h3>💬 Conversa e efeitos</h3>
         <p>A sala possui chat em tempo real e botões de efeitos sonoros. Os efeitos são compartilhados com todos os jogadores conectados e podem ser silenciados localmente pelo botão 🔊.</p>
+        <h3>🎵 Música dinâmica</h3>
+        <p>As trilhas instrumentais foram criadas especialmente para o Mau-Mau. A música muda conforme o momento da partida: lobby, mesa normal, tensão de última carta e conferência da rodada. O botão 🎵 permite ligar/desligar e ajustar o volume sem silenciar os efeitos ou as vozes.</p>
         <h3>🤖 Jogador automático</h3>
         <p>O anfitrião pode adicionar máquinas à sala fora das rodadas. O bot joga sozinho, anuncia Mau-Mau, escolhe naipe no Valete, rebate o 7 quando possível, usa Queima, Ação Rápida e também aproveita a Carta Dupla quando disponível.</p>
         <h3>▶️ Jogada normal</h3>

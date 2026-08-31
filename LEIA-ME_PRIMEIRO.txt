@@ -1,0 +1,27 @@
+MAU-MAU V38 — MÚSICA DINÂMICA ORIGINAL
+
+PARA ATUALIZAR O PROJETO ATUAL:
+
+1. Na raiz do projeto, NÃO altere server.js, game-engine.js ou ranking-store.js.
+2. Abra a pasta public do seu projeto.
+3. Substitua:
+   - public/app.js
+   - public/index.html
+   - public/styles.css
+4. Dentro de public/assets, copie a pasta inteira:
+   - public/assets/music
+5. Faça commit/push no GitHub usado pelo Render.
+6. Aguarde o Render concluir o deploy.
+7. Abra o jogo e use o novo botão 🎵 no topo.
+
+NÃO PRECISA ALTERAR:
+- GOOGLE_CLIENT_ID
+- AUTH_SESSION_SECRET
+- DATABASE_URL
+- PostgreSQL
+- Google Cloud
+
+MÚSICA
+- Ligada por padrão em 18%.
+- Controle 🎵 separado dos efeitos 🔊.
+- Muda automaticamente conforme o estado da partida.

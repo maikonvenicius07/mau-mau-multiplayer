@@ -504,3 +504,13 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   .round-review-cards{gap:4px;min-height:95px}.round-review-card-wrap .playing-card{width:56px;height:80px}.round-review-card-wrap .playing-card .suit-big{font-size:28px}
   .round-review-calc{text-align:left;font-size:11px}
 }
+
+/* V38.1 — MÚSICA DINÂMICA ORIGINAL */
+.music-btn{position:relative;transition:.18s ease}.music-btn:not(.music-off){background:#d8aa4a22;border:1px solid #d8aa4a55!important;box-shadow:0 0 0 1px #d8aa4a18 inset}.music-btn.music-off{opacity:.55;filter:grayscale(.8)}
+.music-panel{position:fixed;right:62px;top:72px;z-index:175;width:min(330px,calc(100vw - 24px));padding:14px;background:#0b1914f5;border:1px solid #3b5c4d;border-radius:18px;box-shadow:0 18px 55px #0009;backdrop-filter:blur(14px)}
+.music-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}.music-panel-head>div{display:grid;gap:2px}.music-panel-head small{font-size:8px;letter-spacing:.13em;color:#d7b661;font-weight:900}.music-panel-head strong{font-size:14px}.music-panel-head button{width:32px;height:32px;border:0;border-radius:10px;background:#233d31;color:#fff;font-size:20px;display:grid;place-items:center}
+.music-toggle{width:100%;border:1px solid #476a5a;background:#172c23;color:#d7e3dc;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:900}.music-toggle.active{background:#294f3d;color:#fff2c2;border-color:#8f7841}
+.music-volume-label{display:flex;align-items:center;justify-content:space-between;margin:13px 2px 4px;font-size:10px;color:#a9bbb1;text-transform:uppercase;letter-spacing:.07em;font-weight:850}.music-volume-label b{color:#f3d581}
+.music-volume{width:100%;accent-color:#d8aa4a;cursor:pointer}.music-now{margin-top:9px;padding:8px 10px;border-radius:10px;background:#07130f;border:1px solid #203a2f;color:#e9cf8a;font-size:10px;font-weight:900;text-align:center}.music-panel p{margin:9px 2px 0;color:#849b8f;font-size:9px;line-height:1.4}
+@media(max-width:900px){.music-panel{right:max(8px,var(--safe-right));top:calc(65px + var(--safe-top));width:min(330px,calc(100vw - 16px))}}
+@media(max-width:390px){.music-panel{top:calc(58px + var(--safe-top));padding:12px}.music-btn{min-width:32px!important}}

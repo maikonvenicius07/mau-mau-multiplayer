@@ -1,0 +1,44 @@
+MAU-MAU V38 — MÚSICA DINÂMICA ORIGINAL
+
+NOVIDADES
+- 7 faixas de áudio criadas do zero especificamente para o Mau-Mau, sem samples ou gravações de terceiros.
+- Lobby: "Mesa Aberta".
+- Partida: duas variações de "Mesa de Mau-Mau", escolhidas de forma estável pela sala.
+- Última carta: a trilha muda automaticamente quando qualquer jogador ativo chega a 1 carta.
+- Conferência da rodada: trilha mais calma durante a conferência/pontuação.
+- Stinger curto de vitória ao fim da rodada.
+- Tema curto especial ao fim da partida.
+- Música e efeitos agora têm controles independentes.
+- Volume da música fica salvo no navegador; padrão 18% e limite de 45%.
+- Ducking automático: a música abaixa quando o jogo fala "Mau-Mau", alerta um adversário ou diz "JOGA BOCA ABERTA!".
+- Crossfade suave entre estados da partida.
+- A música só começa após uma interação do usuário, respeitando o bloqueio de autoplay dos navegadores.
+
+ARQUIVOS ALTERADOS
+- package.json
+- public/index.html
+- public/app.js
+- public/styles.css
+
+ARQUIVOS NOVOS
+- public/assets/music/lobby_mesa_aberta.mp3
+- public/assets/music/mesa_de_mau_mau_a.mp3
+- public/assets/music/mesa_de_mau_mau_b.mp3
+- public/assets/music/ultima_carta.mp3
+- public/assets/music/conferencia_rodada.mp3
+- public/assets/music/vitoria_rodada.mp3
+- public/assets/music/campeao_partida.mp3
+- public/assets/music/ORIGEM_E_LICENCA.txt
+- public/assets/music/METRICAS_AUDIO.json
+- tests/music-contract.test.js
+
+NÃO ALTERADO
+- server.js
+- ranking-store.js
+- game-engine.js
+- Login Google
+- PostgreSQL / DATABASE_URL
+- regras de jogo
+
+NOTA DE ÁUDIO
+A primeira versão da faixa "Última Carta" ficou dinâmica demais na análise de nível. Ela foi refeita com uma cama harmônica contínua e menor brilho, para criar tensão sem competir com as vozes e os efeitos.
