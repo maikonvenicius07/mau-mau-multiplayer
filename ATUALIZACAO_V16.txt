@@ -1,8 +1,0 @@
-MAU-MAU V16 — CARTA DUPLA SEM CARTAS ESPECIAIS
-
-Correção da regra Carta Dupla:
-- Permitida somente para cartas comuns idênticas (mesmo valor e mesmo naipe).
-- Proibida para A, 7, 8, J, Q e K.
-- O botão ×2 não aparece em pares de cartas especiais.
-- O servidor rejeita qualquer tentativa de Carta Dupla com carta especial.
-- O bot nunca usa Carta Dupla com carta especial.
