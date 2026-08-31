@@ -1,11 +1,11 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "39.1.0",
-  "description": "Mau-Mau multiplayer V39.1: Reconexão Inteligente de 60 s com Máquina temporária, Áudio Rápido, música dinâmica, Login Google e ranking PostgreSQL.",
+  "version": "39.2.0",
+  "description": "Mau-Mau multiplayer V39.2: SUA VEZ melhorado com animação, iluminação, som e vibração opcional, mantendo Reconexão Inteligente, Áudio Rápido, música dinâmica, Login Google e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js && node tests/card-corner-mobile.test.js && node tests/google-auth-contract.test.js && node tests/music-contract.test.js && node tests/quick-audio-contract.test.js && node tests/reconnection-intelligent.test.js && node tests/reconnection-contract.test.js"
+    "test": "node tests/engine.test.js && node tests/reaction-stress.test.js && node tests/burn-flex.test.js && node tests/full-bot-v18.test.js && node tests/ui-contract.test.js && node tests/sound-contract.test.js && node tests/speech-contract.test.js && node tests/avatar-contract.test.js && node tests/opponent-mau-alert.test.js && node tests/ranking-store.test.js && node tests/ranking-ui-contract.test.js && node tests/joga-boca-speech.test.js && node tests/mobile-layout-contract.test.js && node tests/pile-side-toggle.test.js && node tests/draw-free-choice.test.js && node tests/special-turn-only.test.js && node tests/winning-special-effects.test.js && node tests/hand-sort.test.js && node tests/quick-turn-lock.test.js && node tests/card-corner-mobile.test.js && node tests/google-auth-contract.test.js && node tests/music-contract.test.js && node tests/quick-audio-contract.test.js && node tests/reconnection-intelligent.test.js && node tests/reconnection-contract.test.js && node tests/your-turn-enhanced.test.js && node tests/your-turn-logic.test.js"
   },
   "engines": {
     "node": ">=18"

@@ -3,6 +3,9 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
 let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set();
+const turnVibrationStorage='maumauTurnVibrationV1';
+let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
+let yourTurnAlertTimer=null;
 const musicOnStorage='maumauMusicOnV1', musicVolumeStorage='maumauMusicVolumeV1';
 let musicOn=localStorage.getItem(musicOnStorage)!=='off';
 let musicVolume=Math.min(.45,Math.max(0,Number(localStorage.getItem(musicVolumeStorage)??.18)||.18));
@@ -209,6 +212,55 @@ function setConnection(status){
   chip.textContent=status==='online'?'● Online':status==='offline'?'● Sem conexão':'● Conectando';
 }
 
+function vibrationSupported(){return typeof navigator.vibrate==='function'}
+function updateVibrationUI(){
+  const btn=$('#vibrationBtn');if(!btn)return;
+  const supported=vibrationSupported();
+  btn.classList.toggle('hidden',!supported);
+  btn.textContent=turnVibrationOn?'📳':'📵';
+  btn.classList.toggle('vibration-off',!turnVibrationOn);
+  btn.title=turnVibrationOn?'Vibração de SUA VEZ ativada':'Vibração de SUA VEZ desativada';
+  btn.setAttribute('aria-label',btn.title);
+  btn.setAttribute('aria-pressed',turnVibrationOn?'true':'false');
+}
+function vibrateYourTurn(){
+  if(!turnVibrationOn||!vibrationSupported())return;
+  try{navigator.vibrate(0);navigator.vibrate([70,45,110]);}catch{}
+}
+function showYourTurnAlert(){
+  const el=$('#yourTurnAlert');if(!el)return;
+  if(yourTurnAlertTimer)clearTimeout(yourTurnAlertTimer);
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  yourTurnAlertTimer=setTimeout(()=>el.classList.remove('show'),1850);
+}
+function newLogEntries(prev,next){
+  if(!next?.log?.length)return [];
+  if(!prev?.log?.length)return next.log;
+  const oldIds=new Set(prev.log.map(x=>x?.id).filter(Boolean));
+  return next.log.filter(x=>!x?.id||!oldIds.has(x.id));
+}
+function shouldCueMyTurn(prev,next){
+  if(!next?.me||next.status!=='playing'||next.paused||next.currentPlayerId!==next.me.id)return false;
+  if(!prev||prev.status!=='playing')return true;
+  if(prev.paused&&!next.paused)return true;
+  if(prev.currentPlayerId!==next.currentPlayerId)return true;
+  // Em partidas com 2 jogadores, Ás ou Dama podem devolver a vez ao mesmo
+  // jogador sem alterar currentPlayerId. Detectamos essa nova jogada pelo
+  // descarte de uma carta e pelo registro do efeito especial.
+  const before=Number(prev.me?.hand?.length??prev.players?.find(p=>p.id===next.me.id)?.cardCount??0);
+  const after=Number(next.me?.hand?.length??0);
+  if(after>=before)return false;
+  return newLogEntries(prev,next).some(e=>e?.kind==='special'&&/perdeu a vez|joga novamente/i.test(String(e.message||'')));
+}
+function triggerYourTurnCue(){
+  if(!state?.me||state.status!=='playing'||state.paused||state.currentPlayerId!==state.me.id)return;
+  showYourTurnAlert();
+  setTimeout(()=>playGameSound('yourTurn'),90);
+  setTimeout(vibrateYourTurn,110);
+}
+
 function audioCtx(){
   try{
     const ac=audioCtx.ac||(audioCtx.ac=new (window.AudioContext||window.webkitAudioContext)());
@@ -409,7 +461,9 @@ function playGameSound(type='play'){
   } else if(type==='draw'){
     noiseBurst(ac,t,.085,.026); tone(ac,210,t+.02,.07,'sine',.022);
   } else if(type==='yourTurn'){
-    seq([[660,0,.07],[880,.09,.10]],'triangle',.032);
+    // Campainha curta em três notas: perceptível sem competir com vozes ou música.
+    seq([[659,0,.075],[880,.085,.085],[1175,.18,.14]],'triangle',.031);
+    seq([[523,.01,.12],[784,.11,.13]],'sine',.014);
   } else if(type==='pass'){
     seq([[430,0,.055],[330,.07,.075]],'sine',.024);
   } else if(type==='burn'){
@@ -677,6 +731,14 @@ $('#sortHandBtn').onclick=toggleHandSort;
 
 $('#soundBtn').textContent=soundOn?'🔊':'🔇';
 $('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
+updateVibrationUI();
+$('#vibrationBtn').onclick=()=>{
+  turnVibrationOn=!turnVibrationOn;
+  localStorage.setItem(turnVibrationStorage,turnVibrationOn?'on':'off');
+  updateVibrationUI();
+  if(turnVibrationOn){vibrateYourTurn();toast('📳 Vibração de SUA VEZ ativada.')}
+  else{try{navigator.vibrate?.(0)}catch{};toast('📵 Vibração de SUA VEZ desativada.')}
+};
 updateMusicUI();
 function toggleMusicPanel(){
   const panel=$('#musicPanel');if(!panel)return;
@@ -874,9 +936,8 @@ socket.on('state',s=>{
       }
     }
     detectOpponentMauMau(prev,s);
-    const becameMyTurn=prev.currentPlayerId!==s.currentPlayerId && s.status==='playing' && !s.paused && s.currentPlayerId===s.me?.id;
-    if(becameMyTurn) setTimeout(()=>playGameSound('yourTurn'),120);
   }
+  if(shouldCueMyTurn(prev,s)) triggerYourTurnCue();
 });
 socket.on('chatHistory',messages=>{for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;refreshQuickAudioMusicDuck();renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
@@ -1011,6 +1072,8 @@ function canAct(){return !passPending&&socket.connected&&state?.status==='playin
 function render(){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
+  const myTurnNow=state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
+  $('#game').classList.toggle('my-turn',!!myTurnNow);
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;

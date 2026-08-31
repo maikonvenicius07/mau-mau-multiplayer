@@ -1,0 +1,13 @@
+MAU-MAU V39.2 — SUA VEZ MELHORADO
+
+Para atualizar a V39.1, substitua:
+- package.json
+- public/app.js
+- public/index.html
+- public/styles.css
+
+Adicione também, se quiser manter os testes/documentação:
+- tests/your-turn-enhanced.test.js
+- ATUALIZACAO_V39_2_SUA_VEZ.txt
+
+Não altere server.js, game-engine.js, ranking-store.js, DATABASE_URL, GOOGLE_CLIENT_ID ou AUTH_SESSION_SECRET.

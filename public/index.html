@@ -127,6 +127,7 @@
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
+      <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
       <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
@@ -200,10 +201,15 @@
             <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
             <button data-effect="jogaBoca" class="effect-shout" title="Falar JOGA BOCA ABERTA!">📢<span>JOGA BOCA ABERTA!</span></button>
           </div>
-          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 🎵 controla separadamente a música de fundo.</div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis; o botão 🎵 controla separadamente a música de fundo.</div>
         </div>
       </aside>
       <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
+      <div id="yourTurnAlert" class="your-turn-alert" role="status" aria-live="assertive" aria-atomic="true">
+        <span class="your-turn-spark">✨</span>
+        <strong>SUA VEZ!</strong>
+        <small>Escolha sua jogada</small>
+      </div>
     </main>
   </section>
 
@@ -325,6 +331,7 @@
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
+      <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
     </div>
 

@@ -561,3 +561,19 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .player-card.disconnect{opacity:.62;border-color:#a84b50;box-shadow:0 0 0 2px #ff657022,0 8px 22px #0006}
 .turn-banner.reconnect-wait{border-color:#b64d55;background:#321719;color:#ffd7d9}
 @media(max-width:900px){.auto-tag,.reconnect-tag{font-size:7px}.player-card.auto-control{box-shadow:0 0 0 2px #f2c66d20}}
+
+
+/* V39.2 — SUA VEZ melhorado */
+.vibration-btn{position:relative;transition:.18s ease}.vibration-btn:not(.vibration-off){background:#d8aa4a20!important;border:1px solid #d8aa4a55!important;border-radius:10px;box-shadow:0 0 0 1px #d8aa4a15 inset}.vibration-btn.vibration-off{opacity:.5;filter:grayscale(.85)}
+.your-turn-alert{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) scale(.82);z-index:190;pointer-events:none;display:grid;place-items:center;min-width:min(340px,82vw);padding:18px 28px 16px;border:1px solid #f0c96f;background:radial-gradient(circle at 50% 20%,#5a461de8,#132219f2 68%);border-radius:22px;box-shadow:0 0 0 2px #f4d17b30,0 0 55px #f0bc4c55,0 24px 70px #000a;opacity:0;visibility:hidden;text-align:center;backdrop-filter:blur(10px)}
+.your-turn-alert .your-turn-spark{font-size:30px;line-height:1}.your-turn-alert strong{font-size:clamp(27px,6vw,46px);line-height:1;letter-spacing:.06em;color:#ffe19a;text-shadow:0 2px 0 #6b4b13,0 0 18px #f4c75b80;margin-top:4px}.your-turn-alert small{margin-top:7px;color:#f6ead0;font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.your-turn-alert.show{visibility:visible;animation:yourTurnPop 1.85s cubic-bezier(.2,.85,.3,1) both}
+@keyframes yourTurnPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.07)}24%{transform:translate(-50%,-50%) scale(1)}72%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(.96)}}
+#game.my-turn .turn-banner{border-color:#e5bb5b;background:#382d13e8;color:#ffe6a4;box-shadow:0 0 0 2px #f5cf7430,0 0 20px #e6b74938}
+#game.my-turn .player-card.active{border-color:#ffd773;box-shadow:0 0 0 2px #ffd77355,0 0 30px #f0bd4e75,0 8px 22px #0006;animation:activePlayerGlow 1.25s ease-in-out infinite alternate}
+#game.my-turn .hand-panel{border-color:#8b733d;box-shadow:0 0 0 1px #f4cf7430,0 0 24px #d8aa4a24;transition:border-color .2s ease,box-shadow .2s ease}
+#game.my-turn .hand .playing-card.playable:not(.quickable):not(.burnable){animation:validCardGlow 1.15s ease-in-out infinite alternate}
+@keyframes activePlayerGlow{from{filter:brightness(1);transform:translateY(0)}to{filter:brightness(1.12);transform:translateY(-2px)}}
+@keyframes validCardGlow{from{box-shadow:0 0 0 3px #f0ca6f,0 8px 18px #0007}to{box-shadow:0 0 0 3px #ffe198,0 0 24px #e8bd566e,0 11px 23px #0008}}
+@media(max-width:900px){.your-turn-alert{top:39%;padding:15px 22px 13px}.your-turn-alert .your-turn-spark{font-size:25px}.your-turn-alert small{font-size:9px}.vibration-btn{min-width:36px;min-height:36px}}
+@media(max-width:390px){.your-turn-alert{min-width:76vw;padding:13px 18px 12px}.your-turn-alert strong{font-size:28px}.your-turn-alert .your-turn-spark{font-size:23px}.your-turn-alert small{font-size:8px}}
+@media(prefers-reduced-motion:reduce){#game.my-turn .player-card.active,#game.my-turn .hand .playing-card.playable:not(.quickable):not(.burnable){animation:none!important}.your-turn-alert.show{animation:yourTurnFade 1.7s ease both}@keyframes yourTurnFade{0%,100%{opacity:0}15%,75%{opacity:1}}}

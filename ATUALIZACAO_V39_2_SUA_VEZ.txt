@@ -1,0 +1,13 @@
+MAU-MAU V39.2 — SUA VEZ MELHORADO
+
+Novidades:
+- aviso grande “SUA VEZ!” ao iniciar a jogada;
+- destaque dourado do jogador ativo e da área da mão;
+- cartas válidas recebem iluminação pulsante enquanto for sua vez;
+- campainha curta exclusiva para início da sua jogada;
+- vibração curta opcional (📳) em navegadores/dispositivos compatíveis;
+- preferência da vibração salva no navegador;
+- alerta também acontece após reconexão/retomada e quando A ou Q devolvem a vez ao mesmo jogador em partidas de 2 pessoas;
+- respeita “prefers-reduced-motion” para reduzir animações quando o sistema operacional pede menos movimento.
+
+Não altera regras, PostgreSQL, Google Login ou Reconexão Inteligente V39.1.

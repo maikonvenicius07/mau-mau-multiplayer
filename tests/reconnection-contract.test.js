@@ -6,7 +6,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'39.1.0');
+assert.equal(pkg.version,'39.2.0');
 assert(/RECONNECT_GRACE_MS\s*=\s*60\s*\*\s*1000/.test(server),'janela de 60 s ausente');
 assert(server.includes('scheduleReconnectTakeover'),'takeover temporário ausente');
 assert(server.includes('stale.autoControlled=true'),'vaga não entra em AUTO');

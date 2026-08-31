@@ -1,4 +1,4 @@
-# MAU-MAU Multiplayer — V38 LOGIN GOOGLE
+# MAU-MAU Multiplayer — V39.2
 
 ## V38 — Login obrigatório com Conta Google
 
@@ -147,6 +147,7 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Salas privadas com código de 6 caracteres.
 - Reconexão por token local vinculada à mesma vaga.
 - Reconexão Inteligente V39.1: 60 s de tolerância; depois a Máquina assume temporariamente a mesma mão/posição sem transformar o participante em bot para fins de ranking.
+- SUA VEZ V39.2: aviso grande, iluminação do jogador e das cartas válidas, campainha curta e vibração opcional em aparelhos compatíveis.
 - Entrada tardia somente entre rodadas e até antes do início da 3ª rodada.
 
 ## Cartas especiais implementadas
