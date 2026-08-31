@@ -9,6 +9,7 @@
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="inviteInbox" class="invite-inbox" aria-live="polite" aria-label="Convites para jogar"></div>
 
   <!-- Painel global: pode ser aberto tanto na tela inicial quanto dentro da sala -->
     <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
@@ -51,6 +52,11 @@
       <div class="mini-deck" aria-hidden="true">
         <div class="mini-card red">A♥</div><div class="mini-card black">7♣</div><div class="mini-card red">J♦</div><div class="mini-card black">Q♠</div>
       </div>
+
+      <section class="online-discovery" aria-label="Jogadores online">
+        <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
+        <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
+      </section>
 
       <div class="setup-grid avatar-setup">
         <label>Nome na mesa<input id="nameInput" maxlength="24" placeholder="Seu nome na mesa" value="Jogador" /></label>
@@ -125,6 +131,7 @@
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
       <button id="leaveBtn" class="leave-btn" title="Sair da sala">🚪 Sair</button>
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
+      <button id="onlinePlayersOpen2" class="icon-btn online-top-btn" title="Jogadores Online" aria-label="Abrir jogadores online">👥<span id="onlineTopBadge" class="online-top-badge">0</span></button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
       <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
@@ -213,6 +220,23 @@
     </main>
   </section>
 
+
+  <dialog id="onlinePlayersDialog" class="modal online-players-modal">
+    <button class="close online-players-close" id="onlinePlayersClose" type="button" aria-label="Fechar jogadores online">×</button>
+    <div class="online-dialog-head">
+      <div>
+        <div class="eyebrow">ENCONTRE QUEM ESTÁ NO JOGO</div>
+        <h2>👥 JOGADORES ONLINE</h2>
+        <p>Convide qualquer jogador conectado. O convite não interrompe automaticamente a atividade de ninguém.</p>
+      </div>
+      <div class="online-dialog-count"><span class="online-live-dot"></span><strong id="onlineDialogCount">0</strong><small>online</small></div>
+    </div>
+    <div class="online-status-legend">
+      <span>🟢 Disponível</span><span>🔎 Procurando</span><span>🤖 Contra máquina</span><span>🎮 Com pessoas</span><span>🟠 Reconectando</span>
+    </div>
+    <div id="onlinePlayersList" class="online-players-list"><div class="online-empty">Carregando jogadores...</div></div>
+    <div class="online-dialog-note">Convites expiram em 30 segundos. Se alguém aceitar durante uma partida multiplayer, a partida atual continua normalmente e a nova vaga fica reservada temporariamente quando possível.</div>
+  </dialog>
 
   <dialog id="roundReviewDialog" class="modal round-review-modal">
     <button class="close round-review-close" id="roundReviewClose" type="button" aria-label="Fechar conferência">×</button>
@@ -333,6 +357,7 @@
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
+      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. Todos podem receber convites. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>; recusar não altera a atividade atual. Se aceitar enquanto joga contra a máquina, essa partida é encerrada sem resultado. Se aceitar durante uma partida multiplayer já iniciada, a partida atual não é interrompida: a entrada na nova mesa fica aguardando o término, com reserva temporária da vaga quando possível.</p>
     </div>
 
     <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida por até 60 segundos e, depois, a Máquina assume temporariamente a vaga; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>

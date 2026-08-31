@@ -1,4 +1,18 @@
-# MAU-MAU Multiplayer — V39.2
+# MAU-MAU Multiplayer — V40.1
+
+
+## V40.1 — Jogadores Online + Convites
+
+- A presença online é identificada pela `playerKey` da Conta Google; reconexões do Socket.IO não criam usuários duplicados na lista.
+- A tela inicial e a mesa possuem acesso a **Jogadores Online**, com avatar, nome e status.
+- Status visíveis: 🟢 Disponível, 🔎 Procurando partida (reservado para V40.2), 🤖 Jogando contra a máquina, 🎮 Jogando com pessoas e 🟠 Reconectando.
+- Qualquer jogador conectado pode receber convite e escolher **ACEITAR** ou **RECUSAR**.
+- Convites normais expiram em 30 segundos e convites idênticos simultâneos da mesma pessoa são bloqueados no servidor.
+- Recusar não altera a atividade atual.
+- Aceitar enquanto joga contra a máquina encerra essa partida sem registrar resultado.
+- Aceitar durante uma partida multiplayer em andamento não interrompe a mesa atual: a vaga fica reservada temporariamente quando possível e a entrada é liberada depois que a partida atual termina e a sala de destino aceita entrada.
+- As reservas também são consideradas pelo servidor ao adicionar bots ou novos jogadores, evitando ocupar uma vaga já prometida.
+- A fila automática **Buscar Jogadores** não faz parte desta etapa; ficará para a V40.2.
 
 ## V38 — Login obrigatório com Conta Google
 
@@ -148,6 +162,7 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Reconexão por token local vinculada à mesma vaga.
 - Reconexão Inteligente V39.1: 60 s de tolerância; depois a Máquina assume temporariamente a mesma mão/posição sem transformar o participante em bot para fins de ranking.
 - SUA VEZ V39.2: aviso grande, iluminação do jogador e das cartas válidas, campainha curta e vibração opcional em aparelhos compatíveis.
+- Jogadores Online + Convites V40.1: presença única pela Conta Google, lista de status, convites de 30 s e reserva temporária de vaga sem interromper partida multiplayer em andamento.
 - Entrada tardia somente entre rodadas e até antes do início da 3ª rodada.
 
 ## Cartas especiais implementadas

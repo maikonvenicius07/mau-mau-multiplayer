@@ -17,6 +17,14 @@ const rooms = new Map();
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
 const reconnectTimers = new Map();
 const RECONNECT_GRACE_MS = 60 * 1000;
+
+// V40.1 — presença online e convites são efêmeros e vivem somente na memória.
+// A identidade é a playerKey derivada da Conta Google, nunca o socketId.
+const onlinePresence = new Map();
+const invitations = new Map();
+const inviteTimers = new Map();
+const INVITE_TTL_MS = 30 * 1000;
+const INVITE_RESERVATION_MS = 20 * 60 * 1000;
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 
@@ -175,6 +183,9 @@ function emitRoom(room) {
     if (p.socketId) io.to(p.socketId).emit('state', Engine.roomPublicState(room,p.id));
   }
   scheduleBotTurn(room);
+  refreshInviteReadiness();
+  const presenceSignature=`${room.status}:${room.round}:${room.players.map(p=>`${p.id}:${p.isBot?'b':'h'}`).join(',')}`;
+  if(room._presenceSignature!==presenceSignature){room._presenceSignature=presenceSignature;setTimeout(broadcastPresence,0);}
 }
 
 function reconnectTimerKey(roomCode, playerId) { return `${roomCode}:${playerId}`; }
@@ -214,6 +225,7 @@ function scheduleReconnectTakeover(room, player) {
     Engine.appendLog(liveRoom, `🤖 ${stale.name} não retornou em 60 segundos. A Máquina assumiu temporariamente suas jogadas.`, 'system');
     io.to(liveRoom.code).emit('reconnectionEvent',{kind:'auto',playerId:stale.id,name:stale.name});
     emitRoom(liveRoom);
+    broadcastPresence();
   },delay);
   if(typeof timer.unref==='function') timer.unref();
   reconnectTimers.set(key,timer);
@@ -371,6 +383,248 @@ function emitChatHistory(socket, room) {
   socket.emit('chatHistory', room.chat.slice(-60));
 }
 
+// ========================= V40.1 — JOGADORES ONLINE + CONVITES =========================
+function cleanPresenceName(value) {
+  return String(value || 'Jogador').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,24) || 'Jogador';
+}
+function cleanAvatar(value) { return String(value || 'macaco').trim().slice(0,24) || 'macaco'; }
+function presenceFor(playerKey) { return onlinePresence.get(String(playerKey||'')) || null; }
+function registerPresenceSocket(socket) {
+  const key=socket.data.auth?.playerKey; if(!key)return;
+  let rec=onlinePresence.get(key);
+  if(!rec){rec={playerKey:key,name:cleanPresenceName(socket.data.auth?.name),avatar:'macaco',picture:String(socket.data.auth?.picture||'').slice(0,500),sockets:new Set(),searching:false,lastSeenAt:Date.now()};onlinePresence.set(key,rec);}
+  rec.sockets.add(socket.id);rec.lastSeenAt=Date.now();
+  if(!rec.name)rec.name=cleanPresenceName(socket.data.auth?.name);
+}
+function unregisterPresenceSocket(socket) {
+  const key=socket.data.auth?.playerKey,rec=onlinePresence.get(key);if(!rec)return;
+  rec.sockets.delete(socket.id);rec.lastSeenAt=Date.now();
+  if(!rec.sockets.size)onlinePresence.delete(key);
+}
+function updatePresenceFromSocket(socket,payload={}) {
+  const key=socket.data.auth?.playerKey;if(!key)return;
+  registerPresenceSocket(socket);
+  const rec=onlinePresence.get(key);if(!rec)return;
+  if(payload.name)rec.name=cleanPresenceName(payload.name);
+  if(payload.avatar)rec.avatar=cleanAvatar(payload.avatar);
+  rec.lastSeenAt=Date.now();
+}
+function roomSeatForKey(playerKey) {
+  let best=null;
+  for(const room of rooms.values()){
+    const player=room.players.find(p=>!p.isBot&&p.playerKey===playerKey);
+    if(!player)continue;
+    const score=(player.connected?100:0)+(room.status==='playing'?40:room.status==='between-rounds'?30:room.status==='lobby'?20:10)+(room.round>0?5:0);
+    if(!best||score>best.score)best={room,player,score};
+  }
+  return best;
+}
+function activeMultiplayerRoomForKey(playerKey, exceptCode=null) {
+  for(const room of rooms.values()){
+    if(room.code===exceptCode||room.status==='finished'||room.round<=0)continue;
+    if(room.players.filter(p=>!p.isBot).length<2)continue;
+    if(room.players.some(p=>!p.isBot&&p.playerKey===playerKey))return room;
+  }
+  return null;
+}
+function presenceStatusForKey(playerKey) {
+  const rec=presenceFor(playerKey);
+  const seat=roomSeatForKey(playerKey);
+  if(seat?.player&&!seat.player.connected&&!seat.player.autoControlled&&seat.player.reconnectDeadlineAt>Date.now()){
+    return {code:'reconnecting',emoji:'🟠',label:'Reconectando'};
+  }
+  if(rec?.searching)return {code:'searching',emoji:'🔎',label:'Procurando partida'};
+  if(rec?.sockets?.size&&seat?.room&&seat.room.status!=='finished'){
+    const humans=seat.room.players.filter(p=>!p.isBot).length;
+    if(humans>=2)return {code:'multiplayer',emoji:'🎮',label:'Jogando com pessoas'};
+    if(seat.room.players.some(p=>p.isBot))return {code:'bot',emoji:'🤖',label:'Jogando contra a máquina'};
+  }
+  return {code:'available',emoji:'🟢',label:'Disponível'};
+}
+function buildPresenceSnapshot() {
+  const keys=new Set(onlinePresence.keys());
+  // Durante os 60 s de reconexão a vaga ainda aparece, marcada como Reconectando.
+  for(const room of rooms.values())for(const p of room.players){
+    if(!p.isBot&&p.playerKey&&!p.connected&&!p.autoControlled&&p.reconnectDeadlineAt>Date.now())keys.add(p.playerKey);
+  }
+  const players=[];
+  for(const key of keys){
+    const rec=presenceFor(key),seat=roomSeatForKey(key),status=presenceStatusForKey(key);
+    const connected=!!rec?.sockets?.size;
+    players.push({
+      playerKey:key,
+      name:cleanPresenceName(rec?.name||seat?.player?.name||'Jogador'),
+      avatar:cleanAvatar(rec?.avatar||seat?.player?.avatar||'macaco'),
+      status:status.code,statusEmoji:status.emoji,statusLabel:status.label,
+      connected,inviteable:connected,
+    });
+  }
+  const order={available:0,searching:1,reconnecting:2,bot:3,multiplayer:4};
+  players.sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name,'pt-BR'));
+  return {onlineCount:[...onlinePresence.values()].filter(r=>r.sockets.size).length,players,at:Date.now()};
+}
+function broadcastPresence() { io.emit('presenceSnapshot',buildPresenceSnapshot()); }
+function emitToPlayerKey(playerKey,event,payload) {
+  const rec=presenceFor(playerKey);if(!rec)return;
+  for(const socketId of rec.sockets)io.to(socketId).emit(event,payload);
+}
+function firstSocketForKey(playerKey) {
+  const rec=presenceFor(playerKey);if(!rec)return null;
+  for(const id of rec.sockets){const sock=io.sockets.sockets.get(id);if(sock)return sock;}
+  return null;
+}
+function ensureInviteReservations(room) {
+  if(!(room.inviteReservations instanceof Map))room.inviteReservations=new Map();
+  const now=Date.now();
+  for(const [key,resv] of room.inviteReservations){if(!resv||resv.expiresAt<=now)room.inviteReservations.delete(key);}
+  return room.inviteReservations;
+}
+function releaseReservation(room,playerKey,inviteId=null) {
+  if(!room)return;const map=ensureInviteReservations(room),cur=map.get(playerKey);
+  if(cur&&(!inviteId||cur.inviteId===inviteId))map.delete(playerKey);
+}
+function roomHasInviteCapacity(room,playerKey=null) {
+  if(!room||room.status==='finished')return false;
+  const existing=playerKey&&room.players.some(p=>!p.isBot&&p.playerKey===playerKey);
+  if(existing)return true;
+  const map=ensureInviteReservations(room);
+  let reserved=0;for(const key of map.keys())if(key!==playerKey)reserved++;
+  return room.players.length+reserved<5;
+}
+function roomAllowsInviteEventually(room,playerKey=null) {
+  if(!room||room.status==='finished'||!roomHasInviteCapacity(room,playerKey))return false;
+  if(room.status==='between-rounds'&&room.round>=room.rules.allowLateJoinUntilRound)return false;
+  if(room.status==='playing'&&room.round>=room.rules.allowLateJoinUntilRound)return false;
+  return true;
+}
+function roomJoinableNow(room,playerKey=null) {
+  if(!roomAllowsInviteEventually(room,playerKey))return false;
+  return room.status==='lobby'||room.status==='between-rounds';
+}
+function invalidateInvitesForRoom(code,message='A sala do convite não está mais disponível.') {
+  for(const inv of [...invitations.values()]){
+    if(inv.targetRoomCode!==code||!['pending','accepted-waiting','ready'].includes(inv.status))continue;
+    expireInvite(inv,message,'unavailable');
+  }
+}
+function invalidateInvitesFromPlayerInRoom(playerKey,code) {
+  for(const inv of [...invitations.values()]){
+    if(inv.fromKey===playerKey&&inv.targetRoomCode===code&&['pending','accepted-waiting','ready'].includes(inv.status)){
+      expireInvite(inv,'Quem enviou o convite saiu da sala.','unavailable');
+    }
+  }
+}
+function clearInviteTimer(inviteId){const t=inviteTimers.get(inviteId);if(t)clearTimeout(t);inviteTimers.delete(inviteId);}
+function scheduleInviteTimer(invite,ms){
+  clearInviteTimer(invite.id);
+  const timer=setTimeout(()=>{
+    inviteTimers.delete(invite.id);
+    const live=invitations.get(invite.id);if(!live)return;
+    if(live.status==='pending')expireInvite(live,'O convite expirou.','expired');
+    else if(['accepted-waiting','ready'].includes(live.status))expireInvite(live,'A reserva do convite expirou.','expired');
+  },Math.max(0,ms));
+  if(typeof timer.unref==='function')timer.unref();inviteTimers.set(invite.id,timer);
+}
+function invitePublic(invite){return {id:invite.id,fromKey:invite.fromKey,fromName:invite.fromName,fromAvatar:invite.fromAvatar,status:invite.status,expiresAt:invite.expiresAt,targetRoomCode:invite.targetRoomCode,waitingReason:invite.waitingReason||null};}
+function expireInvite(invite,message,status='expired'){
+  if(!invite)return;clearInviteTimer(invite.id);
+  const room=rooms.get(invite.targetRoomCode);releaseReservation(room,invite.toKey,invite.id);
+  invite.status=status;invite.message=message;invite.updatedAt=Date.now();
+  emitToPlayerKey(invite.toKey,'inviteStatus',{inviteId:invite.id,status,message});
+  emitToPlayerKey(invite.fromKey,'inviteStatus',{inviteId:invite.id,status,message:`Convite para ${invite.toName||'jogador'}: ${message}`});
+  setTimeout(()=>invitations.delete(invite.id),60000).unref?.();
+}
+function completeInvite(invite,message='Convite concluído.'){
+  clearInviteTimer(invite.id);releaseReservation(rooms.get(invite.targetRoomCode),invite.toKey,invite.id);
+  invite.status='completed';invite.updatedAt=Date.now();
+  emitToPlayerKey(invite.fromKey,'inviteStatus',{inviteId:invite.id,status:'completed',message:`✅ ${invite.toName||'Jogador'} entrou na sua mesa.`});
+  emitToPlayerKey(invite.toKey,'inviteStatus',{inviteId:invite.id,status:'completed',message});
+  setTimeout(()=>invitations.delete(invite.id),60000).unref?.();
+}
+function currentSocketRoom(socket){const room=rooms.get(socket.data.roomCode);if(!room)return null;const player=room.players.find(p=>p.id===socket.data.playerId);return player?{room,player}:null;}
+function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
+  const code=socket.data.roomCode,playerId=socket.data.playerId,room=rooms.get(code);
+  if(!room){socket.data.roomCode=null;socket.data.playerId=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
+  const idx=room.players.findIndex(p=>p.id===playerId);
+  if(idx<0){socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
+  const leaving=room.players[idx];cancelReconnectTimer(code,leaving.id);invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
+  const wasPlaying=room.status==='playing';room.players.splice(idx,1);
+  if(!room.players.length||room.players.every(p=>p.isBot)){
+    if(room.botTimer)clearTimeout(room.botTimer);clearReconnectTimersForRoom(code);rooms.delete(code);invalidateInvitesForRoom(code);
+  }else{
+    if(wasPlaying)cancelCurrentRoundAfterLeave(room,leaving.name);else Engine.appendLog(room,`${leaving.name} saiu da sala.`,'system');
+    if(room.players.length===1&&room.status==='between-rounds'&&room.round===0)room.status='lobby';
+    ensureHost(room);emitRoom(room);
+  }
+  socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;
+  if(emitLeft)socket.emit('leftRoom',{message});
+  broadcastPresence();
+}
+function createRoomForSocket(socket,profileData={}) {
+  const code=roomCode();
+  const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
+  rooms.set(code,room);ensureSocial(room);const p=room.players[0];
+  socket.data.roomCode=code;socket.data.playerId=p.id;socket.join(code);
+  updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
+  socket.emit('joined',{code,playerId:p.id,token:p.token,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+  return room;
+}
+function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
+  const key=socket.data.auth.playerKey;
+  if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
+  let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
+  if(p){
+    cancelReconnectTimer(room.code,p.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+    if(p.socketId&&p.socketId!==socket.id)io.to(p.socketId).emit('sessionReplaced');
+    p=Engine.reconnectPlayer(room,p.token,socket.id);
+  }else{
+    p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:presenceFor(key)?.name||socket.data.auth.name,avatar:presenceFor(key)?.avatar||'macaco',playerKey:key});
+  }
+  releaseReservation(room,key,inviteId);socket.data.roomCode=room.code;socket.data.playerId=p.id;socket.join(room.code);
+  updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
+  socket.emit('joined',{code:room.code,playerId:p.id,token:p.token,source:'invite',inviteId});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+  return p;
+}
+function reserveInviteSeat(invite) {
+  const room=rooms.get(invite.targetRoomCode);if(!room||!roomAllowsInviteEventually(room,invite.toKey))return false;
+  const map=ensureInviteReservations(room);map.set(invite.toKey,{inviteId:invite.id,expiresAt:invite.expiresAt});return true;
+}
+function senderStillInDestination(invite,room){return !!room?.players.some(p=>!p.isBot&&p.playerKey===invite.fromKey);}
+function setInviteWaiting(invite,reason,message) {
+  invite.status='accepted-waiting';invite.waitingReason=reason;invite.expiresAt=Date.now()+INVITE_RESERVATION_MS;invite.updatedAt=Date.now();
+  if(!reserveInviteSeat(invite)){expireInvite(invite,'A vaga deixou de estar disponível.','unavailable');return;}
+  scheduleInviteTimer(invite,INVITE_RESERVATION_MS);
+  emitToPlayerKey(invite.toKey,'inviteWaiting',{...invitePublic(invite),message});
+  emitToPlayerKey(invite.fromKey,'inviteStatus',{inviteId:invite.id,status:'accepted-waiting',message:`✅ ${invite.toName||'Jogador'} aceitou. ${message}`});
+}
+function refreshInviteReadiness(){
+  for(const inv of invitations.values()){
+    if(!['accepted-waiting','ready'].includes(inv.status))continue;
+    if(inv.expiresAt<=Date.now()){expireInvite(inv,'A reserva do convite expirou.','expired');continue;}
+    const dest=rooms.get(inv.targetRoomCode);
+    if(!dest||!senderStillInDestination(inv,dest)){expireInvite(inv,'A sala do convite não está mais disponível.','unavailable');continue;}
+    if(!roomAllowsInviteEventually(dest,inv.toKey)){expireInvite(inv,'A sala não pode mais receber novos jogadores.','unavailable');continue;}
+    const sourceMulti=activeMultiplayerRoomForKey(inv.toKey,dest.code);
+    if(sourceMulti){inv.waitingReason='finish-current';continue;}
+    if(!roomJoinableNow(dest,inv.toKey)){inv.waitingReason='destination-round';continue;}
+    if(inv.status!=='ready'){
+      inv.status='ready';inv.waitingReason=null;inv.updatedAt=Date.now();
+      emitToPlayerKey(inv.toKey,'inviteReady',{...invitePublic(inv),message:'🎮 Seu convite está pronto. Entre na nova mesa quando quiser.'});
+      emitToPlayerKey(inv.fromKey,'inviteStatus',{inviteId:inv.id,status:'ready',message:`🎮 ${inv.toName||'Jogador'} já pode entrar na sua mesa.`});
+    }
+  }
+}
+function emitPendingInvitesFor(socket){
+  const key=socket.data.auth?.playerKey;if(!key)return;
+  for(const inv of invitations.values()){
+    if(inv.toKey!==key)continue;
+    if(inv.expiresAt<=Date.now())continue;
+    if(inv.status==='pending')socket.emit('inviteReceived',invitePublic(inv));
+    else if(inv.status==='ready')socket.emit('inviteReady',{...invitePublic(inv),message:'🎮 Seu convite está pronto.'});
+    else if(inv.status==='accepted-waiting')socket.emit('inviteWaiting',{...invitePublic(inv),message:inv.waitingReason==='finish-current'?'Termine sua partida atual. A vaga está reservada.':'Aguardando o intervalo da sala convidante. A vaga está reservada.'});
+  }
+}
+
 io.use((socket,next)=>{
   const session=authFromCookieHeader(socket.handshake.headers.cookie);
   if(!session) return next(new Error('AUTH_REQUIRED'));
@@ -379,6 +633,15 @@ io.use((socket,next)=>{
 });
 
 io.on('connection', socket => {
+  registerPresenceSocket(socket);
+  socket.emit('presenceSnapshot',buildPresenceSnapshot());
+  emitPendingInvitesFor(socket);
+  setTimeout(broadcastPresence,0);
+
+  socket.on('presenceProfile', payload => {
+    updatePresenceFromSocket(socket,payload||{});broadcastPresence();
+  });
+
   socket.on('createRoom', payload => {
     try {
       const code = roomCode();
@@ -395,9 +658,11 @@ io.on('connection', socket => {
       const p=room.players[0];
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
+      updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
       socket.emit('joined',{code,playerId:p.id,token:p.token});
       emitChatHistory(socket, room);
       emitRoom(room);
+      broadcastPresence();
     } catch(e){err(socket,e);}
   });
 
@@ -432,19 +697,37 @@ io.on('connection', socket => {
           io.to(room.code).except(socket.id).emit('reconnectionEvent',{kind:'returned',playerId:p.id,name:p.name});
         }
       }
-      if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
+      if(!p){
+        const byKey=room.players.find(x=>!x.isBot&&x.playerKey===socket.data.auth.playerKey);
+        if(byKey){
+          cancelReconnectTimer(room.code,byKey.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+          if(byKey.socketId&&byKey.socketId!==socket.id)io.to(byKey.socketId).emit('sessionReplaced');
+          p=Engine.reconnectPlayer(room,byKey.token,socket.id);
+        }
+      }
+      if(!p){
+        if(!roomHasInviteCapacity(room,socket.data.auth.playerKey))throw new Error('A sala está completa ou possui vaga reservada por convite.');
+        p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
+      }
+      const acceptedManualInvite=[...invitations.values()].find(i=>i.toKey===socket.data.auth.playerKey&&i.targetRoomCode===code&&['accepted-waiting','ready'].includes(i.status));
+      releaseReservation(room,socket.data.auth.playerKey);
       socket.data.roomCode=code; socket.data.playerId=p.id;
       socket.join(code);
+      updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
       socket.emit('joined',{code,playerId:p.id,token:p.token});
       emitChatHistory(socket, room);
       emitRoom(room);
+      broadcastPresence();
+      if(acceptedManualInvite)completeInvite(acceptedManualInvite,'✅ Você entrou na mesa reservada.');
     } catch(e){err(socket,e);}
   });
 
   socket.on('addBot', () => withRoom(socket,(room,p)=>{
     if(!p.host) throw new Error('Somente o anfitrião pode adicionar uma máquina.');
     if(room.status==='playing') throw new Error('Adicione máquinas somente fora de uma rodada.');
+    if(!roomHasInviteCapacity(room,null)) throw new Error('Há vaga reservada por convite; não é possível adicionar outra máquina agora.');
     addBotToRoom(room);
+    broadcastPresence();
   }));
 
   socket.on('removeBot', () => withRoom(socket,(room,p)=>{
@@ -455,6 +738,7 @@ io.on('connection', socket => {
     room.players = room.players.filter(x => x.id !== bot.id);
     Engine.appendLog(room, `${bot.name} foi removido da mesa.`, 'system');
     ensureHost(room);
+    broadcastPresence();
   }));
 
   socket.on('leaveRoom', () => {
@@ -480,6 +764,7 @@ io.on('connection', socket => {
 
       const leaving = room.players[idx];
       cancelReconnectTimer(code,leaving.id);
+      invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
       const wasPlaying = room.status === 'playing';
       room.players.splice(idx, 1);
 
@@ -487,6 +772,7 @@ io.on('connection', socket => {
         if (room.botTimer) clearTimeout(room.botTimer);
         clearReconnectTimersForRoom(code);
         rooms.delete(code);
+        invalidateInvitesForRoom(code);
       } else {
         if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
         else Engine.appendLog(room, `${leaving.name} saiu da sala.`, 'system');
@@ -504,6 +790,7 @@ io.on('connection', socket => {
       socket.data.roomCode = null;
       socket.data.playerId = null;
       socket.emit('leftRoom');
+      broadcastPresence();
     } catch(e) { err(socket,e); }
   });
 
@@ -521,6 +808,7 @@ io.on('connection', socket => {
     }
 
     Engine.startRound(room);
+    broadcastPresence();
   }));
 
   socket.on('declare', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.declare(room,p.id,payload?.type); }));
@@ -558,6 +846,101 @@ io.on('connection', socket => {
       nextPlayerId: room.players[room.currentPlayer]?.id || null,
     });
   }));
+
+
+  socket.on('sendInvite', payload => {
+    try{
+      updatePresenceFromSocket(socket,payload?.profile||{});
+      const nowInvite=Date.now();
+      if(socket.data.lastInviteAt&&nowInvite-socket.data.lastInviteAt<900)throw new Error('Aguarde um instante antes de enviar outro convite.');
+      socket.data.lastInviteAt=nowInvite;
+      const fromKey=socket.data.auth.playerKey,toKey=String(payload?.targetPlayerKey||'').trim();
+      if(!toKey||toKey===fromKey)throw new Error('Escolha outro jogador para convidar.');
+      const targetPresence=presenceFor(toKey);
+      if(!targetPresence?.sockets?.size)throw new Error('Esse jogador não está disponível online agora.');
+      const duplicate=[...invitations.values()].find(i=>i.fromKey===fromKey&&i.toKey===toKey&&['pending','accepted-waiting','ready'].includes(i.status)&&i.expiresAt>Date.now());
+      if(duplicate)throw new Error('Já existe um convite ativo para esse jogador.');
+
+      let current=currentSocketRoom(socket),room=current?.room;
+      if(room?.players.some(p=>!p.isBot&&p.playerKey===toKey))throw new Error('Esse jogador já está na sua sala.');
+      if(room?.status==='finished'){detachSocketFromRoom(socket);room=null;}
+      if(!room)room=createRoomForSocket(socket,payload?.profile||{});
+      if(!roomAllowsInviteEventually(room,toKey))throw new Error(room.players.length>=5?'Sua mesa já está completa.':'Esta partida já passou do limite para entrada de novos jogadores.');
+      const fromPlayer=room.players.find(p=>!p.isBot&&p.playerKey===fromKey);
+      if(!fromPlayer)throw new Error('Não foi possível identificar sua vaga na sala.');
+      const targetName=cleanPresenceName(targetPresence.name||'Jogador');
+      const now=Date.now(),invite={
+        id:`inv-${now}-${crypto.randomBytes(4).toString('hex')}`,fromKey,toKey,
+        fromName:cleanPresenceName(fromPlayer.name||presenceFor(fromKey)?.name),fromAvatar:cleanAvatar(fromPlayer.avatar||presenceFor(fromKey)?.avatar),
+        toName:targetName,targetRoomCode:room.code,status:'pending',createdAt:now,updatedAt:now,expiresAt:now+INVITE_TTL_MS,waitingReason:null,
+      };
+      invitations.set(invite.id,invite);scheduleInviteTimer(invite,INVITE_TTL_MS);
+      emitToPlayerKey(toKey,'inviteReceived',invitePublic(invite));
+      socket.emit('inviteSent',{inviteId:invite.id,targetPlayerKey:toKey,targetName,expiresAt:invite.expiresAt});
+    }catch(e){err(socket,e);}
+  });
+
+  socket.on('respondInvite', payload => {
+    try{
+      const invite=invitations.get(String(payload?.inviteId||''));
+      if(!invite||invite.toKey!==socket.data.auth.playerKey)throw new Error('Convite não encontrado.');
+      if(invite.status!=='pending'||invite.expiresAt<=Date.now())throw new Error('Este convite já expirou ou foi respondido.');
+      clearInviteTimer(invite.id);
+      if(!payload?.accept){
+        invite.status='refused';invite.updatedAt=Date.now();
+        emitToPlayerKey(invite.fromKey,'inviteStatus',{inviteId:invite.id,status:'refused',message:`❌ ${invite.toName||'Jogador'} recusou o convite.`});
+        emitToPlayerKey(invite.toKey,'inviteStatus',{inviteId:invite.id,status:'refused',message:'Convite recusado.'});
+        setTimeout(()=>invitations.delete(invite.id),60000).unref?.();return;
+      }
+      const dest=rooms.get(invite.targetRoomCode);
+      if(!dest||!senderStillInDestination(invite,dest))throw new Error('A sala do convite não está mais disponível.');
+      invite.expiresAt=Date.now()+INVITE_RESERVATION_MS;
+      if(!reserveInviteSeat(invite))throw new Error('A sala ficou sem vagas antes da sua resposta.');
+
+      const current=currentSocketRoom(socket),source=current?.room;
+      const activeMulti=activeMultiplayerRoomForKey(invite.toKey,dest.code);
+      if(activeMulti){
+        setInviteWaiting(invite,'finish-current','Sua vaga está reservada. Termine sua partida atual para entrar.');
+        return;
+      }
+
+      const sourceIsBot=!!(source&&source.code!==dest.code&&source.round>0&&source.status!=='finished'&&source.players.filter(p=>!p.isBot).length===1&&source.players.some(p=>p.isBot));
+      if(roomJoinableNow(dest,invite.toKey)){
+        if(source&&source.code!==dest.code)detachSocketFromRoom(socket);
+        joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');return;
+      }
+
+      // Contra a máquina, aceitar encerra imediatamente a atividade e não registra resultado.
+      if(sourceIsBot){
+        detachSocketFromRoom(socket,{emitLeft:true,message:'🤖 Partida contra a máquina encerrada sem resultado. Aguardando a sala do convite ficar disponível.'});
+      }else if(source&&source.code!==dest.code&&source.round===0){
+        detachSocketFromRoom(socket,{emitLeft:true,message:'✅ Convite aceito. Aguardando a sala ficar disponível.'});
+      }
+      setInviteWaiting(invite,'destination-round','Convite aceito. Aguardando o intervalo da rodada da nova sala.');
+    }catch(e){err(socket,e);}
+  });
+
+  socket.on('claimInvite', payload => {
+    try{
+      const invite=invitations.get(String(payload?.inviteId||''));
+      if(!invite||invite.toKey!==socket.data.auth.playerKey||!['accepted-waiting','ready'].includes(invite.status))throw new Error('Convite reservado não encontrado.');
+      if(invite.expiresAt<=Date.now())throw new Error('A reserva deste convite expirou.');
+      const dest=rooms.get(invite.targetRoomCode);
+      if(!dest||!senderStillInDestination(invite,dest))throw new Error('A sala do convite não está mais disponível.');
+      if(activeMultiplayerRoomForKey(invite.toKey,dest.code))throw new Error('Conclua primeiro sua partida multiplayer atual.');
+      if(!roomJoinableNow(dest,invite.toKey))throw new Error('Aguarde o intervalo da rodada da nova sala.');
+      const current=currentSocketRoom(socket);if(current?.room?.code!==dest.code&&current)detachSocketFromRoom(socket);
+      joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');
+    }catch(e){err(socket,e);}
+  });
+
+  socket.on('cancelAcceptedInvite', payload => {
+    try{
+      const invite=invitations.get(String(payload?.inviteId||''));
+      if(!invite||invite.toKey!==socket.data.auth.playerKey||!['accepted-waiting','ready'].includes(invite.status))return;
+      expireInvite(invite,'O jogador cancelou a reserva do convite.','cancelled');
+    }catch(e){err(socket,e);}
+  });
 
 
   socket.on('chatMessage', payload => {
@@ -662,8 +1045,14 @@ io.on('connection', socket => {
   socket.on('updateProfile', payload => withRoom(socket,(room,p)=>{
     if(room.status==='playing') throw new Error('Altere nome/avatar somente fora de uma rodada.');
     if(payload?.name) p.name=String(payload.name).slice(0,24);
-    if(payload?.avatar) p.avatar=String(payload.avatar).slice(0,8);
+    if(payload?.avatar) p.avatar=String(payload.avatar).slice(0,24);
+    updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
+    broadcastPresence();
   }));
+
+  socket.on('disconnect', () => {
+    queueMicrotask(()=>{unregisterPresenceSocket(socket);broadcastPresence();refreshInviteReadiness();});
+  });
 
   socket.on('disconnect', () => {
     const code = socket.data.roomCode;
@@ -693,12 +1082,14 @@ io.on('connection', socket => {
         io.to(room.code).emit('reconnectionEvent',{kind:'lost',playerId:p.id,name:p.name,deadlineAt:p.reconnectDeadlineAt});
         scheduleReconnectTakeover(room,p);
         emitRoom(room);
+        broadcastPresence();
         return;
       }
 
       p.autoControlled=false;
       p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
       emitRoom(room);
+      broadcastPresence();
 
       // Antes da primeira rodada a cadeira fica reservada por 60 s. Se o jogador
       // não retornar, a vaga é removida porque ainda não existe partida a preservar.
@@ -715,12 +1106,15 @@ io.on('connection', socket => {
           if (currentRoom.botTimer) clearTimeout(currentRoom.botTimer);
           clearReconnectTimersForRoom(code);
           rooms.delete(code);
+          invalidateInvitesForRoom(code);
+          broadcastPresence();
           return;
         }
 
         ensureHost(currentRoom);
         Engine.appendLog(currentRoom, `${leavingName} foi removido após 60 segundos desconectado.`, 'system');
         emitRoom(currentRoom);
+        broadcastPresence();
       }, RECONNECT_GRACE_MS);
       if(typeof timer.unref==='function') timer.unref();
       reconnectTimers.set(reconnectTimerKey(code,playerId),timer);
@@ -737,6 +1131,7 @@ setInterval(()=>{
       if (room.botTimer) clearTimeout(room.botTimer);
       clearReconnectTimersForRoom(code);
       rooms.delete(code);
+      invalidateInvitesForRoom(code);
     }
   }
 }, 30*60*1000).unref();

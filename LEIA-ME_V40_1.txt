@@ -1,0 +1,15 @@
+V40.1 — JOGADORES ONLINE + CONVITES
+
+Para atualizar a V39.2, substitua:
+- package.json
+- server.js
+- public/app.js
+- public/index.html
+- public/styles.css
+
+Adicione também, se desejar manter testes/documentação:
+- tests/online-invites-contract.test.js
+- ATUALIZACAO_V40_1_JOGADORES_ONLINE_CONVITES.txt
+- LEIA-ME_V40_1.txt
+
+Não altere as variáveis do Render e não recrie o PostgreSQL.

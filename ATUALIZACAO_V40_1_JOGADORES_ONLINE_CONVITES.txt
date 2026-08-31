@@ -1,0 +1,26 @@
+MAU-MAU V40.1 — JOGADORES ONLINE + CONVITES
+
+Base: V39.2.
+
+Implementado:
+- Presença online identificada pela playerKey da Conta Google, não pelo socketId.
+- Lista única de jogadores conectados com avatar, nome e status.
+- Status: Disponível, Procurando partida (reservado para V40.2), Jogando contra a máquina, Jogando com pessoas e Reconectando.
+- Botão CONVIDAR para jogadores conectados; o próprio jogador não pode se convidar.
+- Convites expiram em 30 segundos.
+- Bloqueio de convites idênticos simultâneos da mesma pessoa para o mesmo destinatário.
+- ACEITAR / RECUSAR sempre validados no servidor.
+- Recusar não altera a atividade atual.
+- Aceitar enquanto joga contra a máquina encerra essa partida sem registrar vitória/derrota e entra na nova mesa quando ela estiver disponível.
+- Aceitar durante uma partida multiplayer não interrompe a partida atual. A vaga é reservada temporariamente quando possível e fica pronta após o término da partida atual e quando a sala de destino puder receber o jogador.
+- Reservas impedem que bots/entradas comuns ocupem a última vaga já prometida por convite.
+- Convites aparecem como cartões não bloqueantes e podem ser recebidos mesmo durante uma jogada.
+- Integração com a Reconexão Inteligente: durante a janela de 60 s, o status pode aparecer como Reconectando; depois que AUTO assume, o usuário offline deixa de contar como online.
+
+Não implementado nesta etapa:
+- Fila automática / BUSCAR JOGADORES. Esse recurso fica para V40.2.
+
+Não altera:
+- PostgreSQL e ranking.
+- GOOGLE_CLIENT_ID, AUTH_SESSION_SECRET ou DATABASE_URL.
+- Regras das cartas.

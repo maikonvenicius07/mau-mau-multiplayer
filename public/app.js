@@ -16,6 +16,9 @@ let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTic
 const playingVoiceAudios=new Set();
 const sessionKey='maumauSessionV1';
 let googleUser=null;
+// V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
+let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
+const inviteCards=new Map();
 let rankingPeriod='day', rankingMode='human';
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
@@ -113,16 +116,25 @@ function setAvatarSelection(value='macaco'){
     btn.classList.toggle('selected',active);
     btn.setAttribute('aria-checked',active?'true':'false');
   });
+  schedulePresenceSync();
 }
 
 function permanentPlayerKey(){ return googleUser?.playerKey || ''; }
 function profile(){ return {name:$('#nameInput').value.trim()||googleUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
+function syncPresenceProfile(){
+  if(!googleUser||!socket.connected)return;
+  const p=profile();socket.emit('presenceProfile',{name:p.name,avatar:p.avatar});
+}
+function schedulePresenceSync(){
+  if(presenceSyncTimer)clearTimeout(presenceSyncTimer);
+  presenceSyncTimer=setTimeout(()=>{presenceSyncTimer=null;syncPresenceProfile()},180);
+}
 function authStatus(message='',kind=''){
   const el=$('#authStatus');if(!el)return;
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
 function showAuthGate(message='Entre com sua Conta Google para continuar.'){
-  googleUser=null;
+  googleUser=null;onlinePlayers=[];onlineCount=0;inviteCards.clear();renderOnlinePresence();renderInviteInbox();
   $('#musicPanel')?.classList.add('hidden');
   if(socket.connected) socket.disconnect();
   $('#game')?.classList.add('hidden');
@@ -146,6 +158,7 @@ function applyGoogleUser(user,{connect=true}={}){
   const input=$('#nameInput');
   if(input && (!input.value || input.value==='Jogador')) input.value=(user?.name||'Jogador').slice(0,24);
   if(connect && !socket.connected) socket.connect();
+  else if(socket.connected) syncPresenceProfile();
   updateMusicUI();setTimeout(()=>{preloadMusic();syncMusicToState()},250);
 }
 function waitForGoogleIdentity(timeout=10000){
@@ -682,9 +695,74 @@ $('#rankingOpen').onclick=openRanking;
 $('#rankingOpen2').onclick=openRanking;
 $('#rankingClose').onclick=()=>$('#rankingDialog').close();
 
+// ========================= V40.1 — JOGADORES ONLINE + CONVITES =========================
+const onlineStatusOrder={available:0,searching:1,reconnecting:2,bot:3,multiplayer:4};
+function renderOnlinePresence(){
+  const count=Number(onlineCount||0);
+  for(const el of [$('#onlineCount'),$('#onlineDialogCount'),$('#onlineTopBadge')])if(el)el.textContent=String(count);
+  const box=$('#onlinePlayersList');if(!box)return;
+  const mine=permanentPlayerKey();
+  const rows=(onlinePlayers||[]).slice().sort((a,b)=>(onlineStatusOrder[a.status]??9)-(onlineStatusOrder[b.status]??9)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
+  if(!rows.length){box.innerHTML='<div class="online-empty">Nenhum jogador conectado neste momento.</div>';return;}
+  box.innerHTML=rows.map(p=>{
+    const self=p.playerKey===mine;
+    const disabled=self||!p.inviteable||!p.connected;
+    const label=self?'VOCÊ':p.status==='reconnecting'?'AGUARDE':'CONVIDAR';
+    return `<div class="online-player-row ${self?'is-self':''}" data-player-key="${esc(p.playerKey||'')}">
+      <div class="online-player-avatar">${avatarHTML(p.avatar,'md')}</div>
+      <div class="online-player-info"><div class="online-player-name">${esc(p.name||'Jogador')}${self?'<span class="online-you">VOCÊ</span>':''}</div><div class="online-player-status ${esc(p.status||'available')}">${esc(p.statusEmoji||'🟢')} ${esc(p.statusLabel||'Disponível')}</div></div>
+      <button class="online-invite-btn" type="button" data-invite-key="${esc(p.playerKey||'')}" ${disabled?'disabled':''}>${label}</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-invite-key]').forEach(btn=>btn.onclick=()=>sendOnlineInvite(btn.dataset.inviteKey,btn));
+}
+function openOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(!dlg)return;renderOnlinePresence();if(!dlg.open)dlg.showModal();}
+function closeOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(dlg?.open)dlg.close();}
+function sendOnlineInvite(targetPlayerKey,button){
+  if(!googleUser)return showAuthGate('Entre com Google para convidar jogadores.');
+  if(!socket.connected)return toast('Sem conexão com o servidor.');
+  if(!targetPlayerKey||targetPlayerKey===permanentPlayerKey())return;
+  if(button){button.disabled=true;button.textContent='ENVIANDO...';setTimeout(()=>renderOnlinePresence(),900)}
+  socket.emit('sendInvite',{targetPlayerKey,profile:profile()});
+}
+function inviteSeconds(expiresAt){return Math.max(0,Math.ceil((Number(expiresAt||0)-Date.now())/1000))}
+function upsertInviteCard(data,uiState){
+  if(!data?.id)return;
+  const prior=inviteCards.get(data.id)||{};inviteCards.set(data.id,{...prior,...data,uiState:uiState||prior.uiState||data.status||'pending'});renderInviteInbox();
+}
+function removeInviteCard(id){inviteCards.delete(id);renderInviteInbox()}
+function renderInviteInbox(){
+  const box=$('#inviteInbox');if(!box)return;
+  const cards=[...inviteCards.values()].filter(x=>!['refused','expired','cancelled','completed','unavailable'].includes(x.uiState));
+  if(!cards.length){box.innerHTML='';return;}
+  box.innerHTML=cards.slice(-4).reverse().map(inv=>{
+    const pending=inv.uiState==='pending',ready=inv.uiState==='ready',waiting=inv.uiState==='accepted-waiting';
+    const seconds=inviteSeconds(inv.expiresAt);
+    const mainText=pending?`${esc(inv.fromName||'Jogador')} quer jogar Mau-Mau com você.`:ready?'Sua nova mesa está pronta para entrar.':esc(inv.message||'Convite aceito. Sua vaga está reservada temporariamente.');
+    const actions=pending?`<div class="invite-actions"><button class="invite-refuse" data-invite-refuse="${esc(inv.id)}">RECUSAR</button><button class="invite-accept" data-invite-accept="${esc(inv.id)}">ACEITAR</button></div>`:
+      ready?`<div class="invite-actions"><button class="invite-cancel" data-invite-cancel="${esc(inv.id)}">CANCELAR</button><button class="invite-ready-btn" data-invite-claim="${esc(inv.id)}">🎮 ENTRAR AGORA</button></div>`:
+      `<div class="invite-wait-status">⏳ <span>${mainText}</span></div><div class="invite-actions"><button class="invite-cancel" data-invite-cancel="${esc(inv.id)}">Cancelar reserva</button></div>`;
+    return `<div class="invite-card ${ready?'ready':waiting?'waiting':''}" data-invite-card="${esc(inv.id)}"><div class="invite-card-head">${avatarHTML(inv.fromAvatar||'macaco','sm')}<div><small>🃏 CONVITE PARA JOGAR</small><strong>${esc(inv.fromName||'Jogador')}</strong></div></div>${waiting?'':`<p>${mainText}${pending?` <span class="invite-countdown">${seconds}s</span>`:''}</p>`}${actions}</div>`;
+  }).join('');
+  box.querySelectorAll('[data-invite-accept]').forEach(b=>b.onclick=()=>{b.disabled=true;socket.emit('respondInvite',{inviteId:b.dataset.inviteAccept,accept:true})});
+  box.querySelectorAll('[data-invite-refuse]').forEach(b=>b.onclick=()=>socket.emit('respondInvite',{inviteId:b.dataset.inviteRefuse,accept:false}));
+  box.querySelectorAll('[data-invite-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;socket.emit('claimInvite',{inviteId:b.dataset.inviteClaim})});
+  box.querySelectorAll('[data-invite-cancel]').forEach(b=>b.onclick=()=>socket.emit('cancelAcceptedInvite',{inviteId:b.dataset.inviteCancel}));
+}
+setInterval(()=>{
+  let changed=false;
+  for(const inv of inviteCards.values())if(inv.uiState==='pending'&&inviteSeconds(inv.expiresAt)<=0){inv.uiState='expired';changed=true;}
+  if(changed||inviteCards.size)renderInviteInbox();
+},500);
+$('#onlinePlayersOpen').onclick=openOnlinePlayers;
+$('#onlinePlayersOpen2').onclick=openOnlinePlayers;
+$('#onlinePlayersClose').onclick=closeOnlinePlayers;
+
 $$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
 setAvatarSelection($('#avatarSelect')?.value||'macaco');
 $('#googleLogoutBtn').onclick=logoutGoogle;
+$('#nameInput').addEventListener('input',schedulePresenceSync);
+$('#nameInput').addEventListener('change',schedulePresenceSync);
 
 $('#createBtn').onclick=()=>{
   if(!googleUser) return showAuthGate('Entre com sua Conta Google para criar uma sala.');
@@ -911,7 +989,10 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
+  if(data?.inviteId)removeInviteCard(data.inviteId);
+  closeOnlinePlayers();
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
+  syncPresenceProfile();
 });
 socket.on('state',s=>{
   const prev=state;
@@ -939,6 +1020,27 @@ socket.on('state',s=>{
   }
   if(shouldCueMyTurn(prev,s)) triggerYourTurnCue();
 });
+socket.on('presenceSnapshot',payload=>{
+  onlineCount=Number(payload?.onlineCount||0);onlinePlayers=Array.isArray(payload?.players)?payload.players:[];renderOnlinePresence();
+});
+socket.on('inviteReceived',invite=>{
+  upsertInviteCard(invite,'pending');playGameSound('chat');
+  try{if(document.visibilityState!=='visible')navigator.vibrate?.([45,45,45])}catch{}
+  toast(`🃏 ${invite?.fromName||'Jogador'} convidou você para jogar.`);
+});
+socket.on('inviteSent',info=>toast(`🃏 Convite enviado para ${info?.targetName||'jogador'}. Expira em 30 segundos.`));
+socket.on('inviteWaiting',info=>{
+  upsertInviteCard(info,'accepted-waiting');toast(info?.message||'✅ Convite aceito. Vaga reservada.');
+});
+socket.on('inviteReady',info=>{
+  upsertInviteCard(info,'ready');playGameSound('yourTurn');toast('🎮 Seu convite está pronto. Você já pode entrar na nova mesa.');
+});
+socket.on('inviteStatus',info=>{
+  const inv=inviteCards.get(info?.inviteId);
+  if(inv&&['refused','expired','cancelled','completed','unavailable'].includes(info?.status)){inv.uiState=info.status;renderInviteInbox();setTimeout(()=>removeInviteCard(info.inviteId),300);}
+  if(info?.message)toast(info.message);
+});
+
 socket.on('chatHistory',messages=>{for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;refreshQuickAudioMusicDuck();renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
   chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
@@ -970,9 +1072,10 @@ socket.on('passConfirmed',data=>{
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
 socket.on('gameError',e=>{passPending=false;playGameSound('error');toast(e.message);render();});
-socket.on('leftRoom',()=>{
+socket.on('leftRoom',data=>{
   clearSession();
-  returnToLanding('Você saiu da sala.');
+  returnToLanding(data?.message||'Você saiu da sala.');
+  syncPresenceProfile();
 });
 socket.on('reconnectionEvent',event=>{
   if(event?.kind==='lost') toast(`🔴 ${event.name||'Jogador'} perdeu a conexão. 60 segundos para retornar.`);
@@ -983,6 +1086,7 @@ socket.on('reconnectionEvent',event=>{
 socket.on('sessionReplaced',()=>toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.'));
 socket.on('connect',()=>{
   setConnection('online');
+  syncPresenceProfile();
   const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
   const sess=saved();
 
@@ -1016,6 +1120,7 @@ function returnToLanding(message=''){
   $('#landing').classList.remove('hidden');
   $('#roomInput').value='';
   syncMusicToState();
+  syncPresenceProfile();
   if(message) toast(message);
 }
 
