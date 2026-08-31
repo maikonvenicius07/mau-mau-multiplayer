@@ -528,3 +528,26 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .landing-music-btn{flex:0 0 auto!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;margin:0!important;padding:0!important;display:grid!important;place-items:center;border:1px solid #d8aa4a55!important;background:#d8aa4a22!important;border-radius:10px!important;font-size:18px!important;line-height:1!important;box-shadow:0 0 0 1px #d8aa4a18 inset}
 .landing-music-btn.music-off{opacity:.55;filter:grayscale(.8)}
 @media(max-width:520px){.landing-music-btn{width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;font-size:17px!important}}
+
+
+/* Regras — apresentação consolidada */
+.rules-heading{padding-right:46px;margin-bottom:10px}
+.rules-heading h2{margin:4px 0 5px;letter-spacing:.02em}
+.rules-heading p{margin:0;color:#aebfb6;font-size:13px}
+.rules-summary{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 12px}
+.rules-summary span{border:1px solid #355746;background:#0c1d16;border-radius:999px;padding:7px 10px;color:#dfe9e3;font-size:11px;font-weight:850;white-space:nowrap}
+.rule-important{margin:0 0 18px;padding:12px 14px;background:linear-gradient(135deg,#2d2411,#17261d);border:1px solid #80682c;border-left:4px solid var(--gold);border-radius:11px;color:#f4ead0;font-size:13px;line-height:1.5}
+.rule-mini-note{margin:8px 0 15px;padding:9px 11px;border:1px solid #315343;background:#0b1913;border-radius:9px;color:#b8cbc1;font-size:11.5px;line-height:1.48}
+.special-rules{display:grid;gap:7px}
+.special-rules p{margin:0;padding:9px 10px;background:#0c1c15;border:1px solid #294739;border-radius:9px}
+.rules-extras{margin-top:18px;padding:14px 15px;border:1px solid #315343;border-radius:12px;background:#0d1e17}
+.rules-extras h3{margin:0 0 8px;color:#f0ca79}
+.rules-extras p{margin:6px 0;color:#c6d5cd;font-size:12px;line-height:1.5}
+.rules-modal .rule-note{margin-top:14px;line-height:1.5}
+@media(max-width:760px){
+  .rules-modal{padding:18px}
+  .rule-columns{grid-template-columns:1fr;gap:6px}
+  .rules-summary{gap:6px}
+  .rules-summary span{font-size:10px;padding:6px 8px}
+  .rules-heading h2{font-size:23px}
+}

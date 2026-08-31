@@ -1,21 +1,32 @@
-MAU-MAU V38 — BOTÃO DE MÚSICA TAMBÉM NA TELA INICIAL
+MAU-MAU V38 — REGRAS APRIMORADAS
 
-SUBSTITUIR SOMENTE:
-- public/index.html
-- public/app.js
-- public/styles.css
+ALTERAÇÕES
+- O botão da tela inicial agora mostra somente: VER REGRAS
+- Regras visuais completamente reorganizadas e revisadas conforme o motor atual do jogo.
+- Corrigida a explicação da Queima: somente na própria vez.
+- Ação Rápida explicada separadamente como intervenção fora da vez.
+- Valete, cadeia de 7, Carta Dupla, compra livre, batida com especiais e Conferência da Rodada detalhados.
+- Regras de entrada tardia, ranking, Áudio Rápido e música atualizadas.
+- Textos técnicos de versão removidos da apresentação ao jogador.
 
-O que mudou:
-- botão 🎵 na tela inicial, ao lado da Conta Google;
-- abre o mesmo painel “Música da mesa” usado dentro da sala;
-- volume e ligado/desligado continuam compartilhados e salvos;
-- botão 🎵 dentro da sala continua funcionando normalmente.
+ARQUIVOS PARA SUBSTITUIR
+1. public/index.html
+2. public/styles.css
+3. REGRAS_APRIMORADAS.md
+4. tests/ui-contract.test.js
 
-NÃO ALTERAR:
+Para o funcionamento visual do site, somente index.html e styles.css são necessários.
+Os outros dois arquivos mantêm a documentação e os testes do projeto alinhados.
+
+NÃO ALTERAR
 - server.js
 - game-engine.js
+- public/app.js
 - ranking-store.js
 - package.json
 - PostgreSQL / DATABASE_URL
 - GOOGLE_CLIENT_ID
 - AUTH_SESSION_SECRET
+
+VALIDAÇÃO
+A bateria completa npm test foi executada após a alteração e passou integralmente.

@@ -1,104 +1,138 @@
-# Regras consolidadas do Mau-Mau — V38
+# Regras consolidadas do Mau-Mau
 
-Este arquivo reúne **somente as regras vigentes** do aplicativo. Textos de atualização antigos permanecem no projeto apenas como histórico.
+Este arquivo reúne as regras efetivamente utilizadas pelo aplicativo.
 
-## 1. Partida
-- 2 a 5 jogadores.
-- Dois baralhos tradicionais completos, sem curingas: 104 cartas.
-- 6 cartas por jogador.
-- Uma carta normal inicia o descarte; carta especial sorteada para iniciar volta ao monte.
-- Sentido inicial: anti-horário.
-- A partida possui 5 rodadas. Vence quem tiver a menor pontuação acumulada.
+## 1. Objetivo
+- A partida possui 5 rodadas.
+- Cada rodada termina quando um jogador fica sem cartas, depois que os efeitos da última carta forem resolvidos.
+- O vencedor da rodada recebe 0 ponto.
+- Os demais recebem os pontos das cartas restantes na mão.
+- Após 5 rodadas, vence quem tiver a menor pontuação acumulada.
+- Empate na menor pontuação gera vitória compartilhada.
 
-## 2. Jogada normal e compra livre
-Na sua vez, pode jogar uma carta do mesmo valor ou do mesmo naipe do topo. O Valete (J) é coringa, exceto durante cadeia ativa de 7.
+## 2. Preparação
+- 2 baralhos tradicionais completos, sem coringas: 104 cartas.
+- 2 a 5 jogadores, humanos ou máquinas.
+- 6 cartas para cada jogador.
+- Uma carta normal inicia o descarte. Se a carta sorteada para iniciar for especial, ela volta ao monte e outra é escolhida.
+- O sentido inicial é anti-horário.
 
-O jogador pode comprar **1 carta mesmo tendo carta válida na mão**. Depois da compra, pode:
-1. jogar a carta comprada, se válida;
-2. jogar **qualquer outra carta válida que já estava na mão**; ou
+## 3. Jogada normal e compra
+Na própria vez, o jogador pode jogar uma carta do mesmo valor ou do mesmo naipe da carta do topo. O Valete (J) funciona como coringa de naipe, exceto durante uma cadeia ativa de 7.
+
+O jogador pode comprar 1 carta mesmo tendo uma jogada válida. Depois da compra, pode:
+1. jogar a carta comprada, se for válida;
+2. jogar qualquer outra carta válida que já estivesse na mão; ou
 3. passar a vez e guardar a carta comprada.
 
-Não é permitido comprar uma segunda carta na mesma jogada normal. A passagem voluntária não evita uma cadeia ativa de 7.
+Na jogada normal, não é permitido comprar uma segunda carta na mesma vez. Para passar a vez, o jogador deve primeiro ter comprado 1 carta. A cadeia de 7 possui tratamento próprio e não pode ser evitada simplesmente passando.
 
-## 3. Cartas especiais
-- **A**: o próximo jogador perde a vez.
-- **7**: o próximo recebe +2; pode rebater somente com outro 7, acumulando +2 por carta.
-- **8**: o jogador anterior, considerando o sentido atual, compra 2.
-- **J**: escolhe o próximo naipe. Se for a carta da batida, dobra os pontos dos adversários.
-- **Q**: inverte o sentido. Com 2 jogadores, quem joga Q joga novamente.
-- **K**: o jogador anterior, considerando o sentido atual, compra 1.
+## 4. Mau-Mau
+Antes de uma jogada que deixe o jogador com apenas 1 carta, deve ser anunciado **Mau-Mau**. O esquecimento gera +2 cartas de penalidade.
 
-Cartas especiais não podem iniciar Queima, não podem ser usadas em Ação Rápida e não podem ser usadas em Carta Dupla.
+Quando uma jogada composta puder eliminar as duas últimas cartas por Queima + continuação ou por Carta Dupla, deve ser anunciado **Mau-Mau batendo/queimando** antes de iniciar a jogada.
 
-## 4. Queima — somente na própria vez
-A Queima que dá direito a uma segunda carta existe **somente quando já é a vez normal do jogador**.
+## 5. Cartas especiais
+- **A — Ás:** pula o próximo jogador.
+- **7:** o próximo jogador recebe +2. Outro 7 pode rebater e acumula +2 por carta.
+- **8:** o jogador anterior, considerando o sentido atual, compra 2 cartas.
+- **J — Valete:** coringa de naipe. O jogador escolhe o naipe a ser seguido. Não interrompe cadeia ativa de 7. Se for a carta da batida, dobra os pontos dos adversários na rodada.
+- **Q — Dama:** inverte o sentido. Com apenas 2 jogadores ativos, quem joga a Dama joga novamente.
+- **K — Rei:** o jogador anterior, considerando o sentido atual, compra 1 carta.
 
-Se a carta do topo for normal e o jogador tiver uma carta normal **exatamente igual** (mesmo valor e mesmo naipe), pode usar o botão de Queima para descartá-la.
+Cartas especiais não podem iniciar Queima, nem ser usadas em Ação Rápida ou Carta Dupla. Elas podem ser usadas como continuação válida de uma Queima e, nesse caso, o efeito é aplicado normalmente.
 
-Após uma Queima válida na própria vez:
-- pode jogar uma segunda carta legal ou passar;
-- a segunda carta pode ser especial e, nesse caso, seu efeito vale normalmente;
-- se não houver continuação legal, deve comprar 1 carta e então pode jogar qualquer carta válida da mão ou passar.
+## 6. Queima — somente na própria vez
+A Queima com direito a continuação existe somente na própria vez normal do jogador.
 
-Exemplo: mesa 5♦; na sua vez você queima 5♦ e depois pode jogar 8♦ (o anterior compra 2) ou J (escolhe o naipe), se a jogada for legal.
+Se a carta do topo for normal e o jogador tiver uma carta normal exatamente igual — mesmo valor e mesmo naipe — pode usar a Queima.
 
-## 5. Ação Rápida — fora da vez
-Um jogador que **não é o próximo da vez** pode descartar uma carta normal exatamente igual à carta recém-jogada, antes de o próximo jogador iniciar sua ação.
+Depois da Queima:
+- pode jogar uma segunda carta válida ou passar a vez;
+- a segunda carta pode ser especial e seu efeito vale normalmente;
+- se não houver continuação válida, deve comprar 1 carta;
+- depois dessa compra, pode jogar qualquer carta válida da mão ou passar e guardar a carta comprada.
+
+A, 7, 8, J, Q e K não podem iniciar Queima.
+
+## 7. Ação Rápida — fora da vez
+Logo após uma carta normal ser jogada, um jogador que não seja quem acabou de jogar nem o próximo da vez pode descartar uma carta normal exatamente igual à recém-jogada.
 
 A Ação Rápida:
-- descarta **somente uma carta**;
+- descarta somente uma carta;
 - não transfere a vez;
 - não permite segunda carta;
 - não altera o sentido;
+- só aceita cartas normais;
 - não aceita A, 7, 8, J, Q ou K;
-- fica suspensa durante cadeia de 7 e durante continuação de Queima.
+- fica suspensa durante cadeia de 7 e durante continuação de Queima;
+- encerra a oportunidade assim que a primeira Ação Rápida válida for aceita.
 
-Depois da Ação Rápida, continua sendo a vez de quem já seria o próximo jogador.
+Depois dela, continua jogando quem já seria o próximo.
 
-## 6. Carta Dupla
-Na própria vez, duas cartas exatamente iguais podem ser descartadas juntas se a jogada for válida.
+## 8. Carta Dupla
+Na própria vez, duas cartas exatamente iguais — mesmo valor e mesmo naipe — podem ser descartadas juntas se a jogada for válida.
 
-Carta Dupla só vale para **2, 3, 4, 5, 6, 9 e 10**. Não vale para A, 7, 8, J, Q ou K.
+Carta Dupla vale somente para:
+- 2, 3, 4, 5, 6, 9 e 10.
 
-## 7. Mau-Mau
-Antes de uma jogada que deixe o jogador com uma carta, deve anunciar **Mau-Mau**. Esquecer o anúncio gera a penalidade prevista no aplicativo.
+Não vale para:
+- A, 7, 8, J, Q ou K.
 
-Se a jogada composta (Queima + continuação ou Carta Dupla) puder encerrar a mão, utiliza-se **Mau-Mau batendo/queimando** conforme a interface.
+## 9. Batida com carta especial
+O efeito da carta especial permanece válido quando ela é usada como última carta.
 
-## 8. Batida com carta especial
-O efeito da carta especial permanece ativo mesmo quando ela é a última carta do jogador.
+- Batida com **8:** o jogador anterior compra 2 antes da pontuação.
+- Batida com **K:** o jogador anterior compra 1 antes da pontuação.
+- Batida com **J:** os pontos dos adversários são dobrados.
+- Batida com **7:** a cadeia de 7 continua até ser resolvida.
+- Batida com **A** ou **Q:** o efeito é registrado antes do encerramento da rodada.
 
-- Batida com 8: o anterior compra 2 antes do encerramento.
-- Batida com K: o anterior compra 1 antes do encerramento.
-- Batida com J: os pontos dos adversários são dobrados.
-- Batida com 7: a cadeia continua até ser resolvida.
+### Cadeia final de 7
+Se alguém bater com 7, os jogadores seguintes ainda podem rebater com outro 7. Quem não tiver 7 compra o total acumulado e então a rodada termina. Se todos os demais jogadores rebaterem e a cadeia completar uma volta até o vencedor original, ninguém compra.
 
-### Cadeia final do 7
-Se a batida ocorrer com 7, os jogadores seguintes podem rebater com outro 7. Quem não tiver 7 compra o acumulado e a rodada termina. Se todos os jogadores restantes rebaterem e a cadeia completar uma volta até o vencedor original, ninguém compra e a rodada termina normalmente.
-
-## 9. Pontuação
+## 10. Pontuação
 - A = 1
 - 2 a 10 = valor nominal
 - J = 11
 - Q = 12
 - K = 13
 
-O vencedor da rodada recebe 0 ponto. Após cinco rodadas, vence a menor pontuação acumulada.
+O vencedor da rodada recebe 0 ponto. Se a última carta do vencedor for um Valete, os pontos dos demais jogadores são dobrados.
 
-## 10. Jogadores, bots e entrada tardia
-Novos jogadores não entram durante uma rodada. Podem entrar nos intervalos somente antes do início da terceira rodada, recebendo como pontuação inicial o maior total já acumulado na mesa.
+## 11. Conferência da Rodada
+Após todos os efeitos finais serem resolvidos, o aplicativo revela:
+- as cartas restantes de cada jogador;
+- o valor individual de cada carta;
+- a soma-base da mão;
+- eventual multiplicador do Valete;
+- a pontuação da rodada;
+- o placar acumulado.
 
-Bots seguem as mesmas regras dos humanos, inclusive Queima somente na própria vez e Ação Rápida sem roubar o turno.
+As mãos permanecem ocultas durante a rodada e a conferência anterior é apagada quando a rodada seguinte começa.
 
-## 11. Regras técnicas preservadas
-- Se o monte acabar, o descarte é reembaralhado preservando o topo.
-- Desconexão durante rodada pausa a partida para evitar perda involuntária da vez.
-- Empate na menor pontuação após cinco rodadas resulta em vitória compartilhada.
-- Ranking e armazenamento PostgreSQL permanecem com o comportamento já existente no projeto; a V37 não altera essa camada.
+## 12. Entrada de jogadores e máquinas
+- Ninguém entra durante uma rodada.
+- Novos jogadores podem entrar nos intervalos até antes do início da 3ª rodada.
+- Quem entra depois do começo da partida recebe como pontuação inicial o maior total já acumulado pelos jogadores da mesa.
+- Máquinas seguem as mesmas regras dos jogadores humanos.
 
-## 12. Organização visual
-A mão pode ser organizada por número ou por naipe. Essa ordenação é somente visual e não altera as regras. No mobile, valor e naipe são renderizados separadamente para evitar sobreposição.
+## 13. Ranking
+Partidas concluídas alimentam os rankings de Hoje, Mês, Ano e Geral. Partidas apenas entre pessoas ficam separadas das partidas com máquina.
 
+A classificação considera:
+1. maior número de vitórias;
+2. em caso de empate, menor média de pontos.
 
-## Login da V38
-O acesso ao jogo exige autenticação por Conta Google. Essa mudança não altera nenhuma regra das cartas ou da partida.
+A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome na mesa ou o avatar não cria outro jogador no ranking.
+
+## 14. Recursos da mesa
+- Chat em tempo real.
+- Áudio Rápido de até 15 segundos; os áudios são efêmeros, repassados à sala e não ficam no histórico do chat, PostgreSQL ou ranking.
+- Música original com controle separado de ligar/desligar e volume.
+- Organização da mão por número ou naipe, sem alterar as regras.
+
+## 15. Regras técnicas
+- Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.
+- Desconexão durante a rodada pausa a partida até a reconexão.
+- O acesso ao jogo exige autenticação por Conta Google.

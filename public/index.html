@@ -112,7 +112,7 @@
         <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
         <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">Entrar</button></div>
       </div>
-      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="rulesOpen" class="link-btn">📖 Ver regras desta versão</button></div>
+      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
     </div>
   </section>
@@ -242,54 +242,92 @@
 
   <dialog id="rulesDialog" class="modal rules-modal">
     <button class="close" id="rulesClose">×</button>
-    <h2>Regras — versão do aplicativo</h2>
+    <div class="rules-heading">
+      <div class="eyebrow">COMO JOGAR</div>
+      <h2>REGRAS DO MAU-MAU</h2>
+      <p>Estas são as regras efetivamente utilizadas pelo jogo.</p>
+    </div>
+
+    <div class="rules-summary" aria-label="Resumo da partida">
+      <span>🃏 2 baralhos</span>
+      <span>👥 2 a 5 jogadores</span>
+      <span>✋ 6 cartas</span>
+      <span>🔄 5 rodadas</span>
+      <span>🏆 Menor pontuação vence</span>
+    </div>
+
+    <div class="rule-important">
+      <strong>Regra principal:</strong> na sua vez, jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> da carta que está no topo. O <strong>Valete (J)</strong> funciona como coringa de naipe, exceto durante uma cadeia de 7.
+    </div>
+
     <div class="rule-columns">
       <article>
-        <h3>🎯 Objetivo</h3>
-        <p>São 5 rodadas. Cada rodada termina quando alguém fica sem cartas. Os demais somam os pontos que sobraram na mão. Ao final, vence quem tiver <strong>menos pontos</strong>.</p>
+        <h3>🎯 Objetivo da partida</h3>
+        <p>A partida possui <strong>5 rodadas</strong>. A rodada termina quando um jogador fica sem cartas, depois que todos os efeitos da última carta forem resolvidos. O vencedor da rodada recebe <strong>0 ponto</strong>; os demais recebem os pontos das cartas que permaneceram em suas mãos. Ao final das 5 rodadas, vence quem tiver <strong>menos pontos acumulados</strong>. Em caso de empate na menor pontuação, a vitória é compartilhada.</p>
+
         <h3>🃏 Preparação</h3>
-        <p>2 baralhos tradicionais completos, sem coringas (104 cartas). De 2 a 5 jogadores, incluindo jogadores automáticos. Cada um recebe 6 cartas. A rodada começa no sentido anti-horário.</p>
-        <h3>🏆 Ranking — V25</h3>
-        <p>Partidas concluídas alimentam rankings de <strong>Hoje, Mês, Ano e Geral</strong>. Partidas somente entre pessoas ficam separadas das partidas que possuem máquina. O ranking ordena primeiro por vitórias e, em caso de empate, pela menor média de pontos.</p>
-        <h3>💬 Conversa e efeitos</h3>
-        <p>A sala possui chat em tempo real, Áudio Rápido de até 15 segundos e botões de efeitos sonoros. Os áudios são temporários e não ficam armazenados após a sala.</p>
-        <h3>🎵 Música dinâmica</h3>
-        <p>As trilhas instrumentais foram criadas especialmente para o Mau-Mau. A música muda conforme o momento da partida: lobby, mesa normal, tensão de última carta e conferência da rodada. O botão 🎵 permite ligar/desligar e ajustar o volume sem silenciar os efeitos ou as vozes.</p>
-        <h3>🤖 Jogador automático</h3>
-        <p>O anfitrião pode adicionar máquinas à sala fora das rodadas. O bot joga sozinho, anuncia Mau-Mau, escolhe naipe no Valete, rebate o 7 quando possível, usa Queima, Ação Rápida e também aproveita a Carta Dupla quando disponível.</p>
-        <h3>▶️ Jogada normal</h3>
-        <p>Jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> do topo. Na jogada normal, para usar <strong>⏭️ Passar a vez</strong>, é obrigatório <strong>comprar 1 carta antes</strong>. Você pode optar por comprar mesmo tendo carta válida na mão. Depois da compra, pode jogar qualquer carta válida da sua mão — não apenas a carta comprada — ou passar a vez. Ao passar, a carta comprada permanece na mão e nenhuma carta sua poderá ser jogada até a próxima vez. Não é permitido comprar uma segunda carta na mesma jogada normal. A <strong>Queima</strong> possui uma regra própria de continuação e passe.</p>
+        <p>São usados <strong>2 baralhos tradicionais completos, sem coringas</strong>, totalizando 104 cartas. A sala aceita de <strong>2 a 5 jogadores</strong>, humanos ou máquinas. Cada jogador recebe <strong>6 cartas</strong>. Uma carta normal inicia o descarte; se for sorteada uma carta especial para começar, ela volta ao monte e outra é escolhida. O sentido inicial é <strong>anti-horário</strong>.</p>
+
+        <h3>▶️ Jogada normal e compra</h3>
+        <p>Na sua vez, você pode jogar uma carta válida ou optar por <strong>comprar 1 carta</strong>, mesmo que já tenha uma jogada possível. Depois de comprar, pode jogar <strong>qualquer carta válida da sua mão</strong> — não apenas a carta comprada — ou clicar em <strong>Passar a vez</strong> e guardar a carta. Na jogada normal, não é permitido comprar uma segunda carta na mesma vez.</p>
+        <p>Para usar <strong>Passar a vez</strong> numa jogada normal, é necessário ter comprado 1 carta antes. A cadeia de 7 possui regra própria e não pode ser evitada simplesmente passando.</p>
+
         <h3>📣 Mau-Mau</h3>
-        <p>Antes de uma jogada que deixe apenas 1 carta na mão, anuncie “Mau-Mau”. No aplicativo, o esquecimento gera +2 cartas, usando a penalidade tradicional encontrada nas regras da Copag.</p>
+        <p>Antes de uma jogada que deixe você com <strong>apenas 1 carta</strong>, anuncie <strong>Mau-Mau</strong>. Se esquecer, receberá <strong>+2 cartas</strong> de penalidade.</p>
+        <p>Quando uma jogada composta puder eliminar suas duas últimas cartas — por <strong>Queima + continuação</strong> ou por <strong>Carta Dupla</strong> — anuncie <strong>Mau-Mau batendo/queimando</strong> antes de iniciar a jogada.</p>
+
+        <h3>🔥 Queima — somente na sua própria vez</h3>
+        <p>Se já for <strong>a sua vez normal</strong> e você tiver uma carta normal <strong>exatamente igual</strong> à carta do topo — mesmo valor e mesmo naipe — poderá usar a <strong>Queima</strong>.</p>
+        <p>Após queimar, você pode jogar <strong>mais uma carta válida</strong> ou simplesmente passar a vez. A segunda carta pode ser especial e, nesse caso, seu efeito é aplicado normalmente.</p>
+        <p>Se não houver nenhuma continuação válida após a Queima, você deverá comprar <strong>1 carta</strong>. Depois da compra, poderá jogar qualquer carta válida da mão ou passar e guardar a carta comprada.</p>
+        <div class="rule-mini-note">A, 7, 8, J, Q e K não podem <strong>iniciar</strong> uma Queima. Fora da sua vez, use a <strong>Ação Rápida</strong>, não a Queima.</div>
+
+        <h3>🃏🃏 Carta Dupla</h3>
+        <p>Na sua própria vez, duas cartas <strong>idênticas</strong> — mesmo valor e mesmo naipe — podem ser descartadas juntas pelo botão <strong>×2</strong>, desde que a jogada seja válida.</p>
+        <p>A Carta Dupla vale somente para cartas normais: <strong>2, 3, 4, 5, 6, 9 e 10</strong>. Não pode ser usada com <strong>A, 7, 8, J, Q ou K</strong>.</p>
       </article>
+
       <article>
         <h3>✨ Cartas especiais</h3>
-        <ul>
-          <li><b>A</b> — pula o próximo jogador.</li>
-          <li><b>Q</b> — inverte o sentido.</li>
-          <li><b>J</b> — pode ser jogado a qualquer momento e escolhe o naipe; não pode interromper uma cadeia ativa de 7.</li>
-          <li><b>7</b> — +2 ao próximo; outro 7 rebate e acumula +2.</li>
-          <li><b>K</b> — o jogador anterior, no sentido atual, compra 1.</li>
-          <li><b>8</b> — o jogador anterior, no sentido atual, compra 2.</li>
-        </ul>
-        <h3>🃏🃏 Carta Dupla — V18</h3>
-        <p>Na sua própria vez, se você tiver <strong>duas cartas idênticas</strong> — mesmo valor e mesmo naipe — e essa carta puder ser jogada sobre o topo da mesa, poderá descartar as duas juntas usando o botão <strong>×2</strong>.</p>
-        <p><strong>Importante:</strong> Carta Dupla só vale para cartas normais. Não pode ser utilizada com <strong>Ás (A), 7, 8, Valete (J), Dama (Q) ou Rei (K)</strong>.</p>
-        <p>Se a Carta Dupla reduzir sua mão de 3 para 1 carta, anuncie <strong>Mau-Mau</strong> antes. Se forem suas duas últimas cartas, anuncie <strong>Mau-Mau batendo/queimando</strong> antes de jogar a dupla.</p>
-        <h3>🔥 Queimar — V18</h3>
-        <p>Quando <strong>outro jogador</strong> colocar uma carta na mesa e você tiver na mão uma carta <strong>exatamente igual</strong> — mesmo valor e mesmo naipe — você pode queimá-la, mesmo que ainda não fosse a sua vez.</p>
-        <p>Ao queimar, você baixa a carta igual e passa a controlar a jogada. A segunda carta agora é <strong>opcional</strong>: se você tiver uma carta do mesmo valor, do mesmo naipe ou um Valete, poderá jogá-la <strong>ou simplesmente passar a vez</strong>.</p>
-        <p>Se, depois da queima, você <strong>não tiver nenhuma carta compatível</strong>, deverá comprar 1 carta. Mesmo que a carta comprada possa ser jogada — por exemplo, um <strong>Valete (J)</strong> — você pode optar por guardá-la e clicar em <strong>Passar a vez</strong>.</p>
-        <p>A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7. Se você jogar uma segunda carta especial, o efeito dela funciona normalmente. Se tiver duas cartas antes da queima, anuncie <strong>Mau-Mau</strong> para ficar com uma; se pretende descartar também a última carta e encerrar, use <strong>Mau-Mau batendo/queimando</strong>.</p>
-        <h3>⚡ Ação Rápida — V18</h3>
-        <p>Quando outro jogador baixar uma carta e você <strong>não for o próximo da vez</strong>, se tiver uma carta exatamente igual — mesmo valor e mesmo naipe — poderá clicar em <strong>⚡</strong> e descartá-la imediatamente antes do próximo jogador.</p>
-        <p>A Ação Rápida descarta <strong>somente uma carta</strong>, não toma a vez e não altera a ordem: depois dela, continua jogando quem já seria o próximo. Se a carta for especial, o efeito especial <strong>não é executado novamente</strong> nessa intervenção. Durante uma cadeia ativa de 7, a Ação Rápida fica suspensa.</p>
-        <h3>🏆 Pontuação</h3>
-        <p>A=1, J=11, Q=12, K=13 e as demais valem o número impresso. Se alguém bater com J, os pontos dos demais na rodada são dobrados.</p>
-        <p><strong>Conferência da rodada:</strong> ao final de cada rodada, depois de resolver todos os efeitos da última carta, o aplicativo revela as cartas que sobraram com cada jogador, mostra o valor de cada carta, o cálculo dos pontos da rodada e o placar acumulado. As mãos continuam ocultas durante a rodada.</p>
+        <div class="special-rules">
+          <p><b>A — Ás:</b> pula o próximo jogador.</p>
+          <p><b>7:</b> o próximo jogador recebe <strong>+2</strong>. Outro 7 pode rebater, acumulando +2 por carta, até que alguém não consiga responder.</p>
+          <p><b>8:</b> o jogador anterior, considerando o sentido atual da partida, compra <strong>2 cartas</strong>.</p>
+          <p><b>J — Valete:</b> funciona como coringa de naipe. Ao jogá-lo, escolha o naipe que deverá ser seguido. Não interrompe uma cadeia ativa de 7. Se o Valete for a carta da batida, os pontos dos adversários naquela rodada são <strong>dobrados</strong>.</p>
+          <p><b>Q — Dama:</b> inverte o sentido da partida. Com apenas 2 jogadores ativos, quem joga a Dama joga novamente.</p>
+          <p><b>K — Rei:</b> o jogador anterior, considerando o sentido atual, compra <strong>1 carta</strong>.</p>
+        </div>
+        <div class="rule-mini-note">Cartas especiais só podem ser jogadas na própria vez ou como continuação válida de uma Queima. Elas não podem iniciar Queima, nem ser usadas em Ação Rápida ou Carta Dupla.</div>
+
+        <h3>⚡ Ação Rápida — fora da vez</h3>
+        <p>Logo depois que uma carta normal é jogada, um jogador que <strong>não seja quem acabou de jogar nem o próximo da vez</strong> pode descartar imediatamente uma carta <strong>exatamente igual</strong> — mesmo valor e mesmo naipe — usando o botão <strong>⚡</strong>.</p>
+        <p>A Ação Rápida descarta <strong>somente uma carta</strong>, não toma a vez, não muda o sentido e não permite uma segunda jogada. Depois dela, continua jogando quem já seria o próximo jogador.</p>
+        <p>Somente cartas normais podem ser usadas. <strong>A, 7, 8, J, Q e K não são permitidos.</strong> A Ação Rápida fica suspensa durante cadeia de 7 e durante a continuação de uma Queima. A primeira Ação Rápida válida fecha aquela oportunidade.</p>
+
+        <h3>🏁 Batida com carta especial</h3>
+        <p>O efeito da última carta é resolvido <strong>antes</strong> de calcular a pontuação. Por isso, bater com <strong>8</strong> ainda faz o jogador anterior comprar 2; bater com <strong>K</strong> faz o anterior comprar 1; e bater com <strong>J</strong> dobra os pontos dos adversários.</p>
+        <p>Se a batida ocorrer com <strong>7</strong>, a cadeia continua. Os jogadores seguintes podem rebater com outro 7. Quem não tiver 7 compra o total acumulado e então a rodada termina. Se todos os demais responderem e a cadeia completar a volta até o vencedor original, ninguém compra.</p>
+
+        <h3>🏆 Pontuação e Conferência da Rodada</h3>
+        <p><strong>A = 1</strong>; cartas de <strong>2 a 10</strong> valem o número impresso; <strong>J = 11</strong>; <strong>Q = 12</strong>; <strong>K = 13</strong>.</p>
+        <p>Ao final de cada rodada, o jogo abre a <strong>Conferência da Rodada</strong>, revelando somente naquele momento as cartas restantes de cada jogador, o valor individual das cartas, a soma da rodada e o placar acumulado. Ao iniciar a rodada seguinte, as mãos voltam a ficar ocultas.</p>
+
+        <h3>👥 Entrada de jogadores e máquinas</h3>
+        <p>Ninguém entra no meio de uma rodada. Novos jogadores podem entrar nos intervalos <strong>até antes do início da 3ª rodada</strong>. Quem entra depois do começo da partida recebe como pontuação inicial o <strong>maior total já acumulado</strong> pelos participantes da mesa.</p>
+        <p>As máquinas seguem as mesmas regras dos jogadores humanos, inclusive Mau-Mau, cadeia de 7, Queima, Ação Rápida e Carta Dupla.</p>
+
+        <h3>🏆 Ranking</h3>
+        <p>Partidas concluídas alimentam os rankings de <strong>Hoje, Mês, Ano e Geral</strong>. As partidas somente entre pessoas ficam separadas das partidas com máquina. A classificação considera primeiro o número de <strong>vitórias</strong> e, em caso de empate, a <strong>menor média de pontos</strong>.</p>
       </article>
     </div>
-    <div class="rule-note">Clarificações do aplicativo: carta inicial especial é substituída por uma carta normal; quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; empate na menor pontuação após 5 rodadas gera vitória compartilhada.</div>
+
+    <div class="rules-extras">
+      <h3>💬 Recursos da mesa</h3>
+      <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
+      <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
+    </div>
+
+    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida até a reconexão; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
   </dialog>
 
 

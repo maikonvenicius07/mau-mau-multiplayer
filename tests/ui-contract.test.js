@@ -20,7 +20,9 @@ assert(server.includes("socket.on('quickAction'"),'servidor precisa ouvir Ação
 assert(engine.includes('function canQuickAction'),'motor precisa detectar Ação Rápida');
 assert(engine.includes('function quickAction'),'motor precisa executar Ação Rápida');
 assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regras visuais precisam explicar Ação Rápida');
-assert(html.includes('V18'),'interface precisa identificar a versão V18');
+assert(html.includes('>VER REGRAS<'),'atalho de regras deve usar somente o texto VER REGRAS');
+assert(!html.includes('Ver regras desta versão'),'atalho de regras não deve exibir texto técnico de versão');
+assert(html.includes('Queima — somente na sua própria vez'),'regras visuais devem explicar que a Queima pertence à própria vez');
 assert(app.includes('burnMustDraw'),'cliente precisa distinguir quando a compra é obrigatória após a queima');
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
 assert(engine.includes('Depois da queima você já possui carta compatível'),'motor deve bloquear compra desnecessária após a queima');
