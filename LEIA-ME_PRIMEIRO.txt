@@ -1,29 +1,21 @@
-MAU-MAU V38 — ÁUDIO RÁPIDO 15 s + TOPO LIMPO
+MAU-MAU V38 — BOTÃO DE MÚSICA TAMBÉM NA TELA INICIAL
 
-Para atualizar a versão atual no GitHub/Render, substitua SOMENTE:
-1) server.js
-2) public/app.js
-3) public/index.html
-4) public/styles.css
+SUBSTITUIR SOMENTE:
+- public/index.html
+- public/app.js
+- public/styles.css
 
-IMPORTANTE: nesta atualização o server.js também precisa ser substituído, porque ele repassa os áudios temporários entre os jogadores da mesma sala.
+O que mudou:
+- botão 🎵 na tela inicial, ao lado da Conta Google;
+- abre o mesmo painel “Música da mesa” usado dentro da sala;
+- volume e ligado/desligado continuam compartilhados e salvos;
+- botão 🎵 dentro da sala continua funcionando normalmente.
 
 NÃO ALTERAR:
-- DATABASE_URL
+- server.js
+- game-engine.js
+- ranking-store.js
+- package.json
+- PostgreSQL / DATABASE_URL
 - GOOGLE_CLIENT_ID
 - AUTH_SESSION_SECRET
-- PostgreSQL
-- ranking-store.js
-- game-engine.js
-
-ÁUDIO RÁPIDO
-- máximo de 15 segundos;
-- gravação para automaticamente aos 15 s;
-- antes de enviar, o jogador pode ouvir, descartar ou confirmar o envio;
-- não é salvo no PostgreSQL;
-- não fica armazenado no histórico da sala;
-- servidor aplica limite de tamanho e intervalo entre envios;
-- música abaixa automaticamente durante gravação/reprodução.
-
-TOPO
-A faixa técnica longa indicada no print foi removida. Permanece apenas a marca MAU-MAU e os controles da partida.

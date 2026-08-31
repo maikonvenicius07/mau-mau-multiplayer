@@ -120,6 +120,7 @@ function authStatus(message='',kind=''){
 }
 function showAuthGate(message='Entre com sua Conta Google para continuar.'){
   googleUser=null;
+  $('#musicPanel')?.classList.add('hidden');
   if(socket.connected) socket.disconnect();
   $('#game')?.classList.add('hidden');
   $('#landing')?.classList.add('hidden');
@@ -362,8 +363,8 @@ function setMusicVolume(value){
   localStorage.setItem(musicVolumeStorage,String(musicVolume));refreshMusicBusGains(false);updateMusicUI();
 }
 function updateMusicUI(){
-  const btn=$('#musicBtn'),toggle=$('#musicToggle'),slider=$('#musicVolume'),value=$('#musicVolumeValue'),now=$('#musicNow');
-  if(btn){btn.textContent=musicOn?'🎵':'🎵';btn.classList.toggle('music-off',!musicOn);btn.title=musicOn?'Música da mesa':'Música desligada';}
+  const buttons=$$('.music-btn'),toggle=$('#musicToggle'),slider=$('#musicVolume'),value=$('#musicVolumeValue'),now=$('#musicNow');
+  for(const btn of buttons){btn.textContent='🎵';btn.classList.toggle('music-off',!musicOn);btn.title=musicOn?'Música da mesa':'Música desligada';btn.setAttribute('aria-label',musicOn?'Abrir configurações de música':'Abrir configurações de música — música desligada');}
   if(toggle){toggle.textContent=musicOn?'🎵 Música ligada':'🔇 Música desligada';toggle.classList.toggle('active',musicOn)}
   if(slider)slider.value=String(Math.round(musicVolume*100));
   if(value)value.textContent=`${Math.round(musicVolume*100)}%`;
@@ -677,7 +678,11 @@ $('#sortHandBtn').onclick=toggleHandSort;
 $('#soundBtn').textContent=soundOn?'🔊':'🔇';
 $('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
 updateMusicUI();
-$('#musicBtn').onclick=()=>{$('#musicPanel').classList.toggle('hidden');updateMusicUI()};
+function toggleMusicPanel(){
+  const panel=$('#musicPanel');if(!panel)return;
+  panel.classList.toggle('hidden');updateMusicUI();
+}
+$$('.music-btn').forEach(btn=>btn.onclick=toggleMusicPanel);
 $('#musicClose').onclick=()=>$('#musicPanel').classList.add('hidden');
 $('#musicToggle').onclick=()=>setMusicEnabled(!musicOn);
 $('#musicVolume').addEventListener('input',e=>setMusicVolume(Number(e.target.value)/100));

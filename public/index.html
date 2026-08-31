@@ -10,6 +10,16 @@
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
 
+  <!-- Painel global: pode ser aberto tanto na tela inicial quanto dentro da sala -->
+    <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
+      <div class="music-panel-head"><div><small>TRILHA ORIGINAL</small><strong>🎵 Música da mesa</strong></div><button id="musicClose" type="button" aria-label="Fechar">×</button></div>
+      <button id="musicToggle" type="button" class="music-toggle active">🎵 Música ligada</button>
+      <label class="music-volume-label" for="musicVolume"><span>Volume</span><b id="musicVolumeValue">18%</b></label>
+      <input id="musicVolume" class="music-volume" type="range" min="0" max="45" step="1" value="18" aria-label="Volume da música" />
+      <div id="musicNow" class="music-now">Aguardando a mesa</div>
+      <p>A música muda automaticamente entre lobby, partida, última carta e conferência. Efeitos e vozes continuam com controle separado em 🔊.</p>
+    </div>
+
   <section id="authGate" class="screen auth-screen">
     <div class="auth-card">
       <div class="auth-brand-mark">M</div>
@@ -27,6 +37,7 @@
       <div class="google-account-bar">
         <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da Conta Google" referrerpolicy="no-referrer" />
         <div class="google-account-meta"><small>CONTA GOOGLE CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
+        <button id="musicBtnLanding" class="landing-music-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
         <button id="googleLogoutBtn" class="google-logout-btn" type="button">Sair da conta</button>
       </div>
       <div class="brand-row">
@@ -116,18 +127,9 @@
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
-      <button id="musicBtn" class="icon-btn music-btn" title="Música da mesa">🎵</button>
+      <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
-
-    <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
-      <div class="music-panel-head"><div><small>TRILHA ORIGINAL</small><strong>🎵 Música da mesa</strong></div><button id="musicClose" type="button" aria-label="Fechar">×</button></div>
-      <button id="musicToggle" type="button" class="music-toggle active">🎵 Música ligada</button>
-      <label class="music-volume-label" for="musicVolume"><span>Volume</span><b id="musicVolumeValue">18%</b></label>
-      <input id="musicVolume" class="music-volume" type="range" min="0" max="45" step="1" value="18" aria-label="Volume da música" />
-      <div id="musicNow" class="music-now">Aguardando a mesa</div>
-      <p>A música muda automaticamente entre lobby, partida, última carta e conferência. Efeitos e vozes continuam com controle separado em 🔊.</p>
-    </div>
 
     <main class="table-shell">
       <div class="scoreboard" id="scoreboard"></div>
