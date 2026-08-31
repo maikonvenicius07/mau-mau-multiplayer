@@ -11,7 +11,7 @@ const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode } = requi
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 900000 });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
 const rankingStore = new RankingStore();
@@ -304,6 +304,9 @@ function withRoom(socket, fn) {
 
 
 const SOCIAL_EFFECTS = new Set(['applause','laugh','horn','drum','victory','wow','jogaBoca']);
+const QUICK_AUDIO_MAX_MS = 15000;
+const QUICK_AUDIO_MAX_BYTES = 700 * 1024;
+const QUICK_AUDIO_COOLDOWN_MS = 2500;
 function ensureSocial(room) {
   if (!Array.isArray(room.chat)) room.chat = [];
 }
@@ -515,6 +518,52 @@ io.on('connection', socket => {
       room.chat.push(message);
       if (room.chat.length > 60) room.chat.splice(0, room.chat.length - 60);
       io.to(room.code).emit('chatMessage', message);
+    } catch(e) { err(socket,e); }
+  });
+
+
+  // Áudio Rápido: repasse efêmero entre os jogadores da sala. Não é salvo no ranking,
+  // PostgreSQL nem no histórico de chat. O cliente limita a gravação a 15 s e o servidor
+  // também aplica limites de duração declarada, tamanho e frequência de envio.
+  socket.on('voiceMessage', payload => {
+    try {
+      const room = rooms.get(socket.data.roomCode);
+      if (!room) throw new Error('Sala não encontrada.');
+      const player = room.players.find(p => p.id === socket.data.playerId);
+      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para enviar áudio.');
+
+      const now = Date.now();
+      if (socket.data.lastVoiceAt && now - socket.data.lastVoiceAt < QUICK_AUDIO_COOLDOWN_MS) {
+        throw new Error('Aguarde alguns segundos antes de enviar outro áudio.');
+      }
+
+      const durationMs = Math.round(Number(payload?.durationMs || 0));
+      if (!Number.isFinite(durationMs) || durationMs < 200 || durationMs > QUICK_AUDIO_MAX_MS + 400) {
+        throw new Error('O Áudio Rápido deve ter no máximo 15 segundos.');
+      }
+
+      const mime = String(payload?.mime || '').toLowerCase().slice(0,80);
+      if (!/^audio\/(webm|ogg|mp4|mpeg)(;|$)/.test(mime)) throw new Error('Formato de áudio não suportado.');
+
+      const raw = payload?.audio;
+      let audio;
+      if (Buffer.isBuffer(raw)) audio = raw;
+      else if (raw instanceof ArrayBuffer) audio = Buffer.from(raw);
+      else if (ArrayBuffer.isView(raw)) audio = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+      else throw new Error('Áudio inválido.');
+      if (audio.length < 80 || audio.length > QUICK_AUDIO_MAX_BYTES) throw new Error('O arquivo de áudio ficou grande demais. Grave novamente.');
+
+      socket.data.lastVoiceAt = now;
+      io.to(room.code).emit('voiceMessage', {
+        id: `voice-${now}-${Math.random().toString(36).slice(2,8)}`,
+        at: now,
+        playerId: player.id,
+        name: player.name,
+        avatar: player.avatar,
+        durationMs: Math.min(durationMs, QUICK_AUDIO_MAX_MS),
+        mime,
+        audio,
+      });
     } catch(e) { err(socket,e); }
   });
 

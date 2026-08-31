@@ -108,7 +108,7 @@
 
   <section id="game" class="screen hidden">
     <header class="topbar">
-      <div class="brand-small"><span>M</span> MAU-MAU <small style="opacity:.65;font-size:10px">V38 • LOGIN GOOGLE • MÚSICA DINÂMICA ORIGINAL • CONFERÊNCIA DA RODADA • V37 CONSOLIDADA • AÇÃO RÁPIDA CORRIGIDA • MÃO LEGÍVEL • COMPRA LIVRE • TROCAR LADOS • MOBILE • RANKING • 10 AVATARES HD • ALERTA MAU-MAU • MAU-MAU FALADO • EFEITOS SONOROS</small></div>
+      <div class="brand-small"><span>M</span> MAU-MAU</div>
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <div id="connectionChip" class="connection-chip connecting">● Conectando</div>
@@ -175,8 +175,19 @@
           <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
           <form id="chatForm" class="chat-form">
             <input id="chatInput" maxlength="180" autocomplete="off" placeholder="Escreva uma mensagem..." />
-            <button type="submit" title="Enviar mensagem">➤</button>
+            <button id="voiceRecordBtn" class="voice-record-btn" type="button" title="Gravar Áudio Rápido de até 15 segundos" aria-label="Gravar Áudio Rápido">🎙️</button>
+            <button class="chat-send-btn" type="submit" title="Enviar mensagem">➤</button>
           </form>
+          <div id="voiceRecorderPanel" class="voice-recorder-panel hidden" aria-live="polite">
+            <div class="voice-record-live"><span class="voice-record-dot"></span><strong>Gravando</strong><span id="voiceRecordTime">00:00 / 00:15</span></div>
+            <div class="voice-record-actions"><button id="voiceCancelBtn" type="button" class="voice-cancel-btn">✕ Cancelar</button><button id="voiceStopBtn" type="button" class="voice-stop-btn">■ Finalizar</button></div>
+          </div>
+          <div id="voicePreviewPanel" class="voice-preview-panel hidden">
+            <div class="voice-preview-head"><strong>🎙️ Áudio Rápido</strong><span id="voicePreviewTime">0 s</span></div>
+            <audio id="voicePreviewAudio" class="voice-preview-audio" controls preload="metadata"></audio>
+            <div class="voice-preview-actions"><button id="voiceDiscardBtn" type="button" class="voice-cancel-btn">🗑 Descartar</button><button id="voiceSendBtn" type="button" class="voice-send-btn">➤ Enviar áudio</button></div>
+          </div>
+          <div class="quick-audio-note">🎙️ Áudio Rápido: até 15 segundos. A gravação só é enviada depois da sua confirmação.</div>
           <div class="effects-title">Efeitos para a mesa</div>
           <div class="effect-grid">
             <button data-effect="applause" title="Aplausos">👏<span>Aplausos</span></button>
@@ -239,7 +250,7 @@
         <h3>🏆 Ranking — V25</h3>
         <p>Partidas concluídas alimentam rankings de <strong>Hoje, Mês, Ano e Geral</strong>. Partidas somente entre pessoas ficam separadas das partidas que possuem máquina. O ranking ordena primeiro por vitórias e, em caso de empate, pela menor média de pontos.</p>
         <h3>💬 Conversa e efeitos</h3>
-        <p>A sala possui chat em tempo real e botões de efeitos sonoros. Os efeitos são compartilhados com todos os jogadores conectados e podem ser silenciados localmente pelo botão 🔊.</p>
+        <p>A sala possui chat em tempo real, Áudio Rápido de até 15 segundos e botões de efeitos sonoros. Os áudios são temporários e não ficam armazenados após a sala.</p>
         <h3>🎵 Música dinâmica</h3>
         <p>As trilhas instrumentais foram criadas especialmente para o Mau-Mau. A música muda conforme o momento da partida: lobby, mesa normal, tensão de última carta e conferência da rodada. O botão 🎵 permite ligar/desligar e ajustar o volume sem silenciar os efeitos ou as vozes.</p>
         <h3>🤖 Jogador automático</h3>

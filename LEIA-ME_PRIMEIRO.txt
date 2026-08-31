@@ -1,27 +1,29 @@
-MAU-MAU V38 — MÚSICA DINÂMICA ORIGINAL
+MAU-MAU V38 — ÁUDIO RÁPIDO 15 s + TOPO LIMPO
 
-PARA ATUALIZAR O PROJETO ATUAL:
+Para atualizar a versão atual no GitHub/Render, substitua SOMENTE:
+1) server.js
+2) public/app.js
+3) public/index.html
+4) public/styles.css
 
-1. Na raiz do projeto, NÃO altere server.js, game-engine.js ou ranking-store.js.
-2. Abra a pasta public do seu projeto.
-3. Substitua:
-   - public/app.js
-   - public/index.html
-   - public/styles.css
-4. Dentro de public/assets, copie a pasta inteira:
-   - public/assets/music
-5. Faça commit/push no GitHub usado pelo Render.
-6. Aguarde o Render concluir o deploy.
-7. Abra o jogo e use o novo botão 🎵 no topo.
+IMPORTANTE: nesta atualização o server.js também precisa ser substituído, porque ele repassa os áudios temporários entre os jogadores da mesma sala.
 
-NÃO PRECISA ALTERAR:
+NÃO ALTERAR:
+- DATABASE_URL
 - GOOGLE_CLIENT_ID
 - AUTH_SESSION_SECRET
-- DATABASE_URL
 - PostgreSQL
-- Google Cloud
+- ranking-store.js
+- game-engine.js
 
-MÚSICA
-- Ligada por padrão em 18%.
-- Controle 🎵 separado dos efeitos 🔊.
-- Muda automaticamente conforme o estado da partida.
+ÁUDIO RÁPIDO
+- máximo de 15 segundos;
+- gravação para automaticamente aos 15 s;
+- antes de enviar, o jogador pode ouvir, descartar ou confirmar o envio;
+- não é salvo no PostgreSQL;
+- não fica armazenado no histórico da sala;
+- servidor aplica limite de tamanho e intervalo entre envios;
+- música abaixa automaticamente durante gravação/reprodução.
+
+TOPO
+A faixa técnica longa indicada no print foi removida. Permanece apenas a marca MAU-MAU e os controles da partida.
