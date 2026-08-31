@@ -110,7 +110,7 @@ Segunda carta obrigatória: 9♥
 Resultado: duas cartas descartadas na mesma jogada.
 ```
 
-A queima pode acontecer fora da vez. O primeiro jogador que tiver uma queima válida e executá-la assume a jogada. A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7; a segunda pode ser especial e aplica seu efeito normalmente.
+> **REGRA ANTIGA — NÃO VIGENTE:** a descrição acima registra o comportamento histórico da V13. Na regra atual, a **Queima com direito a uma segunda jogada só pode ser feita na própria vez do jogador**. Fora da vez, a única intervenção permitida é a **Ação Rápida**, com uma carta normal exatamente igual. A, 7, 8, J, Q e K não podem iniciar Queima nem ser usados em Ação Rápida; uma carta especial pode ser usada como segunda carta válida depois de uma Queima realizada na própria vez, aplicando normalmente seu efeito.
 
 A máquina também entende e utiliza essa nova regra.
 
@@ -280,7 +280,7 @@ Crie/conecte um PostgreSQL ao serviço e disponibilize a variável de ambiente `
 
 ## V31 — Cartas especiais somente na vez normal
 
-As cartas A, 7, 8, J, Q e K não podem ser usadas em Queima, Ação Rápida, continuação de Queima ou Carta Dupla. Elas permanecem válidas e produzem seus efeitos normalmente quando jogadas na vez normal do jogador.
+As cartas A, 7, 8, J, Q e K não podem **iniciar** Queima, não podem ser usadas em Ação Rápida e não podem participar de Carta Dupla. Elas podem ser usadas como **segunda carta válida após uma Queima realizada na própria vez do jogador**, e nesse caso produzem normalmente seus efeitos.
 
 ### V32 — efeitos especiais na batida
 A carta especial mantém seu efeito quando é a última carta. Em especial, 8 e K aplicam a compra antes da pontuação, e o 7 mantém a cadeia ativa. Se a cadeia final de 7 completar uma volta por todos os demais jogadores, ela termina sem compra.

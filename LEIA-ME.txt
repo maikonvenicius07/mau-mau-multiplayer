@@ -1,38 +1,17 @@
-MAU-MAU V38 — CONFERÊNCIA DE CARTAS E PONTUAÇÃO AO FINAL DE CADA RODADA
+MAU-MAU V38 — CONSISTÊNCIA DAS REGRAS
 
-SUBSTITUA APENAS ESTES 4 ARQUIVOS NO REPOSITÓRIO ATUAL:
+Substituir:
+- public/index.html
+- README.md (documentação interna; não altera o funcionamento do servidor)
 
-1) game-engine.js
-   -> raiz do projeto
+Ajustes:
+- Valete deixa explícito que é jogado durante a própria vez.
+- A, 7, 8, J, Q e K continuam proibidos na Ação Rápida.
+- README antigo marcado/corrigido para não ensinar Queima fora da vez.
 
-2) public/app.js
-   -> pasta public
-
-3) public/index.html
-   -> pasta public
-
-4) public/styles.css
-   -> pasta public
-
-NÃO ALTERAR:
+Não alterar:
 - server.js
-- ranking-store.js
-- package.json
-- DATABASE_URL
-- GOOGLE_CLIENT_ID
-- AUTH_SESSION_SECRET
-
-COMPORTAMENTO NOVO:
-- Ao final de cada rodada abre automaticamente a tela "Conferência da Rodada".
-- Mostra as cartas restantes de todos os jogadores.
-- Mostra o valor individual de cada carta.
-- Mostra soma da mão e pontos da rodada.
-- Se a batida foi com J, mostra a multiplicação por 2.
-- Mostra o placar acumulado após a rodada.
-- Há botão para reabrir a conferência antes da próxima rodada.
-- Durante a rodada as cartas adversárias continuam ocultas.
-- Ao iniciar a nova rodada, a conferência anterior deixa de ser enviada pelo servidor.
-
-TESTES:
-- Teste novo de conferência: aprovado.
-- Bateria completa da V38: aprovada.
+- game-engine.js
+- app.js
+- styles.css
+- PostgreSQL / variáveis do Render
