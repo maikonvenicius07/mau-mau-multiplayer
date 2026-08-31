@@ -87,6 +87,15 @@ function activePlayers(room) {
   return room.players.filter(p => !p.finishedRound);
 }
 
+// V39.1 — uma vaga humana em AUTO continua válida para o motor da partida,
+// embora o navegador do dono esteja desconectado.
+function playerAvailable(player) {
+  return !!(player && (player.connected || player.isBot || player.autoControlled));
+}
+function roomPausedForReconnect(room) {
+  return !!(room && room.status === 'playing' && room.players.some(p => !p.isBot && !p.connected && !p.autoControlled));
+}
+
 function log(room, message, kind='info', meta=null) {
   const entry={ id:id('log'), ts:Date.now(), message, kind };
   if (meta && typeof meta==='object') Object.assign(entry, meta);
@@ -107,6 +116,11 @@ function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}
     roundScore: 0,
     roundHistory: [],
     connected: true,
+    // V39.1 — jogador humano pode ser controlado temporariamente pela máquina
+    // após exceder a janela de reconexão. A identidade continua humana para ranking.
+    autoControlled: false,
+    disconnectedAt: null,
+    reconnectDeadlineAt: null,
     isBot,
     host: false,
     finishedRound: false,
@@ -173,6 +187,9 @@ function reconnectPlayer(room, token, socketId) {
   if (!p) return null;
   p.socketId = socketId;
   p.connected = true;
+  p.autoControlled = false;
+  p.disconnectedAt = null;
+  p.reconnectDeadlineAt = null;
   return p;
 }
 
@@ -188,9 +205,10 @@ function startRound(room) {
     }
   }
 
-  const connectedCount = room.players.filter(p => p.connected).length;
-  if (connectedCount < 2) throw new Error('São necessários pelo menos 2 jogadores conectados.');
-  if (room.players.some(p => !p.connected)) throw new Error('Há jogador desconectado. Aguarde a reconexão antes de iniciar a próxima rodada.');
+  // Uma vaga humana em AUTO continua participando da partida com a mesma mão e pontuação.
+  const availableCount = room.players.filter(p => p.connected || p.isBot || p.autoControlled).length;
+  if (availableCount < 2) throw new Error('São necessários pelo menos 2 jogadores disponíveis.');
+  if (room.players.some(p => !p.isBot && !p.connected && !p.autoControlled)) throw new Error('Há jogador dentro do prazo de reconexão. Aguarde o retorno ou a Máquina assumir temporariamente.');
   if (room.round >= room.rules.rounds) throw new Error('As 5 rodadas já foram concluídas.');
   room.round += 1;
   room.status = 'playing';
@@ -315,7 +333,7 @@ function burnContinuationCardLegal(room, card, player) {
 }
 
 function ensureTurn(room, playerId) {
-  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (roomPausedForReconnect(room)) throw new Error('A partida está pausada durante o prazo de reconexão.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
   const idx = room.players.findIndex(p => p.id === playerId);
   if (idx < 0) throw new Error('Jogador não encontrado.');
@@ -324,7 +342,7 @@ function ensureTurn(room, playerId) {
 }
 
 function declare(room, playerId, type) {
-  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (roomPausedForReconnect(room)) throw new Error('A partida está pausada durante o prazo de reconexão.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
   const idx = room.players.findIndex(p => p.id === playerId);
   if (idx < 0) throw new Error('Jogador não encontrado.');
@@ -546,7 +564,7 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
 // A Carta Dupla NÃO pode ser usada com cartas especiais: A, 7, 8, J, Q e K.
 function canPlayDouble(room, player) {
   if (!room?.rules?.doubleCardEnabled || room.status !== 'playing') return [];
-  if (!player || !player.connected || player.finishedRound) return [];
+  if (!playerAvailable(player) || player.finishedRound) return [];
   if (room.players[room.currentPlayer]?.id !== player.id) return [];
   if (room.continuationPlayerId) return [];
   // V29: depois de comprar, o jogador continua livre para usar qualquer jogada válida,
@@ -663,7 +681,7 @@ function canFinishBurn(room, player) {
 // Depois que uma carta normal idêntica é queimada, a continuação pode ser uma
 // carta especial legal, e seu efeito será executado normalmente.
 function burnMatch(room, playerId, cardId) {
-  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (roomPausedForReconnect(room)) throw new Error('A partida está pausada durante o prazo de reconexão.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
   if (!room.rules.burnEnabled) throw new Error('A regra de queimar cartas está desativada.');
   if (room.pendingSeven > 0) throw new Error('Não é permitido queimar durante uma penalidade de 7.');
@@ -672,7 +690,7 @@ function burnMatch(room, playerId, cardId) {
   const idx = room.players.findIndex(p => p.id === playerId);
   if (idx < 0) throw new Error('Jogador não encontrado.');
   const player = room.players[idx];
-  if (!player.connected || player.finishedRound) throw new Error('Jogador não pode realizar a queima agora.');
+  if (!playerAvailable(player) || player.finishedRound) throw new Error('Jogador não pode realizar a queima agora.');
 
   if (idx !== room.currentPlayer) {
     throw new Error('A Queima com direito à segunda carta só pode ser feita na sua vez normal. Fora da vez, use apenas Ação Rápida.');
@@ -965,7 +983,7 @@ function finalizeRound(room) {
 
 function canBurnMatch(room, player) {
   if (!room.rules.burnEnabled || room.status !== 'playing' || room.pendingSeven > 0 || room.continuationPlayerId) return [];
-  if (!player || !player.connected || player.finishedRound) return [];
+  if (!playerAvailable(player) || player.finishedRound) return [];
 
   // V36 — a Queima que dá direito a uma segunda carta pertence somente à vez normal.
   // Quem está fora da vez pode apenas usar Ação Rápida, que descarta uma única carta
@@ -986,7 +1004,7 @@ function canBurnMatch(room, player) {
 function canQuickAction(room, player) {
   if (!room?.rules?.quickActionEnabled || room.status !== 'playing') return [];
   if (room.pendingSeven > 0 || room.continuationPlayerId) return [];
-  if (!player || !player.connected || player.finishedRound) return [];
+  if (!playerAvailable(player) || player.finishedRound) return [];
   const top = topCard(room);
   if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || !room.reactionNextPlayerId) return [];
   if (room.reactionSourcePlayerId === player.id) return [];
@@ -996,7 +1014,7 @@ function canQuickAction(room, player) {
 }
 
 function quickAction(room, playerId, cardId) {
-  if (room.status === 'playing' && room.players.some(p => !p.connected)) throw new Error('A partida está pausada até todos os jogadores reconectarem.');
+  if (roomPausedForReconnect(room)) throw new Error('A partida está pausada durante o prazo de reconexão.');
   if (room.status !== 'playing') throw new Error('A rodada não está em andamento.');
   if (!room.rules.quickActionEnabled) throw new Error('A regra de Ação Rápida está desativada.');
   if (room.pendingSeven > 0) throw new Error('A Ação Rápida fica suspensa enquanto uma cadeia de 7 está sendo resolvida.');
@@ -1057,7 +1075,9 @@ function roomPublicState(room, viewerId) {
     deckCount: room.deck.length,
     rules: room.rules,
     connectedCount: room.players.filter(p => p.connected).length,
-    paused: room.status === 'playing' && room.players.some(p => !p.connected),
+    // A mesa pausa somente durante os 60 s de tolerância. Depois disso, a vaga
+    // segue em AUTO e a rodada pode continuar normalmente.
+    paused: roomPausedForReconnect(room),
     winnerId: room.winnerId,
     lastWinnerCard: room.lastWinnerCard,
     continuationPlayerId: room.continuationPlayerId,
@@ -1076,6 +1096,8 @@ function roomPublicState(room, viewerId) {
       roundScore:p.roundScore,
       roundHistory:p.roundHistory,
       connected:p.connected,
+      autoControlled:!!p.autoControlled,
+      reconnectDeadlineAt:p.reconnectDeadlineAt || null,
       host:p.host,
       finishedRound:p.finishedRound,
       isBot:p.isBot,

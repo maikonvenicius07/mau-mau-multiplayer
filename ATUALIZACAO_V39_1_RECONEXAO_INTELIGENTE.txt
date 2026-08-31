@@ -1,0 +1,15 @@
+MAU-MAU V39.1 — RECONEXÃO INTELIGENTE
+
+Fluxo durante uma rodada:
+1. A conexão de um jogador cai.
+2. A mesa é congelada por até 60 segundos.
+3. Se ele voltar nesse prazo, continua exatamente da mesma vaga.
+4. Se não voltar, a vaga humana entra em modo AUTO e a Máquina joga temporariamente com a MESMA mão, posição, pontuação e identidade de ranking.
+5. Quando o jogador reconecta depois, o modo AUTO é cancelado e ele retoma imediatamente o controle.
+
+Proteções:
+- Vaga AUTO não é marcada como isBot, portanto não altera a identidade do jogador nem converte a partida para ranking de máquina.
+- O servidor bloqueia jogadas humanas durante a pausa de reconexão.
+- Se todos os humanos estiverem desconectados, a mesa não fica jogando sozinha; a automação aguarda alguém retornar.
+- Antes da 1ª rodada, a cadeira fica reservada por 60 s e depois é removida se não houver retorno. Entre rodadas de uma partida já iniciada, o mesmo prazo leva ao modo AUTO, preservando a vaga.
+- Timers automáticos são cancelados quando o jogador reconecta para evitar uma jogada da Máquina após a retomada.

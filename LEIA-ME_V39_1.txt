@@ -1,0 +1,37 @@
+MAU-MAU V39.1 — RECONEXÃO INTELIGENTE
+
+ARQUIVOS DE EXECUÇÃO QUE DEVEM SER SUBSTITUÍDOS:
+- server.js
+- game-engine.js
+- package.json
+- public/app.js
+- public/index.html
+- public/styles.css
+
+ARQUIVOS DE TESTE/DOCUMENTAÇÃO INCLUÍDOS:
+- tests/google-auth-contract.test.js
+- tests/reconnection-intelligent.test.js
+- tests/reconnection-contract.test.js
+- README.md
+- REGRAS_APRIMORADAS.md
+- ATUALIZACAO_V39_1_RECONEXAO_INTELIGENTE.txt
+
+NÃO ALTERA:
+- ranking-store.js
+- bot-player.js
+- DATABASE_URL
+- GOOGLE_CLIENT_ID
+- AUTH_SESSION_SECRET
+- banco PostgreSQL
+
+FLUXO V39.1:
+1. Jogador perde conexão durante uma rodada.
+2. Mesa pausa por até 60 segundos e mostra contagem regressiva.
+3. Se voltar antes do prazo, continua normalmente da mesma vaga.
+4. Se não voltar, a vaga fica marcada como AUTO e a Máquina joga temporariamente a mesma mão.
+5. Nome, avatar, cartas, pontuação, playerKey e identidade de ranking continuam sendo do jogador humano.
+6. Quando reconectar, o AUTO é cancelado e o jogador retoma imediatamente o próprio lugar.
+7. Se todos os humanos estiverem offline, a partida não fica sendo jogada sozinha pelas máquinas.
+
+TESTES:
+Execute npm test. A bateria inclui os testes específicos da V39.1 e a simulação de 50 partidas completas.

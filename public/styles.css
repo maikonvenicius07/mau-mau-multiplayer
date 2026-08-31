@@ -551,3 +551,13 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   .rules-summary span{font-size:10px;padding:6px 8px}
   .rules-heading h2{font-size:23px}
 }
+
+
+/* V39.1 — Reconexão Inteligente */
+.auto-tag,.score-auto{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:999px;background:#6a4a12;color:#ffe18d;font-size:8px;font-weight:950;letter-spacing:.06em;vertical-align:1px}
+.player-card.auto-control{border-color:#d5a43c;box-shadow:0 0 0 2px #f2c66d22,0 8px 22px #0006}
+.player-card.auto-control .avatar{position:relative}
+.reconnect-tag{display:inline-flex;align-items:center;gap:2px;margin-left:5px;color:#ff9a9f;font-weight:900;white-space:nowrap}
+.player-card.disconnect{opacity:.62;border-color:#a84b50;box-shadow:0 0 0 2px #ff657022,0 8px 22px #0006}
+.turn-banner.reconnect-wait{border-color:#b64d55;background:#321719;color:#ffd7d9}
+@media(max-width:900px){.auto-tag,.reconnect-tag{font-size:7px}.player-card.auto-control{box-shadow:0 0 0 2px #f2c66d20}}

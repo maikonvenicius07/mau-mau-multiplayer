@@ -145,8 +145,8 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Sentido inicial anti-horário em cada rodada.
 - Vence a partida quem terminar as 5 rodadas com a menor pontuação acumulada.
 - Salas privadas com código de 6 caracteres.
-- Reconexão por token local.
-- Pausa automática se alguém cair durante uma rodada.
+- Reconexão por token local vinculada à mesma vaga.
+- Reconexão Inteligente V39.1: 60 s de tolerância; depois a Máquina assume temporariamente a mesma mão/posição sem transformar o participante em bot para fins de ranking.
 - Entrada tardia somente entre rodadas e até antes do início da 3ª rodada.
 
 ## Cartas especiais implementadas
@@ -158,16 +158,14 @@ Aplicativo web multiplayer para 2 a 5 jogadores, criado a partir das regras forn
 - Rei (K): o jogador anterior, considerando o sentido atual, compra 1.
 - Oito (8): o jogador anterior, considerando o sentido atual, compra 2.
 
-## Regra de queimar — V12
+## Queima — regra atual
 
-1. Outro jogador baixa uma carta normal.
-2. Se você tiver uma carta exatamente igual (mesmo valor e mesmo naipe), ela pode aparecer destacada com 🔥.
-3. Para iniciar a queima, você precisa ter também uma segunda carta compatível.
-4. Clique em 🔥 para baixar a carta igual, mesmo fora da sua vez.
-5. Você passa a controlar a jogada e deve obrigatoriamente baixar mais uma carta do mesmo valor, do mesmo naipe ou um Valete.
-6. Não existe mais o botão “Encerrar queima”: a segunda carta é obrigatória.
-7. A primeira carta da queima não pode ser A, Q, J, K, 8 ou 7.
-8. Se as duas cartas encerrarem sua mão, anuncie “Mau-Mau batendo/queimando” antes.
+1. A Queima só pode ser iniciada **na própria vez do jogador**.
+2. A primeira carta da Queima deve ser uma carta normal exatamente igual ao topo (mesmo valor e mesmo naipe).
+3. Cartas especiais A, 7, 8, J, Q e K não iniciam Queima.
+4. Depois da primeira carta, o jogador pode baixar uma segunda carta compatível; essa continuação pode ser especial e produz seu efeito normal.
+5. Se não tiver continuação compatível, compra 1 carta e pode jogar uma carta válida ou passar.
+6. Fora da vez, a intervenção permitida é a **Ação Rápida**, somente com carta normal exatamente igual e sem tomar a vez.
 
 ## Mau-Mau
 
@@ -190,7 +188,7 @@ Estas regras foram incluídas para evitar estados indefinidos em uma aplicação
 - Quando o monte de compra acaba, o descarte é reembaralhado, preservando a carta do topo.
 - Depois de comprar 1 carta por não ter jogada possível: se a carta servir, pode jogar somente a carta comprada; se não servir, a vez passa automaticamente.
 - Em empate na menor pontuação após a 5ª rodada, os jogadores empatados compartilham a vitória.
-- Se um jogador cair durante a rodada, a partida pausa até a reconexão.
+- Se um jogador cair durante a rodada, a partida pausa por até 60 segundos. Se ele não retornar, sua vaga entra em AUTO e a Máquina joga temporariamente com a mesma mão e pontuação. Quando a Conta Google reconecta usando o token da vaga, o controle volta imediatamente ao jogador.
 
 ## Como executar no computador
 

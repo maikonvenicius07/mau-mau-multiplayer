@@ -803,7 +803,7 @@ function openRoundReview(review=state?.roundReview){
       : `${p.basePoints||0}${p.multiplier===2?' × 2':''} = <strong>${p.roundScore||0} ponto${p.roundScore===1?'':'s'}</strong>`;
     return `<article class="round-review-player ${p.isWinner?'winner':''}">
       <div class="round-review-player-head">
-        <div class="round-review-person">${avatarHTML(p.avatar,'sm')}<div><strong>${esc(p.name||'Jogador')}</strong>${p.isBot?' <small class="score-bot">BOT</small>':''}${p.isWinner?'<span class="round-review-winner-tag">🏆 VENCEDOR</span>':''}</div></div>
+        <div class="round-review-person">${avatarHTML(p.avatar,'sm')}<div><strong>${esc(p.name||'Jogador')}</strong>${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}${p.isWinner?'<span class="round-review-winner-tag">🏆 VENCEDOR</span>':''}</div></div>
         <div class="round-review-score"><span>Rodada</span><b>+${p.roundScore||0}</b><span>Acumulado</span><strong>${p.scoreAfter||0}</strong></div>
       </div>
       <div class="round-review-cards">${cardList}</div>
@@ -827,6 +827,25 @@ function maybeShowRoundReview(nextState){
     if(state?.roundReview?.id===review.id) openRoundReview(review);
   },420);
 }
+
+function reconnectWaitingPlayers(){
+  return state?.status==='playing' ? (state.players||[]).filter(p=>!p.isBot&&!p.connected&&!p.autoControlled&&p.reconnectDeadlineAt) : [];
+}
+function reconnectSeconds(deadlineAt){return Math.max(0,Math.ceil((Number(deadlineAt||0)-Date.now())/1000))}
+function reconnectBannerText(){
+  const waiting=reconnectWaitingPlayers();
+  if(!waiting.length)return '';
+  if(waiting.length===1){const p=waiting[0];return `⏸️ ${p.name} perdeu a conexão — ${reconnectSeconds(p.reconnectDeadlineAt)}s para retornar`;}
+  const max=Math.max(...waiting.map(p=>reconnectSeconds(p.reconnectDeadlineAt)));
+  return `⏸️ ${waiting.length} jogadores reconectando — até ${max}s`;
+}
+function updateReconnectCountdown(){
+  if(!state)return;
+  const banner=reconnectBannerText();
+  if(banner&&$('#turnBanner'))$('#turnBanner').textContent=banner;
+  $$('.reconnect-countdown[data-deadline]').forEach(el=>{el.textContent=`${reconnectSeconds(el.dataset.deadline)}s`;});
+}
+setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
@@ -893,6 +912,12 @@ socket.on('gameError',e=>{passPending=false;playGameSound('error');toast(e.messa
 socket.on('leftRoom',()=>{
   clearSession();
   returnToLanding('Você saiu da sala.');
+});
+socket.on('reconnectionEvent',event=>{
+  if(event?.kind==='lost') toast(`🔴 ${event.name||'Jogador'} perdeu a conexão. 60 segundos para retornar.`);
+  else if(event?.kind==='auto') toast(`🤖 Máquina assumiu temporariamente as jogadas de ${event.name||'Jogador'}.`);
+  else if(event?.kind==='returned-from-auto') toast('🟢 Conexão restabelecida. Você retomou seu lugar.');
+  else if(event?.kind==='returned') toast(`🟢 ${event.name||'Jogador'} voltou à mesa.`);
 });
 socket.on('sessionReplaced',()=>toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.'));
 socket.on('connect',()=>{
@@ -982,7 +1007,7 @@ function showReaction(name,emoji,label,avatar=null){
   layer.appendChild(el);setTimeout(()=>el.remove(),2100);
 }
 
-function canAct(){return !passPending&&socket.connected&&state?.status==='playing'&&state.currentPlayerId===state.me?.id}
+function canAct(){return !passPending&&socket.connected&&state?.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id}
 function render(){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
@@ -1007,23 +1032,33 @@ function renderPlayers(){
     const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
     const spot=mobile?(p.id===state.me.id?[50,90]:mobileSpots[oi++]):desktopSpots[i];
     d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';
-    const active=state.currentPlayerId===p.id?' active':'';const disc=p.connected?'':' disconnect';
+    const active=state.currentPlayerId===p.id?' active':'';
+    const waitingReconnect=!p.isBot&&!p.connected&&!p.autoControlled;
+    const disc=waitingReconnect?' disconnect':'';
+    const auto=p.autoControlled?' auto-control':'';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
     const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
+    const autoTag=p.autoControlled?' <span class="auto-tag">🤖 AUTO</span>':'';
+    const reconnectTag=waitingReconnect&&p.reconnectDeadlineAt?` <span class="reconnect-tag">🔴 <span class="reconnect-countdown" data-deadline="${p.reconnectDeadlineAt}">${reconnectSeconds(p.reconnectDeadlineAt)}s</span></span>`:'';
     const countClass=p.cardCount===1?' mau-count':p.cardCount===2?' warning-count':'';
     const countWord=p.cardCount===1?'CARTA':'CARTAS';
-    d.innerHTML=`<div class="player-card${active}${disc}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${you}</div><div class="player-stats">${p.score} pts</div></div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
+    d.innerHTML=`<div class="player-card${active}${disc}${auto}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div></div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
 }
 function renderScore(){
-  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
+  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
   const current=state.players.find(p=>p.id===state.currentPlayerId);
   let banner='Aguardando jogadores...';
-  if(state.status==='playing') banner=state.paused?'⏸️ Partida pausada: aguardando reconexão':(current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.name||'Jogador'}`);
+  if(state.status==='playing'){
+    const reconnectBanner=reconnectBannerText();
+    banner=reconnectBanner || (current?.autoControlled
+      ? `🤖 Máquina jogando temporariamente por ${current.name||'Jogador'}...`
+      : (current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.name||'Jogador'}`));
+  }
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
     if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue qualquer carta válida ou passe e guarde a comprada';
     else if(state.me?.burnMustDraw) banner='🔥 Após a queima: sem carta compatível — compre 1 carta';
@@ -1036,6 +1071,7 @@ function renderCenter(){
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
   $('#turnBanner').textContent=banner;
+  $('#turnBanner').classList.toggle('reconnect-wait',!!reconnectBannerText());
   $('#suitRequest').classList.toggle('hidden',!state.requestedSuit);if(state.requestedSuit)$('#suitRequest').textContent=`Naipe pedido: ${suitGlyph[state.requestedSuit]} ${suitName[state.requestedSuit]}`;
   $('#sevenPenalty').classList.toggle('hidden',!state.pendingSeven);if(state.pendingSeven)$('#sevenPenalty').textContent=`⚠️ Cadeia de 7: comprar ${state.pendingSeven} ou rebater com outro 7`;
   const canChooseAfterDraw=state.status==='playing'&&!state.paused&&current?.id===state.me?.id&&!!state.me?.justDrawnCardId;
@@ -1138,7 +1174,8 @@ function renderControls(){
   if(!state?.me){box.innerHTML='';return}
   const me=state.players.find(p=>p.id===state.me.id);box.innerHTML='';
   const connected=state.players.filter(p=>p.connected).length;
-  const disconnected=state.players.length-connected;
+  const available=state.players.filter(p=>p.connected||p.isBot||p.autoControlled).length;
+  const disconnected=state.players.filter(p=>!p.isBot&&!p.connected&&!p.autoControlled).length;
 
   const host=state.players.find(p=>p.host);
   const connectedHost=state.players.find(p=>p.host&&p.connected);
@@ -1170,7 +1207,7 @@ function renderControls(){
     const b=document.createElement('button');
     const normalLabel=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
     b.textContent=me?.host?normalLabel:`Assumir sala e ${normalLabel.toLowerCase()}`;
-    const blocked=!socket.connected||connected<2||(state.status==='between-rounds'&&disconnected>0);
+    const blocked=!socket.connected||available<2||(state.status==='between-rounds'&&disconnected>0);
     b.disabled=blocked;
     b.onclick=()=>{
       if(!socket.connected) return toast('Sem conexão com o servidor.');
@@ -1180,8 +1217,8 @@ function renderControls(){
     box.appendChild(b);
     const info=document.createElement('div');info.className='host-status';
     if(connected<2) info.textContent='Aguardando pelo menos mais 1 jogador conectado.';
-    else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s) será(ão) removido(s) automaticamente.`;
-    else if(disconnected>0) info.textContent='Aguarde os jogadores desconectados reconectarem.';
+    else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s): cadeira reservada por até 60 segundos.`;
+    else if(disconnected>0) info.textContent='Aguarde a reconexão ou o fim dos 60 segundos para a Máquina assumir temporariamente.';
     else if(!me?.host) info.textContent='O anfitrião está desconectado. Você pode assumir a sala e iniciar.';
     else info.textContent=`${connected} jogador(es) conectado(s). Pronto para iniciar.`;
     box.appendChild(info);

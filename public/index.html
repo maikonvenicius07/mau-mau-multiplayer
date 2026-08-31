@@ -325,9 +325,10 @@
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
+      <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
     </div>
 
-    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida até a reconexão; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
+    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida por até 60 segundos e, depois, a Máquina assume temporariamente a vaga; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
   </dialog>
 
 

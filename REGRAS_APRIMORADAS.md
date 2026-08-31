@@ -134,5 +134,5 @@ A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome
 
 ## 15. Regras técnicas
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.
-- Desconexão durante a rodada pausa a partida até a reconexão.
+- Reconexão Inteligente: uma queda durante a rodada pausa a mesa por até 60 segundos; nos intervalos da partida, a cadeira também fica reservada pelo mesmo prazo. Se o jogador não voltar, a Máquina assume temporariamente a mesma mão, posição e pontuação. Ao reconectar, o jogador retoma automaticamente seu lugar.
 - O acesso ao jogo exige autenticação por Conta Google.

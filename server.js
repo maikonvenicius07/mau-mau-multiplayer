@@ -14,6 +14,9 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 900000 });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+// V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
+const reconnectTimers = new Map();
+const RECONNECT_GRACE_MS = 60 * 1000;
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 
@@ -174,17 +177,63 @@ function emitRoom(room) {
   scheduleBotTurn(room);
 }
 
+function reconnectTimerKey(roomCode, playerId) { return `${roomCode}:${playerId}`; }
+function cancelReconnectTimer(roomCode, playerId) {
+  const key=reconnectTimerKey(roomCode,playerId);
+  const timer=reconnectTimers.get(key);
+  if(timer) clearTimeout(timer);
+  reconnectTimers.delete(key);
+}
+function clearReconnectTimersForRoom(roomCode) {
+  const prefix=`${roomCode}:`;
+  for(const [key,timer] of reconnectTimers){
+    if(key.startsWith(prefix)){ clearTimeout(timer); reconnectTimers.delete(key); }
+  }
+}
+function roomWaitingForReconnect(room) {
+  return !!(room && room.status==='playing' && room.players.some(p=>!p.isBot&&!p.connected&&!p.autoControlled));
+}
+function requireRoundNotPaused(room) {
+  if(roomWaitingForReconnect(room)) throw new Error('Partida pausada: aguardando a reconexão de um jogador.');
+}
+function isAutomatedPlayer(player) { return !!(player && (player.isBot || player.autoControlled)); }
+function scheduleReconnectTakeover(room, player) {
+  const matchActive=room && (room.status==='playing' || (room.status==='between-rounds' && room.round>0));
+  if(!matchActive || !player || player.isBot || player.connected) return;
+  cancelReconnectTimer(room.code,player.id);
+  const key=reconnectTimerKey(room.code,player.id);
+  const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
+  const timer=setTimeout(()=>{
+    reconnectTimers.delete(key);
+    const liveRoom=rooms.get(room.code);
+    if(!liveRoom || liveRoom!==room || !(liveRoom.status==='playing' || (liveRoom.status==='between-rounds' && liveRoom.round>0))) return;
+    const stale=liveRoom.players.find(p=>p.id===player.id);
+    if(!stale || stale.connected || stale.isBot || stale.autoControlled) return;
+    stale.autoControlled=true;
+    stale.reconnectDeadlineAt=null;
+    Engine.appendLog(liveRoom, `🤖 ${stale.name} não retornou em 60 segundos. A Máquina assumiu temporariamente suas jogadas.`, 'system');
+    io.to(liveRoom.code).emit('reconnectionEvent',{kind:'auto',playerId:stale.id,name:stale.name});
+    emitRoom(liveRoom);
+  },delay);
+  if(typeof timer.unref==='function') timer.unref();
+  reconnectTimers.set(key,timer);
+}
+
 function scheduleBotTurn(room) {
   if (!room || room.status !== 'playing' || room.botTimer) return;
-  if (room.players.some(p => !p.isBot && !p.connected)) return;
+  // Durante os 60 s de tolerância, ninguém joga. Depois, a vaga desconectada
+  // passa a ser tratada pelo mesmo motor da Máquina, sem virar um jogador-bot.
+  if (roomWaitingForReconnect(room)) return;
+  // Se todos os humanos estiverem fora, não há motivo para a mesa se jogar sozinha.
+  // A automação volta a andar assim que pelo menos uma pessoa reconectar.
+  if (!room.players.some(p => !p.isBot && p.connected)) return;
 
-  // V36: Queima com segunda carta só existe para quem já está na vez normal.
-  // Bots fora da vez podem apenas fazer Ação Rápida (uma carta, sem tomar o turno).
-  // O atraso do timer deixa uma pequena janela para jogadores humanos reagirem primeiro.
+  // V36/V39.1: Queima com segunda carta só existe para quem já está na vez normal.
+  // Bots e vagas em AUTO fora da vez podem apenas fazer Ação Rápida.
   const turnBot = room.players[room.currentPlayer];
-  const burnBot = turnBot?.isBot && !turnBot.finishedRound && Engine.canBurnMatch(room,turnBot).length > 0 ? turnBot : null;
-  const quickBot = room.players.find(p => p.isBot && !p.finishedRound && p.id !== turnBot?.id && Engine.canQuickAction(room,p).length > 0);
-  const actingBot = burnBot || quickBot || (turnBot?.isBot && !turnBot.finishedRound ? turnBot : null);
+  const burnBot = isAutomatedPlayer(turnBot) && !turnBot.finishedRound && Engine.canBurnMatch(room,turnBot).length > 0 ? turnBot : null;
+  const quickBot = room.players.find(p => isAutomatedPlayer(p) && !p.finishedRound && p.id !== turnBot?.id && Engine.canQuickAction(room,p).length > 0);
+  const actingBot = burnBot || quickBot || (isAutomatedPlayer(turnBot) && !turnBot.finishedRound ? turnBot : null);
   if (!actingBot) return;
 
   room.botTimer = setTimeout(() => {
@@ -192,7 +241,7 @@ function scheduleBotTurn(room) {
     const liveRoom = rooms.get(room.code);
     if (!liveRoom || liveRoom !== room || liveRoom.status !== 'playing') return;
     const liveBot = liveRoom.players.find(p => p.id === actingBot.id);
-    if (!liveBot?.isBot || liveBot.finishedRound) return;
+    if (!isAutomatedPlayer(liveBot) || liveBot.finishedRound) return;
 
     const isCurrentTurn = liveRoom.players[liveRoom.currentPlayer]?.id === liveBot.id;
     try {
@@ -367,7 +416,21 @@ io.on('connection', socket => {
         if (existing?.socketId && existing.socketId !== socket.id) {
           io.to(existing.socketId).emit('sessionReplaced');
         }
+        const wasDisconnected=!!(existing && !existing.connected);
+        const wasAutoControlled=!!existing?.autoControlled;
+        if(existing){
+          cancelReconnectTimer(room.code,existing.id);
+          // Pode haver uma jogada automática já agendada para esta vaga.
+          if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
+        }
         p = Engine.reconnectPlayer(room,payload.token,socket.id);
+        if(p && wasDisconnected){
+          Engine.appendLog(room, wasAutoControlled
+            ? `🟢 ${p.name} voltou e retomou seu lugar da Máquina.`
+            : `🟢 ${p.name} voltou à mesa dentro do prazo de reconexão.`, 'system');
+          socket.emit('reconnectionEvent',{kind:wasAutoControlled?'returned-from-auto':'returned',playerId:p.id,name:p.name});
+          io.to(room.code).except(socket.id).emit('reconnectionEvent',{kind:'returned',playerId:p.id,name:p.name});
+        }
       }
       if(!p) p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
       socket.data.roomCode=code; socket.data.playerId=p.id;
@@ -416,11 +479,13 @@ io.on('connection', socket => {
       }
 
       const leaving = room.players[idx];
+      cancelReconnectTimer(code,leaving.id);
       const wasPlaying = room.status === 'playing';
       room.players.splice(idx, 1);
 
       if (!room.players.length || room.players.every(p => p.isBot)) {
         if (room.botTimer) clearTimeout(room.botTimer);
+        clearReconnectTimersForRoom(code);
         rooms.delete(code);
       } else {
         if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
@@ -458,21 +523,24 @@ io.on('connection', socket => {
     Engine.startRound(room);
   }));
 
-  socket.on('declare', payload => withRoom(socket,(room,p)=> Engine.declare(room,p.id,payload?.type)));
+  socket.on('declare', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.declare(room,p.id,payload?.type); }));
   socket.on('playCard', payload => withRoom(socket,(room,p)=> {
     // V29: após comprar, o jogador pode jogar qualquer carta válida da mão.
+    requireRoundNotPaused(room);
     Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
   }));
   socket.on('playDoubleCard', payload => withRoom(socket,(room,p)=> {
+    requireRoundNotPaused(room);
     Engine.playDoubleCard(room,p.id,payload?.firstCardId,payload?.secondCardId,payload?.chosenSuit);
   }));
-  socket.on('burnMatch', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
-  socket.on('quickAction', payload => withRoom(socket,(room,p)=> Engine.quickAction(room,p.id,payload.cardId)));
+  socket.on('burnMatch', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,payload.cardId); }));
+  socket.on('quickAction', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.quickAction(room,p.id,payload.cardId); }));
   // Compatibilidade temporária com clientes V10/V9.
-  socket.on('burnPair', payload => withRoom(socket,(room,p)=> Engine.burnMatch(room,p.id,payload.cardId)));
-  socket.on('endBurn', () => withRoom(socket,(room,p)=> Engine.endBurnContinuation(room,p.id)));
-  socket.on('draw', () => withRoom(socket,(room,p)=> Engine.drawAction(room,p.id)));
+  socket.on('burnPair', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,payload.cardId); }));
+  socket.on('endBurn', () => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.endBurnContinuation(room,p.id); }));
+  socket.on('draw', () => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.drawAction(room,p.id); }));
   socket.on('passTurn', () => withRoom(socket,(room,p)=> {
+    requireRoundNotPaused(room);
     const oldPlayerId = p.id;
     Engine.passTurn(room,p.id);
     socket.emit('passConfirmed', {
@@ -482,6 +550,7 @@ io.on('connection', socket => {
   }));
   // Compatibilidade com clientes V10/V11.
   socket.on('passAfterDraw', () => withRoom(socket,(room,p)=> {
+    requireRoundNotPaused(room);
     const oldPlayerId = p.id;
     Engine.passAfterDraw(room,p.id);
     socket.emit('passConfirmed', {
@@ -608,35 +677,53 @@ io.on('connection', socket => {
     if(p && p.socketId === socket.id){
       p.connected=false;
       p.socketId=null;
+      p.disconnectedAt=Date.now();
 
-      // IMPORTANTE: não retiramos o papel de anfitrião imediatamente.
-      // Um simples F5 ou uma oscilação de internet derruba o socket por alguns
-      // segundos. Mantendo host=true durante a tolerância, o criador da sala
-      // recupera normalmente o botão "Iniciar" ao reconectar.
+      // Uma jogada automática que já estava agendada é cancelada: durante a janela
+      // de 60 s a mesa fica realmente congelada.
+      if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
+
+      // IMPORTANTE: não retiramos o papel de anfitrião imediatamente. Um F5, uma
+      // ligação ou a troca Wi-Fi/5G não podem destruir a vaga do jogador.
+      const matchActive=room.status==='playing' || (room.status==='between-rounds' && room.round>0);
+      if(matchActive){
+        p.autoControlled=false;
+        p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
+        Engine.appendLog(room, `🔴 ${p.name} perdeu a conexão. 60 segundos para retornar.`, 'system');
+        io.to(room.code).emit('reconnectionEvent',{kind:'lost',playerId:p.id,name:p.name,deadlineAt:p.reconnectDeadlineAt});
+        scheduleReconnectTakeover(room,p);
+        emitRoom(room);
+        return;
+      }
+
+      p.autoControlled=false;
+      p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
       emitRoom(room);
 
-      // Fora de uma rodada, removemos somente quem continuar desconectado após
-      // 20 s. Se era o anfitrião, outro conectado assume depois da remoção.
-      if (room.status === 'lobby' || room.status === 'between-rounds') {
-        setTimeout(() => {
-          const currentRoom = rooms.get(code);
-          if (!currentRoom || !['lobby','between-rounds'].includes(currentRoom.status)) return;
-          const stale = currentRoom.players.find(x => x.id === playerId);
-          if (!stale || stale.connected) return;
+      // Antes da primeira rodada a cadeira fica reservada por 60 s. Se o jogador
+      // não retornar, a vaga é removida porque ainda não existe partida a preservar.
+      const timer=setTimeout(() => {
+        reconnectTimers.delete(reconnectTimerKey(code,playerId));
+        const currentRoom = rooms.get(code);
+        if (!currentRoom || !['lobby','between-rounds'].includes(currentRoom.status)) return;
+        const stale = currentRoom.players.find(x => x.id === playerId);
+        if (!stale || stale.connected || stale.autoControlled) return;
 
-          const leavingName = stale.name;
-          currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
-          if (!currentRoom.players.length || currentRoom.players.every(p => p.isBot)) {
-            if (currentRoom.botTimer) clearTimeout(currentRoom.botTimer);
-            rooms.delete(code);
-            return;
-          }
+        const leavingName = stale.name;
+        currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
+        if (!currentRoom.players.length || currentRoom.players.every(p => p.isBot)) {
+          if (currentRoom.botTimer) clearTimeout(currentRoom.botTimer);
+          clearReconnectTimersForRoom(code);
+          rooms.delete(code);
+          return;
+        }
 
-          ensureHost(currentRoom);
-          Engine.appendLog(currentRoom, `${leavingName} foi removido após ficar desconectado.`, 'system');
-          emitRoom(currentRoom);
-        }, 20000);
-      }
+        ensureHost(currentRoom);
+        Engine.appendLog(currentRoom, `${leavingName} foi removido após 60 segundos desconectado.`, 'system');
+        emitRoom(currentRoom);
+      }, RECONNECT_GRACE_MS);
+      if(typeof timer.unref==='function') timer.unref();
+      reconnectTimers.set(reconnectTimerKey(code,playerId),timer);
     }
   });
 });
@@ -648,6 +735,7 @@ setInterval(()=>{
     const allHumansGone=!humans.length || humans.every(p=>!p.connected);
     if(allHumansGone && now-room.createdAt>6*60*60*1000) {
       if (room.botTimer) clearTimeout(room.botTimer);
+      clearReconnectTimersForRoom(code);
       rooms.delete(code);
     }
   }
