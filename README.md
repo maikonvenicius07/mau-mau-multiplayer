@@ -1,6 +1,6 @@
-# Mau-Mau Multiplayer — V40.2
+# Mau-Mau Candeias — V40.2
 
-Jogo Mau-Mau multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
 ## Recursos atuais
 

@@ -1,4 +1,4 @@
-# Regras consolidadas do Mau-Mau
+# Regras consolidadas do Mau-Mau Candeias
 
 Este arquivo reúne as regras efetivamente utilizadas pelo aplicativo.
 

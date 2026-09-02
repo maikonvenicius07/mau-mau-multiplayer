@@ -6,7 +6,7 @@ O jogo usa Google Identity Services no navegador e valida o ID token no servidor
 
 No Google Cloud / Google Auth Platform:
 
-1. Crie ou selecione o projeto do Mau-Mau.
+1. Crie ou selecione o projeto do Mau-Mau Candeias.
 2. Configure Branding/Audience conforme o público pretendido.
 3. Crie um cliente OAuth do tipo **Aplicativo da Web**.
 4. Em **Origens JavaScript autorizadas**, inclua a origem HTTPS do serviço Render, por exemplo:

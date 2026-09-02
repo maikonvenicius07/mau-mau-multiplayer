@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
   "version": "40.2.0",
-  "description": "Mau-Mau multiplayer V40.2: Busca Automática de Jogadores + V40.1 Jogadores Online/Convites, mantendo Reconexão Inteligente, SUA VEZ melhorado, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
+  "description": "Mau-Mau Candeias V40.2.1: identidade visual atualizada, Busca Automática de Jogadores, Jogadores Online/Convites, Reconexão Inteligente, SUA VEZ melhorado, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
