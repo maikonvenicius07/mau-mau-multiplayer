@@ -181,11 +181,15 @@ function studentHtml(a) {
 
     <div class="actions-row">
       ${ativo ? `
+        <button type="button" class="mini history-button" data-history-aluno="${a.id}">📚 Histórico</button>
         <button type="button" class="mini secondary" data-find-slot-aluno="${a.id}">🔎 Horário livre</button>
         <button type="button" class="mini plan" data-plan-aluno="${a.id}">📅 Montar agenda</button>
         <button type="button" class="mini edit" data-edit-aluno="${a.id}">✏️ Editar</button>
         <button type="button" class="mini delete" data-del-aluno="${a.id}">⏸️ Desativar</button>
-      ` : `<button type="button" class="mini plan" data-reactivate-aluno="${a.id}">▶️ Reativar aluno</button>`}
+      ` : `
+        <button type="button" class="mini history-button" data-history-aluno="${a.id}">📚 Histórico</button>
+        <button type="button" class="mini plan" data-reactivate-aluno="${a.id}">▶️ Reativar aluno</button>
+      `}
     </div>
   </article>`;
 }
@@ -548,6 +552,7 @@ function preencherSelects() {
 
 function bindDynamic() {
   $$('[data-edit-aluno]').forEach(b => b.onclick = () => editarAluno(Number(b.dataset.editAluno)));
+  $$('[data-history-aluno]').forEach(b => b.onclick = () => abrirHistoricoAluno(Number(b.dataset.historyAluno)));
   $$('[data-del-aluno]').forEach(b => b.onclick = () => pedirExcluirAluno(Number(b.dataset.delAluno)));
   $$('[data-reactivate-aluno]').forEach(b => b.onclick = () => reativarAluno(Number(b.dataset.reactivateAluno)));
   $$('[data-plan-aluno]').forEach(b => b.onclick = () => abrirPlano(Number(b.dataset.planAluno)));
@@ -602,7 +607,7 @@ async function health() {
   try {
     const h = await api('/api/health');
     const seguranca = h.security_ready ? ' · 🔒 acesso protegido' : ' · ⛔ proteção precisa ser configurada';
-    $('#db').textContent = `🟢 Banco conectado — AutoAgenda V${h.version || '2.1.0'}${seguranca}.`;
+    $('#db').textContent = `🟢 Banco conectado — AutoAgenda V${h.version || '2.2.0'}${seguranca}.`;
     $('#db').className = h.security_ready ? 'db ok' : 'db fail';
   } catch {
     $('#db').textContent = '🔴 Banco não conectado. Verifique DATABASE_URL no Render.';
@@ -718,6 +723,114 @@ $('#fAluno').onsubmit = async e => {
   }
 };
 
+
+
+// ========================= V2.2 — HISTÓRICO COMPLETO DO ALUNO =========================
+function historicoMetricHtml(rotulo, valor, detalhe = '') {
+  return `<div class="history-metric"><span>${esc(rotulo)}</span><b>${esc(valor)}</b>${detalhe ? `<small>${esc(detalhe)}</small>` : ''}</div>`;
+}
+
+function historicoPlanoHtml(p) {
+  const dias = (Array.isArray(p.dias_semana) ? p.dias_semana : [])
+    .map(d => nomesDias[Number(d)] || d).join(', ');
+  return `<div class="history-plan ${p.ativo ? '' : 'inactive'}">
+    <div>
+      <b>🔁 Plano #${p.id}</b>
+      <small>${esc(dias || 'Dia fixo')} às ${esc(hora(p.hora_inicio))} · início ${esc(fmtData(p.data_inicio))}</small>
+      <small>👨‍🏫 ${esc(p.instrutor_nome)} · 🚗 ${esc(p.veiculo_nome)} ${esc(p.veiculo_placa || '')} · 📍 ${esc(p.local_nome)}</small>
+      ${p.observacoes ? `<small>📝 ${esc(p.observacoes)}</small>` : ''}
+    </div>
+    <div class="history-plan-side">
+      <span class="resource-status ${p.ativo ? 'active' : 'inactive'}">${p.ativo ? 'Ativo' : 'Encerrado'}</span>
+      <small>${Number(p.aulas_geradas || 0)} aula(s) gerada(s)</small>
+    </div>
+  </div>`;
+}
+
+function historicoAulaHtml(a) {
+  const unidades = Number(a.aulas_unidades || 1);
+  const origem = a.reposicao_de_id
+    ? `<span class="plan-badge replacement-badge">↪️ Reposição da aula de ${esc(fmtData(a.reposicao_data_original))}${a.reposicao_hora_original ? ` às ${esc(hora(a.reposicao_hora_original))}` : ''}</span>`
+    : '';
+  const gerou = Number(a.reposicoes_geradas || 0) > 0
+    ? `<span class="plan-badge">↪️ ${Number(a.reposicoes_geradas)} reposição(ões) vinculada(s)</span>`
+    : '';
+  const plano = a.plan_id ? `<span class="plan-badge">🔁 Plano ${a.numero_plano || ''}${a.excecao_plano ? ' · alterada' : ''}</span>` : '';
+  const arquivada = a.arquivada ? `<span class="history-archived">🗃️ Arquivada</span>` : '';
+  return `<div class="history-event ${String(a.status || '').toLowerCase()} ${a.arquivada ? 'archived' : ''}">
+    <div class="history-date">
+      <b>${esc(fmtData(a.data_aula))}</b>
+      <strong>${esc(hora(a.hora_inicio))}</strong>
+    </div>
+    <div class="history-event-main">
+      <div class="history-event-title">
+        <b>${esc(statusLabel(a.status))}</b>
+        <span>${unidades} aula${unidades === 1 ? '' : 's'} · ${Number(a.duracao_minutos || 0)} min</span>
+      </div>
+      <small>👨‍🏫 ${esc(a.instrutor_nome)} · 🚗 ${esc(a.veiculo_nome)} ${esc(a.veiculo_placa || '')}</small>
+      <small>📍 ${esc(a.local_nome)}</small>
+      <div class="history-badges">${plano}${origem}${gerou}${arquivada}</div>
+      ${a.observacoes ? `<div class="history-note">📝 ${esc(a.observacoes).replace(/\n/g, '<br>')}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+async function abrirHistoricoAluno(id) {
+  $('#historicoTitulo').textContent = '📚 Histórico do aluno';
+  $('#historicoSubtitulo').textContent = 'Carregando informações...';
+  $('#historicoSituacao').textContent = '—';
+  $('#historicoResumo').innerHTML = '<div class="empty small-empty">Carregando resumo...</div>';
+  $('#historicoPlanos').innerHTML = '<div class="empty small-empty">Carregando planos...</div>';
+  $('#historicoAulas').innerHTML = '<div class="empty small-empty">Carregando aulas...</div>';
+  $('#historicoPlanosQtd').textContent = '0';
+  $('#historicoAulasQtd').textContent = '0';
+  $('#erroHistoricoAluno').classList.add('hide');
+  open('mHistoricoAluno');
+
+  try {
+    const h = await api(`/api/alunos/${id}/historico`);
+    const a = h.aluno || {};
+    const r = h.resumo || {};
+    const planosHistorico = Array.isArray(h.planos) ? h.planos : [];
+    const aulasHistorico = Array.isArray(h.aulas) ? h.aulas : [];
+
+    $('#historicoTitulo').textContent = `📚 Histórico — ${a.nome || 'Aluno'}`;
+    $('#historicoSubtitulo').textContent = `Categoria ${a.categoria || '—'} · CPF ${a.cpf_mascarado || 'não informado'} · ${a.whatsapp || 'sem WhatsApp'}`;
+    $('#historicoSituacao').textContent = a.ativo ? 'Ativo' : 'Inativo';
+    $('#historicoSituacao').className = `remaining-badge ${a.ativo ? '' : 'history-inactive-badge'}`;
+
+    $('#historicoResumo').innerHTML = [
+      historicoMetricHtml('Contratadas', Number(r.contratadas || 0)),
+      historicoMetricHtml('Realizadas', Number(r.realizadas || 0), Number(r.realizadas_anteriores || 0) ? `${Number(r.realizadas_anteriores)} anteriores ao AutoAgenda` : ''),
+      historicoMetricHtml('Aulas futuras', Number(r.futuras || 0)),
+      historicoMetricHtml('Saldo restante', Number(r.restantes || 0), 'contratadas menos realizadas'),
+      historicoMetricHtml('A programar', Number(r.a_programar || 0), 'descontando aulas futuras'),
+      historicoMetricHtml('Faltas', Number(r.faltas || 0)),
+      historicoMetricHtml('Cancelamentos', Number(r.cancelamentos || 0)),
+      historicoMetricHtml('Reposições', Number(r.reposicoes || 0)),
+      historicoMetricHtml('Planos', Number(r.planos_total || 0), `${Number(r.planos_ativos || 0)} ativo(s)`),
+      historicoMetricHtml('Primeira aula', r.primeira_aula ? fmtData(r.primeira_aula) : '—'),
+      historicoMetricHtml('Última no histórico', r.ultima_aula ? fmtData(r.ultima_aula) : '—'),
+      historicoMetricHtml('Última realizada', r.ultima_realizada ? fmtData(r.ultima_realizada) : '—')
+    ].join('');
+
+    $('#historicoPlanosQtd').textContent = String(planosHistorico.length);
+    $('#historicoPlanos').innerHTML = planosHistorico.length
+      ? planosHistorico.map(historicoPlanoHtml).join('')
+      : '<div class="empty small-empty">Nenhum plano registrado para este aluno.</div>';
+
+    $('#historicoAulasQtd').textContent = String(aulasHistorico.length);
+    $('#historicoAulas').innerHTML = aulasHistorico.length
+      ? aulasHistorico.map(historicoAulaHtml).join('')
+      : '<div class="empty small-empty">Nenhuma aula registrada para este aluno.</div>';
+  } catch (e) {
+    $('#erroHistoricoAluno').textContent = e.message || 'Erro ao carregar histórico.';
+    $('#erroHistoricoAluno').classList.remove('hide');
+    $('#historicoResumo').innerHTML = '';
+    $('#historicoPlanos').innerHTML = '';
+    $('#historicoAulas').innerHTML = '';
+  }
+}
 
 // ========================= V2.1 — ENCONTRAR HORÁRIO LIVRE / REAGENDAMENTO =========================
 function preencherBuscaHorario() {

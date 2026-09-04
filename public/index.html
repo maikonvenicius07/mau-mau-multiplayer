@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111111">
   <title>AutoAgenda</title>
-  <link rel="stylesheet" href="style.css?v=1.9.0">
+  <link rel="stylesheet" href="style.css?v=2.2.0">
 </head>
 <body>
 <header>
@@ -241,6 +241,41 @@
     <div id="erroAluno" class="erro hide"></div>
     <button id="salvarAluno">Salvar aluno</button>
   </form>
+</div>
+
+
+<!-- V2.2 — HISTÓRICO COMPLETO DO ALUNO -->
+<div id="mHistoricoAluno" class="modal hide">
+  <div class="box box-wide history-box">
+    <button type="button" class="x" data-close="mHistoricoAluno">✕</button>
+    <div class="history-heading">
+      <div>
+        <h2 id="historicoTitulo">📚 Histórico do aluno</h2>
+        <p id="historicoSubtitulo" class="modal-text">Carregando informações...</p>
+      </div>
+      <span id="historicoSituacao" class="remaining-badge">—</span>
+    </div>
+
+    <div id="historicoResumo" class="history-summary"></div>
+
+    <section class="history-section">
+      <div class="history-section-title">
+        <div><h3>🔁 Planos</h3><small>Planos ativos e encerrados vinculados ao aluno.</small></div>
+        <span id="historicoPlanosQtd" class="plan-badge">0</span>
+      </div>
+      <div id="historicoPlanos" class="history-plans"></div>
+    </section>
+
+    <section class="history-section">
+      <div class="history-section-title">
+        <div><h3>🗓️ Linha do tempo das aulas</h3><small>Ordem cronológica, das aulas mais recentes para as mais antigas.</small></div>
+        <span id="historicoAulasQtd" class="plan-badge">0</span>
+      </div>
+      <div id="historicoAulas" class="history-timeline"></div>
+    </section>
+
+    <div id="erroHistoricoAluno" class="erro hide"></div>
+  </div>
 </div>
 
 
@@ -493,6 +528,6 @@
 </div>
 
 <div id="toast" class="toast hide"></div>
-<script src="app.js?v=1.9.0"></script>
+<script src="app.js?v=2.2.0"></script>
 </body>
 </html>

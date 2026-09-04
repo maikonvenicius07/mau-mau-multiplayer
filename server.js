@@ -7,7 +7,7 @@ const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Porto_Velho';
 
 function hojeApp() {
@@ -1190,6 +1190,122 @@ app.get('/api/alunos/:id', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao consultar aluno.' });
+  }
+});
+
+
+// ========================= V2.2 — HISTÓRICO COMPLETO DO ALUNO =========================
+// Consulta somente leitura. Não altera o cálculo de saldo já utilizado pelo AutoAgenda.
+app.get('/api/alunos/:id/historico', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Aluno inválido.' });
+
+    const alunoQ = await query(`
+      SELECT id, nome, whatsapp, email, categoria, aulas_contratadas,
+             aulas_realizadas, aulas_realizadas_anteriores, observacoes,
+             ativo, criado_em, atualizado_em,
+             CASE WHEN LENGTH(COALESCE(cpf,'')) = 11
+                  THEN '***.***.***-' || RIGHT(cpf, 2)
+                  ELSE NULL END AS cpf_mascarado
+      FROM autoagenda.alunos
+      WHERE id = $1
+    `, [id]);
+    if (!alunoQ.rowCount) return res.status(404).json({ error: 'Aluno não encontrado.' });
+
+    const hoje = hojeApp();
+    const [metricasQ, aulasQ, planosQ] = await Promise.all([
+      query(`
+        SELECT
+          COALESCE(SUM(CASE
+            WHEN status='REALIZADA' AND arquivada=FALSE THEN aulas_unidades ELSE 0 END),0)::int AS realizadas_sistema,
+          COALESCE(SUM(CASE
+            WHEN data_aula >= $2::date
+             AND status IN ('AGENDADA','CONFIRMADA')
+             AND arquivada=FALSE THEN aulas_unidades ELSE 0 END),0)::int AS futuras_unidades,
+          COUNT(*) FILTER (WHERE status='FALTOU')::int AS faltas,
+          COUNT(*) FILTER (WHERE status='CANCELADA')::int AS cancelamentos,
+          COUNT(*) FILTER (WHERE reposicao_de_id IS NOT NULL)::int AS reposicoes,
+          COUNT(*)::int AS total_registros,
+          MIN(data_aula) AS primeira_aula,
+          MAX(data_aula) AS ultima_aula,
+          MAX(data_aula) FILTER (WHERE status='REALIZADA') AS ultima_realizada
+        FROM autoagenda.aulas
+        WHERE aluno_id=$1
+      `, [id, hoje]),
+      query(`
+        SELECT a.id, a.data_aula, a.hora_inicio, a.duracao_minutos,
+               a.status, a.observacoes, a.aulas_unidades,
+               a.plan_id, a.numero_plano, a.excecao_plano,
+               a.arquivada, a.arquivada_em, a.reposicao_de_id,
+               i.nome AS instrutor_nome,
+               v.nome AS veiculo_nome, v.placa AS veiculo_placa,
+               l.nome AS local_nome,
+               origem.data_aula AS reposicao_data_original,
+               origem.hora_inicio AS reposicao_hora_original,
+               COALESCE((
+                 SELECT COUNT(*) FROM autoagenda.aulas r
+                 WHERE r.reposicao_de_id=a.id
+               ),0)::int AS reposicoes_geradas
+        FROM autoagenda.aulas a
+        JOIN autoagenda.instrutores i ON i.id=a.instrutor_id
+        JOIN autoagenda.veiculos v ON v.id=a.veiculo_id
+        JOIN autoagenda.locais l ON l.id=a.local_id
+        LEFT JOIN autoagenda.aulas origem ON origem.id=a.reposicao_de_id
+        WHERE a.aluno_id=$1
+        ORDER BY a.data_aula DESC, a.hora_inicio DESC, a.id DESC
+      `, [id]),
+      query(`
+        SELECT p.id, p.data_inicio, p.hora_inicio, p.duracao_base_minutos,
+               p.aulas_por_encontro, p.total_aulas, p.dias_semana,
+               p.observacoes, p.ativo, p.criado_em, p.atualizado_em,
+               i.nome AS instrutor_nome,
+               v.nome AS veiculo_nome, v.placa AS veiculo_placa,
+               l.nome AS local_nome,
+               COALESCE((SELECT COUNT(*) FROM autoagenda.aulas a WHERE a.plan_id=p.id),0)::int AS encontros_gerados,
+               COALESCE((SELECT SUM(a.aulas_unidades) FROM autoagenda.aulas a WHERE a.plan_id=p.id),0)::int AS aulas_geradas
+        FROM autoagenda.planos_aula p
+        JOIN autoagenda.instrutores i ON i.id=p.instrutor_id
+        JOIN autoagenda.veiculos v ON v.id=p.veiculo_id
+        JOIN autoagenda.locais l ON l.id=p.local_id
+        WHERE p.aluno_id=$1
+        ORDER BY p.criado_em DESC, p.id DESC
+      `, [id])
+    ]);
+
+    const aluno = alunoQ.rows[0];
+    const m = metricasQ.rows[0] || {};
+    const contratadas = Number(aluno.aulas_contratadas || 0);
+    const anteriores = Number(aluno.aulas_realizadas_anteriores ?? aluno.aulas_realizadas ?? 0);
+    const realizadasSistema = Number(m.realizadas_sistema || 0);
+    const realizadas = Math.max(0, anteriores) + Math.max(0, realizadasSistema);
+    const futuras = Math.max(0, Number(m.futuras_unidades || 0));
+
+    // Mesma lógica já adotada nos cartões e na validação do saldo:
+    // "restantes" = contratado - realizado; "a_programar" desconta também as aulas futuras.
+    const resumo = {
+      contratadas,
+      realizadas_anteriores: anteriores,
+      realizadas_sistema: realizadasSistema,
+      realizadas,
+      futuras,
+      restantes: Math.max(0, contratadas - realizadas),
+      a_programar: Math.max(0, contratadas - realizadas - futuras),
+      faltas: Number(m.faltas || 0),
+      cancelamentos: Number(m.cancelamentos || 0),
+      reposicoes: Number(m.reposicoes || 0),
+      planos_total: planosQ.rowCount,
+      planos_ativos: planosQ.rows.filter(p => p.ativo).length,
+      total_registros: Number(m.total_registros || 0),
+      primeira_aula: m.primeira_aula || null,
+      ultima_aula: m.ultima_aula || null,
+      ultima_realizada: m.ultima_realizada || null
+    };
+
+    res.json({ aluno, resumo, planos: planosQ.rows, aulas: aulasQ.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao consultar histórico do aluno.' });
   }
 });
 
