@@ -15,6 +15,8 @@ let mostrarInativosConfig = false;
 let mostrarInativosAlunos = false;
 let confirmAction = null;
 let ultimoPreviewPlano = null;
+let aulaEdicaoAtual = null;
+let historicoWhatsAppPorAula = new Map();
 
 const iso = () => {
   const d = new Date(), o = d.getTimezoneOffset();
@@ -51,6 +53,55 @@ const cpfMascarado = v => {
   const d = soDigitos(v);
   return d.length === 11 ? `***.***.***-${d.slice(-2)}` : 'Não informado';
 };
+
+// ========================= V2.3 — WHATSAPP SIMPLES (wa.me) =========================
+function numeroWhatsApp(v) {
+  const d = soDigitos(v);
+  if (!d) return '';
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) return d;
+  if (d.length === 10 || d.length === 11) return `55${d}`;
+  return d;
+}
+
+function localizarAulaParaWhatsApp(id) {
+  const n = Number(id);
+  if (aulaEdicaoAtual && Number(aulaEdicaoAtual.id) === n) return aulaEdicaoAtual;
+  if (historicoWhatsAppPorAula.has(n)) return historicoWhatsAppPorAula.get(n);
+  return [...aulas, ...aulasHoje, ...aulasSemana].find(x => Number(x.id) === n) || null;
+}
+
+function localizarAlunoDaAula(aula) {
+  const alunoId = Number(aula?.aluno_id || 0);
+  return alunosTodos.find(x => Number(x.id) === alunoId)
+    || alunos.find(x => Number(x.id) === alunoId)
+    || null;
+}
+
+function mensagemWhatsAppAula(aula, aluno) {
+  const nome = aula?.aluno_nome || aluno?.nome || 'aluno';
+  const data = fmtData(aula?.data_aula);
+  const horario = hora(aula?.hora_inicio);
+  const instrutor = aula?.instrutor_nome || 'a definir';
+  const local = aula?.local_nome || 'a definir';
+  return `Olá, ${nome}! Seguem os dados da sua aula prática:
+
+📅 Data: ${data}
+🕐 Horário: ${horario}
+👨‍🏫 Instrutor: ${instrutor}
+📍 Local: ${local}
+
+Até lá!`;
+}
+
+function abrirWhatsAppAula(id) {
+  const aula = localizarAulaParaWhatsApp(id);
+  if (!aula) return toast('Não foi possível localizar esta aula para enviar o WhatsApp.');
+  const aluno = localizarAlunoDaAula(aula);
+  const telefone = numeroWhatsApp(aula.aluno_whatsapp || aluno?.whatsapp || '');
+  if (!telefone) return toast('Este aluno não possui WhatsApp cadastrado.');
+  const texto = mensagemWhatsAppAula(aula, aluno);
+  window.open(`https://wa.me/${telefone}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
+}
 const minHora = h => {
   const [hh, mm] = hora(h).split(':').map(Number);
   return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
@@ -208,6 +259,7 @@ function aulaHtml(x, comAcoes = false) {
     ? `<span class="plan-badge replacement-badge">↪️ Reposição${x.reposicao_data_original ? ` da aula de ${fmtData(x.reposicao_data_original)}` : ''}</span>`
     : '';
   const podeArquivar = comAcoes && !['REALIZADA','FALTOU'].includes(x.status);
+  const whatsapp = `<button type="button" class="mini secondary" data-whatsapp-aula="${x.id}">📲 WhatsApp</button>`;
 
   return `<div class="lesson ${String(x.status || '').toLowerCase()}">
     <div class="lesson-time">${hora(x.hora_inicio)}</div>
@@ -220,9 +272,10 @@ function aulaHtml(x, comAcoes = false) {
     </div>
     ${comAcoes ? `<div class="actions-row lesson-actions">
       ${reposicao}
+      ${whatsapp}
       <button type="button" class="mini edit" data-edit-aula="${x.id}">✏️ Alterar</button>
       ${podeArquivar ? `<button type="button" class="mini delete" data-del-aula="${x.id}">🗃️ Arquivar</button>` : ''}
-    </div>` : ''}
+    </div>` : `<div class="actions-row lesson-actions">${whatsapp}</div>`}
   </div>`;
 }
 
@@ -607,7 +660,7 @@ async function health() {
   try {
     const h = await api('/api/health');
     const seguranca = h.security_ready ? ' · 🔒 acesso protegido' : ' · ⛔ proteção precisa ser configurada';
-    $('#db').textContent = `🟢 Banco conectado — AutoAgenda V${h.version || '2.2.0'}${seguranca}.`;
+    $('#db').textContent = `🟢 Banco conectado — AutoAgenda V${h.version || '2.3.0'}${seguranca}.`;
     $('#db').className = h.security_ready ? 'db ok' : 'db fail';
   } catch {
     $('#db').textContent = '🔴 Banco não conectado. Verifique DATABASE_URL no Render.';
@@ -771,6 +824,7 @@ function historicoAulaHtml(a) {
       <small>📍 ${esc(a.local_nome)}</small>
       <div class="history-badges">${plano}${origem}${gerou}${arquivada}</div>
       ${a.observacoes ? `<div class="history-note">📝 ${esc(a.observacoes).replace(/\n/g, '<br>')}</div>` : ''}
+      <div class="actions-row"><button type="button" class="mini secondary" data-whatsapp-aula="${a.id}">📲 Enviar WhatsApp</button></div>
     </div>
   </div>`;
 }
@@ -793,6 +847,12 @@ async function abrirHistoricoAluno(id) {
     const r = h.resumo || {};
     const planosHistorico = Array.isArray(h.planos) ? h.planos : [];
     const aulasHistorico = Array.isArray(h.aulas) ? h.aulas : [];
+    historicoWhatsAppPorAula = new Map(aulasHistorico.map(x => [Number(x.id), {
+      ...x,
+      aluno_id: Number(a.id),
+      aluno_nome: a.nome,
+      aluno_whatsapp: a.whatsapp
+    }]));
 
     $('#historicoTitulo').textContent = `📚 Histórico — ${a.nome || 'Aluno'}`;
     $('#historicoSubtitulo').textContent = `Categoria ${a.categoria || '—'} · CPF ${a.cpf_mascarado || 'não informado'} · ${a.whatsapp || 'sem WhatsApp'}`;
@@ -935,6 +995,8 @@ function novaAula(prefill = null) {
     return;
   }
   $('#fAula').reset();
+  aulaEdicaoAtual = null;
+  $('#whatsappAula').classList.add('hide');
   $('#aulaId').value = '';
   $('#aulaPlanId').value = '';
   $('#aulaReposicaoDeId').value = prefill?.reposicao_de_id || '';
@@ -969,6 +1031,8 @@ async function editarAula(id) {
   try {
     const a = await api('/api/aulas/' + id);
     if (a.arquivada) return toast('Esta aula está arquivada.');
+    aulaEdicaoAtual = a;
+    $('#whatsappAula').classList.remove('hide');
     preencherSelects();
     $('#aulaId').value = a.id;
     $('#aulaPlanId').value = a.plan_id || '';
@@ -1035,6 +1099,17 @@ async function reporAula(id) {
 
 $('#novaAula').onclick = () => novaAula();
 $('#novaAulaAgenda').onclick = () => novaAula();
+$('#whatsappAula').onclick = () => {
+  const id = Number($('#aulaId').value || 0);
+  if (id) abrirWhatsAppAula(id);
+};
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-whatsapp-aula]');
+  if (!b) return;
+  abrirWhatsAppAula(Number(b.dataset.whatsappAula));
+});
+
 $('#fAula').onsubmit = async e => {
   e.preventDefault();
   $('#erroAula').classList.add('hide');
