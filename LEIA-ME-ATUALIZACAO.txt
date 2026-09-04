@@ -1,0 +1,20 @@
+AUTOAGENDA V2.1 — REAGENDAMENTO INTELIGENTE
+
+1. Faça backup/cópia da versão atual do repositório.
+2. Copie o conteúdo desta pasta para a raiz do repositório AutoAgenda, substituindo os arquivos existentes.
+3. Não altere DATABASE_URL, AUTOAGENDA_USER ou AUTOAGENDA_PASSWORD.
+4. Faça Commit changes no GitHub.
+5. Aguarde o Render concluir o deploy.
+6. Abra o AutoAgenda e pressione Ctrl + F5.
+7. Confirme no topo que a versão é 2.1.0.
+
+TESTE PRINCIPAL
+- Abra uma aula existente.
+- Altere o status para CANCELADA ou FALTOU.
+- O AutoAgenda deve oferecer procurar uma reposição.
+- Escolha um dos horários sugeridos.
+- Confirme a nova aula.
+- A aula original deve permanecer preservada e a nova deve aparecer como REPOSIÇÃO.
+
+IMPORTANTE
+A V2.1 não apaga nem substitui a aula original. Ela cria uma nova aula vinculada pelo campo reposicao_de_id.
