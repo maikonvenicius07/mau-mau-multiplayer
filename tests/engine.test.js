@@ -451,7 +451,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   c.hand=[card('5','hearts','race-c'),card('10','hearts','race-cfollow')];
   E.playCard(r,a.id,'race-a');
   assert(E.canQuickAction(r,b).length>0);
-  assert.equal(E.canBurnMatch(r,b).length,0,'fora da vez não existe Queima');
+  assert.equal(E.canBurnMatch(r,b).length,0,'fora da vez, após a abertura, não existe Queima');
   E.quickAction(r,b.id,'race-b');
   assert.equal(E.canBurnMatch(r,c).length,0);
   assert.throws(()=>E.burnMatch(r,c.id,'race-c'),/sua vez normal|Ação Rápida|queima/i);

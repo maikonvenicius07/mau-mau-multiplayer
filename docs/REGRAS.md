@@ -42,10 +42,12 @@ Quando uma jogada composta puder eliminar as duas últimas cartas por Queima + c
 
 Cartas especiais não podem iniciar Queima, nem ser usadas em Ação Rápida ou Carta Dupla. Elas podem ser usadas como continuação válida de uma Queima e, nesse caso, o efeito é aplicado normalmente.
 
-## 6. Queima — somente na própria vez
-A Queima com direito a continuação existe somente na própria vez normal do jogador.
+## 6. Queima — própria vez + exceção da abertura
+Na regra normal, a Queima com direito a continuação acontece na própria vez do jogador.
 
-Se a carta do topo for normal e o jogador tiver uma carta normal exatamente igual — mesmo valor e mesmo naipe — pode usar a Queima.
+**Exceção da abertura:** assim que a primeira carta normal da rodada é virada, qualquer jogador que tenha uma carta normal exatamente igual — mesmo valor e mesmo naipe — pode queimá-la, ainda que não seja sua vez. A primeira Queima válida assume a jogada e encerra essa janela de abertura.
+
+Depois da primeira ação normal, volta a valer a regra comum: a Queima com continuação fica restrita à própria vez, e a intervenção fora da vez é feita pela Ação Rápida.
 
 Depois da Queima:
 - pode jogar uma segunda carta válida ou passar a vez;

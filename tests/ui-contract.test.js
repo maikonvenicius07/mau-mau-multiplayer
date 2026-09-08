@@ -22,7 +22,8 @@ assert(engine.includes('function quickAction'),'motor precisa executar Ação R�
 assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regras visuais precisam explicar Ação Rápida');
 assert(html.includes('>VER REGRAS<'),'atalho de regras deve usar somente o texto VER REGRAS');
 assert(!html.includes('Ver regras desta versão'),'atalho de regras não deve exibir texto técnico de versão');
-assert(html.includes('Queima — somente na sua própria vez'),'regras visuais devem explicar que a Queima pertence à própria vez');
+assert(html.includes('Queima — própria vez + primeira carta da rodada'),'regras visuais devem explicar a Queima normal e a exceção da abertura');
+assert(html.includes('Exceção da abertura'),'regras visuais devem explicar que a primeira carta pode ser queimada fora da vez');
 assert(app.includes('burnMustDraw'),'cliente precisa distinguir quando a compra é obrigatória após a queima');
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
 assert(engine.includes('Depois da queima você já possui carta compatível'),'motor deve bloquear compra desnecessária após a queima');

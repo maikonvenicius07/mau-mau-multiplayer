@@ -2,6 +2,12 @@
 
 Este arquivo mantém somente os marcos relevantes do projeto. Os antigos arquivos separados `ATUALIZACAO_V*.txt` foram consolidados para evitar documentação repetida na raiz do repositório.
 
+## 40.3.0 — Queima da primeira carta
+- Corrige a abertura da rodada: a primeira carta normal virada pode ser queimada por qualquer jogador que tenha uma cópia exatamente igual, mesmo fora da vez.
+- A primeira Queima válida assume a jogada e usa a continuação normal da Queima.
+- A janela especial termina assim que ocorre a primeira ação normal da rodada.
+- Bots e jogadores humanos seguem a mesma regra da abertura.
+
 ## 40.2.0 — Buscar Jogadores
 - Matchmaking automático de 2 a 5 jogadores.
 - Com 1 jogador a fila aguarda; ao entrar o 2º começa uma janela de 15 s.

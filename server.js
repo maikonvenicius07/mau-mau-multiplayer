@@ -248,10 +248,13 @@ function scheduleBotTurn(room) {
   // A automação volta a andar assim que pelo menos uma pessoa reconectar.
   if (!room.players.some(p => !p.isBot && p.connected)) return;
 
-  // V36/V39.1: Queima com segunda carta só existe para quem já está na vez normal.
-  // Bots e vagas em AUTO fora da vez podem apenas fazer Ação Rápida.
+  // Normalmente a Queima pertence ao jogador da vez. Na abertura da rodada, porém,
+  // a Engine pode liberar a primeira carta para qualquer participante com cópia
+  // exatamente igual; por isso também procuramos uma máquina fora da vez.
   const turnBot = room.players[room.currentPlayer];
-  const burnBot = isAutomatedPlayer(turnBot) && !turnBot.finishedRound && Engine.canBurnMatch(room,turnBot).length > 0 ? turnBot : null;
+  const currentBurnBot = isAutomatedPlayer(turnBot) && !turnBot.finishedRound && Engine.canBurnMatch(room,turnBot).length > 0 ? turnBot : null;
+  const openingBurnBot = currentBurnBot ? null : room.players.find(p => isAutomatedPlayer(p) && !p.finishedRound && p.id !== turnBot?.id && Engine.canBurnMatch(room,p).length > 0);
+  const burnBot = currentBurnBot || openingBurnBot || null;
   const quickBot = room.players.find(p => isAutomatedPlayer(p) && !p.finishedRound && p.id !== turnBot?.id && Engine.canQuickAction(room,p).length > 0);
   const actingBot = burnBot || quickBot || (isAutomatedPlayer(turnBot) && !turnBot.finishedRound ? turnBot : null);
   if (!actingBot) return;
@@ -290,7 +293,7 @@ function scheduleBotTurn(room) {
       }
     }
     emitRoom(liveRoom);
-  }, burnBot ? 750 : quickBot ? 950 : 1250);
+  }, burnBot ? (room.openingReaction && burnBot.id !== turnBot?.id ? 1200 : 750) : quickBot ? 950 : 1250);
   if (typeof room.botTimer.unref === 'function') room.botTimer.unref();
 }
 

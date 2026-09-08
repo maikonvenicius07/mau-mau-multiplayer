@@ -1331,7 +1331,7 @@ function renderCenter(){
     else banner='🔥 Após a queima: jogue mais uma carta compatível ou passe a vez';
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
-  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL! Jogue a carta igual e decida se continua ou passa';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner=state.openingReaction?'🔥 QUEIMA DA ABERTURA! Você pode jogar a carta exatamente igual mesmo fora da vez':'🔥 QUEIMA DISPONÍVEL! Jogue a carta igual e decida se continua ou passa';
   else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner='⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
@@ -1363,7 +1363,7 @@ function renderHand(){
     if(canBurn) el.classList.add('burnable');
     if(canQuick) el.classList.add('quickable');
     if(ok)el.onclick=()=>play(card,false);
-    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title='QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
+    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title=state.openingReaction?'QUEIMAR A ABERTURA: jogue a carta exatamente igual e assuma a jogada':'QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
     if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);

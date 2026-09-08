@@ -1,10 +1,10 @@
 'use strict';
 
 // Jogador automático do Mau-Mau.
-// V18: entende a QUEIMA FLEXÍVEL — se outro jogador baixar uma carta exatamente
-// igual a uma carta da máquina, ela pode queimar mesmo sem possuir previamente
-// uma segunda carta compatível. Depois escolhe entre continuar ou passar; se não
-// houver continuação possível, compra uma carta e pode jogá-la ou guardá-la.
+// Entende a QUEIMA FLEXÍVEL na própria vez e a exceção da abertura: se a
+// primeira carta virada for exatamente igual a uma carta normal da máquina, ela
+// também pode queimar mesmo fora da vez. Depois escolhe entre continuar ou passar;
+// se não houver continuação possível, compra uma carta e pode jogá-la ou guardá-la.
 // Também entende CARTA DUPLA e AÇÃO RÁPIDA.
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -67,10 +67,10 @@ function playChosen(room, bot, Engine, card, drawn=false) {
   else Engine.playCard(room, bot.id, card.id, chosenSuit);
 }
 
-// V36: Queima com continuação só pode ser executada quando já é a vez normal do bot.
+// A própria Engine decide se a Queima está disponível: normalmente só na vez do
+// bot, com a exceção da primeira carta virada da rodada.
 function takeBurnOpportunity(room, bot, Engine) {
   if (!room || !bot || room.status !== 'playing') return {action:'none'};
-  if (room.players[room.currentPlayer]?.id !== bot.id) return {action:'none'};
   const burnable = Engine.canBurnMatch(room, bot);
   if (!burnable.length) return {action:'none'};
 
