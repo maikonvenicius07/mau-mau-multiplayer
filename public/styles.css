@@ -590,3 +590,12 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 @media(max-width:700px){.online-discovery{grid-template-columns:1fr}.online-count-card small{display:none}.matchmaking-modal,.online-players-modal{width:calc(100vw - 12px);max-height:calc(100svh - 12px);padding:16px 10px}.matchmaking-head,.online-dialog-head{display:block;padding-right:28px}.matchmaking-count,.online-dialog-count{display:inline-grid;margin-top:9px}.matchmaking-countdown{grid-template-columns:1fr;gap:3px}.online-player-row{grid-template-columns:42px minmax(0,1fr) auto;padding:8px}.online-invite-btn{min-width:78px;padding:8px!important}.invite-inbox{top:calc(62px + env(safe-area-inset-top));right:7px;width:calc(100vw - 14px)}}
 @media(max-width:390px){.online-status-legend{display:none}.online-player-row{grid-template-columns:36px minmax(0,1fr) auto;gap:7px}.online-player-avatar{width:34px;height:34px}.online-player-avatar .avatar-photo{width:32px;height:32px}.online-invite-btn{min-width:68px;font-size:8px!important;padding:7px!important}}
 @media(prefers-reduced-motion:reduce){.online-live-dot,.invite-card,.matchmaking-main.searching>span{animation:none!important}}
+
+/* V40.4 — Jogar de novo na mesma sala após partida entre pessoas */
+.replay-controls{display:flex;flex-direction:column;align-items:center;gap:7px;margin-top:10px}
+.replay-btn{background:linear-gradient(135deg,#d9a83f,#f2cf72)!important;color:#241a08!important;border:0!important;font-weight:950!important;box-shadow:0 8px 22px #0005}
+.replay-btn:disabled{opacity:.72!important;filter:none!important;cursor:default!important}
+.replay-info{font-size:10px;line-height:1.4;color:#a9bbb1;text-align:center;max-width:430px}
+.round-review-actions{flex-wrap:wrap;gap:9px;align-items:center}
+.round-review-actions .replay-info{flex-basis:100%}
+@media(max-width:520px){.round-review-actions{flex-direction:column}.round-review-actions button{width:100%;min-width:0}.replay-info{font-size:9px}}

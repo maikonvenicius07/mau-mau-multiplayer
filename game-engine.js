@@ -165,6 +165,10 @@ function createRoom(code, hostInfo) {
     finishedAt: null,
     rankingRecorded: false,
     rankingRecording: false,
+    // V40.4 — cada nova partida disputada na mesma sala recebe um serial próprio.
+    // Isso permite registrar o ranking da partida anterior mesmo se o grupo já iniciou outra.
+    matchSerial: 1,
+    replayReadyPlayerIds: [],
   };
 }
 
@@ -194,6 +198,54 @@ function reconnectPlayer(room, token, socketId) {
   p.disconnectedAt = null;
   p.reconnectDeadlineAt = null;
   return p;
+}
+
+function resetMatch(room) {
+  if (!room || room.status !== 'finished') throw new Error('A partida atual ainda não terminou.');
+
+  room.matchSerial = Number(room.matchSerial || 1) + 1;
+  room.status = 'lobby';
+  room.round = 0;
+  room.deck = [];
+  room.discard = [];
+  room.direction = -1;
+  room.currentPlayer = -1;
+  room.requestedSuit = null;
+  room.pendingSeven = 0;
+  room.winnerId = null;
+  room.lastWinnerCard = null;
+  room.continuationPlayerId = null;
+  room.lastPlayedById = null;
+  room.burnTopCardId = null;
+  room.reactionTopCardId = null;
+  room.reactionSourcePlayerId = null;
+  room.reactionNextPlayerId = null;
+  room.openingReaction = false;
+  room.finishPendingSeven = false;
+  room.lastPass = null;
+  room.roundRoles = null;
+  room.roundReview = null;
+  room.finishedAt = null;
+  room.rankingRecorded = false;
+  room.rankingRecording = false;
+  room.replayReadyPlayerIds = [];
+  room.log = [];
+
+  room.players.forEach(p => {
+    p.hand = [];
+    p.score = 0;
+    p.roundScore = 0;
+    p.roundHistory = [];
+    p.finishedRound = false;
+    p.declaration = null;
+    p.justDrawnCardId = null;
+    p.autoControlled = false;
+    p.disconnectedAt = null;
+    p.reconnectDeadlineAt = null;
+  });
+
+  log(room, '🔁 Nova partida iniciada na mesma sala. Placar zerado.', 'system');
+  return room;
 }
 
 function startRound(room) {
@@ -1084,6 +1136,10 @@ function quickAction(room, playerId, cardId) {
 function roomPublicState(room, viewerId) {
   const viewer = room.players.find(p => p.id === viewerId);
   const top = topCard(room);
+  const replayHumans = room.players.filter(p => !p.isBot);
+  const replayReady = new Set(Array.isArray(room.replayReadyPlayerIds) ? room.replayReadyPlayerIds : []);
+  const replayConnected = replayHumans.filter(p => p.connected);
+  const replayEligible = room.status === 'finished' && replayHumans.length >= 2 && room.players.every(p => !p.isBot);
   return {
     code: room.code,
     status: room.status,
@@ -1110,6 +1166,12 @@ function roomPublicState(room, viewerId) {
     roundRoles: room.roundRoles,
     // As cartas dos adversarios so sao reveladas quando a rodada terminou.
     roundReview: (room.status === 'between-rounds' || room.status === 'finished') ? room.roundReview : null,
+    replay: {
+      eligible: replayEligible,
+      readyCount: replayConnected.filter(p => replayReady.has(p.id)).length,
+      requiredCount: replayConnected.length,
+      meReady: !!(viewer && replayReady.has(viewer.id)),
+    },
     players: room.players.map(p => ({
       id:p.id,
       name:p.name,
@@ -1172,7 +1234,7 @@ function suitLabel(suit) {
 module.exports = {
   SUITS,RANKS,SPECIAL_RANKS,DEFAULT_RULES,
   createDeck,shuffle,cardPoints,isSpecial,sameCard,
-  createRoom,addPlayer,reconnectPlayer,startRound,
+  createRoom,addPlayer,reconnectPlayer,resetMatch,startRound,
   legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,canFinishBurn,quickAction,canQuickAction,
   drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
   roomPublicState,cardLabel,suitLabel,rankLabel,

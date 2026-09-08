@@ -136,6 +136,7 @@ A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome
 - Jogadores Online: mostra quem está conectado, o status atual e permite enviar convites.
 - Buscar Jogadores: fila automática para partidas de 2 a 5 pessoas. O cronômetro de 15 segundos começa quando o 2º jogador é encontrado; com 5, a partida inicia imediatamente; com 2, 3 ou 4, inicia ao fim da contagem.
 - Cancelar Busca remove imediatamente o jogador da fila. Aceitar um convite enquanto procura também encerra a busca antes de seguir o convite.
+- Jogar de Novo: ao concluir uma partida entre pessoas, cada jogador conectado pode confirmar que deseja continuar. Quando todos os humanos conectados confirmam e há pelo menos 2 participantes, uma nova partida de 5 rodadas começa automaticamente na mesma sala, com placar zerado.
 
 ## 15. Regras técnicas
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.

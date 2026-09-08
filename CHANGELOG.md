@@ -1,5 +1,12 @@
 # Changelog
 
+## V40.4.0 — Jogar de Novo
+- Ao terminar uma partida entre jogadores humanos, aparece **🔁 JOGAR DE NOVO**.
+- Cada jogador confirma individualmente que deseja continuar.
+- Quando todos os humanos conectados confirmam e há pelo menos 2 jogadores, uma nova partida de 5 rodadas começa automaticamente na mesma sala.
+- O placar e o histórico de rodadas são zerados para a nova partida, sem exigir novos convites.
+- A partida anterior continua sendo registrada separadamente no ranking, mesmo se a nova partida começar antes da gravação assíncrona terminar.
+
 Este arquivo mantém somente os marcos relevantes do projeto. Os antigos arquivos separados `ATUALIZACAO_V*.txt` foram consolidados para evitar documentação repetida na raiz do repositório.
 
 ## 40.3.0 — Queima da primeira carta

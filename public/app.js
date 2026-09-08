@@ -965,6 +965,7 @@ $('#rulesOpen').onclick=$('#rulesOpen2').onclick=()=>rules.showModal();
 $('#rulesClose').onclick=()=>rules.close();
 $('#roundReviewClose').onclick=closeRoundReview;
 $('#roundReviewDone').onclick=closeRoundReview;
+$('#roundReviewReplay').onclick=requestPlayAgain;
 $('#roundReviewDialog').addEventListener('click',e=>{
   if(e.target===$('#roundReviewDialog')) closeRoundReview();
 });
@@ -979,6 +980,37 @@ $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
   socket.emit('playCard',{cardId:pendingCard.id,chosenSuit:suit});
   pendingCard=null;pendingBurn=false;
 });
+
+function requestPlayAgain(){
+  if(!socket.connected)return toast('Sem conexão com o servidor.');
+  if(!state?.replay?.eligible)return toast('Jogar de novo está disponível após uma partida entre jogadores.');
+  socket.emit('playAgain');
+}
+function updateReplayControls(){
+  const replay=state?.replay||{};
+  const eligible=!!(state?.status==='finished'&&replay.eligible);
+  const btn=$('#roundReviewReplay');
+  const info=$('#roundReviewReplayInfo');
+  if(btn){
+    btn.classList.toggle('hidden',!eligible);
+    btn.disabled=!eligible||!!replay.meReady||Number(replay.requiredCount||0)<2;
+    btn.textContent=replay.meReady
+      ? `✅ CONFIRMADO • ${replay.readyCount||0}/${replay.requiredCount||0}`
+      : '🔁 JOGAR DE NOVO';
+  }
+  if(info){
+    info.classList.toggle('hidden',!eligible);
+    if(eligible){
+      const required=Number(replay.requiredCount||0);
+      const ready=Number(replay.readyCount||0);
+      info.textContent=required<2
+        ? 'Aguardando pelo menos mais 1 jogador conectado.'
+        : replay.meReady
+          ? `Aguardando os demais jogadores confirmarem (${ready}/${required}).`
+          : 'Continue na mesma sala com o mesmo grupo. A nova partida terá 5 rodadas e placar zerado.';
+    }
+  }
+}
 
 function closeRoundReview(){
   const dlg=$('#roundReviewDialog');
@@ -1022,6 +1054,7 @@ function openRoundReview(review=state?.roundReview){
       <div class="round-review-calc"><span>Cálculo:</span> ${calc}</div>
     </article>`;
   }).join('');
+  updateReplayControls();
   if(!dlg.open) dlg.showModal();
 }
 function maybeShowRoundReview(nextState){
@@ -1079,6 +1112,7 @@ socket.on('state',s=>{
     passPending=false;
   }
   render();
+  if($('#roundReviewDialog')?.open)updateReplayControls();
   syncMusicToState();
   maybeShowRoundReview(s);
   if(prev){
@@ -1455,6 +1489,23 @@ function renderControls(){
     reviewBtn.textContent='🔍 Conferir cartas e pontuação';
     reviewBtn.onclick=()=>openRoundReview(state.roundReview);
     box.appendChild(reviewBtn);
+  }
+
+  if(state.status==='finished'&&state.replay?.eligible){
+    const replayWrap=document.createElement('div');replayWrap.className='replay-controls';
+    const replayBtn=document.createElement('button');replayBtn.className='replay-btn';
+    replayBtn.disabled=!socket.connected||state.replay.meReady||Number(state.replay.requiredCount||0)<2;
+    replayBtn.textContent=state.replay.meReady
+      ? `✅ Confirmado • ${state.replay.readyCount||0}/${state.replay.requiredCount||0}`
+      : '🔁 JOGAR DE NOVO';
+    replayBtn.onclick=requestPlayAgain;
+    const replayInfo=document.createElement('div');replayInfo.className='replay-info';
+    replayInfo.textContent=Number(state.replay.requiredCount||0)<2
+      ? 'Aguardando pelo menos mais 1 jogador conectado.'
+      : state.replay.meReady
+        ? `Aguardando os demais jogadores (${state.replay.readyCount||0}/${state.replay.requiredCount||0}).`
+        : 'Nova partida na mesma sala, com placar zerado.';
+    replayWrap.append(replayBtn,replayInfo);box.appendChild(replayWrap);
   }
 
   if(canStart){

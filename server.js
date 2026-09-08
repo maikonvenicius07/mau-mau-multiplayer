@@ -174,14 +174,21 @@ function roomCode() {
 function maybeRecordFinished(room) {
   if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
   const record=buildMatchRecord(room);
+  const matchSerial=Number(room.matchSerial||1);
   if (!record.results.length) { room.rankingRecorded=true; return; }
   room.rankingRecording=true;
   rankingReady.then(ready=>{ if(!ready) throw new Error('Armazenamento do ranking indisponível.'); return rankingStore.recordMatch(record); }).then(inserted=>{
-    room.rankingRecorded=true;
-    if(inserted) Engine.appendLog(room, `🏆 Resultado registrado no ranking ${record.mode==='human'?'contra pessoas':'com máquina'}.`, 'system');
+    // O grupo pode ter iniciado outra partida na mesma sala antes do PostgreSQL
+    // concluir a gravação. Nesse caso, o snapshot antigo ainda é salvo, mas não
+    // altera as flags da partida nova.
+    if(Number(room.matchSerial||1)===matchSerial){
+      room.rankingRecorded=true;
+      room.rankingRecording=false;
+      if(inserted) Engine.appendLog(room, `🏆 Resultado registrado no ranking ${record.mode==='human'?'contra pessoas':'com máquina'}.`, 'system');
+    }
   }).catch(e=>{
     console.error('[ranking] gravação falhou:',e);
-    room.rankingRecording=false;
+    if(Number(room.matchSerial||1)===matchSerial) room.rankingRecording=false;
   });
 }
 
@@ -309,6 +316,27 @@ function ensureHost(room) {
   room.players.forEach(p => { p.host = false; });
   const nextHost = humans.find(p => p.connected) || humans[0];
   if (nextHost) nextHost.host = true;
+}
+
+function replayEligible(room) {
+  return !!(room && room.status==='finished' && room.players.filter(p=>!p.isBot).length>=2 && room.players.every(p=>!p.isBot));
+}
+
+function maybeStartReplay(room) {
+  if(!replayEligible(room)) return false;
+  const connectedHumans=room.players.filter(p=>!p.isBot&&p.connected);
+  if(connectedHumans.length<2) return false;
+  const ready=new Set(Array.isArray(room.replayReadyPlayerIds)?room.replayReadyPlayerIds:[]);
+  if(!connectedHumans.every(p=>ready.has(p.id))) return false;
+
+  // Quem já saiu/desconectou depois do fim da partida não bloqueia o grupo que
+  // confirmou continuar. A nova partida começa somente com humanos conectados.
+  room.players=room.players.filter(p=>p.isBot||p.connected);
+  ensureHost(room);
+  Engine.resetMatch(room);
+  Engine.startRound(room);
+  Engine.appendLog(room, '🎮 Todos confirmaram. A revanche começou!', 'system');
+  return true;
 }
 
 function nextBotInfo(room) {
@@ -979,7 +1007,9 @@ io.on('connection', socket => {
       cancelReconnectTimer(code,leaving.id);
       invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
       const wasPlaying = room.status === 'playing';
+      const wasFinished = room.status === 'finished';
       room.players.splice(idx, 1);
+      if(Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=room.replayReadyPlayerIds.filter(id=>id!==leaving.id);
 
       if (!room.players.length || room.players.every(p => p.isBot)) {
         if (room.botTimer) clearTimeout(room.botTimer);
@@ -996,6 +1026,7 @@ io.on('connection', socket => {
           room.status = 'lobby';
         }
         ensureHost(room);
+        if(wasFinished) maybeStartReplay(room);
         emitRoom(room);
       }
 
@@ -1006,6 +1037,18 @@ io.on('connection', socket => {
       broadcastPresence();
     } catch(e) { err(socket,e); }
   });
+
+  socket.on('playAgain', () => withRoom(socket,(room,p)=>{
+    if(!replayEligible(room)) throw new Error('Jogar de novo está disponível somente após uma partida entre jogadores humanos.');
+    if(p.isBot || !p.connected) throw new Error('Jogador não disponível para continuar.');
+    if(!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
+    if(!room.replayReadyPlayerIds.includes(p.id)){
+      room.replayReadyPlayerIds.push(p.id);
+      Engine.appendLog(room, `🔁 ${p.name} confirmou que quer jogar de novo.`, 'system');
+    }
+    maybeStartReplay(room);
+    broadcastPresence();
+  }));
 
   socket.on('startRound', () => withRoom(socket,(room,p)=>{
     if(room.status==='playing') throw new Error('A rodada já está em andamento.');

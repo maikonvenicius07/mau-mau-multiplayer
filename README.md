@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.3
+# Mau-Mau Candeias — V40.4
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -120,3 +120,6 @@ O histórico resumido das principais versões está em [`CHANGELOG.md`](CHANGELO
 
 ## Ajuste da abertura
 A primeira carta normal virada da rodada pode ser queimada por qualquer jogador que tenha uma cópia exatamente igual, mesmo fora da vez.
+
+## Jogar de novo
+Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE NOVO** e iniciar outra partida na mesma sala, com placar zerado.

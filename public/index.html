@@ -278,7 +278,9 @@
       <span>Se a batida for com J, a soma dos adversários é dobrada.</span>
     </div>
     <div class="round-review-actions">
+      <button id="roundReviewReplay" type="button" class="replay-btn hidden">🔁 JOGAR DE NOVO</button>
       <button id="roundReviewDone" type="button" class="primary">✅ Fechar conferência</button>
+      <div id="roundReviewReplayInfo" class="replay-info hidden"></div>
     </div>
   </dialog>
 
@@ -383,6 +385,7 @@
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
       <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
       <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. Todos podem receber convites. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>; recusar não altera a atividade atual. Se aceitar enquanto joga contra a máquina, essa partida é encerrada sem resultado. Se aceitar durante uma partida multiplayer já iniciada, a partida atual não é interrompida: a entrada na nova mesa fica aguardando o término, com reserva temporária da vaga quando possível.</p>
+      <p><strong>Jogar de Novo:</strong> ao terminar uma partida entre pessoas, cada jogador conectado pode confirmar <strong>JOGAR DE NOVO</strong>. Quando todos confirmam e há pelo menos 2 jogadores, começa automaticamente outra partida de 5 rodadas na mesma sala, com placar zerado. O resultado anterior permanece registrado separadamente no ranking.</p>
     </div>
 
     <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida por até 60 segundos e, depois, a Máquina assume temporariamente a vaga; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>

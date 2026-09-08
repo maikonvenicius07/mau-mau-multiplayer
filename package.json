@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.3.0",
-  "description": "Mau-Mau Candeias V40.3: corrige a Queima da primeira carta virada e preserva Busca Automática, Jogadores Online/Convites, Reconexão Inteligente, SUA VEZ, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
+  "version": "40.4.0",
+  "description": "Mau-Mau Candeias V40.4: adiciona Jogar de Novo na mesma sala após partidas entre pessoas, mantendo Queima da abertura, Busca Automática, Convites, Reconexão Inteligente, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
