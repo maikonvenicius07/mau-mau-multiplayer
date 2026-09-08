@@ -292,6 +292,7 @@ function audioCtx(){
 }
 
 const musicCatalog={
+  landingUser:{file:'/assets/music/tela_inicial_instrumental.mp3',label:'Tela inicial • Instrumental'},
   lobby:{file:'/assets/music/lobby_mesa_aberta.mp3',label:'Mesa Aberta'},
   gameA:{file:'/assets/music/mesa_de_mau_mau_a.mp3',label:'Mesa de Mau-Mau • A'},
   gameB:{file:'/assets/music/mesa_de_mau_mau_b.mp3',label:'Mesa de Mau-Mau • B'},
@@ -346,7 +347,7 @@ function preferredGameMusicKey(){
 }
 function desiredMusicKey(){
   if(!googleUser)return null;
-  if(!state)return 'lobby';
+  if(!state)return 'landingUser';
   if(state.status==='lobby')return 'lobby';
   if(state.status==='playing'){
     const atOne=(state.players||[]).some(p=>!p.finishedRound&&Number(p.cardCount)===1);
@@ -465,7 +466,7 @@ function updateMusicUI(){
 function preloadMusic(){
   if(!googleUser)return;
   // O carregamento começa em baixa prioridade depois do login; o navegador mantém os arquivos em cache.
-  const run=()=>Promise.allSettled(['lobby','gameA','gameB','rock','tension','review','roundWin','champion'].map(loadMusicBuffer));
+  const run=()=>Promise.allSettled(['landingUser','lobby','gameA','gameB','rock','tension','review','roundWin','champion'].map(loadMusicBuffer));
   if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:2500});else setTimeout(run,900);
 }
 

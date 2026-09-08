@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.6.0",
-  "description": "Mau-Mau Candeias V40.6: adiciona a trilha original Rock Candeias selecionável durante a partida, mantendo microfone ao vivo, Jogar de Novo, Queima da abertura, Busca Automática, Convites, Reconexão Inteligente, Áudio Rápido e ranking PostgreSQL.",
+  "version": "40.7.0",
+  "description": "Mau-Mau Candeias V40.7: adiciona música instrumental exclusiva na tela inicial a partir do áudio fornecido pelo usuário, mantendo Rock Candeias, microfone ao vivo, Jogar de Novo, Queima da abertura, Busca Automática, Convites, Reconexão Inteligente, Áudio Rápido e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

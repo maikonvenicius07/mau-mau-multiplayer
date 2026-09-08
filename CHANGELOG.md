@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.7.0 — Instrumental na tela inicial
+
+- Adicionada a faixa `tela_inicial_instrumental.mp3`, derivada do áudio enviado pelo usuário.
+- A voz foi reduzida por processamento de cancelamento vocal, priorizando a base instrumental.
+- A nova faixa toca **somente na tela inicial** (`state == null`).
+- O lobby de uma sala continua usando `Mesa Aberta`.
+- Durante a partida continuam disponíveis o modo Dinâmico e o **Rock Candeias**.
+
 ## V40.6.0 — Rock Candeias
 
 - Adicionada a faixa original **🎸 Rock Candeias** ao painel de música.

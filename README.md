@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.6
+# Mau-Mau Candeias — V40.7
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -125,6 +125,15 @@ A primeira carta normal virada da rodada pode ser queimada por qualquer jogador 
 ## Jogar de novo
 Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE NOVO** e iniciar outra partida na mesma sala, com placar zerado.
 
+
+
+## V40.7 — Música instrumental na tela inicial
+
+- A tela inicial passa a tocar **uma versão instrumental do áudio fornecido pelo usuário**.
+- A faixa é usada somente na tela inicial; ao entrar em uma sala, o jogo volta ao sistema musical normal.
+- Durante a partida permanecem disponíveis **Dinâmica** e **🎸 Rock Candeias**.
+- O volume continua sendo controlado pelo mesmo botão 🎵.
+- A voz foi reduzida por processamento de separação/cancelamento vocal; dependendo da mixagem original, podem permanecer pequenos resíduos de voz.
 
 ## V40.6 — Rock Candeias
 

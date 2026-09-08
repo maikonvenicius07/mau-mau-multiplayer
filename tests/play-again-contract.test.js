@@ -9,7 +9,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.equal(pkg.version,'40.6.0');
+assert.equal(pkg.version,'40.7.0');
 assert(server.includes("socket.on('playAgain'"),'evento playAgain ausente no servidor');
 assert(server.includes('maybeStartReplay(room)'),'servidor não tenta iniciar a revanche');
 assert(server.includes('matchSerial'),'proteção do registro de ranking entre partidas ausente');
