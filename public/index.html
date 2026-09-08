@@ -145,6 +145,8 @@
       <div class="scoreboard" id="scoreboard"></div>
       <div class="felt">
         <button id="pileSideBtn" class="pile-side-toggle" type="button" title="Trocar o lado do baralho e da carta da mesa" aria-label="Trocar o lado do baralho e da carta da mesa">⇄ Trocar lados</button>
+        <button id="liveMicBtn" class="live-mic-btn" type="button" title="Ligar microfone ao vivo para conversar com os jogadores da sala" aria-label="Ligar microfone ao vivo"><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
+        <div id="liveVoiceAudios" class="live-voice-audios" aria-hidden="true"></div>
         <div class="players-ring" id="playersRing"></div>
         <div class="center-zone">
           <div class="turn-banner" id="turnBanner">Aguardando jogadores...</div>
@@ -380,6 +382,7 @@
     <div class="rules-extras">
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
+      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. O áudio é transmitido diretamente entre os navegadores dos jogadores da sala por WebRTC e não é gravado nem salvo no PostgreSQL ou no ranking.</p>
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>

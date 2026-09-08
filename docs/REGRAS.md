@@ -131,6 +131,7 @@ A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome
 ## 14. Recursos da mesa
 - Chat em tempo real.
 - Áudio Rápido de até 15 segundos; os áudios são efêmeros, repassados à sala e não ficam no histórico do chat, PostgreSQL ou ranking.
+- Microfone ao vivo: o botão 🎙️ liga/desliga conversa de voz em tempo real entre jogadores humanos da mesma sala. O áudio usa WebRTC entre navegadores e não é gravado no PostgreSQL nem no ranking.
 - Música original com controle separado de ligar/desligar e volume.
 - Organização da mão por número ou naipe, sem alterar as regras.
 - Jogadores Online: mostra quem está conectado, o status atual e permite enviar convites.

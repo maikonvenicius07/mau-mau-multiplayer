@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.4
+# Mau-Mau Candeias — V40.5
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -11,6 +11,7 @@ Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, 
 - **Reconexão Inteligente**: 60 s para retornar; depois a Máquina assume temporariamente a mesma vaga e o jogador retoma o controle quando volta.
 - **SUA VEZ melhorado** com animação, iluminação, som e vibração opcional.
 - **Áudio Rápido** de até 15 segundos, temporário na sala e sem gravação no PostgreSQL.
+- **Microfone ao vivo (V40.5)** diretamente na mesa: conversa de voz em tempo real por WebRTC entre jogadores humanos, sem gravação no PostgreSQL.
 - **Música dinâmica original**, com volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
@@ -123,3 +124,7 @@ A primeira carta normal virada da rodada pode ser queimada por qualquer jogador 
 
 ## Jogar de novo
 Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE NOVO** e iniciar outra partida na mesma sala, com placar zerado.
+
+
+## V40.5 — Microfone ao vivo
+Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da sala. O áudio não é armazenado.

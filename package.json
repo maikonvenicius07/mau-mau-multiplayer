@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.4.0",
-  "description": "Mau-Mau Candeias V40.4: adiciona Jogar de Novo na mesma sala após partidas entre pessoas, mantendo Queima da abertura, Busca Automática, Convites, Reconexão Inteligente, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
+  "version": "40.5.0",
+  "description": "Mau-Mau Candeias V40.5: adiciona microfone ao vivo por WebRTC na mesa, mantendo Jogar de Novo, Queima da abertura, Busca Automática, Convites, Reconexão Inteligente, Áudio Rápido, música dinâmica e ranking PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

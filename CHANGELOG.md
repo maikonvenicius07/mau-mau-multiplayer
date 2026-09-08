@@ -1,5 +1,17 @@
 # Changelog
 
+
+## V40.5.0 — Microfone ao vivo na mesa
+
+- Adicionado botão **🎙️ LIGAR MICROFONE** na área superior da mesa, no ponto indicado pelo usuário.
+- Voz em tempo real entre jogadores humanos usando WebRTC; Socket.IO é usado apenas para sinalização.
+- Áudio não é gravado, não passa pelo PostgreSQL e não entra no ranking.
+- Botão alterna para **MICROFONE LIGADO** e exibe indicador verde enquanto transmite.
+- Jogadores com microfone ativo recebem um pequeno ícone 🎙️ junto ao nome.
+- Cancelamento automático do microfone ao sair da sala ou perder a conexão, preservando privacidade.
+- Mantido o Áudio Rápido de 15 s; quando o microfone ao vivo está ativo, a gravação rápida reutiliza uma cópia da faixa de áudio quando possível.
+- STUN público configurado para negociação P2P; redes muito restritivas podem exigir TURN em uma etapa futura.
+
 ## V40.4.0 — Jogar de Novo
 - Ao terminar uma partida entre jogadores humanos, aparece **🔁 JOGAR DE NOVO**.
 - Cada jogador confirma individualmente que deseja continuar.

@@ -752,6 +752,7 @@ function completeInvite(invite,message='Convite concluído.'){
 }
 function currentSocketRoom(socket){const room=rooms.get(socket.data.roomCode);if(!room)return null;const player=room.players.find(p=>p.id===socket.data.playerId);return player?{room,player}:null;}
 function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
+  clearLiveVoiceSender(socket);
   const code=socket.data.roomCode,playerId=socket.data.playerId,room=rooms.get(code);
   if(!room){socket.data.roomCode=null;socket.data.playerId=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
   const idx=room.players.findIndex(p=>p.id===playerId);
@@ -836,6 +837,51 @@ function emitPendingInvitesFor(socket){
   }
 }
 
+
+// ========================= V40.5 — MICROFONE AO VIVO / WEBRTC =========================
+// O áudio não passa pelo servidor: o Socket.IO transporta apenas a sinalização WebRTC.
+// Cada jogador que liga o microfone cria conexões de envio P2P para os demais humanos da sala.
+const liveVoiceSenders = new Map(); // socketId -> {roomCode, playerId, name}
+
+function currentHumanSocketInRoom(roomCode, socketId) {
+  const target = io.sockets.sockets.get(String(socketId || ''));
+  if (!target || target.data.roomCode !== roomCode) return null;
+  const room = rooms.get(roomCode);
+  if (!room) return null;
+  const player = room.players.find(p => p.id === target.data.playerId && !p.isBot && p.connected && p.socketId === target.id);
+  return player ? { socket: target, player } : null;
+}
+function liveVoicePeersFor(room, excludeSocketId) {
+  return room.players
+    .filter(p => !p.isBot && p.connected && p.socketId && p.socketId !== excludeSocketId)
+    .map(p => ({ socketId:p.socketId, playerId:p.id, name:p.name }));
+}
+function clearLiveVoiceSender(socket, {broadcast=true}={}) {
+  const rec = liveVoiceSenders.get(socket.id);
+  liveVoiceSenders.delete(socket.id);
+  socket.data.liveVoiceOn = false;
+  if (!rec || !broadcast) return;
+  const room = rooms.get(rec.roomCode);
+  if (!room) return;
+  io.to(rec.roomCode).emit('liveVoiceStatus', {playerId:rec.playerId, name:rec.name, on:false});
+  io.to(rec.roomCode).emit('liveVoiceSenderStopped', {socketId:socket.id, playerId:rec.playerId});
+}
+function notifyExistingLiveVoiceSendersAbout(socket) {
+  const current = currentSocketRoom(socket);
+  if (!current || current.player.isBot || !current.player.connected) return;
+  for (const [senderSocketId, rec] of liveVoiceSenders) {
+    if (senderSocketId === socket.id || rec.roomCode !== current.room.code) continue;
+    io.to(senderSocketId).emit('liveVoicePeerAvailable', {
+      socketId:socket.id,
+      playerId:current.player.id,
+      name:current.player.name,
+    });
+  }
+  socket.emit('liveVoiceStatusSnapshot', {
+    playerIds:[...liveVoiceSenders.values()].filter(x=>x.roomCode===current.room.code).map(x=>x.playerId),
+  });
+}
+
 io.use((socket,next)=>{
   const session=authFromCookieHeader(socket.handshake.headers.cookie);
   if(!session) return next(new Error('AUTH_REQUIRED'));
@@ -852,6 +898,63 @@ io.on('connection', socket => {
 
   socket.on('presenceProfile', payload => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
+  });
+
+
+  socket.on('liveVoiceReady', () => {
+    try { notifyExistingLiveVoiceSendersAbout(socket); } catch(e) { err(socket,e); }
+  });
+
+  socket.on('liveVoiceJoin', () => {
+    try {
+      const current = currentSocketRoom(socket);
+      if (!current) throw new Error('Sala não encontrada para o microfone.');
+      const {room,player} = current;
+      if (player.isBot || !player.connected || player.socketId !== socket.id) throw new Error('Jogador não disponível para usar o microfone.');
+      liveVoiceSenders.set(socket.id,{roomCode:room.code,playerId:player.id,name:player.name});
+      socket.data.liveVoiceOn=true;
+      socket.emit('liveVoicePeers',{peers:liveVoicePeersFor(room,socket.id)});
+      io.to(room.code).emit('liveVoiceStatus',{playerId:player.id,name:player.name,on:true});
+    } catch(e) { err(socket,e); }
+  });
+
+  socket.on('liveVoiceLeave', () => {
+    clearLiveVoiceSender(socket);
+  });
+
+  socket.on('liveVoiceSignal', payload => {
+    try {
+      const current=currentSocketRoom(socket);
+      if(!current) throw new Error('Sala não encontrada para a chamada de voz.');
+      const kind=String(payload?.kind||'');
+      if(!['offer','answer','candidate'].includes(kind)) throw new Error('Sinalização de voz inválida.');
+      const targetSocketId=String(payload?.targetSocketId||'').slice(0,120);
+      if(!targetSocketId || targetSocketId===socket.id) return;
+      const target=currentHumanSocketInRoom(current.room.code,targetSocketId);
+      if(!target) return;
+      const sessionId=String(payload?.sessionId||'').slice(0,120);
+      if(!sessionId) throw new Error('Sessão de voz inválida.');
+      let out={kind,sessionId};
+      if(kind==='offer'||kind==='answer'){
+        const sdp=payload?.sdp;
+        if(!sdp||!['offer','answer'].includes(String(sdp.type||''))) throw new Error('Descrição de voz inválida.');
+        const desc=String(sdp.sdp||'');
+        if(desc.length<20||desc.length>24000) throw new Error('Descrição de voz fora do limite.');
+        out.sdp={type:String(sdp.type),sdp:desc};
+      }else{
+        const candidate=payload?.candidate;
+        if(!candidate) return;
+        const serialized=JSON.stringify(candidate);
+        if(serialized.length>8000) throw new Error('Candidato de rede inválido.');
+        out.candidate=candidate;
+      }
+      target.socket.emit('liveVoiceSignal',{
+        ...out,
+        fromSocketId:socket.id,
+        fromPlayerId:current.player.id,
+        fromName:current.player.name,
+      });
+    }catch(e){ err(socket,e); }
   });
 
   socket.on('startMatchmaking', payload => {
@@ -984,6 +1087,7 @@ io.on('connection', socket => {
 
   socket.on('leaveRoom', () => {
     try {
+      clearLiveVoiceSender(socket);
       const code = socket.data.roomCode;
       const playerId = socket.data.playerId;
       const room = rooms.get(code);
@@ -1308,6 +1412,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
+    clearLiveVoiceSender(socket);
     const presenceKey=socket.data.auth?.playerKey;
     queueMicrotask(()=>{
       unregisterPresenceSocket(socket);

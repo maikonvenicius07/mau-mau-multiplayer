@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
+const pkg=require(path.join(root,'package.json'));
+
+assert.equal(pkg.version,'40.5.0');
+assert(html.includes('id="liveMicBtn"'),'botão de microfone ao vivo ausente da mesa');
+assert(html.includes('id="liveVoiceAudios"'),'área de áudio remoto ausente');
+assert(css.includes('.live-mic-btn'),'estilo do botão de microfone ausente');
+assert(css.includes('left:65%'),'botão não está posicionado na área superior indicada da mesa');
+assert(app.includes('new RTCPeerConnection(LIVE_VOICE_RTC_CONFIG)'),'cliente WebRTC ausente');
+assert(app.includes("navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}"),'captura de microfone com tratamento de voz ausente');
+assert(app.includes("stun:stun.l.google.com:19302"),'STUN não configurado');
+assert(app.includes("socket.emit('liveVoiceJoin')"),'entrada no microfone ao vivo ausente');
+assert(app.includes("socket.on('liveVoiceSignal',handleLiveVoiceSignal)"),'recepção de sinalização WebRTC ausente');
+assert(app.includes("socket.on('liveVoiceSenderStopped'"),'encerramento remoto do áudio ausente');
+assert(server.includes("socket.on('liveVoiceJoin'"),'servidor não registra microfone ao vivo');
+assert(server.includes("socket.on('liveVoiceSignal'"),'relay de sinalização WebRTC ausente');
+assert(server.includes("target.data.roomCode !== roomCode"),'sinalização não está restrita à mesma sala');
+assert(server.includes("clearLiveVoiceSender(socket)"),'limpeza de microfone ao sair/desconectar ausente');
+assert(!server.includes("socket.on('liveVoiceAudio'"),'áudio ao vivo não deve trafegar pelo servidor');
+console.log('✓ V40.5: microfone ao vivo WebRTC, botão na mesa e sinalização restrita à sala conferidos.');
