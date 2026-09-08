@@ -6,7 +6,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const js=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const musicDir=path.join(root,'public','assets','music');
-const tracks=['lobby_mesa_aberta.mp3','mesa_de_mau_mau_a.mp3','mesa_de_mau_mau_b.mp3','ultima_carta.mp3','conferencia_rodada.mp3','vitoria_rodada.mp3','campeao_partida.mp3'];
+const tracks=['lobby_mesa_aberta.mp3','mesa_de_mau_mau_a.mp3','mesa_de_mau_mau_b.mp3','rock_candeias.mp3','ultima_carta.mp3','conferencia_rodada.mp3','vitoria_rodada.mp3','campeao_partida.mp3'];
 for(const file of tracks){
   const p=path.join(musicDir,file);ok(fs.existsSync(p),`música ausente: ${file}`);ok(fs.statSync(p).size>20000,`música vazia/pequena: ${file}`);
 }
@@ -15,8 +15,12 @@ ok(html.includes('id="musicBtnLanding"'),'botão de música na tela inicial ause
 ok(html.indexOf('id="musicPanel"')<html.indexOf('id="authGate"'),'painel de música deve ser global para abrir fora da sala');
 ok(html.includes('id="musicPanel"'),'painel de música ausente');
 ok(html.includes('id="musicVolume"'),'controle de volume ausente');
+ok(html.includes('id="musicStyleRock"'),'opção Rock Candeias ausente');
+ok(html.includes('id="musicStyleDynamic"'),'opção de trilha dinâmica ausente');
 ok(js.includes('function desiredMusicKey()'),'motor de música adaptativa ausente');
-ok(js.includes("return atOne?'tension':preferredGameMusicKey()"),'tensão de última carta ausente');
+ok(js.includes("if(atOne)return 'tension'"),'tensão de última carta ausente');
+ok(js.includes("return musicStyle==='rock'?'rock':preferredGameMusicKey()"),'seleção Rock Candeias não integrada ao motor musical');
+ok(js.includes('maumauMusicStyleV1'),'persistência do estilo musical ausente');
 ok(js.includes("next.status==='between-rounds'"),'stinger de fim de rodada ausente');
 ok(js.includes("next.status==='finished'"),'stinger de campeão ausente');
 ok(js.includes('beginMusicSpeechDuck()'),'ducking de voz ausente');

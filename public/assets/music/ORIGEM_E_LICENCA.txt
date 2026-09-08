@@ -1,13 +1,15 @@
 MAU-MAU — TRILHAS ORIGINAIS DO PROJETO
 
-Estas faixas foram compostas e sintetizadas do zero especificamente para o projeto Mau-Mau em 31/08/2026.
+As faixas foram compostas e sintetizadas do zero especificamente para o projeto Mau-Mau Candeias.
+As trilhas originais iniciais foram criadas em 31/08/2026 e a faixa Rock Candeias foi criada em 08/09/2026.
 Nao utilizam samples, gravacoes, melodias ou arquivos de audio de terceiros.
-As referencias de jazz lounge, mesa de cartas e taverna foram usadas apenas como direcao geral de clima e instrumentacao.
+As referencias de jazz lounge, mesa de cartas, taverna e rock foram usadas apenas como direcao geral de clima e instrumentacao.
 
 Faixas:
 - lobby_mesa_aberta.mp3
 - mesa_de_mau_mau_a.mp3
 - mesa_de_mau_mau_b.mp3
+- rock_candeias.mp3
 - ultima_carta.mp3
 - conferencia_rodada.mp3
 - vitoria_rodada.mp3

@@ -15,10 +15,17 @@
     <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
       <div class="music-panel-head"><div><small>TRILHA ORIGINAL</small><strong>🎵 Música da mesa</strong></div><button id="musicClose" type="button" aria-label="Fechar">×</button></div>
       <button id="musicToggle" type="button" class="music-toggle active">🎵 Música ligada</button>
+      <div class="music-style-block">
+        <div class="music-style-label">ESTILO DURANTE A PARTIDA</div>
+        <div class="music-style-grid" role="group" aria-label="Escolha o estilo da música durante a partida">
+          <button id="musicStyleDynamic" type="button" class="music-style-btn active" aria-pressed="true"><span>🎼</span><strong>DINÂMICA</strong><small>Muda conforme o jogo</small></button>
+          <button id="musicStyleRock" type="button" class="music-style-btn" aria-pressed="false"><span>🎸</span><strong>ROCK CANDEIAS</strong><small>Rock original do jogo</small></button>
+        </div>
+      </div>
       <label class="music-volume-label" for="musicVolume"><span>Volume</span><b id="musicVolumeValue">18%</b></label>
       <input id="musicVolume" class="music-volume" type="range" min="0" max="45" step="1" value="18" aria-label="Volume da música" />
       <div id="musicNow" class="music-now">Aguardando a mesa</div>
-      <p>A música muda automaticamente entre lobby, partida, última carta e conferência. Efeitos e vozes continuam com controle separado em 🔊.</p>
+      <p>No modo Rock, <strong>Rock Candeias</strong> toca durante a partida. A trilha de última carta, conferência e vitórias continua dinâmica. Efeitos e vozes permanecem com controle separado em 🔊.</p>
     </div>
 
   <section id="authGate" class="screen auth-screen">

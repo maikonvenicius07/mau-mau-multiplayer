@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.6.0 — Rock Candeias
+
+- Adicionada a faixa original **🎸 Rock Candeias** ao painel de música.
+- Novo seletor de estilo: **Dinâmica** ou **Rock Candeias**.
+- A preferência musical fica salva no navegador.
+- No modo Rock, a faixa toca durante a partida normal; a trilha de última carta, conferência e stingers de vitória permanece dinâmica.
+- Arquivo `rock_candeias.mp3` sintetizado do zero, sem samples ou gravações de terceiros.
+
 
 ## V40.5.0 — Microfone ao vivo na mesa
 

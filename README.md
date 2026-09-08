@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.5
+# Mau-Mau Candeias — V40.6
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -12,7 +12,7 @@ Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, 
 - **SUA VEZ melhorado** com animação, iluminação, som e vibração opcional.
 - **Áudio Rápido** de até 15 segundos, temporário na sala e sem gravação no PostgreSQL.
 - **Microfone ao vivo (V40.5)** diretamente na mesa: conversa de voz em tempo real por WebRTC entre jogadores humanos, sem gravação no PostgreSQL.
-- **Música dinâmica original**, com volume independente e ducking durante falas/áudios.
+- **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
 - **Ranking PostgreSQL** por período e modalidade.
@@ -125,6 +125,13 @@ A primeira carta normal virada da rodada pode ser queimada por qualquer jogador 
 ## Jogar de novo
 Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE NOVO** e iniciar outra partida na mesma sala, com placar zerado.
 
+
+## V40.6 — Rock Candeias
+
+- Adiciona a faixa original **🎸 Rock Candeias** ao painel de música.
+- O jogador pode escolher entre **Dinâmica** e **Rock Candeias**; a preferência fica salva no navegador.
+- No modo Rock, a faixa toca durante a partida normal; momentos de última carta, conferência e stingers de vitória continuam usando a trilha dinâmica.
+- A faixa foi sintetizada do zero para o projeto, sem samples, gravações ou músicas de terceiros.
 
 ## V40.5 — Microfone ao vivo
 Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da sala. O áudio não é armazenado.

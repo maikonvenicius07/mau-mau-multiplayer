@@ -6,9 +6,10 @@ let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn
 const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
-const musicOnStorage='maumauMusicOnV1', musicVolumeStorage='maumauMusicVolumeV1';
+const musicOnStorage='maumauMusicOnV1', musicVolumeStorage='maumauMusicVolumeV1', musicStyleStorage='maumauMusicStyleV1';
 let musicOn=localStorage.getItem(musicOnStorage)!=='off';
 let musicVolume=Math.min(.45,Math.max(0,Number(localStorage.getItem(musicVolumeStorage)??.18)||.18));
+let musicStyle=localStorage.getItem(musicStyleStorage)==='rock'?'rock':'dynamic';
 let musicUnlocked=false;
 let chatMessages=[], unreadChat=0, activeSideTab='log';
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=700*1024;
@@ -294,6 +295,7 @@ const musicCatalog={
   lobby:{file:'/assets/music/lobby_mesa_aberta.mp3',label:'Mesa Aberta'},
   gameA:{file:'/assets/music/mesa_de_mau_mau_a.mp3',label:'Mesa de Mau-Mau • A'},
   gameB:{file:'/assets/music/mesa_de_mau_mau_b.mp3',label:'Mesa de Mau-Mau • B'},
+  rock:{file:'/assets/music/rock_candeias.mp3',label:'Rock Candeias 🎸'},
   tension:{file:'/assets/music/ultima_carta.mp3',label:'Última Carta'},
   review:{file:'/assets/music/conferencia_rodada.mp3',label:'Conferência da Rodada'},
   roundWin:{file:'/assets/music/vitoria_rodada.mp3',label:'Vitória da Rodada',stinger:true},
@@ -348,7 +350,8 @@ function desiredMusicKey(){
   if(state.status==='lobby')return 'lobby';
   if(state.status==='playing'){
     const atOne=(state.players||[]).some(p=>!p.finishedRound&&Number(p.cardCount)===1);
-    return atOne?'tension':preferredGameMusicKey();
+    if(atOne)return 'tension';
+    return musicStyle==='rock'?'rock':preferredGameMusicKey();
   }
   if(state.status==='between-rounds'||state.status==='finished')return 'review';
   return 'lobby';
@@ -435,12 +438,22 @@ function setMusicVolume(value){
   musicVolume=Math.min(.45,Math.max(0,Number(value)||0));
   localStorage.setItem(musicVolumeStorage,String(musicVolume));refreshMusicBusGains(false);updateMusicUI();
 }
+function setMusicStyle(style){
+  musicStyle=style==='rock'?'rock':'dynamic';
+  localStorage.setItem(musicStyleStorage,musicStyle);
+  updateMusicUI();
+  if(musicOn){unlockMusic();syncMusicToState();}
+  toast(musicStyle==='rock'?'🎸 Rock Candeias selecionado.':'🎼 Trilha dinâmica selecionada.');
+}
 function updateMusicUI(){
   const buttons=$$('.music-btn'),toggle=$('#musicToggle'),slider=$('#musicVolume'),value=$('#musicVolumeValue'),now=$('#musicNow');
+  const styleDynamic=$('#musicStyleDynamic'),styleRock=$('#musicStyleRock');
   for(const btn of buttons){btn.textContent='🎵';btn.classList.toggle('music-off',!musicOn);btn.title=musicOn?'Música da mesa':'Música desligada';btn.setAttribute('aria-label',musicOn?'Abrir configurações de música':'Abrir configurações de música — música desligada');}
   if(toggle){toggle.textContent=musicOn?'🎵 Música ligada':'🔇 Música desligada';toggle.classList.toggle('active',musicOn)}
   if(slider)slider.value=String(Math.round(musicVolume*100));
   if(value)value.textContent=`${Math.round(musicVolume*100)}%`;
+  if(styleDynamic){styleDynamic.classList.toggle('active',musicStyle==='dynamic');styleDynamic.setAttribute('aria-pressed',musicStyle==='dynamic'?'true':'false');}
+  if(styleRock){styleRock.classList.toggle('active',musicStyle==='rock');styleRock.setAttribute('aria-pressed',musicStyle==='rock'?'true':'false');}
   if(now){
     if(!musicOn) now.textContent='Música desativada';
     else if(!musicUnlocked) now.textContent='Toque na tela para iniciar';
@@ -452,7 +465,7 @@ function updateMusicUI(){
 function preloadMusic(){
   if(!googleUser)return;
   // O carregamento começa em baixa prioridade depois do login; o navegador mantém os arquivos em cache.
-  const run=()=>Promise.allSettled(['lobby','gameA','gameB','tension','review','roundWin','champion'].map(loadMusicBuffer));
+  const run=()=>Promise.allSettled(['lobby','gameA','gameB','rock','tension','review','roundWin','champion'].map(loadMusicBuffer));
   if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:2500});else setTimeout(run,900);
 }
 
@@ -901,6 +914,8 @@ function toggleMusicPanel(){
 $$('.music-btn').forEach(btn=>btn.onclick=toggleMusicPanel);
 $('#musicClose').onclick=()=>$('#musicPanel').classList.add('hidden');
 $('#musicToggle').onclick=()=>setMusicEnabled(!musicOn);
+$('#musicStyleDynamic').onclick=()=>setMusicStyle('dynamic');
+$('#musicStyleRock').onclick=()=>setMusicStyle('rock');
 $('#musicVolume').addEventListener('input',e=>setMusicVolume(Number(e.target.value)/100));
 document.addEventListener('pointerdown',()=>{audioCtx();unlockMusic()},{once:true});
 document.addEventListener('keydown',()=>{audioCtx();unlockMusic()},{once:true});
