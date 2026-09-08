@@ -26,7 +26,7 @@ const inviteCards=new Map();
 // V40.2 — estado da busca automática recebido do servidor.
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
 let matchmakingDialogDismissed=false;
-let rankingPeriod='day', rankingMode='human';
+let rankingPeriod='day', rankingMode='official';
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
@@ -665,17 +665,15 @@ function playSocialEffect(effect){
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 
-const rankPeriodLabel={day:'Hoje',month:'Mês',year:'Ano',all:'Geral'};
-const rankModeLabel={human:'Pessoas',bot:'Com máquina'};
-function rankMedal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':String(rank)}
-function pct(wins,games){return games?`${((wins/games)*100).toFixed(1).replace('.',',')}%`:'0%'}
-function scoreFmt(value){return Number(value||0).toFixed(1).replace('.',',')}
+const rankPeriodLabel={day:'Hoje',week:'Semana',month:'Mês',season:'Temporada',history:'Histórico'};
+const rankModeLabel={official:'Oficial',training:'Treino'};
+function rankMedal(rank){return rank===1?'👑':rank===2?'🥈':rank===3?'🥉':String(rank)}
 async function loadRanking(){
   const body=$('#rankingBody'), mine=$('#rankingMine');
   if(!body||!mine)return;
-  body.innerHTML='<tr><td colspan="7" class="ranking-empty">Carregando ranking...</td></tr>';
-  mine.innerHTML='<span class="ranking-loading">Consultando seu perfil...</span>';
-  $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]}`;
+  body.innerHTML='<tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr>';
+  mine.innerHTML='<span class="ranking-loading">Consultando suas vitórias...</span>';
+  $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]} • Temporada 1`;
   try{
     const [rankRes,profileRes]=await Promise.all([
       fetch(`/api/ranking?period=${encodeURIComponent(rankingPeriod)}&mode=${encodeURIComponent(rankingMode)}`),
@@ -683,19 +681,26 @@ async function loadRanking(){
     ]);
     const rank=await rankRes.json(), prof=await profileRes.json();
     if(!rank.ok) throw new Error(rank.message||'Ranking indisponível.');
+    const seasonName=rank.seasonName||'Temporada 1';
+    $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]} • ${seasonName}`;
+    if(rankingPeriod==='history'){
+      body.innerHTML='<tr><td colspan="3" class="ranking-empty">📚 O histórico começa agora. Ainda não existe temporada encerrada.</td></tr>';
+      mine.innerHTML='<div class="ranking-new-player">🏆 A Temporada 1 está em andamento. Quando ela for encerrada, seu resultado será guardado aqui.</div>';
+      return;
+    }
     if(!rank.rows?.length){
-      body.innerHTML='<tr><td colspan="7" class="ranking-empty">Ainda não há partidas concluídas neste ranking.</td></tr>';
+      body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há vitórias neste ranking.</td></tr>';
     }else{
-      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td data-label="Jogos">${r.games}</td><td data-label="Vitórias"><strong>${r.wins}</strong></td><td data-label="Aproveit.">${pct(r.wins,r.games)}</td><td data-label="Média">${scoreFmt(r.avgScore)}</td><td data-label="Melhor">${r.bestScore??'-'}</td></tr>`).join('');
+      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
-      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU DESEMPENHO</small><strong>${esc(r.name)}</strong><span>${r.wins} vitória(s) em ${r.games} partida(s) • ${pct(r.wins,r.games)} • média ${scoreFmt(r.avgScore)} pts</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua Conta Google</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
     }else{
-      mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui resultado neste período e modalidade.</div>';
+      mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui vitória neste período e modalidade.</div>';
     }
   }catch(e){
-    body.innerHTML=`<tr><td colspan="7" class="ranking-empty">${esc(e.message||'Não foi possível carregar o ranking.')}</td></tr>`;
+    body.innerHTML=`<tr><td colspan="3" class="ranking-empty">${esc(e.message||'Não foi possível carregar o ranking.')}</td></tr>`;
     mine.innerHTML='<div class="ranking-new-player">Tente novamente em alguns instantes.</div>';
   }
 }

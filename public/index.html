@@ -382,7 +382,8 @@
         <p>As máquinas seguem as mesmas regras dos jogadores humanos, inclusive Mau-Mau, cadeia de 7, Queima, Ação Rápida e Carta Dupla.</p>
 
         <h3>🏆 Ranking</h3>
-        <p>Partidas concluídas alimentam os rankings de <strong>Hoje, Mês, Ano e Geral</strong>. As partidas somente entre pessoas ficam separadas das partidas com máquina. A classificação considera primeiro o número de <strong>vitórias</strong> e, em caso de empate, a <strong>menor média de pontos</strong>.</p>
+        <p>O ranking do <strong>MAU-MAU CANDEIAS</strong> conta <strong>somente vitórias</strong>. O modo <strong>👥 OFICIAL</strong> registra apenas partidas entre pessoas; partidas com máquina ficam separadas em <strong>🤖 TREINO</strong>. Os filtros disponíveis são <strong>Hoje, Semana, Mês, Temporada e Histórico</strong>.</p>
+        <p>A identidade do ranking é a <strong>Conta Google</strong>: mudar o nome na mesa ou o avatar não cria outro jogador nem separa as vitórias. Empates em número de vitórias ocupam a mesma posição.</p>
       </article>
     </div>
 
@@ -408,30 +409,31 @@
       <div>
         <div class="eyebrow">CAMPEONATO MAU-MAU CANDEIAS</div>
         <h2>🏆 Ranking</h2>
-        <p>Mais vitórias primeiro; em empate, vence a menor média de pontos.</p>
+        <p>Classificação simples: <strong>somente vitórias</strong>. Empates dividem a mesma posição.</p>
       </div>
-      <div id="rankingScopeLabel" class="ranking-scope">Hoje • Pessoas</div>
+      <div id="rankingScopeLabel" class="ranking-scope">Hoje • Oficial • Temporada 1</div>
     </div>
-    <div class="ranking-filters">
-      <div class="rank-filter-group" aria-label="Período">
-        <button data-rank-period="day" class="active">Hoje</button>
-        <button data-rank-period="month">Mês</button>
-        <button data-rank-period="year">Ano</button>
-        <button data-rank-period="all">Geral</button>
+    <div class="ranking-filters ranking-filters-v408">
+      <div class="rank-filter-group rank-mode-group" aria-label="Modalidade do ranking">
+        <button data-rank-mode="official" class="active">👥 OFICIAL</button>
+        <button data-rank-mode="training">🤖 TREINO</button>
       </div>
-      <div class="rank-filter-group" aria-label="Tipo de partida">
-        <button data-rank-mode="human" class="active">👥 Pessoas</button>
-        <button data-rank-mode="bot">🤖 Com máquina</button>
+      <div class="rank-filter-group rank-period-group" aria-label="Período">
+        <button data-rank-period="day" class="active">HOJE</button>
+        <button data-rank-period="week">SEMANA</button>
+        <button data-rank-period="month">MÊS</button>
+        <button data-rank-period="season">TEMPORADA</button>
+        <button data-rank-period="history">HISTÓRICO</button>
       </div>
     </div>
     <div id="rankingMine" class="ranking-mine"></div>
     <div class="ranking-table-wrap">
-      <table class="ranking-table">
-        <thead><tr><th>#</th><th>Jogador</th><th>Jogos</th><th>Vitórias</th><th>Aproveit.</th><th>Média</th><th>Melhor</th></tr></thead>
-        <tbody id="rankingBody"><tr><td colspan="7" class="ranking-empty">Carregando ranking...</td></tr></tbody>
+      <table class="ranking-table ranking-table-wins">
+        <thead><tr><th>#</th><th>Jogador</th><th>Vitórias</th></tr></thead>
+        <tbody id="rankingBody"><tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr></tbody>
       </table>
     </div>
-    <div class="ranking-note">O perfil desta versão é identificado pela Conta Google autenticada. Alterar o nome na mesa ou o avatar não muda a identidade do jogador.</div>
+    <div class="ranking-note"><strong>Temporada 1.</strong> A Conta Google é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
   </dialog>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>

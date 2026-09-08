@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.7
+# Mau-Mau Candeias — V40.8
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -15,7 +15,7 @@ Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, 
 - **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
-- **Ranking PostgreSQL** por período e modalidade.
+- **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
 - Interface adaptada para computador e celular.
 
 As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
@@ -112,7 +112,7 @@ O projeto já inclui `render.yaml`. As instruções consolidadas de Login Google
 
 ## Música
 
-As sete trilhas em `public/assets/music/` foram criadas especificamente para o projeto. A declaração de origem está em `public/assets/music/ORIGEM_E_LICENCA.txt`.
+As trilhas do projeto ficam em `public/assets/music/`. As faixas originais possuem declaração de origem em `public/assets/music/ORIGEM_E_LICENCA.txt`; a música instrumental da tela inicial deriva do áudio fornecido pelo usuário.
 
 ## Histórico
 
@@ -126,6 +126,20 @@ A primeira carta normal virada da rodada pode ser queimada por qualquer jogador 
 Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE NOVO** e iniciar outra partida na mesma sala, com placar zerado.
 
 
+
+
+## V40.8 — Novo ranking por vitórias + Temporada 1
+
+- O ranking anterior é descartado **uma única vez** na primeira inicialização desta versão.
+- Começa a **Temporada 1** com todos os resultados zerados.
+- A classificação conta **somente vitórias**.
+- **👥 OFICIAL**: somente partidas entre jogadores humanos.
+- **🤖 TREINO**: partidas que contenham máquina.
+- Filtros: **Hoje, Semana, Mês, Temporada e Histórico**.
+- O **Histórico começa vazio** e será preenchido quando temporadas forem encerradas futuramente.
+- A identidade do ranking é o `playerKey` derivado da **Conta Google**. Trocar nome ou avatar não cria outro jogador e não separa vitórias.
+- Empates em vitórias ocupam a mesma posição.
+- Cada revanche do botão **JOGAR DE NOVO** usa `matchSerial` no `matchId`, garantindo que cada partida seja registrada separadamente.
 
 ## V40.7 — Música instrumental na tela inicial
 

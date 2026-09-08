@@ -628,3 +628,30 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   .live-mic-btn .live-mic-icon{font-size:18px}
   .live-mic-btn .live-mic-dot{width:7px;height:7px}
 }
+
+/* V40.8 — Ranking simples por vitórias: OFICIAL/TREINO + Hoje/Semana/Mês/Temporada/Histórico */
+.ranking-filters-v408{display:flex;flex-direction:column;align-items:stretch;gap:9px;margin:18px 0}
+.ranking-filters-v408 .rank-filter-group{margin:0}
+.ranking-filters-v408 .rank-mode-group{align-self:flex-start}
+.ranking-filters-v408 .rank-mode-group button{min-width:132px}
+.ranking-filters-v408 .rank-period-group{width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.ranking-filters-v408 .rank-period-group button{padding:9px 8px;white-space:nowrap}
+.ranking-table-wins{min-width:460px}
+.ranking-table-wins th:nth-child(3),.ranking-table-wins td:nth-child(3){text-align:center}
+.ranking-table-wins .rank-wins strong{font-size:18px;color:#ffe099}
+.ranking-table-wins .rank-pos{width:82px}
+.ranking-table-wins .rank-player{font-size:14px}
+@media(max-width:650px){
+  .ranking-filters-v408{display:flex}
+  .ranking-filters-v408 .rank-mode-group{width:100%;align-self:stretch}
+  .ranking-filters-v408 .rank-mode-group button{min-width:0;flex:1}
+  .ranking-filters-v408 .rank-period-group{display:flex;width:100%;overflow-x:auto}
+  .ranking-filters-v408 .rank-period-group button{flex:0 0 auto;min-width:90px}
+  .ranking-table-wins{min-width:0}
+  .ranking-table-wins tr{display:grid;grid-template-columns:52px minmax(0,1fr) 86px;align-items:center}
+  .ranking-table-wins td.rank-pos{grid-row:1;grid-column:1;min-height:52px}
+  .ranking-table-wins td:nth-child(2){grid-column:2;justify-content:flex-start!important}
+  .ranking-table-wins td:nth-child(3){grid-column:3;justify-content:center!important;font-size:14px}
+  .ranking-table-wins td:nth-child(3)::before{display:none}
+  .ranking-table-wins .rank-wins strong{font-size:20px}
+}

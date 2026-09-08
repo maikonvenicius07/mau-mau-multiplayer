@@ -1,5 +1,17 @@
 # Changelog
 
+## V40.8.0 — Novo Ranking + Temporada 1
+
+- Reset único do ranking antigo no primeiro deploy da V40.8, preservando as identidades Google dos jogadores.
+- Início da **Temporada 1** com resultados zerados.
+- Ranking simplificado para contar **somente vitórias**.
+- Modalidades separadas em **👥 OFICIAL** (somente humanos) e **🤖 TREINO** (partidas com máquina).
+- Novos filtros: **Hoje, Semana, Mês, Temporada e Histórico**.
+- Histórico começa vazio enquanto a primeira temporada estiver em andamento.
+- `playerKey` derivado da Conta Google é a chave única do jogador; mudança de nome/avatar apenas atualiza a apresentação.
+- Empates em número de vitórias recebem a mesma posição.
+- `matchId` passa a incluir `matchSerial`, evitando perda de registro de revanches na mesma sala.
+
 ## V40.7.0 — Instrumental na tela inicial
 
 - Adicionada a faixa `tela_inicial_instrumental.mp3`, derivada do áudio enviado pelo usuário.

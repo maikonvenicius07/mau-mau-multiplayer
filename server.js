@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
-const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode } = require('./ranking-store');
+const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 
 const app = express();
 const server = http.createServer(app);
@@ -140,7 +140,7 @@ app.get('/api/ranking', async (req,res)=>{
     const mode=normalizeMode(req.query.mode);
     if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
     const rows=await rankingStore.getLeaderboard({period,mode,limit:50});
-    res.json({ok:true,period,mode,timezone:'America/Porto_Velho',rows});
+    res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,timezone:'America/Porto_Velho',rows});
   } catch(e) {
     console.error('[ranking] consulta falhou:',e);
     res.status(500).json({ok:false,message:'Não foi possível carregar o ranking agora.'});
@@ -151,11 +151,11 @@ app.get('/api/profile', async (req,res)=>{
   try {
     const playerKey=String(req.query.playerKey||'').trim().slice(0,80);
     if(!playerKey) return res.status(400).json({ok:false,message:'Jogador não informado.'});
-    const period=normalizePeriod(req.query.period||'all');
+    const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
     if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
     const stats=await rankingStore.getPlayerStats({playerKey,period,mode});
-    res.json({ok:true,period,mode,stats});
+    res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,stats});
   } catch(e) {
     console.error('[ranking] perfil falhou:',e);
     res.status(500).json({ok:false,message:'Não foi possível carregar o perfil agora.'});
@@ -184,7 +184,7 @@ function maybeRecordFinished(room) {
     if(Number(room.matchSerial||1)===matchSerial){
       room.rankingRecorded=true;
       room.rankingRecording=false;
-      if(inserted) Engine.appendLog(room, `🏆 Resultado registrado no ranking ${record.mode==='human'?'contra pessoas':'com máquina'}.`, 'system');
+      if(inserted) Engine.appendLog(room, `🏆 Vitória registrada no ranking ${record.mode==='official'?'OFICIAL':'TREINO'}.`, 'system');
     }
   }).catch(e=>{
     console.error('[ranking] gravação falhou:',e);

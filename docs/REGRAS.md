@@ -143,3 +143,15 @@ A identidade do ranking é vinculada à Conta Google autenticada; alterar o nome
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.
 - Reconexão Inteligente: uma queda durante a rodada pausa a mesa por até 60 segundos; nos intervalos da partida, a cadeira também fica reservada pelo mesmo prazo. Se o jogador não voltar, a Máquina assume temporariamente a mesma mão, posição e pontuação. Ao reconectar, o jogador retoma automaticamente seu lugar.
 - O acesso ao jogo exige autenticação por Conta Google.
+
+
+## Ranking — Temporada 1
+
+O ranking conta **somente vitórias** de partidas completas. A identidade de cada jogador é o `playerKey` derivado da Conta Google autenticada; trocar nome ou avatar não cria outro registro.
+
+- **👥 OFICIAL:** partidas sem máquinas.
+- **🤖 TREINO:** partidas que contenham máquina.
+- Períodos: **Hoje, Semana, Mês, Temporada e Histórico**.
+- A Temporada 1 começa com o ranking zerado e o Histórico vazio.
+- Jogadores empatados em vitórias ocupam a mesma posição.
+- Cada revanche iniciada por **JOGAR DE NOVO** é uma nova partida e pode gerar uma nova vitória.

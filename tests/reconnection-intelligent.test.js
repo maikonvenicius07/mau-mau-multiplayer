@@ -24,7 +24,7 @@ assert.equal(pub.paused,false,'sala deve voltar a andar quando a vaga entra em A
 assert.equal(shown.autoControlled,true);
 assert.equal(shown.isBot,false,'vaga humana não pode virar bot para ranking/identidade');
 assert.equal(bruno.playerKey,'g_bruno');
-assert.equal(buildMatchRecord(room).mode,'human','AUTO temporário não pode transformar ranking em partida com máquina');
+assert.equal(buildMatchRecord(room).mode,'official','AUTO temporário não pode transformar ranking em partida com máquina');
 
 // O mesmo motor da Máquina consegue decidir a jogada da vaga humana em AUTO.
 room.currentPlayer=room.players.findIndex(p=>p.id===bruno.id);

@@ -12,5 +12,5 @@ ok(css.includes('@media(orientation:landscape)'), 'ajuste landscape ausente');
 ok(css.includes('.self-seat{display:none}'),'ocultação da própria cadeira no celular ausente');
 ok(css.includes('min-height:44px'),'alvos de toque mínimos ausentes');
 ok(app.includes('const mobile=window.innerWidth<=900'),'posicionamento mobile dos jogadores ausente');
-ok(app.includes('data-label="Jogos"'),'ranking mobile por cartões ausente');
+ok(app.includes('data-label="Vitórias"'),'ranking mobile por cartões ausente');
 console.log('✓ V38: layout mobile preservado e identificação atualizada.');
