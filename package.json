@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.10.0",
-  "description": "Mau-Mau Candeias V40.10: Queima com destaque visual reforçado, botão grande QUEIMAR, aviso na mão e foco automático, mantendo microfone flutuante, ranking por vitórias e demais recursos.",
+  "version": "40.11.0",
+  "description": "Mau-Mau Candeias V40.11: Carta Dupla com destaque visual reforçado, botão grande ×2 JOGAR DUPLA, aviso na mão e foco automático, mantendo Queima visual, microfone flutuante, ranking por vitórias e demais recursos.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

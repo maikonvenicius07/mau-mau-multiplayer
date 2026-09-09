@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.10
+# Mau-Mau Candeias — V40.11
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -173,3 +173,13 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - Ao surgir uma Queima em uma mão grande, a interface centraliza automaticamente a primeira carta queimável.
 - Na Queima da abertura, quando a Queima é a única ação disponível naquela carta, tocar na própria carta também executa a Queima.
 - A regra do jogo não foi alterada; a mudança é apenas de usabilidade e visibilidade.
+
+
+## V40.11 — Carta Dupla visual melhorada
+
+- Cartas com **Carta Dupla** disponível recebem destaque dourado reforçado.
+- O antigo botão pequeno `×2` foi substituído por **×2 JOGAR DUPLA**, com área de toque maior.
+- A mão mostra o aviso **CARTA DUPLA DISPONÍVEL** enquanto a ação puder ser utilizada.
+- Em mãos grandes, a primeira dupla disponível é centralizada automaticamente quando não há uma Queima com prioridade de foco.
+- Quando uma carta oferece Queima e Carta Dupla ao mesmo tempo, os dois botões ficam separados visualmente.
+- A regra da Carta Dupla não foi alterada: continua somente na própria vez e apenas com cartas normais idênticas.

@@ -713,3 +713,63 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 @media(prefers-reduced-motion:reduce){
   .playing-card.burnable,.burn-opportunity-notice{animation:none!important}
 }
+
+
+/* V40.11 — Carta Dupla mais visível e fácil de tocar */
+.double-opportunity-notice{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;margin:0 0 5px;padding:7px 10px;border-radius:11px;
+  border:1px solid #f4d45d;background:linear-gradient(90deg,#4c3d0b,#766014,#4c3d0b);
+  color:#fff7ce;font-size:10px;font-weight:950;letter-spacing:.035em;text-align:center;
+  box-shadow:0 0 0 1px #f5d85c30 inset,0 0 18px #e8c63d38;
+  animation:doubleNoticePulse 1.05s ease-in-out infinite alternate;
+}
+.playing-card.double-available{
+  filter:none!important;
+  outline:3px solid #f6d84f!important;
+  outline-offset:1px;
+  box-shadow:0 0 0 5px #f3d44a30,0 0 30px #e7be2f80,0 12px 25px #0009!important;
+  animation:doublePulseStrong .92s ease-in-out infinite alternate!important;
+  z-index:8;
+}
+.playing-card.double-available::before{
+  content:'';position:absolute;inset:3px;border:1px solid #fff0a1;border-radius:7px;
+  pointer-events:none;z-index:5;opacity:.72;
+}
+.double-action-label{
+  position:absolute!important;left:5px!important;right:5px!important;top:50%!important;
+  transform:translateY(-50%)!important;z-index:13!important;
+  min-width:0!important;width:auto!important;height:31px!important;padding:0 6px!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+  border:1px solid #fff0a2!important;border-radius:9px!important;
+  background:linear-gradient(180deg,#ffe477,#d9ad2d)!important;color:#251d02!important;
+  box-shadow:0 3px 10px #0007,0 0 0 2px #f4d34d35!important;
+  font-size:10px!important;font-weight:1000!important;line-height:1!important;
+  letter-spacing:.025em!important;text-shadow:none!important;cursor:pointer!important;
+}
+.double-action-label span{font-size:15px;line-height:1;font-weight:1000}
+.double-action-label strong{font-size:8.5px;line-height:1;white-space:nowrap}
+.double-action-label:hover,.double-action-label:focus-visible{filter:brightness(1.1);box-shadow:0 4px 13px #0008,0 0 0 3px #fff0a266!important}
+
+/* Quando a mesma carta oferece Queima e Carta Dupla, os dois botões ficam separados. */
+.playing-card.burn-and-double .burn-action-label{top:34%!important}
+.playing-card.burn-and-double .double-action-label{top:69%!important}
+
+@keyframes doublePulseStrong{from{transform:translateY(-4px) scale(1)}to{transform:translateY(-9px) scale(1.02)}}
+@keyframes doubleNoticePulse{from{filter:brightness(.98)}to{filter:brightness(1.1)}}
+
+@media(max-width:900px){
+  .double-opportunity-notice{padding:6px 8px;margin-bottom:4px;font-size:9px;line-height:1.15}
+  .double-action-label{left:3px!important;right:3px!important;height:34px!important;padding:0 3px!important;border-radius:8px!important}
+  .double-action-label span{font-size:16px}.double-action-label strong{font-size:7.7px}
+  .playing-card.double-available{outline-width:3px!important;box-shadow:0 0 0 4px #f3d44a35,0 0 24px #e7be2f78,0 9px 20px #0008!important}
+  .playing-card.burn-and-double .burn-action-label{top:31%!important}
+  .playing-card.burn-and-double .double-action-label{top:70%!important}
+}
+@media(orientation:landscape) and (max-height:620px) and (max-width:950px){
+  .double-opportunity-notice{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(560px,94vw);margin-bottom:38px;padding:5px 8px;font-size:8px;z-index:34}
+  .double-action-label{height:30px!important}.double-action-label span{font-size:14px}.double-action-label strong{font-size:7px}
+}
+@media(prefers-reduced-motion:reduce){
+  .playing-card.double-available,.double-opportunity-notice{animation:none!important}
+}

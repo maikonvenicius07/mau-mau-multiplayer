@@ -1,5 +1,15 @@
 # Changelog
 
+## V40.11.0 — Carta Dupla visual melhorada
+
+- Destaque dourado reforçado para cartas com Carta Dupla disponível.
+- Botão pequeno `×2` substituído por **×2 JOGAR DUPLA**, maior e mais fácil de tocar.
+- Aviso na mão quando existir Carta Dupla disponível.
+- Foco automático na primeira dupla disponível em mãos grandes, sem tirar a prioridade da Queima quando ambas aparecem.
+- Queima e Carta Dupla simultâneas ficam com botões separados na mesma carta.
+- Nenhuma regra da Carta Dupla foi alterada.
+
+
 ## V40.10.0 — Queima mais visível
 
 - Substitui o pequeno botão 🔥 por uma faixa/botão **🔥 QUEIMAR** maior sobre a carta queimável.

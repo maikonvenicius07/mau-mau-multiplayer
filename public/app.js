@@ -2,7 +2,7 @@ const socket = io({autoConnect:false});
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
-let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set(), lastBurnFocusKey='';
+let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set(), lastBurnFocusKey='', lastDoubleFocusKey='';
 const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
@@ -1474,7 +1474,7 @@ socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
   resetLiveVoice({notify:false});
-  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
+  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
@@ -1655,9 +1655,14 @@ function renderHand(){
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
       el.classList.add('double-available');
-      const d=document.createElement('button');d.className='double-btn';d.textContent='×2';
+      const d=document.createElement('button');
+      d.className='double-action-label';
+      d.innerHTML='<span aria-hidden="true">×2</span><strong>JOGAR DUPLA</strong>';
       d.title='CARTA DUPLA: jogar as duas cartas idênticas juntas';
-      d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};el.appendChild(d);
+      d.setAttribute('aria-label',d.title);
+      d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};
+      el.appendChild(d);
+      if(canBurn) el.classList.add('burn-and-double');
     }
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
@@ -1681,6 +1686,24 @@ function renderHand(){
       }
     }else{
       lastBurnFocusKey='';
+    }
+  }
+  const doubleIds=[...new Set((state.me.doublePairs||[]).flatMap(pair=>pair.cardIds||[]))];
+  const doubleNotice=$('#doubleOpportunityNotice');
+  if(doubleNotice){
+    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleIds.length>0;
+    doubleNotice.classList.toggle('hidden',!showDoubleNotice);
+    if(showDoubleNotice){
+      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — toque em ×2 JOGAR DUPLA na carta dourada';
+      const focusKey=`double:${doubleIds.slice().sort().join(',')}:${state.currentPlayerId||''}`;
+      // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
+      // O aviso e o botão da Carta Dupla continuam visíveis para escolha manual.
+      if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
+        lastDoubleFocusKey=focusKey;
+        setTimeout(()=>h.querySelector('.playing-card.double-available')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
+      }
+    }else{
+      lastDoubleFocusKey='';
     }
   }
   const myTurn=canAct();
