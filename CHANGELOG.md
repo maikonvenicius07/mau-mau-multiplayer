@@ -1,5 +1,15 @@
 # Changelog
 
+## V40.13.0 — Carta Dupla otimizada para celular
+
+- O botão **×2 JOGAR DUPLA** passa a existir em somente uma das duas cartas idênticas de cada par.
+- A segunda carta permanece identificada visualmente como integrante da dupla, sem botão repetido.
+- O botão foi deslocado para a parte superior da carta e ampliado no mobile para facilitar o toque.
+- A carta dona do botão ganha prioridade de `z-index` em mãos sobrepostas.
+- Quando a mesma carta também oferece Queima, o ×2 fica acima e o botão **QUEIMAR** abaixo.
+- Nenhuma regra do motor da Carta Dupla foi alterada.
+
+
 ## V40.12.0 — Liberdade de anúncio na batida
 
 - Corrige a regra das duas últimas cartas: o jogador pode escolher **Mau-Mau** simples ou **Mau-Mau batendo/queimando**.

@@ -1617,11 +1617,19 @@ function renderHand(){
   const h=$('#hand');h.innerHTML='';
   const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds),quick=new Set(state.me.quickActionCardIds||[]);
   const doublePairs=state.me.doublePairs||[];
-  // O botão ×2 aparece nas DUAS cópias da dupla, para o jogador não depender
-  // de qual delas o servidor listou primeiro.
-  const doubleByCard=new Map();
-  doublePairs.forEach(pair=>(pair.cardIds||[]).forEach(id=>doubleByCard.set(id,pair)));
   const visibleHand=[...state.me.hand].sort(compareHandCards);
+  // V40.13: em cada par de Carta Dupla, o botão ×2 aparece em apenas UMA das duas cartas.
+  // A escolhida é a primeira cópia na ordem visual atual da mão, para manter o botão previsível
+  // mesmo quando o jogador alterna a organização por número ou por naipe.
+  const doubleByCard=new Map();
+  const doubleButtonCardIds=new Set();
+  doublePairs.forEach(pair=>{
+    const ids=pair.cardIds||[];
+    ids.forEach(id=>doubleByCard.set(id,pair));
+    const pairSet=new Set(ids);
+    const owner=visibleHand.find(card=>pairSet.has(card.id));
+    if(owner) doubleButtonCardIds.add(owner.id);
+  });
   visibleHand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
     if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
@@ -1655,14 +1663,20 @@ function renderHand(){
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
       el.classList.add('double-available');
-      const d=document.createElement('button');
-      d.className='double-action-label';
-      d.innerHTML='<span aria-hidden="true">×2</span><strong>JOGAR DUPLA</strong>';
-      d.title='CARTA DUPLA: jogar as duas cartas idênticas juntas';
-      d.setAttribute('aria-label',d.title);
-      d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};
-      el.appendChild(d);
-      if(canBurn) el.classList.add('burn-and-double');
+      const ownsDoubleButton=doubleButtonCardIds.has(card.id);
+      if(ownsDoubleButton){
+        el.classList.add('double-button-owner');
+        const d=document.createElement('button');
+        d.className='double-action-label';
+        d.innerHTML='<span aria-hidden="true">×2</span><strong>JOGAR DUPLA</strong>';
+        d.title='CARTA DUPLA: jogar as duas cartas idênticas juntas';
+        d.setAttribute('aria-label',d.title);
+        d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};
+        el.appendChild(d);
+        if(canBurn) el.classList.add('burn-and-double');
+      }else{
+        el.classList.add('double-mate');
+      }
     }
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
@@ -1689,18 +1703,19 @@ function renderHand(){
     }
   }
   const doubleIds=[...new Set((state.me.doublePairs||[]).flatMap(pair=>pair.cardIds||[]))];
+  const doubleButtonIds=[...doubleButtonCardIds];
   const doubleNotice=$('#doubleOpportunityNotice');
   if(doubleNotice){
-    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleIds.length>0;
+    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleButtonIds.length>0;
     doubleNotice.classList.toggle('hidden',!showDoubleNotice);
     if(showDoubleNotice){
-      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — toque em ×2 JOGAR DUPLA na carta dourada';
+      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — use ×2 JOGAR DUPLA na carta dourada com o botão';
       const focusKey=`double:${doubleIds.slice().sort().join(',')}:${state.currentPlayerId||''}`;
       // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
-      // O aviso e o botão da Carta Dupla continuam visíveis para escolha manual.
+      // O botão ×2 fica em uma única cópia da dupla e essa carta recebe o foco quando necessário.
       if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
         lastDoubleFocusKey=focusKey;
-        setTimeout(()=>h.querySelector('.playing-card.double-available')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
+        setTimeout(()=>h.querySelector('.playing-card.double-button-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
       }
     }else{
       lastDoubleFocusKey='';

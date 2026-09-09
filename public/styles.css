@@ -737,7 +737,7 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   pointer-events:none;z-index:5;opacity:.72;
 }
 .double-action-label{
-  position:absolute!important;left:5px!important;right:5px!important;top:50%!important;
+  position:absolute!important;left:5px!important;right:5px!important;top:29%!important;
   transform:translateY(-50%)!important;z-index:13!important;
   min-width:0!important;width:auto!important;height:31px!important;padding:0 6px!important;
   display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;
@@ -750,25 +750,30 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .double-action-label span{font-size:15px;line-height:1;font-weight:1000}
 .double-action-label strong{font-size:8.5px;line-height:1;white-space:nowrap}
 .double-action-label:hover,.double-action-label:focus-visible{filter:brightness(1.1);box-shadow:0 4px 13px #0008,0 0 0 3px #fff0a266!important}
+.double-action-label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* A carta dona do botão fica acima das vizinhas sobrepostas; a segunda cópia continua marcada, mas sem botão. */
+.playing-card.double-button-owner{z-index:12!important}
+.playing-card.double-mate{animation:none!important;outline:2px solid #e6c74b!important;box-shadow:0 0 0 3px #e3c64824,0 6px 16px #0007!important;z-index:7}
 
-/* Quando a mesma carta oferece Queima e Carta Dupla, os dois botões ficam separados. */
-.playing-card.burn-and-double .burn-action-label{top:34%!important}
-.playing-card.burn-and-double .double-action-label{top:69%!important}
+/* Quando a mesma carta oferece Queima e Carta Dupla, o ×2 fica no alto e a Queima mais abaixo. */
+.playing-card.burn-and-double .double-action-label{top:24%!important}
+.playing-card.burn-and-double .burn-action-label{top:68%!important}
 
 @keyframes doublePulseStrong{from{transform:translateY(-4px) scale(1)}to{transform:translateY(-9px) scale(1.02)}}
 @keyframes doubleNoticePulse{from{filter:brightness(.98)}to{filter:brightness(1.1)}}
 
 @media(max-width:900px){
   .double-opportunity-notice{padding:6px 8px;margin-bottom:4px;font-size:9px;line-height:1.15}
-  .double-action-label{left:3px!important;right:3px!important;height:34px!important;padding:0 3px!important;border-radius:8px!important}
-  .double-action-label span{font-size:16px}.double-action-label strong{font-size:7.7px}
+  .double-action-label{left:2px!important;right:2px!important;top:24%!important;height:38px!important;padding:0 3px!important;border-radius:9px!important}
+  .double-action-label span{font-size:18px}.double-action-label strong{font-size:8px}
   .playing-card.double-available{outline-width:3px!important;box-shadow:0 0 0 4px #f3d44a35,0 0 24px #e7be2f78,0 9px 20px #0008!important}
-  .playing-card.burn-and-double .burn-action-label{top:31%!important}
-  .playing-card.burn-and-double .double-action-label{top:70%!important}
+  .playing-card.double-mate{outline-width:2px!important;box-shadow:0 0 0 2px #e3c64822,0 6px 15px #0007!important}
+  .playing-card.burn-and-double .double-action-label{top:22%!important}
+  .playing-card.burn-and-double .burn-action-label{top:70%!important}
 }
 @media(orientation:landscape) and (max-height:620px) and (max-width:950px){
   .double-opportunity-notice{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(560px,94vw);margin-bottom:38px;padding:5px 8px;font-size:8px;z-index:34}
-  .double-action-label{height:30px!important}.double-action-label span{font-size:14px}.double-action-label strong{font-size:7px}
+  .double-action-label{top:22%!important;height:34px!important}.double-action-label span{font-size:16px}.double-action-label strong{font-size:7.4px}
 }
 @media(prefers-reduced-motion:reduce){
   .playing-card.double-available,.double-opportunity-notice{animation:none!important}

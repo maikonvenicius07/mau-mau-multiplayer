@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.12.0",
-  "description": "Mau-Mau Candeias V40.12: liberdade de anúncio nas duas últimas cartas — Mau-Mau simples ou Mau-Mau batendo/queimando podem concluir por Queima + continuação ou Carta Dupla.",
+  "version": "40.13.0",
+  "description": "Mau-Mau Candeias V40.13: Carta Dupla otimizada para celular — um único botão ×2 por par, posicionado mais acima e com área de toque ampliada.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

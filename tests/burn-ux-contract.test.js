@@ -7,7 +7,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.12.0');
+assert.equal(pkg.version,'40.13.0');
 assert(html.includes('id="burnOpportunityNotice"'),'aviso de Queima junto à mão ausente');
 assert(app.includes("b.className='burn-action-label'"),'botão grande QUEIMAR não foi criado');
 assert(app.includes('<strong>QUEIMAR</strong>'),'texto QUEIMAR ausente');
