@@ -2,7 +2,7 @@ const socket = io({autoConnect:false});
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
-let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set();
+let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn=localStorage.getItem('maumauSound')!=='off', previousHandIds=new Set(), lastBurnFocusKey='';
 const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
@@ -1474,7 +1474,7 @@ socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
   resetLiveVoice({notify:false});
-  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
+  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
@@ -1631,8 +1631,25 @@ function renderHand(){
     el.classList.add(ok?'playable':'disabled');
     if(canBurn) el.classList.add('burnable');
     if(canQuick) el.classList.add('quickable');
-    if(ok)el.onclick=()=>play(card,false);
-    if(canBurn){const b=document.createElement('button');b.className='burn-btn';b.textContent='🔥';b.title=state.openingReaction?'QUEIMAR A ABERTURA: jogue a carta exatamente igual e assuma a jogada':'QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';b.onclick=e=>{e.stopPropagation();play(card,true)};el.appendChild(b)}
+    el.dataset.cardId=card.id;
+    // Na abertura, quando a Queima é a única jogada disponível para esta carta,
+    // tocar na própria carta também executa a Queima. Na vez normal, o toque na
+    // carta continua sendo a jogada comum e o botão laranja escolhe a Queima.
+    if(canBurn&&!ok&&!canQuick){
+      el.classList.add('burn-direct');
+      el.onclick=()=>play(card,true);
+    }else if(ok){
+      el.onclick=()=>play(card,false);
+    }
+    if(canBurn){
+      const b=document.createElement('button');
+      b.className='burn-action-label';
+      b.innerHTML='<span aria-hidden="true">🔥</span><strong>QUEIMAR</strong>';
+      b.title=state.openingReaction?'QUEIMA DA ABERTURA: jogue a carta exatamente igual e assuma a jogada':'QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';
+      b.setAttribute('aria-label',b.title);
+      b.onclick=e=>{e.stopPropagation();play(card,true)};
+      el.appendChild(b);
+    }
     if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
@@ -1645,8 +1662,28 @@ function renderHand(){
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
   });
+  const burnIds=state.me.burnableCardIds||[];
+  const burnOpportunity=burnIds.length>0;
+  const burnNotice=$('#burnOpportunityNotice');
+  if(burnNotice){
+    const showBurnNotice=state.status==='playing'&&!state.paused&&burnOpportunity;
+    burnNotice.classList.toggle('hidden',!showBurnNotice);
+    if(showBurnNotice){
+      burnNotice.textContent=state.openingReaction
+        ? '🔥 QUEIMA DA ABERTURA — toque na carta laranja ou em QUEIMAR'
+        : ((state.me.quickActionCardIds||[]).length
+          ? '🔥 QUEIMA DISPONÍVEL — use o botão QUEIMAR na carta laranja'
+          : '🔥 QUEIMA DISPONÍVEL — toque em QUEIMAR na carta destacada');
+      const focusKey=`${state.openingReaction?'opening':'turn'}:${[...burnIds].sort().join(',')}:${state.currentPlayerId||''}`;
+      if(focusKey!==lastBurnFocusKey){
+        lastBurnFocusKey=focusKey;
+        setTimeout(()=>h.querySelector('.playing-card.burnable')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),40);
+      }
+    }else{
+      lastBurnFocusKey='';
+    }
+  }
   const myTurn=canAct();
-  const burnOpportunity=(state.me.burnableCardIds||[]).length>0;
   const quickOpportunity=(state.me.quickActionCardIds||[]).length>0;
   const doubleOpportunity=(state.me.doublePairs||[]).length>0;
   // Mau-Mau pode ser anunciado fora da vez quando uma reação válida deixará 1 carta.

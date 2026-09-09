@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.9.0",
-  "description": "Mau-Mau Candeias V40.9: botão de microfone ao vivo flutuante e reposicionável, mantendo o novo ranking por vitórias, música, Jogar de Novo, Queima da abertura, matchmaking, convites e reconexão.",
+  "version": "40.10.0",
+  "description": "Mau-Mau Candeias V40.10: Queima com destaque visual reforçado, botão grande QUEIMAR, aviso na mão e foco automático, mantendo microfone flutuante, ranking por vitórias e demais recursos.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

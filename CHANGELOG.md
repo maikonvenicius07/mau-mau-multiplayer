@@ -1,5 +1,14 @@
 # Changelog
 
+## V40.10.0 — Queima mais visível
+
+- Substitui o pequeno botão 🔥 por uma faixa/botão **🔥 QUEIMAR** maior sobre a carta queimável.
+- Reforça a borda e o brilho laranja das cartas com Queima disponível.
+- Adiciona aviso **QUEIMA DISPONÍVEL** junto à mão.
+- Centraliza automaticamente a primeira carta queimável quando a oportunidade aparece, especialmente útil em mãos grandes.
+- Na exceção da abertura, tocar diretamente na carta destacada também pode executar a Queima quando não há outra ação concorrente.
+- Mantém inalteradas as regras de Queima, Ação Rápida, Carta Dupla e cartas especiais.
+
 ## V40.9.0 — Microfone flutuante
 
 - O botão **🎙️ LIGAR MICROFONE** agora é flutuante e pode ser arrastado livremente pelo jogador.

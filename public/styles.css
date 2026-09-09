@@ -659,3 +659,57 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   .ranking-table-wins td:nth-child(3)::before{display:none}
   .ranking-table-wins .rank-wins strong{font-size:20px}
 }
+
+
+/* V40.10 — Queima mais visível e fácil de tocar */
+.burn-opportunity-notice{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;margin:0 0 5px;padding:7px 10px;border-radius:11px;
+  border:1px solid #ffae58;background:linear-gradient(90deg,#5a2a0f,#7b3811,#5a2a0f);
+  color:#fff0d8;font-size:10px;font-weight:950;letter-spacing:.035em;text-align:center;
+  box-shadow:0 0 0 1px #ffb35b2e inset,0 0 18px #ff7b2440;
+  animation:burnNoticePulse 1.05s ease-in-out infinite alternate;
+}
+.playing-card.burnable{
+  filter:none!important;
+  outline:3px solid #ff9b32!important;
+  outline-offset:1px;
+  box-shadow:0 0 0 5px #ffad4033,0 0 30px #ff6f1f9a,0 12px 25px #0009!important;
+  animation:burnPulseStrong .82s ease-in-out infinite alternate!important;
+  z-index:8;
+}
+.playing-card.burnable::after{
+  content:'';position:absolute;inset:3px;border:1px solid #ffd091;border-radius:7px;
+  pointer-events:none;z-index:5;opacity:.75;
+}
+.burn-action-label{
+  position:absolute!important;left:5px!important;right:5px!important;top:50%!important;
+  transform:translateY(-50%)!important;z-index:12!important;
+  min-width:0!important;width:auto!important;height:31px!important;padding:0 7px!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+  border:1px solid #ffd190!important;border-radius:9px!important;
+  background:linear-gradient(180deg,#ffb34e,#ef7420)!important;color:#241003!important;
+  box-shadow:0 3px 10px #0007,0 0 0 2px #ffb04c38!important;
+  font-size:10px!important;font-weight:1000!important;line-height:1!important;
+  letter-spacing:.035em!important;text-shadow:none!important;cursor:pointer!important;
+}
+.burn-action-label span{font-size:14px;line-height:1}
+.burn-action-label strong{font-size:9px;line-height:1;white-space:nowrap}
+.burn-action-label:hover,.burn-action-label:focus-visible{filter:brightness(1.12);box-shadow:0 4px 13px #0008,0 0 0 3px #ffd67a66!important}
+.playing-card.burn-direct{cursor:pointer!important}
+@keyframes burnPulseStrong{from{transform:translateY(-5px) scale(1)}to{transform:translateY(-10px) scale(1.025)}}
+@keyframes burnNoticePulse{from{filter:brightness(.98)}to{filter:brightness(1.12)}}
+
+@media(max-width:900px){
+  .burn-opportunity-notice{padding:6px 8px;margin-bottom:4px;font-size:9px;line-height:1.15}
+  .burn-action-label{left:3px!important;right:3px!important;height:34px!important;padding:0 4px!important;border-radius:8px!important}
+  .burn-action-label span{font-size:16px}.burn-action-label strong{font-size:8.5px}
+  .playing-card.burnable{outline-width:3px!important;box-shadow:0 0 0 4px #ffad4038,0 0 24px #ff6f1f99,0 9px 20px #0008!important}
+}
+@media(orientation:landscape) and (max-height:620px) and (max-width:950px){
+  .burn-opportunity-notice{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(560px,94vw);margin-bottom:4px;padding:5px 8px;font-size:8px;z-index:35}
+  .burn-action-label{height:30px!important}.burn-action-label span{font-size:14px}.burn-action-label strong{font-size:7.5px}
+}
+@media(prefers-reduced-motion:reduce){
+  .playing-card.burnable,.burn-opportunity-notice{animation:none!important}
+}
