@@ -1,5 +1,16 @@
 # Changelog
 
+## V40.9.0 — Microfone flutuante
+
+- O botão **🎙️ LIGAR MICROFONE** agora é flutuante e pode ser arrastado livremente pelo jogador.
+- Funciona com mouse e toque usando Pointer Events.
+- A posição é salva no navegador (`localStorage`) e restaurada ao voltar ao jogo.
+- O botão é limitado à área visível da tela para não ficar perdido fora do viewport.
+- Ao redimensionar ou girar a tela, a posição é automaticamente ajustada para continuar visível.
+- Arrastar não liga/desliga o microfone por engano; clique/toque curto continua controlando o microfone.
+- Duplo clique retorna o botão à posição inicial.
+- A alteração é somente visual/local e não modifica WebRTC, regras, cartas ou posições dos jogadores.
+
 ## V40.8.0 — Novo Ranking + Temporada 1
 
 - Reset único do ranking antigo no primeiro deploy da V40.8, preservando as identidades Google dos jogadores.

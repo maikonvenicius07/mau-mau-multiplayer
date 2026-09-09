@@ -604,15 +604,19 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 
 /* V40.5 — MICROFONE AO VIVO / VOICE CHAT WEBRTC */
 .live-mic-btn{
-  position:absolute;top:38px;left:65%;transform:translateX(-50%);z-index:16;
+  position:fixed;top:88px;left:18px;right:auto;z-index:72;
   min-width:178px;min-height:42px;padding:8px 13px;border:1px solid #5c7b69;
   border-radius:999px;background:linear-gradient(180deg,#173328,#0d2119);color:#f8f1df;
   display:inline-flex;align-items:center;justify-content:center;gap:7px;
   font-size:10px;font-weight:950;letter-spacing:.05em;box-shadow:0 7px 18px #0006;
-  transition:.18s ease;white-space:nowrap;
+  transition:filter .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;
+  white-space:nowrap;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
 }
-.live-mic-btn:hover{filter:brightness(1.14);transform:translateX(-50%) translateY(-1px)}
+.live-mic-btn:hover{filter:brightness(1.14)}
+.live-mic-btn:active,.live-mic-btn.dragging{cursor:grabbing}
+.live-mic-btn.dragging{transition:none;filter:brightness(1.18);box-shadow:0 10px 28px #0009,0 0 0 2px #f0cc7030}
 .live-mic-btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.live-mic-btn .live-mic-drag-handle{font-size:14px;line-height:1;color:#d9b968;opacity:.9;letter-spacing:0}
 .live-mic-btn .live-mic-dot{width:8px;height:8px;border-radius:50%;background:#748d80;box-shadow:0 0 0 3px #ffffff0b}
 .live-mic-btn .live-mic-icon{font-size:16px;line-height:1}
 .live-mic-btn.mic-starting{border-color:#d7b35f;color:#ffe39a}
@@ -622,11 +626,11 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .live-voice-audios{position:absolute;width:1px;height:1px;overflow:hidden;opacity:.001;pointer-events:none}
 @keyframes liveMicPulse{from{transform:scale(.9);opacity:.75}to{transform:scale(1.18);opacity:1}}
 @media(max-width:900px){
-  .live-mic-btn{top:54px;right:10px;left:auto;transform:none;min-width:42px;min-height:38px;padding:7px 9px;gap:4px}
-  .live-mic-btn:hover{transform:translateY(-1px)}
+  .live-mic-btn{top:66px;left:10px;right:auto;min-width:44px;min-height:40px;padding:7px 9px;gap:4px}
   .live-mic-btn .live-mic-label{display:none}
   .live-mic-btn .live-mic-icon{font-size:18px}
   .live-mic-btn .live-mic-dot{width:7px;height:7px}
+  .live-mic-btn .live-mic-drag-handle{font-size:13px}
 }
 
 /* V40.8 — Ranking simples por vitórias: OFICIAL/TREINO + Hoje/Semana/Mês/Temporada/Histórico */

@@ -18,6 +18,7 @@ const playingVoiceAudios=new Set();
 // V40.5 — microfone ao vivo via WebRTC. O áudio é P2P; Socket.IO carrega somente a sinalização.
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null;
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
+const liveMicPositionStorage='maumauLiveMicPositionV1';
 const sessionKey='maumauSessionV1';
 let googleUser=null;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
@@ -1046,7 +1047,68 @@ function resetLiveVoice({notify=false}={}){
   updateLiveMicUI();
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
-$('#liveMicBtn').onclick=toggleLiveMic;updateLiveMicUI();
+
+// V40.9 — botão de microfone flutuante e reposicionável.
+// A posição é local para cada navegador e não interfere na posição das cartas/jogadores.
+function liveMicDefaultPosition(){
+  return window.innerWidth<=900?{x:10,y:66}:{x:18,y:88};
+}
+function clampLiveMicPosition(x,y){
+  const btn=$('#liveMicBtn');if(!btn)return{x:0,y:0};
+  const margin=8,topMin=Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+margin;
+  const w=btn.offsetWidth||178,h=btn.offsetHeight||42;
+  const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
+  return{x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
+}
+function setLiveMicPosition(x,y,{save=false}={}){
+  const btn=$('#liveMicBtn');if(!btn)return;
+  const pos=clampLiveMicPosition(x,y);
+  btn.style.left=`${Math.round(pos.x)}px`;btn.style.top=`${Math.round(pos.y)}px`;btn.style.right='auto';btn.style.bottom='auto';
+  if(save)try{localStorage.setItem(liveMicPositionStorage,JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
+}
+function restoreLiveMicPosition(){
+  let pos=null;try{pos=JSON.parse(localStorage.getItem(liveMicPositionStorage)||'null')}catch{}
+  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=liveMicDefaultPosition();
+  setLiveMicPosition(pos.x,pos.y);
+}
+function initDraggableLiveMic(){
+  const btn=$('#liveMicBtn');if(!btn)return;
+  let drag=null,suppressClick=false;
+  const finish=ev=>{
+    if(!drag)return;
+    try{btn.releasePointerCapture?.(drag.pointerId)}catch{}
+    if(drag.moved){suppressClick=true;setLiveMicPosition(parseFloat(btn.style.left)||0,parseFloat(btn.style.top)||0,{save:true});}
+    btn.classList.remove('dragging');drag=null;
+    if(ev?.cancelable&&suppressClick)ev.preventDefault();
+  };
+  btn.addEventListener('pointerdown',ev=>{
+    if(ev.button!==undefined&&ev.button!==0)return;
+    const rect=btn.getBoundingClientRect();
+    drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};
+    btn.setPointerCapture?.(ev.pointerId);
+  });
+  btn.addEventListener('pointermove',ev=>{
+    if(!drag||ev.pointerId!==drag.pointerId)return;
+    const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
+    if(!drag.moved&&Math.hypot(dx,dy)<5)return;
+    drag.moved=true;btn.classList.add('dragging');
+    setLiveMicPosition(drag.originX+dx,drag.originY+dy);
+    if(ev.cancelable)ev.preventDefault();
+  });
+  btn.addEventListener('pointerup',finish);btn.addEventListener('pointercancel',finish);
+  btn.addEventListener('click',ev=>{
+    if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}
+    toggleLiveMic();
+  });
+  btn.addEventListener('dblclick',ev=>{
+    ev.preventDefault();const pos=liveMicDefaultPosition();setLiveMicPosition(pos.x,pos.y,{save:true});toast('🎙️ Botão do microfone voltou à posição inicial.');
+  });
+  window.addEventListener('resize',()=>{
+    const rect=btn.getBoundingClientRect();setLiveMicPosition(rect.left,rect.top,{save:true});
+  });
+  restoreLiveMicPosition();
+}
+initDraggableLiveMic();updateLiveMicUI();
 
 function quickAudioSupported(){return !!(navigator.mediaDevices?.getUserMedia&&window.MediaRecorder)}
 function quickAudioMime(){const c=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4','audio/webm'];return c.find(x=>MediaRecorder.isTypeSupported?.(x))||''}

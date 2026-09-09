@@ -9,11 +9,16 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.equal(pkg.version,'40.8.0');
+assert.equal(pkg.version,'40.9.0');
 assert(html.includes('id="liveMicBtn"'),'botão de microfone ao vivo ausente da mesa');
 assert(html.includes('id="liveVoiceAudios"'),'área de áudio remoto ausente');
 assert(css.includes('.live-mic-btn'),'estilo do botão de microfone ausente');
-assert(css.includes('left:65%'),'botão não está posicionado na área superior indicada da mesa');
+assert(css.includes('position:fixed'),'botão de microfone deve ser flutuante');
+assert(css.includes('touch-action:none'),'botão flutuante deve aceitar arraste por toque');
+assert(html.includes('live-mic-drag-handle'),'indicador visual de arraste ausente');
+assert(app.includes("const liveMicPositionStorage='maumauLiveMicPositionV1'"),'posição do botão não é persistida');
+assert(app.includes('initDraggableLiveMic()'),'lógica de arraste do microfone ausente');
+assert(app.includes('setPointerCapture'),'arraste por Pointer Events ausente');
 assert(app.includes('new RTCPeerConnection(LIVE_VOICE_RTC_CONFIG)'),'cliente WebRTC ausente');
 assert(app.includes("navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}"),'captura de microfone com tratamento de voz ausente');
 assert(app.includes("stun:stun.l.google.com:19302"),'STUN não configurado');
@@ -25,4 +30,4 @@ assert(server.includes("socket.on('liveVoiceSignal'"),'relay de sinalização We
 assert(server.includes("target.data.roomCode !== roomCode"),'sinalização não está restrita à mesma sala');
 assert(server.includes("clearLiveVoiceSender(socket)"),'limpeza de microfone ao sair/desconectar ausente');
 assert(!server.includes("socket.on('liveVoiceAudio'"),'áudio ao vivo não deve trafegar pelo servidor');
-console.log('✓ V40.5: microfone ao vivo WebRTC, botão na mesa e sinalização restrita à sala conferidos.');
+console.log('✓ V40.9: microfone ao vivo WebRTC com botão flutuante/reposicionável e sinalização restrita à sala conferidos.');

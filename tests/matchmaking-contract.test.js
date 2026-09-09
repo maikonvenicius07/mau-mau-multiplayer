@@ -9,7 +9,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.equal(pkg.version,'40.8.0');
+assert.equal(pkg.version,'40.9.0');
 assert(server.includes('const matchmakingQueue = new Map()'),'fila de matchmaking ausente');
 assert(server.includes('const MATCHMAKING_WAIT_MS = 15 * 1000'),'janela de 15 s ausente');
 assert(server.includes('const MATCHMAKING_MAX_PLAYERS = 5'),'limite de 5 ausente');

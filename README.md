@@ -1,6 +1,11 @@
-# Mau-Mau Candeias — V40.8
+# Mau-Mau Candeias — V40.9
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
+
+
+## V40.9 — Microfone flutuante
+
+O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para qualquer posição visível da tela. A posição escolhida fica salva apenas no navegador do próprio jogador, evitando cobrir a quantidade de cartas ou outros elementos quando houver 4 ou 5 participantes. Um duplo clique retorna o botão à posição inicial.
 
 ## Recursos atuais
 
