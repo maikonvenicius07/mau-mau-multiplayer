@@ -9,7 +9,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.equal(pkg.version,'40.11.0');
+assert.equal(pkg.version,'40.12.0');
 assert(html.includes('id="liveMicBtn"'),'botão de microfone ao vivo ausente da mesa');
 assert(html.includes('id="liveVoiceAudios"'),'área de áudio remoto ausente');
 assert(css.includes('.live-mic-btn'),'estilo do botão de microfone ausente');

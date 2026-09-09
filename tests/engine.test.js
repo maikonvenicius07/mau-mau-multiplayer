@@ -362,15 +362,30 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,1);
 }
 
-// V15: as duas últimas cartas idênticas exigem Mau-Mau batendo e encerram a rodada.
+// V40.12: as duas últimas cartas idênticas podem encerrar com Mau-Mau simples ou batendo/queimando.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   r.currentPlayer=0;r.discard=[card('9','clubs','top-double-win')];
   a.hand=[card('9','hearts','dw1'),card('9','hearts','dw2')];
   b.hand=[card('K','clubs','bdw1')];
-  assert.throws(()=>E.playDoubleCard(r,a.id,'dw1','dw2'),/Mau-Mau batendo/);
-  E.declare(r,a.id,'batendo');
+  assert.throws(()=>E.playDoubleCard(r,a.id,'dw1','dw2'),/anuncie antes/);
+  E.declare(r,a.id,'mau-mau');
   E.playDoubleCard(r,a.id,'dw1','dw2');
+  assert.equal(r.winnerId,a.id);
+  assert.equal(r.status,'between-rounds');
+}
+
+// V40.12: o anúncio batendo/queimando continua válido para a mesma situação.
+{
+  const r=room2(),a=r.players[0],b=r.players[1];
+  r.currentPlayer=0;r.discard=[card('8','clubs','top-double-batendo')];
+  a.hand=[card('8','hearts','dwb1'),card('8','hearts','dwb2')];
+  b.hand=[card('K','clubs','dwb3')];
+  // 8 é especial e não pode ser Carta Dupla; use carta normal 6.
+  r.discard=[card('6','clubs','top-double-batendo-6')];
+  a.hand=[card('6','hearts','dwb1'),card('6','hearts','dwb2')];
+  E.declare(r,a.id,'batendo');
+  E.playDoubleCard(r,a.id,'dwb1','dwb2');
   assert.equal(r.winnerId,a.id);
   assert.equal(r.status,'between-rounds');
 }
@@ -699,17 +714,19 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(b.hand.length,1);
 }
 
-// V18: para encerrar com a segunda carta da queima, continua obrigatório anunciar batendo.
+// V40.12: com duas cartas, Mau-Mau simples também pode concluir pela continuação da Queima.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
-  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v18-bat-base')];
-  a.hand=[card('5','hearts','v18-bat-source'),card('4','clubs','v18-bat-a')];
-  b.hand=[card('5','hearts','v18-bat-burn'),card('9','hearts','v18-bat-last')];
+  r.direction=1;r.currentPlayer=0;r.discard=[card('2','hearts','v4012-burn-base')];
+  a.hand=[card('5','hearts','v4012-burn-source'),card('4','clubs','v4012-burn-a')];
+  b.hand=[card('5','hearts','v4012-burn-match'),card('9','hearts','v4012-burn-last')];
 
-  E.playCard(r,a.id,'v18-bat-source');
+  E.playCard(r,a.id,'v4012-burn-source');
   E.declare(r,b.id,'mau-mau');
-  E.burnMatch(r,b.id,'v18-bat-burn');
-  assert.throws(()=>E.playCard(r,b.id,'v18-bat-last'),/batendo\/queimando/);
+  E.burnMatch(r,b.id,'v4012-burn-match');
+  E.playCard(r,b.id,'v4012-burn-last');
+  assert.equal(r.winnerId,b.id);
+  assert.equal(b.hand.length,0);
 }
 
 console.log('✓ V18: queima flexível, compra e passe após a queima passaram.');

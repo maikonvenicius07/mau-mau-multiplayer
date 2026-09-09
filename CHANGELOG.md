@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.12.0 — Liberdade de anúncio na batida
+
+- Corrige a regra das duas últimas cartas: o jogador pode escolher **Mau-Mau** simples ou **Mau-Mau batendo/queimando**.
+- Ambos os anúncios permitem finalizar por **Queima + continuação** ou **Carta Dupla**.
+- Sem anúncio, a batida composta continua proibida.
+- Mantida a possibilidade de anunciar Mau-Mau simples, queimar uma carta e passar, ficando com uma carta.
+
+
 ## V40.11.0 — Carta Dupla visual melhorada
 
 - Destaque dourado reforçado para cartas com Carta Dupla disponível.

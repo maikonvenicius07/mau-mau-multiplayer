@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.11.0",
-  "description": "Mau-Mau Candeias V40.11: Carta Dupla com destaque visual reforçado, botão grande ×2 JOGAR DUPLA, aviso na mão e foco automático, mantendo Queima visual, microfone flutuante, ranking por vitórias e demais recursos.",
+  "version": "40.12.0",
+  "description": "Mau-Mau Candeias V40.12: liberdade de anúncio nas duas últimas cartas — Mau-Mau simples ou Mau-Mau batendo/queimando podem concluir por Queima + continuação ou Carta Dupla.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -30,7 +30,7 @@ Na jogada normal, não é permitido comprar uma segunda carta na mesma vez. Para
 ## 4. Mau-Mau
 Antes de uma jogada que deixe o jogador com apenas 1 carta, deve ser anunciado **Mau-Mau**. O esquecimento gera +2 cartas de penalidade.
 
-Quando uma jogada composta puder eliminar as duas últimas cartas por Queima + continuação ou por Carta Dupla, deve ser anunciado **Mau-Mau batendo/queimando** antes de iniciar a jogada.
+Quando o jogador estiver com duas cartas e uma jogada composta puder eliminar as duas por Queima + continuação ou por Carta Dupla, ele pode escolher anunciar **Mau-Mau** simples ou **Mau-Mau batendo/queimando** antes de iniciar a jogada. Os dois anúncios são válidos.
 
 ## 5. Cartas especiais
 - **A — Ás:** pula o próximo jogador.

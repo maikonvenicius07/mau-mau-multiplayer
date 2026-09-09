@@ -474,8 +474,8 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   const wasContinuation = room.continuationPlayerId === player.id;
   // V31: uma Queima válida transfere a jogada para quem queimou. Por isso, a
   // segunda carta pode ser especial e deve executar o mesmo efeito da jogada normal.
-  if (wasContinuation && player.hand.length === 1 && player.declaration !== 'batendo') {
-    throw new Error('Para encerrar a rodada com a segunda carta da queima, anuncie “Mau-Mau batendo/queimando” antes de iniciar a queima.');
+  if (wasContinuation && player.hand.length === 1 && !['mau-mau','batendo'].includes(player.declaration)) {
+    throw new Error('Para usar a segunda carta após a queima e encerrar a rodada, anuncie antes “Mau-Mau” ou “Mau-Mau batendo/queimando”.');
   }
 
   if (card.rank === 'J' && player.hand.length > 1 && !SUITS.includes(chosenSuit)) {
@@ -690,10 +690,10 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   // A dupla foi validada: agora ela fecha qualquer janela de reação anterior.
   closeReaction(room);
 
-  // Quando as duas últimas cartas forem usadas juntas, preservamos a regra
-  // original do projeto: é necessário anunciar Mau-Mau batendo/queimando.
-  if (player.hand.length === 2 && player.declaration !== 'batendo') {
-    throw new Error('Para encerrar a rodada com Carta Dupla, anuncie “Mau-Mau batendo/queimando” antes.');
+  // Com as duas últimas cartas, o jogador pode escolher qual anúncio fazer:
+  // Mau-Mau simples ou Mau-Mau batendo/queimando. Ambos autorizam a batida.
+  if (player.hand.length === 2 && !['mau-mau','batendo'].includes(player.declaration)) {
+    throw new Error('Para encerrar a rodada com Carta Dupla, anuncie antes “Mau-Mau” ou “Mau-Mau batendo/queimando”.');
   }
 
   const before = player.hand.length;

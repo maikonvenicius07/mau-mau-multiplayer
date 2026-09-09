@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.11
+# Mau-Mau Candeias — V40.12
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -183,3 +183,11 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - Em mãos grandes, a primeira dupla disponível é centralizada automaticamente quando não há uma Queima com prioridade de foco.
 - Quando uma carta oferece Queima e Carta Dupla ao mesmo tempo, os dois botões ficam separados visualmente.
 - A regra da Carta Dupla não foi alterada: continua somente na própria vez e apenas com cartas normais idênticas.
+
+
+## V40.12 — Liberdade de anúncio na batida
+
+- Com exatamente duas cartas, o jogador pode escolher **Mau-Mau** simples ou **Mau-Mau batendo/queimando**.
+- Os dois anúncios permitem concluir a rodada por **Queima + continuação** ou **Carta Dupla**, quando a jogada for válida.
+- O jogador também pode anunciar Mau-Mau simples, realizar a Queima e decidir passar, permanecendo com uma carta.
+- Sem nenhum dos dois anúncios, a tentativa de usar as duas últimas cartas continua bloqueada.
