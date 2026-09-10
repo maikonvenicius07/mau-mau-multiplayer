@@ -18,4 +18,4 @@ if(!app.includes("effect==='angry'")) throw new Error('Som do efeito de raiva n�
 if(!server.includes("'angry'")) throw new Error('Servidor não permite o efeito de raiva.');
 if(!css.includes('.quick-reactions-widget')) throw new Error('CSS do widget flutuante de reações rápidas ausente.');
 if(!css.includes('.quick-reactions-handle')) throw new Error('CSS da alça de arraste das reações rápidas ausente.');
-console.log('✓ reações rápidas flutuantes V40.19');
+console.log('✓ reações rápidas flutuantes V40.20');

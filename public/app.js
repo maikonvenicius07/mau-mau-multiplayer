@@ -1085,6 +1085,24 @@ function restoreQuickReactionsPosition(){
   if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=quickReactionsDefaultPosition();
   setQuickReactionsPosition(pos.x,pos.y);
 }
+function closeAllReactionsPanel(){
+  const panel=$('#allReactionsPanel'),btn=$('#allReactionsBtn');
+  if(panel)panel.classList.add('hidden');
+  if(btn)btn.setAttribute('aria-expanded','false');
+}
+function positionAllReactionsPanel(){
+  const panel=$('#allReactionsPanel'),widget=$('#quickReactionsWidget');if(!panel||!widget)return;
+  panel.classList.remove('open-below');
+  const r=widget.getBoundingClientRect();
+  const estimatedHeight=panel.offsetHeight||150;
+  if(r.top<estimatedHeight+18)panel.classList.add('open-below');
+}
+function toggleAllReactionsPanel(){
+  const panel=$('#allReactionsPanel'),btn=$('#allReactionsBtn');if(!panel||!btn)return;
+  const opening=panel.classList.contains('hidden');
+  if(opening){panel.classList.remove('hidden');positionAllReactionsPanel();btn.setAttribute('aria-expanded','true')}
+  else closeAllReactionsPanel();
+}
 function initDraggableQuickReactions(){
   const widget=$('#quickReactionsWidget'),handle=$('#quickReactionsHandle');if(!widget||!handle)return;
   let drag=null;
@@ -1106,7 +1124,7 @@ function initDraggableQuickReactions(){
     if(!drag||ev.pointerId!==drag.pointerId)return;
     const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
     if(!drag.moved&&Math.hypot(dx,dy)<5)return;
-    drag.moved=true;widget.classList.add('dragging');
+    drag.moved=true;widget.classList.add('dragging');closeAllReactionsPanel();
     setQuickReactionsPosition(drag.originX+dx,drag.originY+dy);
     if(ev.cancelable)ev.preventDefault();
   });
@@ -1124,6 +1142,15 @@ function initDraggableQuickReactions(){
   restoreQuickReactionsPosition();
 }
 initDraggableQuickReactions();
+const allReactionsBtn=$('#allReactionsBtn');
+if(allReactionsBtn)allReactionsBtn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();toggleAllReactionsPanel()});
+document.addEventListener('pointerdown',ev=>{
+  const panel=$('#allReactionsPanel'),widget=$('#quickReactionsWidget');
+  if(!panel||panel.classList.contains('hidden'))return;
+  if(widget?.contains(ev.target))return;
+  closeAllReactionsPanel();
+});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeAllReactionsPanel()});
 
 // V40.9 — botão de microfone flutuante e reposicionável.
 // A posição é local para cada navegador e não interfere na posição das cartas/jogadores.
@@ -1327,6 +1354,7 @@ $$('[data-effect]').forEach(btn=>btn.onclick=()=>{
   if(!state||!socket.connected)return toast('Sem conexão com a sala.');
   audioCtx();
   socket.emit('sendEffect',{effect:btn.dataset.effect});
+  if(btn.closest('#allReactionsPanel'))closeAllReactionsPanel();
 });
 
 $('#drawPile').onclick=()=>{if(canAct()) socket.emit('draw')};

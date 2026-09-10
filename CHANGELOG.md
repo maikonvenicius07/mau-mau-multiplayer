@@ -1,5 +1,14 @@
 # Changelog
 
+## V40.20 — Todas as Reações em um Toque
+
+- adicionado botão **😊** na barra flutuante de reações rápidas;
+- ao tocar em **😊**, abre um painel compacto com **todas as reações da mesa**;
+- painel inclui **👏 Aplausos, 😂 Risada, 😡 Raiva, 📯 Corneta, 🥁 Tambores, 🎉 Vitória, 😱 Uau e 🔊 Joga Boca Aberta**;
+- ao escolher uma reação, o painel fecha automaticamente;
+- o painel abre acima ou abaixo da barra conforme o espaço disponível na tela;
+- mantém a barra arrastável e a posição salva da V40.19.
+
 ## V40.19 — Reações Rápidas Flutuantes
 
 - a barra de reações rápidas **😂 😡 🔊** agora é **flutuante e reposicionável**;

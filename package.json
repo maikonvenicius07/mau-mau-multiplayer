@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.19.0",
-  "description": "Mau-Mau Candeias V40.19: reações rápidas flutuantes e reposicionáveis, com barra arrastável para 😂, 😡 e 🔊 Joga Boca Aberta.",
+  "version": "40.20.0",
+  "description": "Mau-Mau Candeias V40.20: reações rápidas flutuantes com botão 😊 para abrir todas as reações e efeitos da mesa.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

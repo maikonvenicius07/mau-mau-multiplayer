@@ -1,7 +1,11 @@
-# Mau-Mau Candeias — V40.19
+# Mau-Mau Candeias — V40.20
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas flutuantes.
 
+
+## V40.20 — Todas as reações pelo botão 😊
+
+Além dos atalhos rápidos **😂**, **😡** e **🔊**, a barra flutuante agora possui um botão **😊**. Ao tocar nele, aparece um painel compacto com todos os efeitos sociais disponíveis na mesa: **👏, 😂, 😡, 📯, 🥁, 🎉, 😱 e 🔊**. A seleção continua sendo feita com um único toque e o painel se fecha depois do envio.
 
 ## V40.19 — Reações rápidas flutuantes
 
