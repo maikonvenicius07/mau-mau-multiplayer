@@ -1,7 +1,11 @@
-# Mau-Mau Candeias — V40.18
+# Mau-Mau Candeias — V40.19
 
-Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas flutuantes.
 
+
+## V40.19 — Reações rápidas flutuantes
+
+A barra de reações rápidas com **😂**, **😡** e **🔊 JOGA BOCA ABERTA** agora funciona como um pequeno controle flutuante. O jogador arrasta a barra pela alça lateral e deixa o painel onde achar melhor, especialmente útil no celular e em mesas com 4 ou 5 participantes. A posição é salva no navegador do próprio jogador e um duplo clique na alça devolve a barra à posição inicial.
 
 ## V40.9 — Microfone flutuante
 
@@ -19,6 +23,7 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 - **Microfone ao vivo (V40.5)** diretamente na mesa: conversa de voz em tempo real por WebRTC entre jogadores humanos, sem gravação no PostgreSQL.
 - **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
+- **Reações rápidas flutuantes (V40.19)**: barra móvel com **😂**, **😡** e **🔊 Joga Boca Aberta**, com posição salva no navegador.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
 - **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
 - Interface adaptada para computador e celular.

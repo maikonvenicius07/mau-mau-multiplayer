@@ -11,4 +11,4 @@ if(!app.includes('utterance.volume=1')) throw new Error('Volume máximo da fala 
 if(!app.includes("effect==='jogaBoca'")) throw new Error('Efeito social não executa fala.');
 if(!html.includes('data-effect="jogaBoca"')) throw new Error('Botão do efeito não existe na interface.');
 if(!server.includes("'jogaBoca'")) throw new Error('Servidor não aceita o novo efeito.');
-console.log('✓ efeito falado JOGA BOCA ABERTA V40.18');
+console.log('✓ efeito falado JOGA BOCA ABERTA V40.19');

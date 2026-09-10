@@ -7,7 +7,7 @@ const pkg=require(path.join(root,'package.json'));
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 
-assert.equal(pkg.version,'40.18.0');
+assert.equal(pkg.version,'40.19.0');
 assert(!html.includes('burnOpportunityNotice'),'banner inferior de Queima não foi removido');
 assert(!html.includes('doubleOpportunityNotice'),'banner inferior de Carta Dupla não foi removido');
 assert(!app.includes('QUEIMA DISPONÍVEL — use o botão flutuante'),'texto antigo de Queima ainda existe');

@@ -2,7 +2,7 @@
 const assert=require('assert');
 const Engine=require('../game-engine');
 const pkg=require('../package.json');
-assert.equal(pkg.version,'40.18.0');
+assert.equal(pkg.version,'40.19.0');
 function card(rank,suit,id){return {rank,suit,id,copy:0};}
 function room2(){
   const r=Engine.createRoom('T4012',{socketId:'a',token:'ta',playerKey:'ga',name:'A',avatar:'macaco'});

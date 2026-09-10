@@ -19,6 +19,7 @@ const playingVoiceAudios=new Set();
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null;
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
+const quickReactionsPositionStorage='maumauQuickReactionsPositionV1';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1';
 const sessionKey='maumauSessionV1';
 let googleUser=null;
@@ -1052,6 +1053,77 @@ function resetLiveVoice({notify=false}={}){
   updateLiveMicUI();
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
+
+// V40.19 — reações rápidas flutuantes e reposicionáveis.
+// A barra com 😂 😡 🔊 continua com clique de um toque, mas agora pode ser movida pelo jogador.
+function quickReactionsDefaultPosition(){
+  const widget=$('#quickReactionsWidget');
+  const topbarBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom||58;
+  const fallbackW=widget?.offsetWidth||(window.innerWidth<=900?180:192);
+  if(window.innerWidth<=900){
+    const handTop=document.querySelector('.hand-panel')?.getBoundingClientRect().top||0;
+    const preferredY=handTop>0?handTop-58:topbarBottom+62;
+    return {x:10,y:Math.max(topbarBottom+8,preferredY)};
+  }
+  return {x:Math.max(8,window.innerWidth-fallbackW-14),y:topbarBottom+14};
+}
+function clampQuickReactionsPosition(x,y){
+  const widget=$('#quickReactionsWidget');if(!widget)return{x:0,y:0};
+  const margin=8,topMin=Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+margin;
+  const w=widget.offsetWidth||(window.innerWidth<=900?180:192),h=widget.offsetHeight||48;
+  const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
+  return {x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
+}
+function setQuickReactionsPosition(x,y,{save=false}={}){
+  const widget=$('#quickReactionsWidget');if(!widget)return;
+  const pos=clampQuickReactionsPosition(x,y);
+  widget.style.left=`${Math.round(pos.x)}px`;widget.style.top=`${Math.round(pos.y)}px`;widget.style.right='auto';widget.style.bottom='auto';
+  if(save)try{localStorage.setItem(quickReactionsPositionStorage,JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
+}
+function restoreQuickReactionsPosition(){
+  let pos=null;try{pos=JSON.parse(localStorage.getItem(quickReactionsPositionStorage)||'null')}catch{}
+  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=quickReactionsDefaultPosition();
+  setQuickReactionsPosition(pos.x,pos.y);
+}
+function initDraggableQuickReactions(){
+  const widget=$('#quickReactionsWidget'),handle=$('#quickReactionsHandle');if(!widget||!handle)return;
+  let drag=null;
+  const finish=ev=>{
+    if(!drag)return;
+    try{handle.releasePointerCapture?.(drag.pointerId)}catch{}
+    if(drag.moved){setQuickReactionsPosition(parseFloat(widget.style.left)||0,parseFloat(widget.style.top)||0,{save:true});}
+    widget.classList.remove('dragging');drag=null;
+    if(ev?.cancelable)ev.preventDefault();
+  };
+  handle.addEventListener('pointerdown',ev=>{
+    if(ev.button!==undefined&&ev.button!==0)return;
+    const rect=widget.getBoundingClientRect();
+    drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};
+    handle.setPointerCapture?.(ev.pointerId);
+    if(ev.cancelable)ev.preventDefault();
+  });
+  handle.addEventListener('pointermove',ev=>{
+    if(!drag||ev.pointerId!==drag.pointerId)return;
+    const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
+    if(!drag.moved&&Math.hypot(dx,dy)<5)return;
+    drag.moved=true;widget.classList.add('dragging');
+    setQuickReactionsPosition(drag.originX+dx,drag.originY+dy);
+    if(ev.cancelable)ev.preventDefault();
+  });
+  handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish);
+  handle.addEventListener('dblclick',ev=>{
+    ev.preventDefault();
+    const pos=quickReactionsDefaultPosition();
+    setQuickReactionsPosition(pos.x,pos.y,{save:true});
+    toast('😂 Reações rápidas voltaram à posição inicial.');
+  });
+  window.addEventListener('resize',()=>{
+    const rect=widget.getBoundingClientRect();
+    setQuickReactionsPosition(rect.left,rect.top,{save:true});
+  });
+  restoreQuickReactionsPosition();
+}
+initDraggableQuickReactions();
 
 // V40.9 — botão de microfone flutuante e reposicionável.
 // A posição é local para cada navegador e não interfere na posição das cartas/jogadores.

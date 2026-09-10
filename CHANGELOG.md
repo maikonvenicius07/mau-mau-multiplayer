@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.19 — Reações Rápidas Flutuantes
+
+- a barra de reações rápidas **😂 😡 🔊** agora é **flutuante e reposicionável**;
+- o jogador pode **arrastar a barra** pela alça lateral e colocá-la onde preferir;
+- a posição escolhida fica salva no navegador do próprio jogador;
+- **duplo clique na alça** retorna a barra à posição inicial;
+- mantém o mesmo comportamento de **um toque** para risada, raiva e **JOGA BOCA ABERTA**.
+
 ## V40.18 — Reações Rápidas Visíveis
 
 - adicionados **3 atalhos rápidos sempre visíveis** logo abaixo do topo do jogo: **😂 risada**, **😡 raiva** e **🔊 joga boca aberta**;

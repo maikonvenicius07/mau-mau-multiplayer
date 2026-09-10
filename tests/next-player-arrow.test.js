@@ -3,7 +3,7 @@ const fs=require('fs');
 const path=require('path');
 const pkg=require('../package.json');
 
-assert.equal(pkg.version,'40.18.0');
+assert.equal(pkg.version,'40.19.0');
 const app=fs.readFileSync(path.join(__dirname,'..','public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'..','public','styles.css'),'utf8');
 

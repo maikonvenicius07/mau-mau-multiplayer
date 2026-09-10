@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.18.0",
-  "description": "Mau-Mau Candeias V40.18: atalhos rápidos sempre visíveis para risada, raiva e fala JOGA BOCA ABERTA, com botão de alto-falante simplificado no chat.",
+  "version": "40.19.0",
+  "description": "Mau-Mau Candeias V40.19: reações rápidas flutuantes e reposicionáveis, com barra arrastável para 😂, 😡 e 🔊 Joga Boca Aberta.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
