@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.16
+# Mau-Mau Candeias — V40.18
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -186,6 +186,13 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 
 
 
+## V40.18 — Avisos inferiores removidos
+
+- Removidos os dois avisos que ocupavam espaço abaixo dos controles: **QUEIMA DISPONÍVEL** e **CARTA DUPLA DISPONÍVEL**.
+- Os botões flutuantes **🔥 QUEIMA** e **×2 DUPLA** continuam aparecendo normalmente quando a ação estiver disponível.
+- O destaque visual das cartas e o foco automático em mãos grandes foram preservados.
+- A mensagem central da mesa sobre continuação após a Queima não foi alterada.
+
 ## V40.16 — Seta do próximo jogador
 
 - O jogador que será o próximo da fila recebe uma **seta animada PRÓXIMO** junto ao avatar.
@@ -227,3 +234,10 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - Os dois anúncios permitem concluir a rodada por **Queima + continuação** ou **Carta Dupla**, quando a jogada for válida.
 - O jogador também pode anunciar Mau-Mau simples, realizar a Queima e decidir passar, permanecendo com uma carta.
 - Sem nenhum dos dois anúncios, a tentativa de usar as duas últimas cartas continua bloqueada.
+
+
+## Novidade V40.18 — Reações Rápidas Visíveis
+
+Agora a mesa mostra **3 atalhos rápidos sempre visíveis**: **😂**, **😡** e **🔊**.
+O botão **🔊** reproduz a fala **"JOGA BOCA ABERTA!"** com um clique.
+No painel lateral, o efeito também foi simplificado para o ícone de alto-falante, facilitando o uso no celular.

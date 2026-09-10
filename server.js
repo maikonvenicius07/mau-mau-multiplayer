@@ -403,7 +403,7 @@ function withRoom(socket, fn) {
 }
 
 
-const SOCIAL_EFFECTS = new Set(['applause','laugh','horn','drum','victory','wow','jogaBoca']);
+const SOCIAL_EFFECTS = new Set(['applause','laugh','angry','horn','drum','victory','wow','jogaBoca']);
 const QUICK_AUDIO_MAX_MS = 15000;
 const QUICK_AUDIO_MAX_BYTES = 700 * 1024;
 const QUICK_AUDIO_COOLDOWN_MS = 2500;

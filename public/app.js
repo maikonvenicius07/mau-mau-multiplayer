@@ -97,7 +97,7 @@ function togglePileSide(){
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
 const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +1','8':'ANTERIOR +2'};
-const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'},jogaBoca:{emoji:'📢',label:'JOGA BOCA ABERTA!'}};
+const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},angry:{emoji:'😡',label:'Raiva'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'},jogaBoca:{emoji:'🔊',label:'JOGA BOCA ABERTA!'}};
 
 const avatarCatalog={
   macaco:{label:'Macaco',src:'assets/avatars/macaco.webp',grupo:'Animais'},
@@ -649,6 +649,10 @@ function playSocialEffect(effect){
     for(let i=0;i<12;i++) noiseBurst(ac,t+i*.045+Math.random()*.018,.055,.018+Math.random()*.014);
   } else if(effect==='laugh'){
     [520,440,540,410,500,370].forEach((f,i)=>tone(ac,f,t+i*.095,.075,'sine',.028));
+  } else if(effect==='angry'){
+    [220,205,196,185].forEach((f,i)=>tone(ac,f,t+i*.08,.12,'sawtooth',.040));
+    noiseBurst(ac,t+.02,.07,.018);
+    noiseBurst(ac,t+.18,.09,.022);
   } else if(effect==='horn'){
     [392,523,659].forEach((f,i)=>tone(ac,f,t+i*.12,.19,'sawtooth',.025));
   } else if(effect==='drum'){
@@ -1800,43 +1804,30 @@ function renderHand(){
   });
   const burnIds=state.me.burnableCardIds||[];
   const burnOpportunity=burnIds.length>0;
-  const burnNotice=$('#burnOpportunityNotice');
-  if(burnNotice){
-    const showBurnNotice=state.status==='playing'&&!state.paused&&burnOpportunity;
-    burnNotice.classList.toggle('hidden',!showBurnNotice);
-    if(showBurnNotice){
-      burnNotice.textContent=state.openingReaction
-        ? '🔥 QUEIMA DA ABERTURA — toque na carta laranja ou use o botão flutuante 🔥 QUEIMA'
-        : ((state.me.quickActionCardIds||[]).length
-          ? '🔥 QUEIMA DISPONÍVEL — use o botão flutuante 🔥 QUEIMA; a carta válida está laranja'
-          : '🔥 QUEIMA DISPONÍVEL — use o botão flutuante 🔥 QUEIMA; a carta válida está destacada');
-      const focusKey=`${state.openingReaction?'opening':'turn'}:${[...burnIds].sort().join(',')}:${state.currentPlayerId||''}`;
-      if(focusKey!==lastBurnFocusKey){
-        lastBurnFocusKey=focusKey;
-        setTimeout(()=>h.querySelector('.playing-card.burnable')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),40);
-      }
-    }else{
-      lastBurnFocusKey='';
+  // V40.17: os avisos grandes abaixo dos controles foram removidos para liberar espaço no celular.
+  // O destaque da carta, o foco automático e os botões flutuantes continuam ativos.
+  const showBurnFocus=state.status==='playing'&&!state.paused&&burnOpportunity;
+  if(showBurnFocus){
+    const focusKey=`${state.openingReaction?'opening':'turn'}:${[...burnIds].sort().join(',')}:${state.currentPlayerId||''}`;
+    if(focusKey!==lastBurnFocusKey){
+      lastBurnFocusKey=focusKey;
+      setTimeout(()=>h.querySelector('.playing-card.burnable')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),40);
     }
+  }else{
+    lastBurnFocusKey='';
   }
   const doubleIds=[...new Set((state.me.doublePairs||[]).flatMap(pair=>pair.cardIds||[]))];
   const doubleFocusIds=[...doubleFocusCardIds];
-  const doubleNotice=$('#doubleOpportunityNotice');
-  if(doubleNotice){
-    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleFocusIds.length>0;
-    doubleNotice.classList.toggle('hidden',!showDoubleNotice);
-    if(showDoubleNotice){
-      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — use o botão flutuante ×2 DUPLA; a carta válida está destacada em dourado';
-      const focusKey=`double:${doubleIds.slice().sort().join(',')}:${state.currentPlayerId||''}`;
-      // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
-      // Uma das cópias recebe o foco automático quando necessário; a ação fica no botão flutuante.
-      if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
-        lastDoubleFocusKey=focusKey;
-        setTimeout(()=>h.querySelector('.playing-card.double-focus-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
-      }
-    }else{
-      lastDoubleFocusKey='';
+  const showDoubleFocus=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleFocusIds.length>0;
+  if(showDoubleFocus){
+    const focusKey=`double:${doubleIds.slice().sort().join(',')}:${state.currentPlayerId||''}`;
+    // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
+    if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
+      lastDoubleFocusKey=focusKey;
+      setTimeout(()=>h.querySelector('.playing-card.double-focus-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
     }
+  }else{
+    lastDoubleFocusKey='';
   }
   const myTurn=canAct();
   const quickOpportunity=(state.me.quickActionCardIds||[]).length>0;

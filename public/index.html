@@ -147,6 +147,11 @@
       <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
+    <div id="quickReactionsBar" class="quick-reactions-bar" aria-label="Atalhos rápidos de reações">
+      <button data-effect="laugh" class="quick-reaction-btn" type="button" title="Risada" aria-label="Enviar reação de risada">😂</button>
+      <button data-effect="angry" class="quick-reaction-btn" type="button" title="Raiva" aria-label="Enviar reação de raiva">😡</button>
+      <button data-effect="jogaBoca" class="quick-reaction-btn quick-reaction-speaker" type="button" title="Falar JOGA BOCA ABERTA" aria-label="Falar JOGA BOCA ABERTA">🔊</button>
+    </div>
 
     <main class="table-shell">
       <div class="scoreboard" id="scoreboard"></div>
@@ -181,8 +186,6 @@
             <button id="passTurnBtn" class="pass-turn-btn">⏭️ Passar a vez</button>
           </div>
         </div>
-        <div id="burnOpportunityNotice" class="burn-opportunity-notice hidden" role="status" aria-live="assertive"></div>
-        <div id="doubleOpportunityNotice" class="double-opportunity-notice hidden" role="status" aria-live="polite"></div>
         <div id="hand" class="hand"></div>
       </section>
 
@@ -218,11 +221,12 @@
           <div class="effect-grid">
             <button data-effect="applause" title="Aplausos">👏<span>Aplausos</span></button>
             <button data-effect="laugh" title="Risada">😂<span>Risada</span></button>
+            <button data-effect="angry" title="Raiva">😡<span>Raiva</span></button>
             <button data-effect="horn" title="Corneta">📯<span>Corneta</span></button>
             <button data-effect="drum" title="Tambores">🥁<span>Tambores</span></button>
             <button data-effect="victory" title="Vitória">🎉<span>Vitória</span></button>
             <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
-            <button data-effect="jogaBoca" class="effect-shout" title="Falar JOGA BOCA ABERTA!">📢<span>JOGA BOCA ABERTA!</span></button>
+            <button data-effect="jogaBoca" class="effect-shout effect-speaker-only" title="Falar JOGA BOCA ABERTA!">🔊<span>Joga boca aberta</span></button>
           </div>
           <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis; o botão 🎵 controla separadamente a música de fundo.</div>
         </div>

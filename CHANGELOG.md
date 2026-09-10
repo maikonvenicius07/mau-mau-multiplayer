@@ -1,5 +1,18 @@
 # Changelog
 
+## V40.18 — Reações Rápidas Visíveis
+
+- adicionados **3 atalhos rápidos sempre visíveis** logo abaixo do topo do jogo: **😂 risada**, **😡 raiva** e **🔊 joga boca aberta**;
+- o atalho **🔊** fala em voz alta **"JOGA BOCA ABERTA!"** com um clique;
+- incluído o novo efeito **Raiva** também dentro do painel de chat/efeitos;
+- o botão de **Joga Boca Aberta** no painel lateral foi simplificado para estilo de **alto-falante**, ficando mais claro no celular.
+
+## V40.17.0 — Interface mais limpa no celular
+
+- Removidos os banners inferiores de **Queima disponível** e **Carta Dupla disponível**.
+- Mantidos os botões flutuantes reposicionáveis, o destaque das cartas e o foco automático.
+- Nenhuma regra do jogo foi alterada.
+
 ## V40.16.0 — Seta do próximo jogador
 
 - Adicionada seta visual **PRÓXIMO** no avatar de quem jogará depois do jogador atual.
