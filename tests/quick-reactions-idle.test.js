@@ -1,0 +1,12 @@
+const fs=require('fs');
+const path=require('path');
+const root=path.resolve(__dirname,'..');
+const pkg=require(path.join(root,'package.json'));
+if(pkg.version!=='40.22.0') throw new Error('Versão V40.22 não aplicada.');
+const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
+if(!css.includes('.quick-reactions-widget.idle')) throw new Error('Estado idle das reações rápidas não encontrado no CSS.');
+if(!css.includes('opacity:.42')) throw new Error('Transparência automática da carinha não encontrada.');
+const js=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+if(!js.includes('function wakeQuickReactions')) throw new Error('Lógica de despertar das reações rápidas não encontrada.');
+if(!js.includes('setTimeout(()=>setQuickReactionsIdle(true),4200)')) throw new Error('Temporizador de inatividade da carinha não encontrado.');
+console.log('✓ V40.22: carinha discreta com transparência inteligente');

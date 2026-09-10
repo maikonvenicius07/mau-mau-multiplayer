@@ -1,5 +1,11 @@
 # Changelog
 
+## V40.22 — Carinha Discreta com Transparência Inteligente
+- Reduzi o tamanho do botão flutuante de reações, deixando somente a carinha **😊** menor e mais discreta.
+- Adicionei efeito de **semi-transparência automática** após alguns segundos sem uso.
+- Ao tocar, arrastar, focar ou abrir o painel de reações, a carinha volta automaticamente para o estado totalmente visível.
+- Mantive o comportamento atual: a carinha continua arrastável, com posição salva no navegador do jogador.
+
 ## V40.21 — Reações com Apenas a Carinha
 
 - simplificada a barra flutuante de reações para exibir **somente a carinha 😊** na mesa;

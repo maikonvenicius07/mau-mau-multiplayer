@@ -1,10 +1,10 @@
-# Mau-Mau Candeias — V40.21
+# Mau-Mau Candeias — V40.22
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
 
 
 
-## V40.21 — Somente a carinha 😊 visível
+## V40.22 — Carinha 😊 discreta e inteligente
 
 A barra flutuante de reações ficou mais limpa: agora **somente a carinha 😊 aparece na mesa**. Ao tocar nela, abre um painel com **todas as reações disponíveis**. O próprio botão 😊 também pode ser arrastado para qualquer posição da tela e um duplo toque devolve à posição inicial.
 
@@ -20,6 +20,13 @@ A barra de reações rápidas com **😂**, **😡** e **🔊 JOGA BOCA ABERTA**
 
 O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para qualquer posição visível da tela. A posição escolhida fica salva apenas no navegador do próprio jogador, evitando cobrir a quantidade de cartas ou outros elementos quando houver 4 ou 5 participantes. Um duplo clique retorna o botão à posição inicial.
 
+
+### Ajuste visual desta versão
+- A carinha de reações ficou **menor** para ocupar menos espaço na mesa.
+- Depois de alguns segundos sem interação, ela fica **semi-transparente** automaticamente.
+- Ao tocar, arrastar, focar ou abrir o painel, ela volta a ficar **totalmente visível**.
+- A posição continua salva no navegador do jogador.
+
 ## Recursos atuais
 
 - **Login Google obrigatório** com sessão própria em cookie HttpOnly.
@@ -32,7 +39,7 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 - **Microfone ao vivo (V40.5)** diretamente na mesa: conversa de voz em tempo real por WebRTC entre jogadores humanos, sem gravação no PostgreSQL.
 - **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
-- **Reações rápidas (V40.21)**: somente a carinha **😊** fica visível na mesa; ao tocar, abre o painel com todas as reações, mantendo posição salva no navegador.
+- **Reações rápidas (V40.22)**: somente a carinha **😊** fica visível na mesa, agora menor, mais discreta, arrastável e com efeito semi-transparente após alguns segundos sem uso. Ao tocar, abre o painel com todas as reações e volta a ficar 100% visível.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
 - **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
 - Interface adaptada para computador e celular.

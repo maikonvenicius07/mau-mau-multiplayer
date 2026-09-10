@@ -1054,9 +1054,22 @@ function resetLiveVoice({notify=false}={}){
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
 
-// V40.21 — reações rápidas minimalistas.
-// Apenas a carinha 😊 fica visível; ao tocar, abre o painel com todas as reações.
-// O próprio botão pode ser arrastado pelo jogador.
+// V40.22 — carinha 😊 ainda mais discreta.
+// Continua visível sozinha, pode ser arrastada e, após alguns segundos sem uso,
+// fica semi-transparente para não atrapalhar a visão da mesa.
+
+let quickReactionsIdleTimer=null;
+function setQuickReactionsIdle(idle){
+  const widget=$('#quickReactionsWidget');if(!widget)return;
+  widget.classList.toggle('idle',!!idle);
+}
+function wakeQuickReactions(){
+  const panel=$('#allReactionsPanel');
+  if(quickReactionsIdleTimer)clearTimeout(quickReactionsIdleTimer);
+  setQuickReactionsIdle(false);
+  if(panel&&!panel.classList.contains('hidden'))return;
+  quickReactionsIdleTimer=setTimeout(()=>setQuickReactionsIdle(true),4200);
+}
 function quickReactionsDefaultPosition(){
   const widget=$('#quickReactionsWidget');
   const topbarBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom||58;
@@ -1090,6 +1103,7 @@ function closeAllReactionsPanel(){
   const panel=$('#allReactionsPanel'),btn=$('#allReactionsBtn');
   if(panel)panel.classList.add('hidden');
   if(btn)btn.setAttribute('aria-expanded','false');
+  wakeQuickReactions();
 }
 function positionAllReactionsPanel(){
   const panel=$('#allReactionsPanel'),widget=$('#quickReactionsWidget');if(!panel||!widget)return;
@@ -1101,12 +1115,13 @@ function positionAllReactionsPanel(){
 function toggleAllReactionsPanel(){
   const panel=$('#allReactionsPanel'),btn=$('#allReactionsBtn');if(!panel||!btn)return;
   const opening=panel.classList.contains('hidden');
-  if(opening){panel.classList.remove('hidden');positionAllReactionsPanel();btn.setAttribute('aria-expanded','true')}
+  if(opening){panel.classList.remove('hidden');positionAllReactionsPanel();btn.setAttribute('aria-expanded','true');setQuickReactionsIdle(false)}
   else closeAllReactionsPanel();
 }
 function initDraggableQuickReactions(){
   const widget=$('#quickReactionsWidget'),handle=$('#allReactionsBtn');if(!widget||!handle)return;
   let drag=null,suppressClick=false;
+  wakeQuickReactions();
   const finish=ev=>{
     if(!drag)return;
     try{handle.releasePointerCapture?.(drag.pointerId)}catch{}
@@ -1115,10 +1130,12 @@ function initDraggableQuickReactions(){
       suppressClick=true;setTimeout(()=>{suppressClick=false},60);
     }
     widget.classList.remove('dragging');drag=null;
+    wakeQuickReactions();
     if(ev?.cancelable)ev.preventDefault();
   };
   handle.addEventListener('pointerdown',ev=>{
     if(ev.button!==undefined&&ev.button!==0)return;
+    wakeQuickReactions();
     const rect=widget.getBoundingClientRect();
     drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};
     handle.setPointerCapture?.(ev.pointerId);
@@ -1128,11 +1145,14 @@ function initDraggableQuickReactions(){
     if(!drag||ev.pointerId!==drag.pointerId)return;
     const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
     if(!drag.moved&&Math.hypot(dx,dy)<5)return;
-    drag.moved=true;widget.classList.add('dragging');closeAllReactionsPanel();
+    drag.moved=true;widget.classList.add('dragging');setQuickReactionsIdle(false);closeAllReactionsPanel();
     setQuickReactionsPosition(drag.originX+dx,drag.originY+dy);
     if(ev.cancelable)ev.preventDefault();
   });
   handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish);
+  handle.addEventListener('mouseenter',wakeQuickReactions);
+  handle.addEventListener('pointerenter',wakeQuickReactions);
+  handle.addEventListener('focus',wakeQuickReactions);
   handle.addEventListener('dblclick',ev=>{
     ev.preventDefault();
     const pos=quickReactionsDefaultPosition();
@@ -1148,6 +1168,7 @@ function initDraggableQuickReactions(){
     setQuickReactionsPosition(rect.left,rect.top,{save:true});
   });
   restoreQuickReactionsPosition();
+  wakeQuickReactions();
 }
 initDraggableQuickReactions();
 document.addEventListener('pointerdown',ev=>{
@@ -1184,6 +1205,7 @@ function restoreLiveMicPosition(){
 function initDraggableLiveMic(){
   const btn=$('#liveMicBtn');if(!btn)return;
   let drag=null,suppressClick=false;
+  wakeQuickReactions();
   const finish=ev=>{
     if(!drag)return;
     try{btn.releasePointerCapture?.(drag.pointerId)}catch{}
@@ -1284,6 +1306,7 @@ function triggerFloatingDouble(){
 function initDraggableGameAction(kind,clickHandler){
   const btn=floatingActionButton(kind);if(!btn)return;
   let drag=null,suppressClick=false;
+  wakeQuickReactions();
   const finish=ev=>{
     if(!drag)return;
     try{btn.releasePointerCapture?.(drag.pointerId)}catch{}

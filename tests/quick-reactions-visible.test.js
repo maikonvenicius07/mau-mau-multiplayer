@@ -19,4 +19,4 @@ if(!app.includes("toggleAllReactionsPanel()")) throw new Error('Abertura do pain
 if(!server.includes("'angry'")) throw new Error('Servidor não permite o efeito de raiva.');
 if(!css.includes('.quick-reactions-widget-minimal')) throw new Error('CSS do modo minimalista das reações rápidas ausente.');
 if(!css.includes('.quick-reaction-main')) throw new Error('CSS do botão principal de reações ausente.');
-console.log('✓ reações rápidas minimalistas V40.21');
+console.log('✓ reações rápidas minimalistas V40.22');
