@@ -13,7 +13,7 @@ assert(app.includes('quickActionCardIds'),'cliente precisa receber oportunidades
 assert(app.includes("socket.emit('quickAction'"),'cliente precisa enviar Ação Rápida ao servidor');
 assert(app.includes("q.textContent='⚡'"),'botão ⚡ precisa existir na carta');
 assert(app.includes('doubleByCard'),'Carta Dupla deve mapear as duas cópias');
-assert(app.includes('doubleButtonCardIds'),'Carta Dupla deve escolher uma única cópia para receber o botão ×2');
+assert(app.includes('doubleFocusCardIds'),'Carta Dupla deve escolher uma cópia para foco enquanto a ação fica no botão flutuante');
 assert(css.includes('.quick-btn'),'CSS do botão de Ação Rápida ausente');
 assert(css.includes('.playing-card.quickable'),'destaque visual da Ação Rápida ausente');
 assert(server.includes("socket.on('quickAction'"),'servidor precisa ouvir Ação Rápida');
@@ -28,4 +28,4 @@ assert(app.includes('burnMustDraw'),'cliente precisa distinguir quando a compra 
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
 assert(engine.includes('Depois da queima você já possui carta compatível'),'motor deve bloquear compra desnecessária após a queima');
 assert(engine.includes('passou a vez após a queima'),'motor deve registrar passe após queima');
-console.log('✓ UI/servidor: Queima Flexível, Ação Rápida e Carta Dupla com botão único conferidas.');
+console.log('✓ UI/servidor: Queima Flexível, Ação Rápida e Carta Dupla flutuante conferidas.');

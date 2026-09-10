@@ -1,5 +1,15 @@
 # Changelog
 
+## V40.14.0 — Queima e Carta Dupla flutuantes
+
+- Adicionados botões flutuantes **🔥 QUEIMA** e **×2 DUPLA**, exibidos apenas quando a ação correspondente está disponível.
+- Ambos podem ser arrastados livremente; a posição é salva no navegador e restaurada nas próximas partidas.
+- As cartas válidas continuam com destaque visual e foco automático, mas os botões deixam de ocupar espaço sobre as cartas.
+- Quando existem várias opções de Carta Dupla, um seletor compacto permite escolher a dupla desejada.
+- Duplo clique em cada botão restaura sua posição padrão.
+- Mantidas integralmente as regras atuais de Queima, Queima da abertura, Carta Dupla e Mau-Mau.
+
+
 ## V40.13.0 — Carta Dupla otimizada para celular
 
 - O botão **×2 JOGAR DUPLA** passa a existir em somente uma das duas cartas idênticas de cada par.

@@ -19,6 +19,7 @@ const playingVoiceAudios=new Set();
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null;
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
+const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1';
 const sessionKey='maumauSessionV1';
 let googleUser=null;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
@@ -1110,6 +1111,106 @@ function initDraggableLiveMic(){
 }
 initDraggableLiveMic();updateLiveMicUI();
 
+// V40.14 — Queima e Carta Dupla como ações flutuantes reposicionáveis.
+// As cartas continuam destacadas; o botão fica fora da mão para não disputar espaço no celular.
+function floatingActionStorage(kind){return kind==='burn'?floatingBurnPositionStorage:floatingDoublePositionStorage}
+function floatingActionButton(kind){return kind==='burn'?$('#floatingBurnBtn'):$('#floatingDoubleBtn')}
+function floatingActionDefaultPosition(kind){
+  const btn=floatingActionButton(kind),fallbackW=window.innerWidth<=900?96:136;
+  const w=btn?.offsetWidth||fallbackW;
+  const topbarBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom||58;
+  const y=topbarBottom+(kind==='burn'?72:126);
+  return{x:Math.max(8,window.innerWidth-w-12),y};
+}
+function clampFloatingActionPosition(kind,x,y){
+  const btn=floatingActionButton(kind);if(!btn)return{x:0,y:0};
+  const margin=8,topMin=Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+margin;
+  const fallback=window.innerWidth<=900?{w:96,h:42}:{w:136,h:44};
+  const w=btn.offsetWidth||fallback.w,h=btn.offsetHeight||fallback.h;
+  const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
+  return{x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
+}
+function setFloatingActionPosition(kind,x,y,{save=false}={}){
+  const btn=floatingActionButton(kind);if(!btn)return;
+  const pos=clampFloatingActionPosition(kind,x,y);
+  btn.style.left=`${Math.round(pos.x)}px`;btn.style.top=`${Math.round(pos.y)}px`;btn.style.right='auto';btn.style.bottom='auto';
+  if(save)try{localStorage.setItem(floatingActionStorage(kind),JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
+}
+function restoreFloatingActionPosition(kind){
+  let pos=null;try{pos=JSON.parse(localStorage.getItem(floatingActionStorage(kind))||'null')}catch{}
+  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=floatingActionDefaultPosition(kind);
+  setFloatingActionPosition(kind,pos.x,pos.y);
+}
+function hideFloatingActionChooser(){const chooser=$('#floatingActionChooser');if(chooser){chooser.classList.add('hidden');chooser.innerHTML=''}}
+function showDoubleActionChooser(pairs){
+  const chooser=$('#floatingActionChooser'),anchorBtn=$('#floatingDoubleBtn');if(!chooser||!anchorBtn||!pairs?.length)return;
+  chooser.innerHTML='<div class="floating-action-chooser-title">Escolha a dupla</div>';
+  pairs.forEach(pair=>{
+    const card=state?.me?.hand?.find(c=>(pair.cardIds||[]).includes(c.id));if(!card)return;
+    const b=document.createElement('button');b.type='button';b.className='floating-action-choice';
+    b.innerHTML=`<strong>×2 ${esc(card.rank)}${suitGlyph[card.suit]||''}</strong><span>Jogar as duas</span>`;
+    b.onclick=()=>{hideFloatingActionChooser();playDouble(pair)};chooser.appendChild(b);
+  });
+  chooser.classList.remove('hidden');
+  requestAnimationFrame(()=>{
+    const r=anchorBtn.getBoundingClientRect(),cw=chooser.offsetWidth||170,ch=chooser.offsetHeight||100,margin=8;
+    let left=Math.min(window.innerWidth-cw-margin,Math.max(margin,r.right-cw));
+    let top=r.bottom+7;if(top+ch>window.innerHeight-margin)top=Math.max(margin,r.top-ch-7);
+    chooser.style.left=`${Math.round(left)}px`;chooser.style.top=`${Math.round(top)}px`;
+  });
+}
+function currentBurnCards(){
+  const ids=new Set(state?.me?.burnableCardIds||[]);return state?.me?.hand?.filter(c=>ids.has(c.id)).sort(compareHandCards)||[];
+}
+function currentDoublePairs(){return Array.isArray(state?.me?.doublePairs)?state.me.doublePairs:[]}
+function triggerFloatingBurn(){
+  const card=currentBurnCards()[0];if(!card||state?.paused||!socket.connected)return toast('A Queima não está disponível agora.');
+  hideFloatingActionChooser();play(card,true);
+}
+function triggerFloatingDouble(){
+  const pairs=currentDoublePairs();if(!canAct()||state?.continuationPlayerId||!pairs.length)return toast('A Carta Dupla não está disponível agora.');
+  if(pairs.length===1){hideFloatingActionChooser();playDouble(pairs[0]);return;}
+  showDoubleActionChooser(pairs);
+}
+function initDraggableGameAction(kind,clickHandler){
+  const btn=floatingActionButton(kind);if(!btn)return;
+  let drag=null,suppressClick=false;
+  const finish=ev=>{
+    if(!drag)return;
+    try{btn.releasePointerCapture?.(drag.pointerId)}catch{}
+    if(drag.moved){suppressClick=true;setFloatingActionPosition(kind,parseFloat(btn.style.left)||0,parseFloat(btn.style.top)||0,{save:true});}
+    btn.classList.remove('dragging');drag=null;
+    if(ev?.cancelable&&suppressClick)ev.preventDefault();
+  };
+  btn.addEventListener('pointerdown',ev=>{
+    if(ev.button!==undefined&&ev.button!==0)return;
+    const rect=btn.getBoundingClientRect();drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};btn.setPointerCapture?.(ev.pointerId);
+  });
+  btn.addEventListener('pointermove',ev=>{
+    if(!drag||ev.pointerId!==drag.pointerId)return;
+    const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;if(!drag.moved&&Math.hypot(dx,dy)<5)return;
+    drag.moved=true;btn.classList.add('dragging');hideFloatingActionChooser();setFloatingActionPosition(kind,drag.originX+dx,drag.originY+dy);if(ev.cancelable)ev.preventDefault();
+  });
+  btn.addEventListener('pointerup',finish);btn.addEventListener('pointercancel',finish);
+  btn.addEventListener('click',ev=>{if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}clickHandler()});
+  btn.addEventListener('dblclick',ev=>{ev.preventDefault();const pos=floatingActionDefaultPosition(kind);setFloatingActionPosition(kind,pos.x,pos.y,{save:true});toast(kind==='burn'?'🔥 Botão da Queima voltou à posição inicial.':'×2 Botão da Carta Dupla voltou à posição inicial.')});
+  restoreFloatingActionPosition(kind);
+}
+function updateFloatingGameActions(){
+  const burnBtn=$('#floatingBurnBtn'),doubleBtn=$('#floatingDoubleBtn');if(!burnBtn||!doubleBtn)return;
+  const burnAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.burnableCardIds||[]).length);
+  const doubleAvailable=!!(state&&state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&(state.me?.doublePairs||[]).length);
+  const burnWasHidden=burnBtn.classList.contains('hidden'),doubleWasHidden=doubleBtn.classList.contains('hidden');
+  burnBtn.classList.toggle('hidden',!burnAvailable);doubleBtn.classList.toggle('hidden',!doubleAvailable);
+  if(burnAvailable){burnBtn.classList.toggle('opening-action',!!state.openingReaction);burnBtn.title=state.openingReaction?'QUEIMA DA ABERTURA disponível. Clique para queimar ou arraste para mover.':'Queima disponível. Clique para queimar ou arraste para mover.';if(burnWasHidden)restoreFloatingActionPosition('burn')}
+  if(doubleAvailable){const n=(state.me.doublePairs||[]).length;doubleBtn.title=n>1?`Carta Dupla: ${n} opções disponíveis. Clique para escolher ou arraste para mover.`:'Carta Dupla disponível. Clique para jogar ou arraste para mover.';if(doubleWasHidden)restoreFloatingActionPosition('double')}
+  if(!doubleAvailable)hideFloatingActionChooser();
+}
+initDraggableGameAction('burn',triggerFloatingBurn);
+initDraggableGameAction('double',triggerFloatingDouble);
+document.addEventListener('pointerdown',ev=>{const chooser=$('#floatingActionChooser');if(!chooser||chooser.classList.contains('hidden'))return;if(chooser.contains(ev.target)||$('#floatingDoubleBtn')?.contains(ev.target))return;hideFloatingActionChooser()});
+window.addEventListener('resize',()=>{for(const kind of ['burn','double']){const btn=floatingActionButton(kind);if(btn&&!btn.classList.contains('hidden')){const r=btn.getBoundingClientRect();setFloatingActionPosition(kind,r.left,r.top,{save:true})}}hideFloatingActionChooser()});
+
 function quickAudioSupported(){return !!(navigator.mediaDevices?.getUserMedia&&window.MediaRecorder)}
 function quickAudioMime(){const c=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4','audio/webm'];return c.find(x=>MediaRecorder.isTypeSupported?.(x))||''}
 function formatVoiceDuration(ms){return `${Math.max(0,Math.min(15,Math.ceil(Number(ms||0)/1000)))} s`}
@@ -1548,7 +1649,7 @@ function render(){
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;
-  renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();
+  renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
 }
 function renderPlayers(){
   const ring=$('#playersRing');ring.innerHTML='';const n=state.players.length;
@@ -1618,17 +1719,16 @@ function renderHand(){
   const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds),quick=new Set(state.me.quickActionCardIds||[]);
   const doublePairs=state.me.doublePairs||[];
   const visibleHand=[...state.me.hand].sort(compareHandCards);
-  // V40.13: em cada par de Carta Dupla, o botão ×2 aparece em apenas UMA das duas cartas.
-  // A escolhida é a primeira cópia na ordem visual atual da mão, para manter o botão previsível
-  // mesmo quando o jogador alterna a organização por número ou por naipe.
+  // V40.14: a Carta Dupla usa um botão flutuante; as duas cartas permanecem destacadas.
+  // Uma cópia de cada par continua sendo marcada apenas para foco/centralização automática.
   const doubleByCard=new Map();
-  const doubleButtonCardIds=new Set();
+  const doubleFocusCardIds=new Set();
   doublePairs.forEach(pair=>{
     const ids=pair.cardIds||[];
     ids.forEach(id=>doubleByCard.set(id,pair));
     const pairSet=new Set(ids);
-    const owner=visibleHand.find(card=>pairSet.has(card.id));
-    if(owner) doubleButtonCardIds.add(owner.id);
+    const focusCard=visibleHand.find(card=>pairSet.has(card.id));
+    if(focusCard) doubleFocusCardIds.add(focusCard.id);
   });
   visibleHand.forEach(card=>{
     const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
@@ -1649,34 +1749,14 @@ function renderHand(){
     }else if(ok){
       el.onclick=()=>play(card,false);
     }
-    if(canBurn){
-      const b=document.createElement('button');
-      b.className='burn-action-label';
-      b.innerHTML='<span aria-hidden="true">🔥</span><strong>QUEIMAR</strong>';
-      b.title=state.openingReaction?'QUEIMA DA ABERTURA: jogue a carta exatamente igual e assuma a jogada':'QUEIMAR: jogar esta carta igual à mesa; depois você pode jogar outra compatível ou passar';
-      b.setAttribute('aria-label',b.title);
-      b.onclick=e=>{e.stopPropagation();play(card,true)};
-      el.appendChild(b);
-    }
     if(canQuick){const q=document.createElement('button');q.className='quick-btn';q.textContent='⚡';q.title='AÇÃO RÁPIDA: descartar esta carta igual sem tomar a vez';q.onclick=e=>{e.stopPropagation();playQuick(card)};el.appendChild(q)}
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
       el.classList.add('double-available');
-      const ownsDoubleButton=doubleButtonCardIds.has(card.id);
-      if(ownsDoubleButton){
-        el.classList.add('double-button-owner');
-        const d=document.createElement('button');
-        d.className='double-action-label';
-        d.innerHTML='<span aria-hidden="true">×2</span><strong>JOGAR DUPLA</strong>';
-        d.title='CARTA DUPLA: jogar as duas cartas idênticas juntas';
-        d.setAttribute('aria-label',d.title);
-        d.onclick=e=>{e.stopPropagation();playDouble(doublePair)};
-        el.appendChild(d);
-        if(canBurn) el.classList.add('burn-and-double');
-      }else{
-        el.classList.add('double-mate');
-      }
+      if(doubleFocusCardIds.has(card.id)) el.classList.add('double-focus-owner');
+      else el.classList.add('double-mate');
+      if(canBurn) el.classList.add('burn-and-double');
     }
     if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
     h.appendChild(el);
@@ -1689,10 +1769,10 @@ function renderHand(){
     burnNotice.classList.toggle('hidden',!showBurnNotice);
     if(showBurnNotice){
       burnNotice.textContent=state.openingReaction
-        ? '🔥 QUEIMA DA ABERTURA — toque na carta laranja ou em QUEIMAR'
+        ? '🔥 QUEIMA DA ABERTURA — toque na carta laranja ou use o botão flutuante 🔥 QUEIMA'
         : ((state.me.quickActionCardIds||[]).length
-          ? '🔥 QUEIMA DISPONÍVEL — use o botão QUEIMAR na carta laranja'
-          : '🔥 QUEIMA DISPONÍVEL — toque em QUEIMAR na carta destacada');
+          ? '🔥 QUEIMA DISPONÍVEL — use o botão flutuante 🔥 QUEIMA; a carta válida está laranja'
+          : '🔥 QUEIMA DISPONÍVEL — use o botão flutuante 🔥 QUEIMA; a carta válida está destacada');
       const focusKey=`${state.openingReaction?'opening':'turn'}:${[...burnIds].sort().join(',')}:${state.currentPlayerId||''}`;
       if(focusKey!==lastBurnFocusKey){
         lastBurnFocusKey=focusKey;
@@ -1703,19 +1783,19 @@ function renderHand(){
     }
   }
   const doubleIds=[...new Set((state.me.doublePairs||[]).flatMap(pair=>pair.cardIds||[]))];
-  const doubleButtonIds=[...doubleButtonCardIds];
+  const doubleFocusIds=[...doubleFocusCardIds];
   const doubleNotice=$('#doubleOpportunityNotice');
   if(doubleNotice){
-    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleButtonIds.length>0;
+    const showDoubleNotice=state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&doubleFocusIds.length>0;
     doubleNotice.classList.toggle('hidden',!showDoubleNotice);
     if(showDoubleNotice){
-      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — use ×2 JOGAR DUPLA na carta dourada com o botão';
+      doubleNotice.textContent='🃏 CARTA DUPLA DISPONÍVEL — use o botão flutuante ×2 DUPLA; a carta válida está destacada em dourado';
       const focusKey=`double:${doubleIds.slice().sort().join(',')}:${state.currentPlayerId||''}`;
       // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
-      // O botão ×2 fica em uma única cópia da dupla e essa carta recebe o foco quando necessário.
+      // Uma das cópias recebe o foco automático quando necessário; a ação fica no botão flutuante.
       if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
         lastDoubleFocusKey=focusKey;
-        setTimeout(()=>h.querySelector('.playing-card.double-button-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
+        setTimeout(()=>h.querySelector('.playing-card.double-focus-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
       }
     }else{
       lastDoubleFocusKey='';

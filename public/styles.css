@@ -778,3 +778,56 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 @media(prefers-reduced-motion:reduce){
   .playing-card.double-available,.double-opportunity-notice{animation:none!important}
 }
+
+/* V40.14 — QUEIMA E CARTA DUPLA FLUTUANTES / REPOSICIONÁVEIS */
+.floating-game-action{
+  position:fixed;z-index:74;left:auto;right:12px;top:136px;
+  min-width:136px;min-height:44px;padding:8px 12px;border-radius:999px;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-size:10px;font-weight:1000;letter-spacing:.055em;white-space:nowrap;
+  box-shadow:0 8px 22px #0008;touch-action:none;user-select:none;-webkit-user-select:none;
+  cursor:grab;transition:filter .16s ease,box-shadow .16s ease,transform .16s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.floating-game-action:hover{filter:brightness(1.12)}
+.floating-game-action:active,.floating-game-action.dragging{cursor:grabbing}
+.floating-game-action.dragging{transition:none;filter:brightness(1.18);box-shadow:0 11px 30px #000a}
+.floating-action-drag{font-size:13px;line-height:1;opacity:.75}
+.floating-action-icon{font-size:17px;line-height:1;font-weight:1000}
+.floating-game-action strong{font-size:10px;line-height:1;font-weight:1000}
+.floating-burn-action{
+  border:1px solid #ffd28e;background:linear-gradient(180deg,#ffad45,#e86d1d);color:#281104;
+  box-shadow:0 8px 22px #0008,0 0 0 2px #ff9c3030,0 0 20px #ff792b42;
+}
+.floating-burn-action.opening-action{animation:floatingBurnPulse .8s ease-in-out infinite alternate}
+.floating-double-action{
+  border:1px solid #fff0a0;background:linear-gradient(180deg,#ffe477,#d2a625);color:#251d02;
+  box-shadow:0 8px 22px #0008,0 0 0 2px #f5d84f2b,0 0 20px #e9c63d38;
+}
+.floating-action-chooser{
+  position:fixed;z-index:88;min-width:170px;max-width:min(260px,88vw);padding:8px;
+  border:1px solid #d6b84a;border-radius:13px;background:#0d1f18f5;color:#f8f1df;
+  box-shadow:0 14px 38px #000b;backdrop-filter:blur(8px);
+}
+.floating-action-chooser-title{padding:3px 5px 7px;color:#f0d36f;font-size:9px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.floating-action-choice{width:100%;min-height:42px;margin:3px 0;padding:7px 9px;border:1px solid #5d5630;border-radius:10px;background:#25331d;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+.floating-action-choice strong{font-size:14px;color:#ffe87f}.floating-action-choice span{font-size:9px;color:#cbd7cf}.floating-action-choice:hover{filter:brightness(1.14)}
+@keyframes floatingBurnPulse{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.04);filter:brightness(1.12)}}
+
+/* A ação saiu de cima da carta: as cartas continuam destacadas, sem botões sobrepostos. */
+.playing-card.double-focus-owner{z-index:11!important}
+.playing-card.burnable.double-available{
+  outline-color:#ffb53f!important;
+  box-shadow:0 0 0 5px #ffad4030,0 0 0 8px #f3d44a22,0 0 31px #ff8b2780,0 12px 25px #0009!important;
+}
+
+@media(max-width:900px){
+  .floating-game-action{min-width:96px;min-height:42px;padding:7px 9px;gap:5px}
+  .floating-action-drag{font-size:12px}.floating-action-icon{font-size:17px}.floating-game-action strong{font-size:9px}
+  .floating-action-choice{min-height:46px}
+}
+@media(max-width:420px){
+  .floating-game-action{min-width:90px;min-height:40px;padding:6px 8px;gap:4px}
+  .floating-action-drag{font-size:11px}.floating-game-action strong{font-size:8.5px}
+}
+@media(prefers-reduced-motion:reduce){.floating-burn-action.opening-action{animation:none!important}}
