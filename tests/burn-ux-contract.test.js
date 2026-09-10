@@ -7,7 +7,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.20.0');
+assert.equal(pkg.version,'40.21.0');
 assert(!html.includes('id="burnOpportunityNotice"'),'aviso inferior de Queima ainda está presente');
 assert(html.includes('id="floatingBurnBtn"'),'botão flutuante de Queima ausente');
 assert(app.includes('triggerFloatingBurn'),'ação do botão flutuante de Queima ausente');

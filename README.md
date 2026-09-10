@@ -1,11 +1,16 @@
-# Mau-Mau Candeias — V40.20
+# Mau-Mau Candeias — V40.21
 
-Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas flutuantes.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
 
+
+
+## V40.21 — Somente a carinha 😊 visível
+
+A barra flutuante de reações ficou mais limpa: agora **somente a carinha 😊 aparece na mesa**. Ao tocar nela, abre um painel com **todas as reações disponíveis**. O próprio botão 😊 também pode ser arrastado para qualquer posição da tela e um duplo toque devolve à posição inicial.
 
 ## V40.20 — Todas as reações pelo botão 😊
 
-Além dos atalhos rápidos **😂**, **😡** e **🔊**, a barra flutuante agora possui um botão **😊**. Ao tocar nele, aparece um painel compacto com todos os efeitos sociais disponíveis na mesa: **👏, 😂, 😡, 📯, 🥁, 🎉, 😱 e 🔊**. A seleção continua sendo feita com um único toque e o painel se fecha depois do envio.
+A barra flutuante possui um botão **😊**. Ao tocar nele, aparece um painel compacto com todos os efeitos sociais disponíveis na mesa: **👏, 😂, 😡, 📯, 🥁, 🎉, 😱 e 🔊**. A seleção continua sendo feita com um único toque e o painel se fecha depois do envio.
 
 ## V40.19 — Reações rápidas flutuantes
 
@@ -27,7 +32,7 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 - **Microfone ao vivo (V40.5)** diretamente na mesa: conversa de voz em tempo real por WebRTC entre jogadores humanos, sem gravação no PostgreSQL.
 - **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
-- **Reações rápidas flutuantes (V40.19)**: barra móvel com **😂**, **😡** e **🔊 Joga Boca Aberta**, com posição salva no navegador.
+- **Reações rápidas (V40.21)**: somente a carinha **😊** fica visível na mesa; ao tocar, abre o painel com todas as reações, mantendo posição salva no navegador.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
 - **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
 - Interface adaptada para computador e celular.

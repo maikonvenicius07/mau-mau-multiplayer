@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS — V40.21
+
+Alteração principal:
+- a barra de reações rápidas agora mostra somente a carinha 😊 na mesa;
+- ao tocar, abre o painel com todas as reações;
+- a própria carinha pode ser arrastada para qualquer lugar;
+- duplo toque na carinha retorna à posição inicial.
+
+Arquivos desta pasta: apenas os arquivos alterados para enviar ao GitHub.

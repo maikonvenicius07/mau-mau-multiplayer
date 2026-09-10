@@ -19,7 +19,7 @@ const playingVoiceAudios=new Set();
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null;
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
-const quickReactionsPositionStorage='maumauQuickReactionsPositionV1';
+const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1';
 const sessionKey='maumauSessionV1';
 let googleUser=null;
@@ -1054,15 +1054,16 @@ function resetLiveVoice({notify=false}={}){
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
 
-// V40.19 — reações rápidas flutuantes e reposicionáveis.
-// A barra com 😂 😡 🔊 continua com clique de um toque, mas agora pode ser movida pelo jogador.
+// V40.21 — reações rápidas minimalistas.
+// Apenas a carinha 😊 fica visível; ao tocar, abre o painel com todas as reações.
+// O próprio botão pode ser arrastado pelo jogador.
 function quickReactionsDefaultPosition(){
   const widget=$('#quickReactionsWidget');
   const topbarBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom||58;
-  const fallbackW=widget?.offsetWidth||(window.innerWidth<=900?180:192);
+  const fallbackW=widget?.offsetWidth||56;
   if(window.innerWidth<=900){
     const handTop=document.querySelector('.hand-panel')?.getBoundingClientRect().top||0;
-    const preferredY=handTop>0?handTop-58:topbarBottom+62;
+    const preferredY=handTop>0?handTop-62:topbarBottom+62;
     return {x:10,y:Math.max(topbarBottom+8,preferredY)};
   }
   return {x:Math.max(8,window.innerWidth-fallbackW-14),y:topbarBottom+14};
@@ -1070,7 +1071,7 @@ function quickReactionsDefaultPosition(){
 function clampQuickReactionsPosition(x,y){
   const widget=$('#quickReactionsWidget');if(!widget)return{x:0,y:0};
   const margin=8,topMin=Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+margin;
-  const w=widget.offsetWidth||(window.innerWidth<=900?180:192),h=widget.offsetHeight||48;
+  const w=widget.offsetWidth||56,h=widget.offsetHeight||56;
   const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
   return {x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
 }
@@ -1104,12 +1105,15 @@ function toggleAllReactionsPanel(){
   else closeAllReactionsPanel();
 }
 function initDraggableQuickReactions(){
-  const widget=$('#quickReactionsWidget'),handle=$('#quickReactionsHandle');if(!widget||!handle)return;
-  let drag=null;
+  const widget=$('#quickReactionsWidget'),handle=$('#allReactionsBtn');if(!widget||!handle)return;
+  let drag=null,suppressClick=false;
   const finish=ev=>{
     if(!drag)return;
     try{handle.releasePointerCapture?.(drag.pointerId)}catch{}
-    if(drag.moved){setQuickReactionsPosition(parseFloat(widget.style.left)||0,parseFloat(widget.style.top)||0,{save:true});}
+    if(drag.moved){
+      setQuickReactionsPosition(parseFloat(widget.style.left)||0,parseFloat(widget.style.top)||0,{save:true});
+      suppressClick=true;setTimeout(()=>{suppressClick=false},60);
+    }
     widget.classList.remove('dragging');drag=null;
     if(ev?.cancelable)ev.preventDefault();
   };
@@ -1133,7 +1137,11 @@ function initDraggableQuickReactions(){
     ev.preventDefault();
     const pos=quickReactionsDefaultPosition();
     setQuickReactionsPosition(pos.x,pos.y,{save:true});
-    toast('😂 Reações rápidas voltaram à posição inicial.');
+    toast('😊 Reações voltaram à posição inicial.');
+  });
+  handle.addEventListener('click',ev=>{
+    if(suppressClick){ev.preventDefault();ev.stopPropagation();return;}
+    ev.preventDefault();ev.stopPropagation();toggleAllReactionsPanel();
   });
   window.addEventListener('resize',()=>{
     const rect=widget.getBoundingClientRect();
@@ -1142,8 +1150,6 @@ function initDraggableQuickReactions(){
   restoreQuickReactionsPosition();
 }
 initDraggableQuickReactions();
-const allReactionsBtn=$('#allReactionsBtn');
-if(allReactionsBtn)allReactionsBtn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();toggleAllReactionsPanel()});
 document.addEventListener('pointerdown',ev=>{
   const panel=$('#allReactionsPanel'),widget=$('#quickReactionsWidget');
   if(!panel||panel.classList.contains('hidden'))return;

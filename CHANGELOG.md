@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.21 — Reações com Apenas a Carinha
+
+- simplificada a barra flutuante de reações para exibir **somente a carinha 😊** na mesa;
+- ao tocar na carinha, abre o painel com **todas as reações disponíveis**;
+- o próprio botão **😊** agora pode ser arrastado para qualquer posição da tela;
+- **duplo toque** na carinha devolve o botão à posição inicial;
+- removidos da área visível os atalhos fixos **😂**, **😡** e **🔊**, reduzindo poluição visual na mesa.
+
 ## V40.20 — Todas as Reações em um Toque
 
 - adicionado botão **😊** na barra flutuante de reações rápidas;

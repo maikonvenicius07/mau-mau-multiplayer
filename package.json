@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.20.0",
-  "description": "Mau-Mau Candeias V40.20: reações rápidas flutuantes com botão 😊 para abrir todas as reações e efeitos da mesa.",
+  "version": "40.21.0",
+  "description": "Mau-Mau Candeias V40.21: reações rápidas com apenas a carinha 😊 visível, abrindo todas as reações em um painel flutuante.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
