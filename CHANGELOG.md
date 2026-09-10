@@ -1,5 +1,12 @@
 # Changelog
 
+## V40.16.0 — Seta do próximo jogador
+
+- Adicionada seta visual **PRÓXIMO** no avatar de quem jogará depois do jogador atual.
+- A indicação acompanha automaticamente o avanço dos turnos e a inversão de sentido pela Dama.
+- Próximo jogador recebe contorno visual adicional, com ajuste para desktop e celular.
+- Respeita `prefers-reduced-motion`.
+
 ## V40.15.0 — Ordem visual dos jogadores
 
 - Avatares reposicionados na mesa conforme a ordem real de jogar.

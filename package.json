@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.15.0",
-  "description": "Mau-Mau Candeias V40.15: avatares organizados na ordem de jogar, com indicação visual de quem joga agora e do próximo da fila.",
+  "version": "40.16.0",
+  "description": "Mau-Mau Candeias V40.16: seta animada destaca o próximo jogador da fila, mantendo os avatares organizados na ordem real de jogar.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

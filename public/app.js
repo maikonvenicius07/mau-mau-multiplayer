@@ -1707,8 +1707,15 @@ function renderPlayers(){
     const countClass=p.cardCount===1?' mau-count':p.cardCount===2?' warning-count':'';
     const countWord=p.cardCount===1?'CARTA':'CARTAS';
     const orderText=playerQueueLabel(p.id);
-    const orderBadge=orderText?`<div class="player-order-badge ${active?'now':''}">${esc(orderText)}</div>`:'';
-    d.innerHTML=`<div class="player-card${active}${disc}${auto}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
+    const queue=playerTurnQueue();
+    const queueIndex=queue.findIndex(x=>x.id===p.id);
+    const nextTurn=state.status==='playing'&&!state.paused&&queueIndex===1;
+    const arrowSide=spot[1]<50?'below':'above';
+    const arrowGlyph=spot[1]<50?'↑':'↓';
+    const nextArrow=nextTurn?`<div class="next-turn-arrow ${arrowSide}" aria-label="Próximo jogador">${arrowGlyph} PRÓXIMO</div>`:'';
+    if(nextTurn)d.classList.add('next-turn-seat');
+    const orderBadge=orderText?`<div class="player-order-badge ${active?'now':''}${nextTurn?' next':''}">${esc(orderText)}</div>`:'';
+    d.innerHTML=`${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
 }
