@@ -1,4 +1,4 @@
-# Mau-Mau Candeias — V40.14
+# Mau-Mau Candeias — V40.15
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL e recursos de presença online.
 
@@ -185,6 +185,14 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - A regra da Carta Dupla não foi alterada: continua somente na própria vez e apenas com cartas normais idênticas.
 
 
+
+## V40.15 — Ordem visual dos jogadores
+
+- Os avatares da mesa agora são posicionados na **ordem de jogar**, facilitando a leitura da sequência da rodada.
+- A posição do próprio jogador continua fixa na parte inferior da mesa.
+- Os demais jogadores aparecem ao redor da mesa seguindo a ordem real do turno de acordo com o sentido atual da partida.
+- Cada avatar mostra uma pequena indicação visual: **JOGA AGORA**, **PRÓXIMO** ou a posição na fila.
+- Em caso de inversão de sentido, a ordem visual é atualizada para refletir a nova sequência de jogo.
 
 ## V40.14 — Queima e Carta Dupla flutuantes
 

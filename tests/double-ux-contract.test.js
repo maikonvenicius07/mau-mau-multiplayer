@@ -7,7 +7,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.14.0');
+assert.equal(pkg.version,'40.15.0');
 assert(html.includes('id="doubleOpportunityNotice"'),'aviso de Carta Dupla junto à mão ausente');
 assert(html.includes('id="floatingDoubleBtn"'),'botão flutuante de Carta Dupla ausente');
 assert(app.includes('triggerFloatingDouble'),'ação do botão flutuante de Carta Dupla ausente');
@@ -20,4 +20,4 @@ assert(css.includes('@keyframes doublePulseStrong'),'destaque reforçado da Cart
 assert(css.includes('.playing-card.double-focus-owner'),'prioridade visual da carta focada na dupla ausente');
 assert(css.includes('.playing-card.double-mate'),'marcação da segunda cópia sem botão ausente');
 assert(css.includes('.floating-game-action{min-width:96px;min-height:42px'),'área de toque mobile dos botões flutuantes ausente');
-console.log('✓ V40.14: Carta Dupla com botão flutuante, seleção múltipla e destaque das cartas conferidos.');
+console.log('✓ V40.15: Carta Dupla com botão flutuante, seleção múltipla e destaque das cartas conferidos.');

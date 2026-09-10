@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.14.0",
-  "description": "Mau-Mau Candeias V40.14: Queima e Carta Dupla com botões flutuantes, arrastáveis e reposicionáveis, preservando o destaque das cartas e a lógica do jogo.",
+  "version": "40.15.0",
+  "description": "Mau-Mau Candeias V40.15: avatares organizados na ordem de jogar, com indicação visual de quem joga agora e do próximo da fila.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

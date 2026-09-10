@@ -1,5 +1,12 @@
 # Changelog
 
+## V40.15.0 — Ordem visual dos jogadores
+
+- Avatares reposicionados na mesa conforme a ordem real de jogar.
+- O próprio jogador permanece ancorado na parte inferior da mesa.
+- Inclusão de selo visual em cada avatar: **JOGA AGORA**, **PRÓXIMO** ou posição na fila.
+- Distribuição ajustada no desktop e no celular para manter a leitura da sequência com 2 a 5 jogadores.
+
 ## V40.14.0 — Queima e Carta Dupla flutuantes
 
 - Adicionados botões flutuantes **🔥 QUEIMA** e **×2 DUPLA**, exibidos apenas quando a ação correspondente está disponível.

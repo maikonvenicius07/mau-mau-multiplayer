@@ -7,7 +7,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.14.0');
+assert.equal(pkg.version,'40.15.0');
 assert(html.includes('id="burnOpportunityNotice"'),'aviso de Queima junto à mão ausente');
 assert(html.includes('id="floatingBurnBtn"'),'botão flutuante de Queima ausente');
 assert(app.includes('triggerFloatingBurn'),'ação do botão flutuante de Queima ausente');
@@ -16,4 +16,4 @@ assert(app.includes("scrollIntoView({behavior:'smooth'"),'foco automático da ca
 assert(css.includes('.burn-opportunity-notice'),'estilo do aviso de Queima ausente');
 assert(css.includes('.floating-burn-action'),'estilo do botão flutuante de Queima ausente');
 assert(css.includes('@keyframes burnPulseStrong'),'destaque reforçado da carta queimável ausente');
-console.log('✓ V40.14: Queima com aviso, carta destacada, foco automático e botão flutuante conferidos.');
+console.log('✓ V40.15: Queima com aviso, carta destacada, foco automático e botão flutuante conferidos.');

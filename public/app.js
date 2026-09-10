@@ -1651,21 +1651,49 @@ function render(){
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;
   renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
 }
+function playerDisplayOrderFromMe(){
+  const players=Array.isArray(state?.players)?state.players:[];
+  if(!players.length) return [];
+  const meId=state?.me?.id;
+  const meIndex=players.findIndex(p=>p.id===meId);
+  if(meIndex<0) return players.slice();
+  const dir=state?.direction===1?1:-1;
+  const ordered=[];
+  for(let step=0;step<players.length;step++){
+    ordered.push(players[(meIndex + (step*dir) + players.length*8)%players.length]);
+  }
+  return ordered;
+}
+function playerTurnQueue(){
+  const players=Array.isArray(state?.players)?state.players:[];
+  if(!players.length) return [];
+  const startIndex=players.findIndex(p=>p.id===state?.currentPlayerId);
+  if(startIndex<0) return [];
+  const dir=state?.direction===1?1:-1;
+  const ordered=[];
+  for(let step=0;step<players.length;step++){
+    ordered.push(players[(startIndex + (step*dir) + players.length*8)%players.length]);
+  }
+  return ordered;
+}
+function playerQueueLabel(playerId){
+  const queue=playerTurnQueue();
+  const idx=queue.findIndex(p=>p.id===playerId);
+  if(idx===0) return 'JOGA AGORA';
+  if(idx===1) return 'PRÓXIMO';
+  if(idx>1) return `${idx+1}º NA ORDEM`;
+  return '';
+}
 function renderPlayers(){
-  const ring=$('#playersRing');ring.innerHTML='';const n=state.players.length;
+  const ring=$('#playersRing');ring.innerHTML='';
   const mobile=window.innerWidth<=900;
-  const desktopSpots=n===2?[[50,12],[50,88]]:n===3?[[50,10],[18,72],[82,72]]:n===4?[[50,8],[12,50],[50,90],[88,50]]:[[50,7],[12,35],[22,84],[78,84],[88,35]];
-  // No celular, a própria posição fica escondida (a mão já identifica você),
-  // e os adversários ocupam a parte superior/lateral da mesa para liberar o centro.
-  const opponents=state.players.filter(p=>p.id!==state.me.id);
-  const mobileSpots=opponents.length===1?[[50,12]]:
-    opponents.length===2?[[25,13],[75,13]]:
-    opponents.length===3?[[18,18],[50,10],[82,18]]:
-    [[17,18],[39,9],[61,9],[83,18]];
-  let oi=0;
-  state.players.forEach((p,i)=>{
+  const orderedPlayers=playerDisplayOrderFromMe();
+  const n=orderedPlayers.length;
+  const desktopSpots=n===2?[[50,88],[50,12]]:n===3?[[50,88],[22,18],[78,18]]:n===4?[[50,88],[14,48],[50,12],[86,48]]:[[50,88],[12,36],[31,11],[69,11],[88,36]];
+  const mobileSpots=n===2?[[50,90],[50,13]]:n===3?[[50,90],[23,18],[77,18]]:n===4?[[50,90],[16,21],[50,11],[84,21]]:[[50,90],[14,22],[36,10],[64,10],[86,22]];
+  orderedPlayers.forEach((p,i)=>{
     const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
-    const spot=mobile?(p.id===state.me.id?[50,90]:mobileSpots[oi++]):desktopSpots[i];
+    const spot=(mobile?mobileSpots:desktopSpots)[i]||[50,50];
     d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';
     const active=state.currentPlayerId===p.id?' active':'';
     const waitingReconnect=!p.isBot&&!p.connected&&!p.autoControlled;
@@ -1678,7 +1706,9 @@ function renderPlayers(){
     const reconnectTag=waitingReconnect&&p.reconnectDeadlineAt?` <span class="reconnect-tag">🔴 <span class="reconnect-countdown" data-deadline="${p.reconnectDeadlineAt}">${reconnectSeconds(p.reconnectDeadlineAt)}s</span></span>`:'';
     const countClass=p.cardCount===1?' mau-count':p.cardCount===2?' warning-count':'';
     const countWord=p.cardCount===1?'CARTA':'CARTAS';
-    d.innerHTML=`<div class="player-card${active}${disc}${auto}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div></div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
+    const orderText=playerQueueLabel(p.id);
+    const orderBadge=orderText?`<div class="player-order-badge ${active?'now':''}">${esc(orderText)}</div>`:'';
+    d.innerHTML=`<div class="player-card${active}${disc}${auto}${countClass}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
 }

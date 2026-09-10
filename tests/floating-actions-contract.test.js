@@ -7,7 +7,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.14.0');
+assert.equal(pkg.version,'40.15.0');
 assert(html.includes('id="floatingBurnBtn"'),'botão flutuante de Queima ausente');
 assert(html.includes('id="floatingDoubleBtn"'),'botão flutuante de Carta Dupla ausente');
 assert(html.includes('id="floatingActionChooser"'),'seletor de múltiplas duplas ausente');
@@ -20,4 +20,4 @@ assert(app.includes("burnBtn.classList.toggle('hidden',!burnAvailable)"),'Queima
 assert(app.includes("doubleBtn.classList.toggle('hidden',!doubleAvailable)"),'Dupla não some quando indisponível');
 assert(css.includes('.floating-game-action'),'estilo base flutuante ausente');
 assert(css.includes('touch-action:none'),'proteção de arraste/touch ausente');
-console.log('✓ V40.14: Queima e Carta Dupla flutuantes, móveis, persistentes e contextuais conferidas.');
+console.log('✓ V40.15: Queima e Carta Dupla flutuantes, móveis, persistentes e contextuais conferidas.');
