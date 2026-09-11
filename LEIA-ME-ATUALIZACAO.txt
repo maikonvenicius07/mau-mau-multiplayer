@@ -1,9 +1,9 @@
-MAU-MAU CANDEIAS — V40.21
+MAU-MAU CANDEIAS — V40.23
 
-Alteração principal:
-- a barra de reações rápidas agora mostra somente a carinha 😊 na mesa;
-- ao tocar, abre o painel com todas as reações;
-- a própria carinha pode ser arrastada para qualquer lugar;
-- duplo toque na carinha retorna à posição inicial.
+Melhoria desta versão:
+- o botão da AÇÃO RÁPIDA (⚡) agora é flutuante e arrastável;
+- aparece somente quando a Ação Rápida estiver disponível;
+- o jogador pode colocar onde quiser;
+- o botão antigo sobre a carta foi removido para limpar a mão, especialmente no celular.
 
-Arquivos desta pasta: apenas os arquivos alterados para enviar ao GitHub.
+Envie esta pasta/zip no GitHub apenas para substituir os arquivos alterados.

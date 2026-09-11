@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.22.0",
-  "description": "Mau-Mau Candeias V40.22: carinha de reações mais discreta, reposicionável e semi-transparente após inatividade.",
+  "version": "40.23.0",
+  "description": "Mau-Mau Candeias V40.23: Ação Rápida com botão flutuante, arrastável e visível somente quando a jogada estiver disponível.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

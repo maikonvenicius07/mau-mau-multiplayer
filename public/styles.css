@@ -786,6 +786,10 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   border:1px solid #fff0a0;background:linear-gradient(180deg,#ffe477,#d2a625);color:#251d02;
   box-shadow:0 8px 22px #0008,0 0 0 2px #f5d84f2b,0 0 20px #e9c63d38;
 }
+.floating-quick-action{
+  border:1px solid #b7e8ff;background:linear-gradient(180deg,#6fd8ff,#2e86ff);color:#06182a;
+  box-shadow:0 8px 22px #0008,0 0 0 2px #6ec9ff2a,0 0 20px #2e86ff40;
+}
 .floating-action-chooser{
   position:fixed;z-index:88;min-width:170px;max-width:min(260px,88vw);padding:8px;
   border:1px solid #d6b84a;border-radius:13px;background:#0d1f18f5;color:#f8f1df;

@@ -11,15 +11,16 @@ const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
 
 assert(app.includes('quickActionCardIds'),'cliente precisa receber oportunidades de Ação Rápida');
 assert(app.includes("socket.emit('quickAction'"),'cliente precisa enviar Ação Rápida ao servidor');
-assert(app.includes("q.textContent='⚡'"),'botão ⚡ precisa existir na carta');
+assert(app.includes("initDraggableGameAction('quick',triggerFloatingQuick)"),'Ação Rápida precisa ter botão flutuante próprio');
 assert(app.includes('doubleByCard'),'Carta Dupla deve mapear as duas cópias');
 assert(app.includes('doubleFocusCardIds'),'Carta Dupla deve escolher uma cópia para foco enquanto a ação fica no botão flutuante');
-assert(css.includes('.quick-btn'),'CSS do botão de Ação Rápida ausente');
+assert(css.includes('.floating-quick-action'),'CSS do botão flutuante de Ação Rápida ausente');
 assert(css.includes('.playing-card.quickable'),'destaque visual da Ação Rápida ausente');
 assert(server.includes("socket.on('quickAction'"),'servidor precisa ouvir Ação Rápida');
 assert(engine.includes('function canQuickAction'),'motor precisa detectar Ação Rápida');
 assert(engine.includes('function quickAction'),'motor precisa executar Ação Rápida');
 assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regras visuais precisam explicar Ação Rápida');
+assert(html.includes('id="floatingQuickBtn"'),'HTML precisa conter o botão flutuante de Ação Rápida');
 assert(html.includes('>VER REGRAS<'),'atalho de regras deve usar somente o texto VER REGRAS');
 assert(!html.includes('Ver regras desta versão'),'atalho de regras não deve exibir texto técnico de versão');
 assert(html.includes('Queima — própria vez + primeira carta da rodada'),'regras visuais devem explicar a Queima normal e a exceção da abertura');
@@ -28,4 +29,4 @@ assert(app.includes('burnMustDraw'),'cliente precisa distinguir quando a compra 
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
 assert(engine.includes('Depois da queima você já possui carta compatível'),'motor deve bloquear compra desnecessária após a queima');
 assert(engine.includes('passou a vez após a queima'),'motor deve registrar passe após queima');
-console.log('✓ UI/servidor: Queima Flexível, Ação Rápida e Carta Dupla flutuante conferidas.');
+console.log('✓ UI/servidor: Queima, Ação Rápida e Carta Dupla flutuantes conferidas.');

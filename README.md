@@ -1,8 +1,12 @@
-# Mau-Mau Candeias — V40.22
+# Mau-Mau Candeias — V40.23
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
 
 
+
+## V40.23 — Ação Rápida flutuante
+
+O raio da **Ação Rápida (⚡)** saiu de cima da carta e ganhou um **botão flutuante próprio**, igual ao da **Queima** e da **Carta Dupla**. Ele aparece **somente quando a Ação Rápida estiver realmente disponível**, pode ser **arrastado para qualquer lugar** da tela e a posição fica salva no navegador do jogador. Ao clicar no botão, o jogo executa automaticamente a **Ação Rápida válida** da sua mão.
 
 ## V40.22 — Carinha 😊 discreta e inteligente
 
@@ -40,6 +44,7 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 - **Música original** com modo Dinâmico e a opção **🎸 Rock Candeias**, volume independente e ducking durante falas/áudios.
 - **Chat e efeitos compartilhados**.
 - **Reações rápidas (V40.22)**: somente a carinha **😊** fica visível na mesa, agora menor, mais discreta, arrastável e com efeito semi-transparente após alguns segundos sem uso. Ao tocar, abre o painel com todas as reações e volta a ficar 100% visível.
+- **Ação Rápida flutuante (V40.23)**: botão **⚡** arrastável, fora da mão do jogador, visível apenas quando houver reação válida; mantém o destaque nas cartas rápidas.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
 - **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
 - Interface adaptada para computador e celular.

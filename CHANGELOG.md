@@ -1,5 +1,12 @@
 # Changelog
 
+## V40.23 — Ação Rápida Flutuante
+- a **Ação Rápida (⚡)** agora usa um **botão flutuante**, igual à Queima e à Carta Dupla;
+- o botão aparece **somente quando a ação estiver disponível**;
+- o jogador pode **arrastar o botão** para onde achar melhor e a posição fica salva no navegador;
+- o botão some automaticamente quando a oportunidade de Ação Rápida termina;
+- removido o pequeno botão ⚡ de cima da carta, deixando a mão mais limpa no celular.
+
 ## V40.22 — Carinha Discreta com Transparência Inteligente
 - Reduzi o tamanho do botão flutuante de reações, deixando somente a carinha **😊** menor e mais discreta.
 - Adicionei efeito de **semi-transparência automática** após alguns segundos sem uso.
