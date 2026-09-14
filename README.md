@@ -291,11 +291,11 @@ O botão **🔊** reproduz a fala **"JOGA BOCA ABERTA!"** com um clique.
 No painel lateral, o efeito também foi simplificado para o ícone de alto-falante, facilitando o uso no celular.
 
 
-## V40.29 — Ajuste no nome do avatar Caldinho
+## V40.30 — Ajuste no nome do avatar Caldinho
 
 Foi alterado apenas o nome exibido do avatar **Caldinho** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `caldo` para evitar quebrar compatibilidade com seleções já existentes.
 
 
-## V40.29 — Ajuste no nome do avatar Hulk Magrelo
+## V40.30 — Ajuste no nome do avatar Hulk Magrelo
 
 Foi alterado apenas o nome exibido do avatar **Hulk Magrelo** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `magreloverde` para evitar quebrar compatibilidade com seleções já existentes.

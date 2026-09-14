@@ -1,5 +1,5 @@
 
-## V40.29 — Figurinha mais discreta
+## V40.30 — Figurinha mais discreta
 
 - A área **Sua Figurinha** foi movida para a parte inferior da galeria de avatares, ficando mais alinhada com o layout da tela inicial.
 - O componente ficou mais **compacto e discreto**, com preview menor e botões reduzidos.

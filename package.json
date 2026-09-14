@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
   "version": "40.27.0",
-  "description": "Mau-Mau Candeias V40.29: área da figurinha própria mais discreta e reposicionada no lobby.",
+  "description": "Mau-Mau Candeias V40.30: área da figurinha própria mais discreta e reposicionada no lobby.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
