@@ -8,7 +8,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.33.0');
+assert.ok(['40.33.0','40.34.0','40.35.0'].includes(pkg.version));
 assert(app.includes('liveMicCandidateQueues=new Map()'),'fila de candidatos ICE ausente');
 assert(app.includes('queueLiveVoiceCandidate'),'fila ICE não implementada');
 assert(app.includes('flushLiveVoiceCandidates'),'candidatos ICE não são liberados após descrição remota');

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.33.0",
-  "description": "Mau-Mau Candeias V40.33: microfone ao vivo WebRTC estabilizado com reconexão automática, fila ICE, Opus e TURN opcional.",
+  "version": "40.35.0",
+  "description": "Mau-Mau Candeias V40.35: microfone do observador sempre visível, fora do felt, com posição própria e voz WebRTC preservada.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

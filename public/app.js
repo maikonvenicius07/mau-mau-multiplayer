@@ -26,6 +26,8 @@ let liveVoiceRtcConfig={
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTimers=new Map(),liveMicRetryCounts=new Map(),liveMicRecoveringPeers=new Set();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
+const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
+let liveMicPositionRole=null;
 const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1', floatingQuickPositionStorage='maumauFloatingQuickPositionV1';
 const sessionKey='maumauSessionV1';
@@ -1174,14 +1176,15 @@ function scheduleOutboundLiveVoiceRecovery(socketId,reason='network'){
 }
 function updateLiveMicUI(){
   const btn=$('#liveMicBtn'),label=$('#liveMicLabel');if(!btn)return;
-  const spectator=isSpectatorState();btn.classList.toggle('hidden',spectator);
-  if(spectator){btn.disabled=true;if(liveMicOn)stopLiveMic({notify:false,showToast:false});return;}
+  btn.classList.remove('hidden');
+  ensureLiveMicRolePosition();
   const supported=liveVoiceSupported(),recovering=liveMicRecoveringPeers.size>0;
   btn.disabled=!state||!socket.connected||liveMicStarting||!supported;
   btn.classList.toggle('mic-active',!!liveMicOn);btn.classList.toggle('mic-starting',!!liveMicStarting);btn.classList.toggle('mic-reconnecting',!!(liveMicOn&&recovering));
   if(label)label.textContent=liveMicStarting?'CONECTANDO...':liveMicOn?(recovering?'RECONECTANDO...':'MICROFONE LIGADO'):'LIGAR MICROFONE';
   const icon=btn.querySelector('.live-mic-icon');if(icon)icon.textContent=liveMicOn?(recovering?'🔄':'🎤'):'🎙️';
-  btn.title=!supported?'Este navegador não oferece microfone ao vivo compatível.':liveMicOn?(recovering?'A conexão de voz está se recuperando automaticamente.':'Desligar o microfone ao vivo'):'Ligar microfone ao vivo para conversar com os jogadores da sala';
+  const audience=isSpectatorState()?'jogadores e outros observadores':'jogadores e observadores';
+  btn.title=!supported?'Este navegador não oferece microfone ao vivo compatível.':liveMicOn?(recovering?'A conexão de voz está se recuperando automaticamente.':'Desligar o microfone ao vivo'):`Ligar microfone ao vivo para conversar com ${audience}`;
   btn.setAttribute('aria-label',btn.title);
 }
 function closeLivePeer(pc){try{pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.oniceconnectionstatechange=null;pc.close()}catch{}}
@@ -1227,7 +1230,7 @@ function bindOutboundLivePeerHealth(pc,peer){
 }
 async function createOutboundLivePeer(peer,{recovery=false}={}){
   if(!liveMicOn||!liveMicStream||!peer?.socketId||peer.socketId===socket.id)return;
-  liveMicPeerInfo.set(peer.socketId,{socketId:peer.socketId,playerId:peer.playerId,name:peer.name||'Jogador'});
+  liveMicPeerInfo.set(peer.socketId,{socketId:peer.socketId,participantId:peer.participantId||peer.playerId,playerId:peer.playerId,role:peer.role||'PLAYER',name:peer.name||'Participante'});
   if(liveMicOutboundPeers.has(peer.socketId))return;
   const sessionId=liveMicSessionId;if(!sessionId)return;
   await loadLiveVoiceRtcConfig();
@@ -1249,7 +1252,7 @@ async function acceptInboundLiveOffer(msg){
   const pc=newLiveVoicePeer();liveMicInboundPeers.set(key,pc);
   let canSendIce=false;const queuedIce=[];
   pc.onicecandidate=e=>{if(!e.candidate)return;const c=e.candidate.toJSON?e.candidate.toJSON():e.candidate;if(canSendIce)signalLiveVoice(from,'candidate',{candidate:c},sessionId);else queuedIce.push(c)};
-  pc.ontrack=e=>{const stream=e.streams?.[0]||new MediaStream([e.track]);attachLiveRemoteAudio(key,stream,msg.fromName||'Jogador')};
+  pc.ontrack=e=>{const stream=e.streams?.[0]||new MediaStream([e.track]);const voiceName=msg.fromRole==='SPECTATOR'?`Observador ${msg.fromName||''}`.trim():(msg.fromName||'Jogador');attachLiveRemoteAudio(key,stream,voiceName)};
   pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))closeInboundLivePeer(key)};
   pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='failed')closeInboundLivePeer(key)};
   try{
@@ -1277,7 +1280,6 @@ async function handleLiveVoiceSignal(msg){
 }
 async function startLiveMic(){
   if(liveMicOn||liveMicStarting)return;
-  if(isSpectatorState()){liveMicWanted=false;return toast('Microfone ao vivo não está disponível no Modo Observador.');}
   if(!state||!socket.connected)return toast('Sem conexão com a sala.');
   if(!liveVoiceSupported()){liveMicWanted=false;return toast('Este navegador não oferece conversa por microfone compatível.');}
   if(voiceRecorder?.state==='recording')return toast('Finalize o Áudio Rápido antes de ligar o microfone ao vivo.');
@@ -1289,7 +1291,7 @@ async function startLiveMic(){
     liveMicStream=stream;liveMicSessionId=liveVoiceSession();liveMicOn=true;
     for(const track of stream.getAudioTracks()){try{if('contentHint' in track)track.contentHint='speech'}catch{}track.onended=()=>{if(liveMicOn)stopLiveMic({notify:true,showToast:true,reason:'Microfone desligado pelo dispositivo.'})}};
     refreshQuickAudioMusicDuck();socket.emit('liveVoiceJoin');
-    toast('🎙️ Microfone ao vivo ligado com recuperação automática de conexão.');
+    toast(isSpectatorState()?'🎙️ Microfone ligado. Você pode conversar com a mesa como observador.':'🎙️ Microfone ao vivo ligado com recuperação automática de conexão.');
   }catch(e){
     liveMicOn=false;liveMicWanted=false;liveMicSessionId=null;liveMicStream=null;
     toast(e?.name==='NotAllowedError'?'Permita o uso do microfone para conversar ao vivo.':'Não foi possível ligar o microfone neste dispositivo.');
@@ -1302,7 +1304,7 @@ function stopLiveMic({notify=true,showToast=false,reason='🎙️ Microfone ao v
   try{liveMicStream?.getTracks?.().forEach(t=>{t.onended=null;t.stop()})}catch{}
   liveMicStream=null;liveMicOn=false;liveMicStarting=false;liveMicSessionId=null;
   if(state?.me?.id)liveVoiceActivePlayerIds.delete(state.me.id);
-  refreshQuickAudioMusicDuck();updateLiveMicUI();if(state)renderPlayers();if(showToast)toast(reason);
+  refreshQuickAudioMusicDuck();updateLiveMicUI();if(state){renderPlayers();renderSpectatorLivePanel();}if(showToast)toast(reason);
 }
 function resetLiveVoice({notify=false,keepWanted=false}={}){
   stopLiveMic({notify,showToast:false,keepWanted});closeAllLiveVoiceConnections();liveVoiceActivePlayerIds.clear();
@@ -1310,7 +1312,7 @@ function resetLiveVoice({notify=false,keepWanted=false}={}){
   refreshQuickAudioMusicDuck();updateLiveMicUI();
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
-window.addEventListener('online',()=>{if(liveMicWanted&&state&&!isSpectatorState()&&socket.connected&&!liveMicOn)setTimeout(()=>startLiveMic(),250)});
+window.addEventListener('online',()=>{if(liveMicWanted&&state&&socket.connected&&!liveMicOn)setTimeout(()=>startLiveMic(),250)});
 
 // V40.22 — carinha 😊 ainda mais discreta.
 // Continua visível sozinha, pode ser arrastada e, após alguns segundos sem uso,
@@ -1439,8 +1441,15 @@ document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeAllReactionsP
 
 // V40.9 — botão de microfone flutuante e reposicionável.
 // A posição é local para cada navegador e não interfere na posição das cartas/jogadores.
-function liveMicDefaultPosition(){
+function liveMicDefaultPosition(role=isSpectatorState()?'spectator':'player'){
+  if(role==='spectator'){
+    const btn=$('#liveMicBtn'),w=btn?.offsetWidth||(window.innerWidth<=900?44:178),h=btn?.offsetHeight||42;
+    return {x:Math.max(10,18),y:Math.max(70,window.innerHeight-h-18)};
+  }
   return window.innerWidth<=900?{x:10,y:66}:{x:18,y:88};
+}
+function liveMicPositionStorageKey(role=isSpectatorState()?'spectator':'player'){
+  return role==='spectator'?liveMicSpectatorPositionStorage:liveMicPositionStorage;
 }
 function clampLiveMicPosition(x,y){
   const btn=$('#liveMicBtn');if(!btn)return{x:0,y:0};
@@ -1449,16 +1458,23 @@ function clampLiveMicPosition(x,y){
   const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
   return{x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
 }
-function setLiveMicPosition(x,y,{save=false}={}){
+function setLiveMicPosition(x,y,{save=false,role=null}={}){
   const btn=$('#liveMicBtn');if(!btn)return;
+  const effectiveRole=role||(isSpectatorState()?'spectator':'player');
   const pos=clampLiveMicPosition(x,y);
   btn.style.left=`${Math.round(pos.x)}px`;btn.style.top=`${Math.round(pos.y)}px`;btn.style.right='auto';btn.style.bottom='auto';
-  if(save)try{localStorage.setItem(liveMicPositionStorage,JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
+  if(save)try{localStorage.setItem(liveMicPositionStorageKey(effectiveRole),JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
 }
-function restoreLiveMicPosition(){
-  let pos=null;try{pos=JSON.parse(localStorage.getItem(liveMicPositionStorage)||'null')}catch{}
-  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=liveMicDefaultPosition();
-  setLiveMicPosition(pos.x,pos.y);
+function restoreLiveMicPosition(role=isSpectatorState()?'spectator':'player'){
+  let pos=null;try{pos=JSON.parse(localStorage.getItem(liveMicPositionStorageKey(role))||'null')}catch{}
+  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=liveMicDefaultPosition(role);
+  setLiveMicPosition(pos.x,pos.y,{role});
+  liveMicPositionRole=role;
+}
+function ensureLiveMicRolePosition(){
+  if(!state)return;
+  const role=isSpectatorState()?'spectator':'player';
+  if(liveMicPositionRole!==role)restoreLiveMicPosition(role);
 }
 function initDraggableLiveMic(){
   const btn=$('#liveMicBtn');if(!btn)return;
@@ -1806,7 +1822,7 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
-  const resumeLiveMic=joinedRole==='PLAYER'&&liveMicWanted;
+  const resumeLiveMic=!!liveMicWanted;
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
   saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
   closeSpectatorOffer();closeLiveRooms();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
@@ -1820,8 +1836,8 @@ socket.on('joined',data=>{
   renderMatchmaking();
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   syncPresenceProfile();
-  if(joinedRole==='PLAYER'){socket.emit('liveVoiceReady');if(resumeLiveMic)setTimeout(()=>startLiveMic(),350)}
-  else liveMicWanted=false;
+  socket.emit('liveVoiceReady');
+  if(resumeLiveMic)setTimeout(()=>startLiveMic(),350);
   updateLiveMicUI();
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
 });
@@ -1929,13 +1945,15 @@ socket.on('liveVoiceSenderStopped',info=>{
   for(const key of [...liveMicInboundPeers.keys()])if(key.startsWith(`${socketId}:`))closeInboundLivePeer(key);
 });
 socket.on('liveVoiceStatusSnapshot',payload=>{
-  liveVoiceActivePlayerIds.clear();for(const id of (Array.isArray(payload?.playerIds)?payload.playerIds:[]))liveVoiceActivePlayerIds.add(id);
-  if(state)renderPlayers();
+  liveVoiceActivePlayerIds.clear();
+  const ids=Array.isArray(payload?.participantIds)?payload.participantIds:(Array.isArray(payload?.playerIds)?payload.playerIds:[]);
+  for(const id of ids)liveVoiceActivePlayerIds.add(id);
+  if(state){renderPlayers();renderSpectatorLivePanel();}
 });
 socket.on('liveVoiceStatus',info=>{
-  const id=info?.playerId;if(!id)return;
+  const id=info?.participantId||info?.playerId;if(!id)return;
   if(info.on)liveVoiceActivePlayerIds.add(id);else liveVoiceActivePlayerIds.delete(id);
-  if(state)renderPlayers();
+  if(state){renderPlayers();renderSpectatorLivePanel();}
 });
 socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
@@ -2366,7 +2384,7 @@ function renderSpectatorLivePanel(){
   const people=$('#spectatorPeople');
   if(people){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];
-    people.innerHTML=viewers.length?viewers.map(v=>`<span class="spectator-person">${avatarHTML(v.avatar,'xs')}<b>${esc(v.name||'Observador')}</b></span>`).join(''):'<span class="spectator-person-empty">Só você está assistindo agora.</span>';
+    people.innerHTML=viewers.length?viewers.map(v=>`<span class="spectator-person">${avatarHTML(v.avatar,'xs')}<b>${esc(v.name||'Observador')}</b>${liveVoiceActivePlayerIds.has(v.id)?'<span class="spectator-live-mic" title="Falando pelo microfone ao vivo">🎙️</span>':''}</span>`).join(''):'<span class="spectator-person-empty">Só você está assistindo agora.</span>';
   }
   const feed=$('#spectatorFeed');if(feed){
     const items=(state.log||[]).slice(-6).reverse();

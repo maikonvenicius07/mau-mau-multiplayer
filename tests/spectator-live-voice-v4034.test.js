@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
+const pkg=require(path.join(root,'package.json'));
+
+assert.ok(['40.34.0','40.35.0'].includes(pkg.version));
+assert(!app.includes('Microfone ao vivo não está disponível no Modo Observador.'),'frontend ainda bloqueia microfone para observador');
+assert(app.includes("btn.classList.remove('hidden')"),'botão do microfone não é exibido para observador');
+assert(app.includes("socket.emit('liveVoiceReady');"),'observador não anuncia disponibilidade para receber voz');
+assert(app.includes("toast(isSpectatorState()?'🎙️ Microfone ligado. Você pode conversar com a mesa como observador.'"),'confirmação específica do microfone do observador ausente');
+assert(server.includes('function currentVoiceParticipant(socket)'),'servidor não resolve participante de voz genérico');
+assert(server.includes('socket.data.role === ROLE_SPECTATOR'),'servidor não reconhece observador na voz');
+assert(server.includes('const spectators = ensureSpectators(room)'),'observadores não entram na lista de peers WebRTC');
+assert(server.includes('currentVoiceSocketInRoom'),'sinalização não aceita destino observador da mesma sala');
+assert(server.includes('participantId:actor.id'),'identidade de voz do observador não é propagada');
+assert(engine.includes('function roomSpectatorState')&&engine.includes('hand: []'),'proteção das cartas do observador foi perdida');
+console.log('✓ V40.34: observadores podem falar/ouvir no microfone ao vivo sem acesso às cartas privadas.');

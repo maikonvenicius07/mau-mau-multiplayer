@@ -939,3 +939,28 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .spectator-live-panel{display:grid;grid-template-columns:auto minmax(170px,.7fr) minmax(260px,1.3fr);gap:9px;padding:9px 12px;background:#081a14e8;border-bottom:1px solid #315846;box-shadow:0 8px 18px #0003}.spectator-live-stats{display:grid;grid-template-columns:repeat(3,minmax(68px,1fr));gap:6px}.spectator-live-stats>div{padding:7px 8px;border:1px solid #315846;border-radius:10px;background:#10271e;text-align:center}.spectator-live-stats strong{display:block;color:#b9efd4;font-size:14px}.spectator-live-stats span{display:block;color:#7fa090;font-size:7px;text-transform:uppercase;letter-spacing:.08em}.spectator-watchers-wrap{min-width:0;padding:7px 8px;border:1px solid #294b3c;border-radius:10px;background:#0d2119}.spectator-watchers-wrap>strong{display:block;margin-bottom:5px;font-size:8px;color:#a9d9c1;letter-spacing:.05em;text-transform:uppercase}.spectator-people{display:flex;gap:5px;overflow:auto}.spectator-person{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:999px;background:#17382b;border:1px solid #3a7057;white-space:nowrap}.spectator-person .avatar-img{width:18px!important;height:18px!important}.spectator-person b{font-size:8px;color:#d5e8de}.spectator-person-empty{font-size:8px;color:#748f81}.spectator-feed-wrap{min-width:0;padding:7px 8px;border:1px solid #294b3c;border-radius:10px;background:#0d2119}.spectator-feed-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}.spectator-feed-head strong{font-size:8px;color:#a9d9c1;text-transform:uppercase;letter-spacing:.05em}.spectator-feed-head small{font-size:7px;color:#668276}.spectator-feed{display:grid;gap:2px;max-height:58px;overflow:auto}.spectator-feed-item{display:flex;gap:5px;align-items:flex-start}.spectator-feed-item>span{color:#6db48e}.spectator-feed-item p{margin:0;font-size:8px;line-height:1.3;color:#a9bfb4}.spectator-feed-empty{font-size:8px;color:#718c7f}.room-public-control{margin-bottom:7px!important;background:#15382b!important;border-color:#3d765b!important;color:#bcebd4!important}
 @media(max-width:1100px){.online-discovery{grid-template-columns:repeat(2,minmax(0,1fr))!important}.spectator-live-panel{grid-template-columns:1fr 1fr}.spectator-feed-wrap{grid-column:1/-1}}
 @media(max-width:700px){.online-discovery{grid-template-columns:1fr!important}.live-rooms-modal{width:calc(100vw - 14px);padding:19px 12px}.live-rooms-head{display:grid}.live-rooms-refresh{width:max-content}.live-rooms-summary{gap:5px}.live-rooms-summary strong{font-size:18px}.live-room-card{align-items:stretch;display:grid}.live-room-code{width:72px;flex-basis:72px}.live-room-watch-btn{width:100%}.spectator-live-panel{grid-template-columns:1fr;padding:8px}.spectator-feed-wrap{grid-column:auto}.spectator-feed{max-height:74px}.spectator-live-stats{grid-template-columns:repeat(3,1fr)}}
+
+/* V40.34 — indicador discreto de observador usando microfone ao vivo. */
+.spectator-live-mic{display:inline-flex;align-items:center;justify-content:center;margin-left:4px;font-size:.72rem;line-height:1;opacity:.92;filter:drop-shadow(0 0 4px rgba(79,220,130,.35))}
+
+/* V40.35 — Microfone sempre visível para OBSERVADOR.
+   O botão agora fica fora do felt (HTML) e esta regra protege contra qualquer
+   estilo antigo que tente escondê-lo no modo espectador. */
+#game.spectator-mode #liveMicBtn.live-mic-btn{
+  display:inline-flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  z-index:220!important;
+}
+#game.spectator-mode #liveMicBtn.live-mic-btn:disabled{
+  display:inline-flex!important;
+  visibility:visible!important;
+  opacity:.55!important;
+}
+@media(max-width:900px){
+  #game.spectator-mode #liveMicBtn.live-mic-btn{
+    min-width:46px;
+    min-height:44px;
+  }
+}

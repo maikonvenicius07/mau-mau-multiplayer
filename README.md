@@ -1,3 +1,13 @@
+# Mau-Mau Candeias — V40.35
+
+## Microfone ao vivo para jogadores e observadores
+
+Nesta versão, quem entra no **Modo Observador** também pode conversar pelo microfone ao vivo. O observador continua fora da partida: não ocupa vaga, não recebe cartas privadas e não pode executar ações de jogo.
+
+A voz continua usando WebRTC P2P, com as melhorias de estabilidade da V40.33: fila ICE, recuperação automática, preferência por Opus e suporte opcional a TURN.
+
+---
+
 
 ## V40.33 — Microfone ao vivo mais estável
 

@@ -1,3 +1,23 @@
+# CHANGELOG
+
+
+## V40.35 — Microfone do observador sempre visível
+
+- Move o botão `liveMicBtn` para fora da mesa (`felt`), evitando recorte por `overflow: hidden`.
+- Garante por CSS que o botão permaneça visível no `Modo Observador`.
+- Cria posição flutuante independente para jogador e observador.
+- No primeiro uso como observador, posiciona o microfone na parte inferior esquerda da tela, onde não disputa espaço com o painel do modo observador.
+- Mantém voz WebRTC entre jogadores e observadores, privacidade das cartas e bloqueio das ações de jogo.
+- Adiciona teste de regressão específico para a visibilidade do microfone do observador.
+
+## V40.34 — Microfone também para observadores
+
+- Observadores agora veem e podem ligar o botão flutuante **🎙️ LIGAR MICROFONE**.
+- Voz ao vivo WebRTC passa a conectar **jogadores humanos e observadores** da mesma sala.
+- O servidor continua aceitando apenas sinalização WebRTC; o áudio permanece P2P.
+- Observadores continuam sem receber cartas privadas e continuam bloqueados de jogar, comprar, queimar ou executar qualquer ação da partida.
+- A lista de observadores mostra um pequeno **🎙️** quando um observador está com o microfone ligado.
+- Reconexão automática, fila ICE, Opus e TURN opcional da V40.33 foram preservados.
 
 ## V40.33 — Microfone ao vivo mais estável
 
