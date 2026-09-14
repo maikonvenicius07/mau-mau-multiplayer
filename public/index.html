@@ -125,35 +125,37 @@
                 </button>
               </div>
             </section>
-            <section class="avatar-group people">
-              <div class="avatar-group-title">👤 Pessoas</div>
-              <div class="avatar-group-grid avatar-grid-2">
-                <button type="button" class="avatar-option" data-avatar="homem" role="radio" aria-checked="false" title="Homem">
-                  <img src="assets/avatars/homem.webp" alt="Homem" /><span>Homem</span>
-                </button>
-                <button type="button" class="avatar-option" data-avatar="mulher" role="radio" aria-checked="false" title="Mulher">
-                  <img src="assets/avatars/mulher.webp" alt="Mulher" /><span>Mulher</span>
-                </button>
-              </div>
-            </section>
-            <section class="avatar-group custom-avatar-group">
-              <div class="avatar-group-title">🖼️ Sua Figurinha</div>
-              <div class="custom-avatar-wrap">
-                <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
-                  <img id="customAvatarPreview" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
-                  <span class="custom-avatar-copy">
-                    <span id="customAvatarLabel">Escolher figurinha</span>
-                    <small>JPG • PNG • WEBP</small>
-                  </span>
-                </button>
-                <div class="custom-avatar-actions">
-                  <label class="custom-avatar-upload-btn" for="customAvatarInput">Trocar</label>
-                  <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
-                  <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
+            <div class="avatar-side-column">
+              <section class="avatar-group people">
+                <div class="avatar-group-title">👤 Pessoas</div>
+                <div class="avatar-group-grid avatar-grid-2">
+                  <button type="button" class="avatar-option" data-avatar="homem" role="radio" aria-checked="false" title="Homem">
+                    <img src="assets/avatars/homem.webp" alt="Homem" /><span>Homem</span>
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="mulher" role="radio" aria-checked="false" title="Mulher">
+                    <img src="assets/avatars/mulher.webp" alt="Mulher" /><span>Mulher</span>
+                  </button>
                 </div>
-                <div class="custom-avatar-tip">A figurinha é ajustada automaticamente para avatar redondo.</div>
-              </div>
-            </section>
+              </section>
+              <section class="avatar-group custom-avatar-group">
+                <div class="avatar-group-title">🖼️ Sua Figurinha</div>
+                <div class="custom-avatar-wrap">
+                  <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
+                    <img id="customAvatarPreview" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
+                    <span class="custom-avatar-copy">
+                      <span id="customAvatarLabel">Escolher figurinha</span>
+                      <small>JPG • PNG • WEBP</small>
+                    </span>
+                  </button>
+                  <div class="custom-avatar-actions">
+                    <label class="custom-avatar-upload-btn" for="customAvatarInput">Trocar</label>
+                    <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                    <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
+                  </div>
+                  <div class="custom-avatar-tip">Ajuste automático para avatar redondo.</div>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </div>
@@ -183,9 +185,6 @@
       <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
-    <div id="spectatorModeBanner" class="spectator-mode-banner hidden" role="status" aria-live="polite">
-      <strong>👁️ MODO OBSERVADOR</strong><span>Você está assistindo à partida.</span>
-    </div>
     <div id="quickReactionsWidget" class="quick-reactions-widget quick-reactions-widget-minimal" aria-label="Reações rápidas">
       <button id="allReactionsBtn" class="quick-reaction-btn all-reactions-toggle quick-reaction-main" type="button" title="Ver todas as reações. Arraste para mover. Duplo toque para voltar à posição inicial." aria-label="Ver todas as reações" aria-expanded="false">😊</button>
       <div id="allReactionsPanel" class="all-reactions-panel hidden" role="menu" aria-label="Todas as reações">
@@ -227,7 +226,7 @@
         </div>
       </div>
 
-      <section id="handPanel" class="hand-panel">
+      <section class="hand-panel">
         <div class="hand-toolbar">
           <div class="hand-owner-row"><span class="hand-owner"><strong id="meLabel">Você</strong> <span id="handCount"></span></span><button id="sortHandBtn" class="sort-hand-btn" type="button" title="Organizar as cartas da sua mão por número ou por naipe">🔢 Número</button></div>
           <div class="toolbar-actions">
@@ -291,19 +290,6 @@
     </main>
   </section>
 
-
-  <dialog id="spectatorOfferDialog" class="modal spectator-offer-modal">
-    <button class="close spectator-offer-close" id="spectatorOfferClose" type="button" aria-label="Fechar opção de observador">×</button>
-    <div class="spectator-offer-icon" aria-hidden="true">👁️</div>
-    <div class="eyebrow">PARTIDA EM ANDAMENTO</div>
-    <h2>Assistir à partida?</h2>
-    <p id="spectatorOfferText">A partida já começou. Você pode entrar apenas para assistir, conversar no chat e enviar reações.</p>
-    <div class="spectator-privacy-note"><strong>🔒 Cartas privadas protegidas</strong><span>Você verá somente a quantidade de cartas de cada jogador. As mãos não são enviadas ao seu navegador.</span></div>
-    <div class="spectator-offer-actions">
-      <button id="spectatorJoinBtn" class="spectator-join-btn" type="button">👁️ ASSISTIR PARTIDA</button>
-      <button id="spectatorCancelBtn" class="spectator-cancel-btn" type="button">Cancelar</button>
-    </div>
-  </dialog>
 
   <dialog id="matchmakingDialog" class="modal matchmaking-modal">
     <button class="close matchmaking-close" id="matchmakingClose" type="button" aria-label="Fechar acompanhamento da busca">×</button>

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
   "version": "40.31.0",
-  "description": "Mau-Mau Candeias V40.31: Modo Observador seguro, com estado SPECTATOR sem mãos privadas, chat e reações.",
+  "description": "Mau-Mau Candeias V40.31: seleção de avatares reorganizada com Pessoas e Sua Figurinha em uma coluna lateral compacta e equilibrada.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

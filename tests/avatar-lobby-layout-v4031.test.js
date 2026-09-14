@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
+const pkg=require(path.join(root,'package.json'));
+assert.equal(pkg.version,'40.31.0');
+assert(html.includes('class="avatar-side-column"'),'coluna lateral de avatares ausente');
+const sideStart=html.indexOf('class="avatar-side-column"');
+const people=html.indexOf('class="avatar-group people"',sideStart);
+const custom=html.indexOf('class="avatar-group custom-avatar-group"',sideStart);
+assert(sideStart>=0 && people>sideStart && custom>people,'Pessoas e Sua Figurinha precisam ficar agrupadas na coluna lateral');
+assert(css.includes('.avatar-side-column{grid-column:2;display:flex;flex-direction:column;gap:12px'),'coluna lateral não está empilhada corretamente');
+assert(!css.includes('.custom-avatar-group{grid-column:2;grid-row:3'),'layout antigo com lacuna vertical ainda existe');
+assert(css.includes('align-items:start'),'galeria deve alinhar os blocos pelo topo');
+console.log('✓ V40.31: Pessoas e Sua Figurinha agrupadas na lateral, sem espaço vazio intermediário.');

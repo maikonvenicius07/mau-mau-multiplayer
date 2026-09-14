@@ -1,12 +1,4 @@
 # Mau-Mau Candeias — V40.31
-## V40.31 — Modo Observador
-
-A V40.31 adiciona um **Modo Observador** separado da lógica dos jogadores. Quando uma sala já está em partida, uma nova pessoa recebe a opção **👁️ ASSISTIR PARTIDA**. O observador não ocupa vaga, não entra em `room.players` e não altera turno, ordem dos avatares ou reconexão dos jogadores.
-
-A proteção das cartas é feita no **servidor**. Conexões `PLAYER` continuam recebendo a própria mão e as ações válidas. Conexões `SPECTATOR` recebem somente o estado público: jogadores, avatares, quantidade de cartas, turno atual, sentido, carta da mesa, quantidade no monte, logs públicos, chat e reações. Durante a rodada, nenhuma mão, carta comprada mantida ou conteúdo do baralho é enviado ao observador. A conferência de cartas (`roundReview`) continua disponível somente depois do encerramento da rodada, como já ocorria no jogo.
-
-Observadores podem usar o **chat de texto** e as **reações**. As mensagens recebem a marca discreta **👁️ OBSERVADOR**. A reconexão preserva o papel de observador por 60 segundos sem pausar a partida.
-
 
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
@@ -307,3 +299,7 @@ Foi alterado apenas o nome exibido do avatar **Caldinho** no lobby e na seleçã
 ## V40.30 — Ajuste no nome do avatar Hulk Magrelo
 
 Foi alterado apenas o nome exibido do avatar **Hulk Magrelo** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `magreloverde` para evitar quebrar compatibilidade com seleções já existentes.
+
+## V40.31 — Lobby de avatares mais equilibrado
+
+A área de seleção de avatar foi reorganizada para aproveitar melhor a largura da tela. **Mascotes** permanece na coluna esquerda e, na coluna direita, **Pessoas** e **Sua Figurinha** ficam agrupadas uma logo abaixo da outra. Isso remove o grande espaço vazio que aparecia entre os blocos e aproxima os botões de criação/entrada da área de perfil. No celular, tudo continua empilhado e responsivo.

@@ -1,13 +1,7 @@
-V40.31 - MODO OBSERVADOR
+V40.31 - Lobby de avatares mais equilibrado
 
-Principais mudanças:
-- salas com partida em andamento oferecem a opção 👁️ ASSISTIR PARTIDA;
-- observadores não ocupam vaga de jogador;
-- o servidor envia estado SPECTATOR sem mãos privadas nem conteúdo do baralho;
-- observadores veem quantidade de cartas, turno, mesa, placar e informações públicas;
-- chat de texto e reações continuam disponíveis com identificação 👁️ OBSERVADOR;
-- observador não pode jogar, comprar, declarar Mau-Mau, Queimar, usar Ação Rápida ou Carta Dupla;
-- reconexão mantém o papel de observador sem pausar a partida;
-- cartas restantes só aparecem para o observador depois do fim da rodada, pela conferência já existente.
-
-Nenhuma regra do motor de Mau-Mau foi alterada.
+- Pessoas e Sua Figurinha agora ficam agrupadas na coluna da direita.
+- A figurinha aparece imediatamente abaixo de Pessoas, sem o grande espaço vazio.
+- O bloco da figurinha ficou mais compacto e discreto.
+- No celular, a galeria continua responsiva e empilhada.
+- Nenhuma regra do Mau-Mau foi alterada.

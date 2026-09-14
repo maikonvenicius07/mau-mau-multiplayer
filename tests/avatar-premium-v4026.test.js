@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 const pkg=require(path.join(root,'package.json'));
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
-assert.ok(/^40\./.test(pkg.version),'versão 40.x esperada');
+assert.ok(/^40\./.test(pkg.version));
 for(const id of ['telaazul','caldo','anao','anaocabecao','vesgo','magreloverde']){
   const f=path.join(root,'public','assets','avatars',`${id}.webp`);
   assert(fs.existsSync(f),`avatar premium ${id} ausente`);

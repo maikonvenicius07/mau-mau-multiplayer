@@ -1,16 +1,10 @@
-## V40.31 — Modo Observador seguro
+## V40.31 — Lobby de avatares mais equilibrado
 
-- criada separação explícita entre conexões `PLAYER` e `SPECTATOR`;
-- sala em andamento oferece **👁️ ASSISTIR PARTIDA** a quem não possui vaga de jogador;
-- observadores ficam em coleção separada e **não ocupam nenhuma das 5 vagas**;
-- estado `SPECTATOR` é produzido no servidor sem mãos dos jogadores, sem conteúdo do baralho e sem ações privadas;
-- quantidade de cartas, turno, sentido, carta da mesa, placar e logs públicos permanecem visíveis;
-- cartas restantes são reveladas ao observador apenas pelo `roundReview`, depois da rodada;
-- observadores podem conversar no chat e enviar reações, identificados com **👁️ OBSERVADOR**;
-- entrada/saída do observador gera mensagem no chat sem interromper a partida;
-- reconexão do observador preserva seu papel por 60 segundos e não pausa a mesa;
-- controles de jogo, microfone ao vivo e Áudio Rápido ficam indisponíveis para observadores;
-- regras do motor de Mau-Mau não foram alteradas.
+- agrupados **Pessoas** e **Sua Figurinha** em uma coluna lateral própria;
+- removida a lacuna vertical grande que aparecia antes da área de figurinha;
+- figurinha personalizada ficou menor e mais discreta;
+- mantidos seleção, troca, remoção, avatares premium e toda a lógica do jogo;
+- layout mobile continua empilhado e responsivo.
 
 
 ## V40.30 — Figurinha mais discreta
