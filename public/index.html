@@ -65,7 +65,11 @@
         <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
         <button id="matchmakingStart" class="matchmaking-main" type="button"><span>🔎</span><strong id="matchmakingBtnTitle">BUSCAR JOGADORES</strong><small id="matchmakingBtnSubtitle">Encontre alguém automaticamente</small></button>
         <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
-        <button id="watchRoomsOpen" class="watch-rooms-main" type="button"><span>👁️</span><strong>ASSISTIR PARTIDAS</strong><small><b id="publicRoomsCountLanding">0</b> salas • <b id="watchableRoomsCount">0</b> ao vivo • <b id="liveSpectatorsCount">0</b> observando</small></button>
+        <button id="watchRoomsOpen" class="watch-rooms-main" type="button" aria-label="Ver partidas públicas ao vivo">
+          <span class="watch-rooms-eye" aria-hidden="true">👁️</span>
+          <span class="watch-rooms-copy"><strong>ASSISTIR</strong><small><b id="watchableRoomsCount">0</b> AO VIVO</small></span>
+          <span class="watch-rooms-extra" aria-hidden="true"><b id="publicRoomsCountLanding">0</b> salas • <b id="liveSpectatorsCount">0</b> observando</span>
+        </button>
       </section>
 
       <div class="setup-grid avatar-setup">

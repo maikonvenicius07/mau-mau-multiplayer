@@ -1,27 +1,13 @@
-MAU-MAU CANDEIAS — V40.31
-CORREÇÃO FINAL DO MODO OBSERVADOR
+MAU-MAU CANDEIAS — V40.33 — Ajuste visual “Assistir” mais discreto
 
-Arquivos que precisam ser substituídos no projeto:
+Substitua no GitHub somente:
+- public/index.html
+- public/styles.css
 
-1) public/index.html
-2) public/styles.css
-
-O que esta correção completa:
-- Diálogo "👁️ ASSISTIR PARTIDA" quando a sala já está em andamento.
-- Botões para entrar como observador ou cancelar.
-- Faixa "MODO OBSERVADOR" dentro da sala.
-- Remoção visual do painel da mão para observadores.
-- Identificação "👁️ OBSERVADOR" no chat.
-- Layout responsivo do modo observador no celular e computador.
-- Aviso visual de privacidade: cartas privadas não são enviadas ao observador.
-
-IMPORTANTE:
-- server.js, game-engine.js e public/app.js NÃO precisam ser substituídos nesta correção.
-- A lógica de segurança do servidor já estava implementada na V40.31.
-- Após a correção, a suíte completa foi executada com 51/51 testes aprovados.
-
-Procedimento:
-- No GitHub, abra a pasta public.
-- Substitua index.html pelo arquivo deste pacote.
-- Substitua styles.css pelo arquivo deste pacote.
-- Faça commit e aguarde o Render publicar a nova versão.
+O que mudou:
+- “ASSISTIR PARTIDAS” passou a aparecer como “ASSISTIR”.
+- Na tela inicial aparece somente a quantidade de partidas AO VIVO.
+- Quantidade total de salas e observadores continua disponível dentro da Central de Partidas.
+- Botão menor, fundo mais escuro, borda e ícone mais discretos.
+- Nenhuma regra do jogo, Modo Observador ou microfone foi alterada.
+- Suíte completa: 53/53 testes aprovados.
