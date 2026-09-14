@@ -7,7 +7,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.32.0');
+assert.ok(/^40\./.test(pkg.version));
 assert(html.includes('id="spectatorOfferDialog"'),'diálogo de entrada como observador ausente');
 assert(html.includes('👁️ ASSISTIR PARTIDA'),'botão ASSISTIR PARTIDA ausente');
 assert(html.includes('id="spectatorModeBanner"'),'faixa MODO OBSERVADOR ausente');

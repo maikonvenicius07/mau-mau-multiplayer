@@ -1,4 +1,17 @@
-# Mau-Mau Candeias — V40.32
+
+## V40.33 — Microfone ao vivo mais estável
+
+- corrigida a perda de candidatos ICE quando a sinalização chega durante a negociação;
+- adicionada reconexão automática quando um enlace de voz falha ou fica desconectado;
+- o microfone tenta retomar automaticamente após uma oscilação da conexão Socket.IO;
+- captura otimizada para fala: cancelamento de eco, redução de ruído, ganho automático, mono e preferência por 48 kHz;
+- preferência pelo codec Opus e limite de bitrate voltado para voz;
+- música é reduzida automaticamente enquanto há conversa ao vivo, melhorando a inteligibilidade;
+- novo estado visual **RECONECTANDO...** no botão do microfone;
+- suporte opcional a servidor TURN via `VOICE_TURN_URLS`, `VOICE_TURN_USERNAME` e `VOICE_TURN_CREDENTIAL`;
+- o áudio continua sem ser salvo no PostgreSQL, ranking ou histórico de chat.
+
+# Mau-Mau Candeias — V40.33
 
 ## V40.32 — Partidas ao Vivo
 

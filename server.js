@@ -45,6 +45,21 @@ const AUTH_COOKIE = 'maumau_google_session';
 const AUTH_TTL_SECONDS = 7 * 24 * 60 * 60;
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
+// V40.33 — configuração de conectividade do microfone ao vivo.
+// STUN continua funcionando sem configuração extra. TURN é opcional, mas recomendado
+// para redes móveis/corporativas em que uma conexão P2P direta não consegue se manter.
+const VOICE_STUN_URLS = String(process.env.VOICE_STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302')
+  .split(',').map(x=>x.trim()).filter(x=>x.startsWith('stun:'));
+const VOICE_TURN_URLS = String(process.env.VOICE_TURN_URLS || process.env.VOICE_TURN_URL || '')
+  .split(',').map(x=>x.trim()).filter(x=>/^turns?:/.test(x));
+const VOICE_TURN_USERNAME = String(process.env.VOICE_TURN_USERNAME || '').trim();
+const VOICE_TURN_CREDENTIAL = String(process.env.VOICE_TURN_CREDENTIAL || '').trim();
+function voiceIceServers(){
+  const out=VOICE_STUN_URLS.length?VOICE_STUN_URLS.map(urls=>({urls})):[{urls:'stun:stun.l.google.com:19302'}];
+  if(VOICE_TURN_URLS.length&&VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)out.push({urls:VOICE_TURN_URLS,username:VOICE_TURN_USERNAME,credential:VOICE_TURN_CREDENTIAL});
+  return out;
+}
+
 if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará bloqueado até configurar a variável no Render.');
 if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
 
@@ -106,6 +121,12 @@ app.get('/api/auth/me', (req,res)=>{
   const session=authFromCookieHeader(req.headers.cookie);
   if(!session) return res.status(401).json({ok:false,message:'Login Google necessário.'});
   res.json({ok:true,user:{playerKey:session.playerKey,name:session.name,email:session.email,picture:session.picture}});
+});
+app.get('/api/voice/config', (req,res)=>{
+  const session=authFromCookieHeader(req.headers.cookie);
+  if(!session) return res.status(401).json({ok:false,message:'Login necessário para usar voz.'});
+  res.setHeader('Cache-Control','no-store');
+  res.json({ok:true,iceServers:voiceIceServers(),turnConfigured:!!(VOICE_TURN_URLS.length&&VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)});
 });
 app.post('/api/auth/google', async (req,res)=>{
   try {
