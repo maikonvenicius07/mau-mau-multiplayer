@@ -73,22 +73,6 @@
           <div class="avatar-field-title">Escolha seu avatar</div>
           <input id="avatarSelect" type="hidden" value="macaco" />
           <div id="avatarPicker" class="avatar-picker avatar-categories" role="radiogroup" aria-label="Escolha seu avatar">
-            <section class="avatar-group custom-avatar-group">
-              <div class="avatar-group-title">🖼️ Sua Figurinha</div>
-              <div class="custom-avatar-wrap">
-                <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
-                  <img id="customAvatarPreview" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
-                  <span id="customAvatarLabel">Escolher figurinha</span>
-                  <small>JPG • PNG • WEBP</small>
-                </button>
-                <div class="custom-avatar-actions">
-                  <label class="custom-avatar-upload-btn" for="customAvatarInput">Selecionar imagem</label>
-                  <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
-                  <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
-                </div>
-                <div class="custom-avatar-tip">A figurinha é ajustada automaticamente para avatar redondo.</div>
-              </div>
-            </section>
             <section class="avatar-group animals">
               <div class="avatar-group-title">🐾 Animais</div>
               <div class="avatar-group-grid avatar-grid-5">
@@ -150,6 +134,24 @@
                 <button type="button" class="avatar-option" data-avatar="mulher" role="radio" aria-checked="false" title="Mulher">
                   <img src="assets/avatars/mulher.webp" alt="Mulher" /><span>Mulher</span>
                 </button>
+              </div>
+            </section>
+            <section class="avatar-group custom-avatar-group">
+              <div class="avatar-group-title">🖼️ Sua Figurinha</div>
+              <div class="custom-avatar-wrap">
+                <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
+                  <img id="customAvatarPreview" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
+                  <span class="custom-avatar-copy">
+                    <span id="customAvatarLabel">Escolher figurinha</span>
+                    <small>JPG • PNG • WEBP</small>
+                  </span>
+                </button>
+                <div class="custom-avatar-actions">
+                  <label class="custom-avatar-upload-btn" for="customAvatarInput">Trocar</label>
+                  <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                  <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
+                </div>
+                <div class="custom-avatar-tip">A figurinha é ajustada automaticamente para avatar redondo.</div>
               </div>
             </section>
           </div>

@@ -1,3 +1,11 @@
+
+## V40.27 — Figurinha mais discreta
+
+- A área **Sua Figurinha** foi movida para a parte inferior da galeria de avatares, ficando mais alinhada com o layout da tela inicial.
+- O componente ficou mais **compacto e discreto**, com preview menor e botões reduzidos.
+- O botão principal mantém a seleção da figurinha personalizada sem alterar a lógica existente do avatar customizado.
+- Em celular, a área continua empilhada e com toque confortável.
+
 # Changelog
 
 ## V40.26 — Avatares Premium
