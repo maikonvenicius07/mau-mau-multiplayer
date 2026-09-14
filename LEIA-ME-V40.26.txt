@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.26 AVATARES PREMIUM
+
+Substitua/adicione estes arquivos no GitHub mantendo as mesmas pastas.
+
+Melhorias:
+- Tela Azul redesenhado em estilo premium 3D/cartoon;
+- Caldo redesenhado em estilo premium 3D/cartoon;
+- Anão redesenhado em estilo premium 3D/cartoon;
+- Anão Cabeção redesenhado em estilo premium 3D/cartoon;
+- Vesgo redesenhado em estilo premium 3D/cartoon;
+- Magrelo Verde agora aparece como Hulk Magrelo Verde;
+- figurinha própria do jogador da V40.25 foi preservada;
+- nenhuma regra do jogo foi alterada.
+
+Validação: npm run verify — 47 testes aprovados.

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.25.0",
-  "description": "Mau-Mau Candeias V40.25: novos avatares fixos e figurinha própria do jogador com upload local, sem alterar as regras do servidor.",
+  "version": "40.26.0",
+  "description": "Mau-Mau Candeias V40.26: avatares premium padronizados para Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,5 +1,11 @@
 # Changelog
 
+## V40.26 — Avatares Premium
+- redesenhados **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**;
+- novo padrão visual com acabamento 3D/cartoon, luz, volume e halo, compatível com os avatares originais;
+- imagens otimizadas em WEBP para manter boa qualidade sem pesar no carregamento;
+- nenhuma regra, turno, ranking ou lógica multiplayer foi alterada.
+
 ## V40.25 — Figurinha própria e novos avatares
 - incluída opção para o jogador enviar a própria figurinha (JPG, PNG ou WEBP);
 - a imagem é centralizada, recortada e convertida automaticamente para WEBP antes de ser usada;
