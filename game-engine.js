@@ -1142,6 +1142,7 @@ function roomPublicState(room, viewerId) {
   const replayEligible = room.status === 'finished' && replayHumans.length >= 2 && room.players.every(p => !p.isBot);
   return {
     code: room.code,
+    viewerRole: 'PLAYER',
     status: room.status,
     round: room.round,
     rounds: room.rules.rounds,
@@ -1153,6 +1154,14 @@ function roomPublicState(room, viewerId) {
     deckCount: room.deck.length,
     rules: room.rules,
     connectedCount: room.players.filter(p => p.connected).length,
+    spectatorCount: Array.isArray(room.spectators) ? room.spectators.filter(s => s.connected).length : 0,
+    spectators: Array.isArray(room.spectators) ? room.spectators.filter(s => s.connected).map(s => ({
+      id:s.id,
+      name:s.name,
+      avatar:s.avatar,
+      role:'SPECTATOR',
+      connected:true,
+    })) : [],
     // A mesa pausa somente durante os 60 s de tolerância. Depois disso, a vaga
     // segue em AUTO e a rodada pode continuar normalmente.
     paused: roomPausedForReconnect(room),
@@ -1189,6 +1198,7 @@ function roomPublicState(room, viewerId) {
     })),
     me: viewer ? {
       id: viewer.id,
+      role: 'PLAYER',
       name: viewer.name,
       avatar: viewer.avatar,
       hand: viewer.hand,
@@ -1221,6 +1231,58 @@ function roomPublicState(room, viewerId) {
   };
 }
 
+// V40.31 — estado seguro para observadores.
+// Alguns logs internos informam se a mão possui jogadas válidas após uma compra.
+// Essa informação ajuda o próprio jogo, mas é derivada da mão privada e não deve
+// ser entregue a quem está apenas assistindo.
+function spectatorPublicLog(entries=[]) {
+  return entries.filter(entry=>{
+    const message=String(entry?.message||'');
+    if(/opção\(ões\) válida\(s\) após a compra/i.test(message)) return false;
+    if(/não possui carta válida após a compra/i.test(message)) return false;
+    return true;
+  });
+}
+// Parte de roomPublicState(room, null), que já contém apenas dados públicos da mesa,
+// e acrescenta uma identidade local sem qualquer carta privada ou ação jogável.
+function roomSpectatorState(room, spectator) {
+  const publicState = roomPublicState(room, null);
+  return {
+    ...publicState,
+    viewerRole: 'SPECTATOR',
+    lastPass: publicState.lastPass ? {
+      playerId: publicState.lastPass.playerId,
+      nextPlayerId: publicState.lastPass.nextPlayerId,
+      afterBurn: !!publicState.lastPass.afterBurn,
+      at: publicState.lastPass.at,
+    } : null,
+    log: spectatorPublicLog(publicState.log),
+    replay: {
+      ...publicState.replay,
+      meReady: false,
+    },
+    me: spectator ? {
+      id: spectator.id,
+      role: 'SPECTATOR',
+      name: spectator.name,
+      avatar: spectator.avatar,
+      hand: [],
+      score: null,
+      roundScore: null,
+      declaration: null,
+      justDrawnCardId: null,
+      legalCardIds: [],
+      burnableCardIds: [],
+      burnFinishableCardIds: [],
+      quickActionCardIds: [],
+      doublePairs: [],
+      burnSecondRequired: false,
+      burnContinuationActive: false,
+      burnMustDraw: false,
+    } : null,
+  };
+}
+
 function cardLabel(card) {
   return `${rankLabel(card.rank)} de ${suitLabel(card.suit)}`;
 }
@@ -1237,6 +1299,6 @@ module.exports = {
   createRoom,addPlayer,reconnectPlayer,resetMatch,startRound,
   legalCard,declare,playCard,playDoubleCard,canPlayDouble,burnMatch,burnPair,endBurnContinuation,canBurnMatch,canFinishBurn,quickAction,canQuickAction,
   drawAction,passTurn,passAfterDraw,playDrawnCard,finalizeRound,
-  roomPublicState,cardLabel,suitLabel,rankLabel,
+  roomPublicState,roomSpectatorState,cardLabel,suitLabel,rankLabel,
   appendLog: log,
 };

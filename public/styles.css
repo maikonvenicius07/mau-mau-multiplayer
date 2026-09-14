@@ -836,3 +836,40 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 /* V40.16 — seta do próximo jogador */
 @media(max-width:900px){.current-turn-indicator{max-width:128px;padding:4px 7px;font-size:8px;gap:4px}.current-turn-indicator.above{bottom:calc(100% + 3px)}.current-turn-indicator.below{top:calc(100% + 3px)}.current-turn-dot{width:6px;height:6px;flex-basis:6px}.next-turn-arrow{min-width:74px;padding:3px 7px;font-size:8px}.next-turn-arrow.above{bottom:calc(100% + 3px)}.next-turn-arrow.below{top:calc(100% + 3px)}}
 @media(prefers-reduced-motion:reduce){.player-card.active,.current-turn-dot,.next-turn-arrow{animation:none!important}}
+
+/* V40.31 — MODO OBSERVADOR */
+.spectator-mode-banner{
+  position:sticky;top:0;z-index:72;margin:0 auto 6px;width:min(520px,calc(100% - 20px));
+  display:flex;align-items:center;justify-content:center;gap:9px;padding:7px 12px;
+  border:1px solid #6f8fc2;border-radius:0 0 14px 14px;
+  background:linear-gradient(180deg,#142b45f2,#0d2034f2);color:#eaf4ff;
+  box-shadow:0 7px 20px #0005;backdrop-filter:blur(7px);text-align:center;
+}
+.spectator-mode-banner strong{font-size:10px;letter-spacing:.09em;color:#b9dcff;white-space:nowrap}
+.spectator-mode-banner span{font-size:10px;color:#cfdeea}
+.spectator-offer-modal{width:min(520px,92vw);text-align:center;padding:28px 24px}
+.spectator-offer-close{position:absolute;right:14px;top:12px;border:0;background:#263e33;color:#fff;width:34px;height:34px;border-radius:10px;font-size:22px;cursor:pointer}
+.spectator-offer-icon{font-size:52px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 7px 12px #0006)}
+.spectator-offer-modal h2{font-size:27px;margin:5px 0 8px}
+.spectator-offer-modal p{margin:0 auto 15px;max-width:430px;color:#c6d7ce;font-size:13px;line-height:1.45}
+.spectator-privacy-note{display:flex;flex-direction:column;gap:4px;padding:11px 13px;margin:12px 0 17px;border:1px solid #426d59;border-radius:13px;background:#0b1b14;text-align:left}
+.spectator-privacy-note strong{color:#aee7c9;font-size:11px}.spectator-privacy-note span{color:#a9beb2;font-size:10px;line-height:1.4}
+.spectator-offer-actions{display:grid;grid-template-columns:1fr auto;gap:9px}
+.spectator-join-btn{min-height:48px;border:1px solid #77b8ff;border-radius:13px;background:linear-gradient(180deg,#2c75bc,#174a7d);color:#fff;font-weight:950;letter-spacing:.04em;cursor:pointer}
+.spectator-cancel-btn{min-height:48px;padding:0 16px;border:1px solid #4d665a;border-radius:13px;background:#1b3027;color:#d8e4de;font-weight:850;cursor:pointer}
+.spectator-chat-tag{display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:1px 5px;border:1px solid #54789d;border-radius:999px;background:#132b42;color:#cce8ff;font-size:7px;font-weight:950;letter-spacing:.05em;vertical-align:middle}
+.chat-message.system-observer .chat-meta{justify-content:center;color:#9fb5aa}.chat-message.system-observer .chat-bubble{margin:0 auto;background:#10271e;border-style:dashed;color:#c3d5cc;text-align:center;max-width:94%}
+#game.spectator-mode .floating-game-action,#game.spectator-mode #liveMicBtn{display:none!important}
+#game.spectator-mode #drawPile{cursor:default;filter:none}
+#game.spectator-mode .hand-panel{display:none!important}
+#game.spectator-mode .table-shell{padding-bottom:12px}
+@media(max-width:900px){
+  .spectator-mode-banner{position:relative;top:auto;margin:0 auto 5px;width:calc(100% - 16px);padding:6px 9px;border-radius:0 0 12px 12px;gap:6px}
+  .spectator-mode-banner strong,.spectator-mode-banner span{font-size:8.5px}
+  #game.spectator-mode .table-shell{padding-bottom:calc(12px + var(--safe-bottom))}
+}
+@media(max-width:520px){.spectator-offer-actions{grid-template-columns:1fr}.spectator-cancel-btn{min-height:42px}.spectator-mode-banner span{display:none}}
+#game.spectator-mode #voiceRecordBtn,
+#game.spectator-mode .quick-audio-note,
+#game.spectator-mode #voiceRecorderPanel,
+#game.spectator-mode #voicePreviewPanel{display:none!important}

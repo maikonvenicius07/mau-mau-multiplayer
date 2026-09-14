@@ -14,8 +14,11 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 900000 });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+const ROLE_PLAYER = 'PLAYER';
+const ROLE_SPECTATOR = 'SPECTATOR';
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
 const reconnectTimers = new Map();
+const spectatorReconnectTimers = new Map();
 const RECONNECT_GRACE_MS = 60 * 1000;
 
 // V40.1 — presença online e convites são efêmeros e vivem somente na memória.
@@ -196,6 +199,10 @@ function emitRoom(room) {
   maybeRecordFinished(room);
   for (const p of room.players) {
     if (p.socketId) io.to(p.socketId).emit('state', Engine.roomPublicState(room,p.id));
+  }
+  ensureSpectators(room);
+  for (const spectator of room.spectators) {
+    if (spectator.connected && spectator.socketId) io.to(spectator.socketId).emit('state', Engine.roomSpectatorState(room,spectator));
   }
   scheduleBotTurn(room);
   refreshInviteReadiness();
@@ -394,6 +401,7 @@ function withRoom(socket, fn) {
   try {
     const room = rooms.get(socket.data.roomCode);
     if (!room) throw new Error('Sala não encontrada.');
+    if (socket.data.role === ROLE_SPECTATOR) throw new Error('Modo Observador: esta ação é exclusiva dos jogadores da mesa.');
     const player = room.players.find(p => p.id === socket.data.playerId);
     if (!player) throw new Error('Jogador não encontrado na sala.');
     if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra Conta Google.');
@@ -407,8 +415,63 @@ const SOCIAL_EFFECTS = new Set(['applause','laugh','angry','horn','drum','victor
 const QUICK_AUDIO_MAX_MS = 15000;
 const QUICK_AUDIO_MAX_BYTES = 700 * 1024;
 const QUICK_AUDIO_COOLDOWN_MS = 2500;
+function ensureSpectators(room) {
+  if (!Array.isArray(room.spectators)) room.spectators = [];
+  return room.spectators;
+}
+function spectatorReconnectTimerKey(roomCode,spectatorId){return `${roomCode}:${spectatorId}`;}
+function cancelSpectatorReconnectTimer(roomCode,spectatorId){
+  const key=spectatorReconnectTimerKey(roomCode,spectatorId),timer=spectatorReconnectTimers.get(key);
+  if(timer)clearTimeout(timer);spectatorReconnectTimers.delete(key);
+}
+function clearSpectatorReconnectTimersForRoom(roomCode){
+  const prefix=`${roomCode}:`;
+  for(const [key,timer] of spectatorReconnectTimers){if(key.startsWith(prefix)){clearTimeout(timer);spectatorReconnectTimers.delete(key);}}
+}
 function ensureSocial(room) {
   if (!Array.isArray(room.chat)) room.chat = [];
+  ensureSpectators(room);
+}
+function spectatorForSocket(room,socket){
+  ensureSpectators(room);
+  return room.spectators.find(s=>s.id===socket.data.spectatorId&&s.playerKey===socket.data.auth?.playerKey)||null;
+}
+function socialActorForSocket(room,socket){
+  if(socket.data.role===ROLE_SPECTATOR){
+    const spectator=spectatorForSocket(room,socket);
+    return spectator&&spectator.connected?{id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}:null;
+  }
+  const player=room.players.find(p=>p.id===socket.data.playerId);
+  return player&&player.connected&&!player.isBot?{id:player.id,name:player.name,avatar:player.avatar,role:ROLE_PLAYER,isBot:false}:null;
+}
+function appendSystemChat(room,text){
+  ensureSocial(room);const now=Date.now();
+  const message={id:`chat-system-${now}-${Math.random().toString(36).slice(2,8)}`,at:now,playerId:null,name:'Mesa',avatar:'👁️',text:cleanChatText(text),role:'SYSTEM',system:true};
+  room.chat.push(message);if(room.chat.length>60)room.chat.splice(0,room.chat.length-60);io.to(room.code).emit('chatMessage',message);return message;
+}
+function removeSpectator(room,spectator,{announce=true}={}){
+  ensureSpectators(room);cancelSpectatorReconnectTimer(room.code,spectator.id);
+  room.spectators=room.spectators.filter(s=>s.id!==spectator.id);
+  if(announce)appendSystemChat(room,`👁️ ${spectator.name} saiu da sala.`);
+}
+function scheduleSpectatorRemoval(room,spectator){
+  cancelSpectatorReconnectTimer(room.code,spectator.id);
+  const key=spectatorReconnectTimerKey(room.code,spectator.id);
+  const timer=setTimeout(()=>{
+    spectatorReconnectTimers.delete(key);const liveRoom=rooms.get(room.code);if(!liveRoom)return;
+    ensureSpectators(liveRoom);const stale=liveRoom.spectators.find(s=>s.id===spectator.id);
+    if(!stale||stale.connected)return;
+    removeSpectator(liveRoom,stale,{announce:true});emitRoom(liveRoom);
+  },RECONNECT_GRACE_MS);
+  if(typeof timer.unref==='function')timer.unref();spectatorReconnectTimers.set(key,timer);
+}
+function closeSpectatorsForRoom(room,message='A mesa foi encerrada.'){
+  if(!room)return;ensureSpectators(room);clearSpectatorReconnectTimersForRoom(room.code);
+  for(const s of room.spectators){
+    if(!s.socketId)continue;const sock=io.sockets.sockets.get(s.socketId);if(!sock)continue;
+    sock.leave(room.code);sock.data.roomCode=null;sock.data.spectatorId=null;sock.data.role=null;sock.emit('leftRoom',{message});
+  }
+  room.spectators=[];
 }
 function cleanChatText(value) {
   return String(value ?? '')
@@ -656,11 +719,11 @@ function formMatchmakingGroup() {
 
     for(const x of group){
       const p=seatByKey.get(x.entry.playerKey);
-      x.socket.data.roomCode=code;x.socket.data.playerId=p.id;x.socket.join(code);
+      x.socket.data.roomCode=code;x.socket.data.playerId=p.id;x.socket.data.spectatorId=null;x.socket.data.role=ROLE_PLAYER;x.socket.join(code);
       updatePresenceFromSocket(x.socket,{name:p.name,avatar:p.avatar});
       emitToPlayerKey(x.entry.playerKey,'matchmakingState',{searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:'Partida encontrada.'});
       x.socket.emit('matchmakingMatched',{code,count:group.length,players:matchPlayers});
-      x.socket.emit('joined',{code,playerId:p.id,token:p.token,source:'matchmaking',matchSize:group.length,matchPlayers:names});
+      x.socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'matchmaking',matchSize:group.length,matchPlayers:names});
       emitChatHistory(x.socket,room);
     }
 
@@ -670,7 +733,7 @@ function formMatchmakingGroup() {
   }catch(e){
     if(room){
       for(const x of group){try{x.socket.leave(code)}catch{};x.socket.data.roomCode=null;x.socket.data.playerId=null;}
-      rooms.delete(code);
+      closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);rooms.delete(code);
     }
     for(const x of group){
       if(presenceFor(x.entry.playerKey)?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey)){
@@ -754,19 +817,24 @@ function currentSocketRoom(socket){const room=rooms.get(socket.data.roomCode);if
 function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   clearLiveVoiceSender(socket);
   const code=socket.data.roomCode,playerId=socket.data.playerId,room=rooms.get(code);
-  if(!room){socket.data.roomCode=null;socket.data.playerId=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
+  if(!room){socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
+  if(socket.data.role===ROLE_SPECTATOR){
+    const spectator=spectatorForSocket(room,socket);if(spectator)removeSpectator(room,spectator,{announce:true});
+    socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;emitRoom(room);
+    if(emitLeft)socket.emit('leftRoom',{message});broadcastPresence();return;
+  }
   const idx=room.players.findIndex(p=>p.id===playerId);
-  if(idx<0){socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
+  if(idx<0){socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
   const leaving=room.players[idx];cancelReconnectTimer(code,leaving.id);invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
   const wasPlaying=room.status==='playing';room.players.splice(idx,1);
   if(!room.players.length||room.players.every(p=>p.isBot)){
-    if(room.botTimer)clearTimeout(room.botTimer);clearReconnectTimersForRoom(code);rooms.delete(code);invalidateInvitesForRoom(code);
+    if(room.botTimer)clearTimeout(room.botTimer);clearReconnectTimersForRoom(code);closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);rooms.delete(code);invalidateInvitesForRoom(code);
   }else{
     if(wasPlaying)cancelCurrentRoundAfterLeave(room,leaving.name);else Engine.appendLog(room,`${leaving.name} saiu da sala.`,'system');
     if(room.players.length===1&&room.status==='between-rounds'&&room.round===0)room.status='lobby';
     ensureHost(room);emitRoom(room);
   }
-  socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;
+  socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
   if(emitLeft)socket.emit('leftRoom',{message});
   broadcastPresence();
 }
@@ -775,9 +843,9 @@ function createRoomForSocket(socket,profileData={}) {
   const code=roomCode();
   const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
   rooms.set(code,room);ensureSocial(room);const p=room.players[0];
-  socket.data.roomCode=code;socket.data.playerId=p.id;socket.join(code);
+  socket.data.roomCode=code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
   updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
-  socket.emit('joined',{code,playerId:p.id,token:p.token,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+  socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
   return room;
 }
 function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
@@ -792,9 +860,9 @@ function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   }else{
     p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:presenceFor(key)?.name||socket.data.auth.name,avatar:presenceFor(key)?.avatar||'macaco',playerKey:key});
   }
-  releaseReservation(room,key,inviteId);socket.data.roomCode=room.code;socket.data.playerId=p.id;socket.join(room.code);
+  releaseReservation(room,key,inviteId);socket.data.roomCode=room.code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(room.code);
   updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
-  socket.emit('joined',{code:room.code,playerId:p.id,token:p.token,source:'invite',inviteId});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+  socket.emit('joined',{code:room.code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite',inviteId});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
   return p;
 }
 function reserveInviteSeat(invite) {
@@ -890,6 +958,7 @@ io.use((socket,next)=>{
 });
 
 io.on('connection', socket => {
+  socket.data.role=null;socket.data.spectatorId=null;
   registerPresenceSocket(socket);
   socket.emit('presenceSnapshot',buildPresenceSnapshot());
   socket.emit('matchmakingState',matchmakingPayloadFor(socket.data.auth.playerKey));
@@ -959,6 +1028,7 @@ io.on('connection', socket => {
 
   socket.on('startMatchmaking', payload => {
     try{
+      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de buscar outra partida.');
       updatePresenceFromSocket(socket,payload?.profile||{});
       const key=socket.data.auth.playerKey;
       const current=currentSocketRoom(socket);
@@ -986,6 +1056,7 @@ io.on('connection', socket => {
 
   socket.on('createRoom', payload => {
     try {
+      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
       const code = roomCode();
       const room = Engine.createRoom(code, {
@@ -999,10 +1070,10 @@ io.on('connection', socket => {
       ensureSocial(room);
       if (payload?.withBot) addBotToRoom(room);
       const p=room.players[0];
-      socket.data.roomCode=code; socket.data.playerId=p.id;
+      socket.data.roomCode=code; socket.data.playerId=p.id; socket.data.spectatorId=null; socket.data.role=ROLE_PLAYER;
       socket.join(code);
       updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
-      socket.emit('joined',{code,playerId:p.id,token:p.token});
+      socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER});
       emitChatHistory(socket, room);
       emitRoom(room);
       broadcastPresence();
@@ -1012,6 +1083,10 @@ io.on('connection', socket => {
   socket.on('joinRoom', payload => {
     try {
       const code=String(payload?.code||'').trim().toUpperCase();
+      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode){
+        if(socket.data.roomCode===code)throw new Error('Você já está assistindo a esta sala como observador.');
+        throw new Error('Saia do Modo Observador antes de entrar em outra sala.');
+      }
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
       ensureSocial(room);
@@ -1049,21 +1124,67 @@ io.on('connection', socket => {
         }
       }
       if(!p){
-        if(!roomHasInviteCapacity(room,socket.data.auth.playerKey))throw new Error('A sala está completa ou possui vaga reservada por convite.');
+        const matchStarted=Number(room.round||0)>0&&room.status!=='lobby';
+        // V40.31: para entrada manual por código, qualquer partida já iniciada oferece
+        // Modo Observador. Reconexões de jogadores foram resolvidas acima e convites
+        // reservados continuam usando joinSocketIntoRoom entre rodadas.
+        if(matchStarted&&room.status!=='finished'){
+          socket.emit('spectatorOffer',{code:room.code,round:room.round,rounds:room.rules.rounds,playerCount:room.players.length,status:room.status});
+          return;
+        }
+        if(!roomHasInviteCapacity(room,socket.data.auth.playerKey)){
+          throw new Error('A sala está completa ou possui vaga reservada por convite.');
+        }
         p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
       }
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você entrou em uma sala.',notify:true});
       const acceptedManualInvite=[...invitations.values()].find(i=>i.toKey===socket.data.auth.playerKey&&i.targetRoomCode===code&&['accepted-waiting','ready'].includes(i.status));
       releaseReservation(room,socket.data.auth.playerKey);
-      socket.data.roomCode=code; socket.data.playerId=p.id;
+      socket.data.roomCode=code; socket.data.playerId=p.id; socket.data.spectatorId=null; socket.data.role=ROLE_PLAYER;
       socket.join(code);
       updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
-      socket.emit('joined',{code,playerId:p.id,token:p.token});
+      socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER});
       emitChatHistory(socket, room);
       emitRoom(room);
       broadcastPresence();
       if(acceptedManualInvite)completeInvite(acceptedManualInvite,'✅ Você entrou na mesa reservada.');
     } catch(e){err(socket,e);}
+  });
+
+  socket.on('joinSpectator', payload => {
+    try{
+      const code=String(payload?.code||'').trim().toUpperCase();
+      if(socket.data.role===ROLE_PLAYER&&socket.data.roomCode)throw new Error('Saia da sua vaga de jogador antes de entrar como observador.');
+      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode&&socket.data.roomCode!==code)throw new Error('Saia do Modo Observador atual antes de assistir outra sala.');
+      const room=rooms.get(code);
+      if(!room)throw new Error('Sala não encontrada.');ensureSocial(room);
+      if(Number(room.round||0)<=0||room.status==='lobby')throw new Error('O Modo Observador fica disponível depois que a partida começar.');
+      const key=socket.data.auth.playerKey;
+      const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
+      if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
+      const token=String(payload?.token||'').trim().slice(0,160)||crypto.randomUUID();
+      let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
+      let firstJoin=false;
+      if(spectator){
+        if(spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
+        cancelSpectatorReconnectTimer(code,spectator.id);
+        if(spectator.socketId&&spectator.socketId!==socket.id)io.to(spectator.socketId).emit('sessionReplaced');
+        spectator.socketId=socket.id;spectator.connected=true;spectator.disconnectedAt=null;
+        spectator.name=cleanPresenceName(payload?.name||spectator.name||socket.data.auth.name);
+        spectator.avatar=cleanAvatar(payload?.avatar||spectator.avatar||'macaco');
+      }else{
+        firstJoin=true;
+        spectator={id:`s_${crypto.randomUUID()}`,token,playerKey:key,name:cleanPresenceName(payload?.name||socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),socketId:socket.id,connected:true,joinedAt:Date.now(),disconnectedAt:null,role:ROLE_SPECTATOR};
+        room.spectators.push(spectator);
+      }
+      removeFromMatchmaking(key,{reason:'Busca encerrada porque você entrou como observador.',notify:true});
+      socket.data.roomCode=code;socket.data.playerId=null;socket.data.spectatorId=spectator.id;socket.data.role=ROLE_SPECTATOR;socket.join(code);
+      updatePresenceFromSocket(socket,{name:spectator.name,avatar:spectator.avatar});
+      socket.emit('joined',{code,spectatorId:spectator.id,token:spectator.token,role:ROLE_SPECTATOR});
+      emitChatHistory(socket,room);
+      if(firstJoin)appendSystemChat(room,`👁️ ${spectator.name} entrou como observador.`);
+      emitRoom(room);broadcastPresence();
+    }catch(e){err(socket,e);}
   });
 
   socket.on('addBot', () => withRoom(socket,(room,p)=>{
@@ -1094,8 +1215,16 @@ io.on('connection', socket => {
       if (!room) {
         socket.data.roomCode = null;
         socket.data.playerId = null;
+        socket.data.spectatorId = null;
+        socket.data.role = null;
         socket.emit('leftRoom');
         return;
+      }
+      if(socket.data.role===ROLE_SPECTATOR){
+        const spectator=spectatorForSocket(room,socket);
+        if(spectator)removeSpectator(room,spectator,{announce:true});
+        socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
+        socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});emitRoom(room);broadcastPresence();return;
       }
 
       const idx = room.players.findIndex(p => p.id === playerId);
@@ -1103,6 +1232,8 @@ io.on('connection', socket => {
         socket.leave(code);
         socket.data.roomCode = null;
         socket.data.playerId = null;
+        socket.data.spectatorId = null;
+        socket.data.role = null;
         socket.emit('leftRoom');
         return;
       }
@@ -1118,6 +1249,8 @@ io.on('connection', socket => {
       if (!room.players.length || room.players.every(p => p.isBot)) {
         if (room.botTimer) clearTimeout(room.botTimer);
         clearReconnectTimersForRoom(code);
+        closeSpectatorsForRoom(room);
+        clearSpectatorReconnectTimersForRoom(code);
         rooms.delete(code);
         invalidateInvitesForRoom(code);
       } else {
@@ -1137,6 +1270,8 @@ io.on('connection', socket => {
       socket.leave(code);
       socket.data.roomCode = null;
       socket.data.playerId = null;
+      socket.data.spectatorId = null;
+      socket.data.role = null;
       socket.emit('leftRoom');
       broadcastPresence();
     } catch(e) { err(socket,e); }
@@ -1210,6 +1345,7 @@ io.on('connection', socket => {
 
   socket.on('sendInvite', payload => {
     try{
+      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de convidar jogadores.');
       updatePresenceFromSocket(socket,payload?.profile||{});
       const nowInvite=Date.now();
       if(socket.data.lastInviteAt&&nowInvite-socket.data.lastInviteAt<900)throw new Error('Aguarde um instante antes de enviar outro convite.');
@@ -1242,6 +1378,7 @@ io.on('connection', socket => {
 
   socket.on('respondInvite', payload => {
     try{
+      if(socket.data.role===ROLE_SPECTATOR&&payload?.accept)throw new Error('Saia do Modo Observador antes de aceitar um convite para jogar.');
       const invite=invitations.get(String(payload?.inviteId||''));
       if(!invite||invite.toKey!==socket.data.auth.playerKey)throw new Error('Convite não encontrado.');
       if(invite.status!=='pending'||invite.expiresAt<=Date.now())throw new Error('Este convite já expirou ou foi respondido.');
@@ -1283,6 +1420,7 @@ io.on('connection', socket => {
 
   socket.on('claimInvite', payload => {
     try{
+      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de ocupar uma vaga de jogador.');
       const invite=invitations.get(String(payload?.inviteId||''));
       if(!invite||invite.toKey!==socket.data.auth.playerKey||!['accepted-waiting','ready'].includes(invite.status))throw new Error('Convite reservado não encontrado.');
       if(invite.expiresAt<=Date.now())throw new Error('A reserva deste convite expirou.');
@@ -1308,8 +1446,8 @@ io.on('connection', socket => {
     try {
       const room = rooms.get(socket.data.roomCode);
       if (!room) throw new Error('Sala não encontrada.');
-      const player = room.players.find(p => p.id === socket.data.playerId);
-      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para conversar.');
+      const actor = socialActorForSocket(room,socket);
+      if (!actor) throw new Error('Participante não disponível para conversar.');
       ensureSocial(room);
 
       const now = Date.now();
@@ -1323,9 +1461,10 @@ io.on('connection', socket => {
       const message = {
         id: `chat-${now}-${Math.random().toString(36).slice(2,8)}`,
         at: now,
-        playerId: player.id,
-        name: player.name,
-        avatar: player.avatar,
+        playerId: actor.id,
+        name: actor.name,
+        avatar: actor.avatar,
+        role: actor.role,
         text,
       };
       room.chat.push(message);
@@ -1384,8 +1523,8 @@ io.on('connection', socket => {
     try {
       const room = rooms.get(socket.data.roomCode);
       if (!room) throw new Error('Sala não encontrada.');
-      const player = room.players.find(p => p.id === socket.data.playerId);
-      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para enviar efeito.');
+      const actor = socialActorForSocket(room,socket);
+      if (!actor) throw new Error('Participante não disponível para enviar efeito.');
       const effect = String(payload?.effect || '');
       if (!SOCIAL_EFFECTS.has(effect)) throw new Error('Efeito sonoro inválido.');
 
@@ -1395,9 +1534,10 @@ io.on('connection', socket => {
       io.to(room.code).emit('soundEffect', {
         id: `fx-${now}-${Math.random().toString(36).slice(2,8)}`,
         at: now,
-        playerId: player.id,
-        name: player.name,
-        avatar: player.avatar,
+        playerId: actor.id,
+        name: actor.name,
+        avatar: actor.avatar,
+        role: actor.role,
         effect,
       });
     } catch(e) { err(socket,e); }
@@ -1427,6 +1567,11 @@ io.on('connection', socket => {
     const playerId = socket.data.playerId;
     const room=rooms.get(code);
     if(!room) return;
+    if(socket.data.role===ROLE_SPECTATOR){
+      const spectator=spectatorForSocket(room,socket);
+      if(spectator&&spectator.socketId===socket.id){spectator.connected=false;spectator.socketId=null;spectator.disconnectedAt=Date.now();scheduleSpectatorRemoval(room,spectator);emitRoom(room);}
+      return;
+    }
     const p=room.players.find(x=>x.id===playerId);
 
     // Se outra aba já reconectou com o mesmo token, este socket é antigo.
@@ -1473,6 +1618,8 @@ io.on('connection', socket => {
         if (!currentRoom.players.length || currentRoom.players.every(p => p.isBot)) {
           if (currentRoom.botTimer) clearTimeout(currentRoom.botTimer);
           clearReconnectTimersForRoom(code);
+          closeSpectatorsForRoom(currentRoom);
+          clearSpectatorReconnectTimersForRoom(code);
           rooms.delete(code);
           invalidateInvitesForRoom(code);
           broadcastPresence();
@@ -1498,6 +1645,8 @@ setInterval(()=>{
     if(allHumansGone && now-room.createdAt>6*60*60*1000) {
       if (room.botTimer) clearTimeout(room.botTimer);
       clearReconnectTimersForRoom(code);
+      closeSpectatorsForRoom(room);
+      clearSpectatorReconnectTimersForRoom(code);
       rooms.delete(code);
       invalidateInvitesForRoom(code);
     }

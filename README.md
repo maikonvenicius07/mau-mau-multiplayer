@@ -1,4 +1,12 @@
-# Mau-Mau Candeias — V40.26
+# Mau-Mau Candeias — V40.31
+## V40.31 — Modo Observador
+
+A V40.31 adiciona um **Modo Observador** separado da lógica dos jogadores. Quando uma sala já está em partida, uma nova pessoa recebe a opção **👁️ ASSISTIR PARTIDA**. O observador não ocupa vaga, não entra em `room.players` e não altera turno, ordem dos avatares ou reconexão dos jogadores.
+
+A proteção das cartas é feita no **servidor**. Conexões `PLAYER` continuam recebendo a própria mão e as ações válidas. Conexões `SPECTATOR` recebem somente o estado público: jogadores, avatares, quantidade de cartas, turno atual, sentido, carta da mesa, quantidade no monte, logs públicos, chat e reações. Durante a rodada, nenhuma mão, carta comprada mantida ou conteúdo do baralho é enviado ao observador. A conferência de cartas (`roundReview`) continua disponível somente depois do encerramento da rodada, como já ocorria no jogo.
+
+Observadores podem usar o **chat de texto** e as **reações**. As mensagens recebem a marca discreta **👁️ OBSERVADOR**. A reconexão preserva o papel de observador por 60 segundos sem pausar a partida.
+
 
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.

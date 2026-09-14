@@ -32,6 +32,7 @@ const inviteCards=new Map();
 // V40.2 — estado da busca automática recebido do servidor.
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
 let matchmakingDialogDismissed=false;
+let pendingSpectatorOffer=null;
 let rankingPeriod='day', rankingMode='official';
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
@@ -198,6 +199,7 @@ function clearCustomAvatarSelection(){
 }
 
 function permanentPlayerKey(){ return googleUser?.playerKey || ''; }
+function isSpectatorState(value=state){return value?.viewerRole==='SPECTATOR'||value?.me?.role==='SPECTATOR'}
 function profile(){ return {name:$('#nameInput').value.trim()||googleUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
 function syncPresenceProfile(){
   if(!googleUser||!socket.connected)return;
@@ -964,13 +966,36 @@ $('#joinBtn').onclick=()=>{
   socket.emit('joinRoom',{...profile(),code,token});
 };
 $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
+function closeSpectatorOffer(){
+  pendingSpectatorOffer=null;const dlg=$('#spectatorOfferDialog');if(dlg?.open)dlg.close();
+}
+function openSpectatorOffer(info={}){
+  pendingSpectatorOffer=info;const dlg=$('#spectatorOfferDialog'),text=$('#spectatorOfferText');
+  if(text)text.textContent=`A sala ${info.code||''} já está com a partida em andamento (rodada ${info.round||'?'} de ${info.rounds||5}). Você pode entrar apenas para assistir, conversar no chat e enviar reações.`;
+  if(dlg&&!dlg.open)dlg.showModal();
+}
+function joinAsSpectator(){
+  if(!pendingSpectatorOffer?.code)return closeSpectatorOffer();
+  if(!socket.connected)return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  const code=String(pendingSpectatorOffer.code).toUpperCase();const sess=saved();
+  const token=sess?.code===code&&sess?.role==='SPECTATOR'&&sess?.token?sess.token:crypto.randomUUID();
+  socket.emit('joinSpectator',{...profile(),code,token});
+  const btn=$('#spectatorJoinBtn');if(btn){btn.disabled=true;btn.textContent='Entrando...'}
+}
+$('#spectatorJoinBtn')?.addEventListener('click',joinAsSpectator);
+$('#spectatorCancelBtn')?.addEventListener('click',closeSpectatorOffer);
+$('#spectatorOfferClose')?.addEventListener('click',closeSpectatorOffer);
+$('#spectatorOfferDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeSpectatorOffer()});
 $('#copyInvite').onclick=async()=>{const url=new URL(location.href);url.searchParams.set('room',state.code);await navigator.clipboard.writeText(url.toString());toast('Link da sala copiado.');};
 $('#leaveBtn').onclick=()=>{
   if(!state) return;
+  const spectator=isSpectatorState();
   const duringRound=state.status==='playing';
-  const message=duringRound
-    ? 'Deseja sair da sala? A rodada atual será cancelada para os jogadores que permanecerem.'
-    : 'Deseja sair desta sala?';
+  const message=spectator
+    ? 'Deseja sair do Modo Observador? A partida continuará normalmente para os jogadores.'
+    : duringRound
+      ? 'Deseja sair da sala? A rodada atual será cancelada para os jogadores que permanecerem.'
+      : 'Deseja sair desta sala?';
   if(!window.confirm(message)) return;
   if(!socket.connected){
     clearSession();
@@ -1023,6 +1048,8 @@ function liveVoiceSession(){
 }
 function updateLiveMicUI(){
   const btn=$('#liveMicBtn'),label=$('#liveMicLabel');if(!btn)return;
+  const spectator=isSpectatorState();btn.classList.toggle('hidden',spectator);
+  if(spectator){btn.disabled=true;if(liveMicOn)stopLiveMic({notify:false,showToast:false});return;}
   const supported=liveVoiceSupported();
   btn.disabled=!state||!socket.connected||liveMicStarting||!supported;
   btn.classList.toggle('mic-active',!!liveMicOn);
@@ -1100,6 +1127,7 @@ async function handleLiveVoiceSignal(msg){
 }
 async function startLiveMic(){
   if(liveMicOn||liveMicStarting)return;
+  if(isSpectatorState())return toast('Microfone ao vivo não está disponível no Modo Observador.');
   if(!state||!socket.connected)return toast('Sem conexão com a sala.');
   if(!liveVoiceSupported())return toast('Este navegador não oferece conversa por microfone compatível.');
   if(voiceRecorder?.state==='recording')return toast('Finalize o Áudio Rápido antes de ligar o microfone ao vivo.');
@@ -1440,9 +1468,9 @@ function clearVoiceDraft(){if(voiceDraft?.url)try{URL.revokeObjectURL(voiceDraft
 function setVoiceIdleUI(){$('#voiceRecorderPanel')?.classList.add('hidden');const b=$('#voiceRecordBtn');if(b){b.disabled=false;b.classList.remove('recording');b.textContent='🎙️';b.title='Gravar Áudio Rápido de até 15 segundos'}}
 function showVoiceDraft(blob,durationMs){clearVoiceDraft();const url=URL.createObjectURL(blob);voiceDraft={blob,url,durationMs,mime:blob.type||'audio/webm'};const a=$('#voicePreviewAudio');if(a)a.src=url;const t=$('#voicePreviewTime');if(t)t.textContent=formatVoiceDuration(durationMs);$('#voicePreviewPanel')?.classList.remove('hidden')}
 function finishVoiceRecording(){clearVoiceTimers();stopVoiceTracks();const canceled=voiceCancelOnStop;voiceCancelOnStop=false;const durationMs=Math.min(QUICK_AUDIO_MAX_MS,Math.max(200,Date.now()-voiceStartedAt));voiceStartedAt=0;const mime=voiceRecorder?.mimeType||quickAudioMime()||'audio/webm';voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck();if(canceled){voiceChunks=[];return}const blob=new Blob(voiceChunks,{type:mime});voiceChunks=[];if(blob.size<80)return toast('Não foi possível gravar o áudio. Tente novamente.');if(blob.size>QUICK_AUDIO_MAX_BYTES)return toast('O áudio ficou grande demais. Grave novamente.');showVoiceDraft(blob,durationMs)}
-async function startQuickAudio(){if(!state||!socket.connected)return toast('Sem conexão com a sala.');if(!quickAudioSupported())return toast('Este navegador não oferece gravação de áudio compatível.');if(voiceRecorder?.state==='recording')return;clearVoiceDraft();try{const liveTrack=liveMicOn?liveMicStream?.getAudioTracks?.()[0]:null;voiceStream=liveTrack?new MediaStream([liveTrack.clone()]):await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});const mime=quickAudioMime();try{voiceRecorder=new MediaRecorder(voiceStream,mime?{mimeType:mime,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000})}catch{voiceRecorder=new MediaRecorder(voiceStream)}voiceChunks=[];voiceCancelOnStop=false;voiceStartedAt=Date.now();voiceRecorder.ondataavailable=e=>{if(e.data?.size)voiceChunks.push(e.data)};voiceRecorder.onerror=()=>{voiceCancelOnStop=true;toast('Falha durante a gravação do áudio.');try{voiceRecorder?.stop()}catch{}};voiceRecorder.onstop=finishVoiceRecording;voiceRecorder.start(250);$('#voiceRecorderPanel')?.classList.remove('hidden');const b=$('#voiceRecordBtn');if(b){b.disabled=true;b.classList.add('recording');b.textContent='🔴'}const t=$('#voiceRecordTime');if(t)t.textContent='00:00 / 00:15';refreshQuickAudioMusicDuck();voiceTickTimer=setInterval(()=>{const e=Date.now()-voiceStartedAt,x=$('#voiceRecordTime');if(x)x.textContent=formatRecordClock(e)},200);voiceMaxTimer=setTimeout(()=>stopQuickAudio(false),QUICK_AUDIO_MAX_MS)}catch(e){stopVoiceTracks();voiceRecorder=null;clearVoiceTimers();setVoiceIdleUI();refreshQuickAudioMusicDuck();toast(e?.name==='NotAllowedError'?'Permita o uso do microfone para gravar Áudio Rápido.':'Não foi possível acessar o microfone neste dispositivo.')}}
+async function startQuickAudio(){if(isSpectatorState())return toast('No Modo Observador, use o chat de texto e as reações.');if(!state||!socket.connected)return toast('Sem conexão com a sala.');if(!quickAudioSupported())return toast('Este navegador não oferece gravação de áudio compatível.');if(voiceRecorder?.state==='recording')return;clearVoiceDraft();try{const liveTrack=liveMicOn?liveMicStream?.getAudioTracks?.()[0]:null;voiceStream=liveTrack?new MediaStream([liveTrack.clone()]):await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});const mime=quickAudioMime();try{voiceRecorder=new MediaRecorder(voiceStream,mime?{mimeType:mime,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000})}catch{voiceRecorder=new MediaRecorder(voiceStream)}voiceChunks=[];voiceCancelOnStop=false;voiceStartedAt=Date.now();voiceRecorder.ondataavailable=e=>{if(e.data?.size)voiceChunks.push(e.data)};voiceRecorder.onerror=()=>{voiceCancelOnStop=true;toast('Falha durante a gravação do áudio.');try{voiceRecorder?.stop()}catch{}};voiceRecorder.onstop=finishVoiceRecording;voiceRecorder.start(250);$('#voiceRecorderPanel')?.classList.remove('hidden');const b=$('#voiceRecordBtn');if(b){b.disabled=true;b.classList.add('recording');b.textContent='🔴'}const t=$('#voiceRecordTime');if(t)t.textContent='00:00 / 00:15';refreshQuickAudioMusicDuck();voiceTickTimer=setInterval(()=>{const e=Date.now()-voiceStartedAt,x=$('#voiceRecordTime');if(x)x.textContent=formatRecordClock(e)},200);voiceMaxTimer=setTimeout(()=>stopQuickAudio(false),QUICK_AUDIO_MAX_MS)}catch(e){stopVoiceTracks();voiceRecorder=null;clearVoiceTimers();setVoiceIdleUI();refreshQuickAudioMusicDuck();toast(e?.name==='NotAllowedError'?'Permita o uso do microfone para gravar Áudio Rápido.':'Não foi possível acessar o microfone neste dispositivo.')}}
 function stopQuickAudio(cancel=false){if(!voiceRecorder||voiceRecorder.state==='inactive'){if(cancel){clearVoiceDraft();setVoiceIdleUI()}return}voiceCancelOnStop=!!cancel;clearVoiceTimers();try{voiceRecorder.stop()}catch{stopVoiceTracks();voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck()}}
-async function sendVoiceDraft(){if(!voiceDraft)return;if(!state||!socket.connected)return toast('Sem conexão com a sala.');const d=voiceDraft;try{const audio=await d.blob.arrayBuffer();if(audio.byteLength>QUICK_AUDIO_MAX_BYTES)throw new Error();socket.emit('voiceMessage',{audio,mime:d.mime,durationMs:d.durationMs});clearVoiceDraft();toast('🎙️ Áudio enviado.')}catch{toast('Não foi possível enviar o áudio. Tente novamente.')}}
+async function sendVoiceDraft(){if(isSpectatorState())return toast('Áudio Rápido não está disponível no Modo Observador.');if(!voiceDraft)return;if(!state||!socket.connected)return toast('Sem conexão com a sala.');const d=voiceDraft;try{const audio=await d.blob.arrayBuffer();if(audio.byteLength>QUICK_AUDIO_MAX_BYTES)throw new Error();socket.emit('voiceMessage',{audio,mime:d.mime,durationMs:d.durationMs});clearVoiceDraft();toast('🎙️ Áudio enviado.')}catch{toast('Não foi possível enviar o áudio. Tente novamente.')}}
 
 $('#chatToggleBtn').onclick=()=>{setSideTab('chat',true)};
 $('#logTabBtn').onclick=()=>setSideTab('log',true);
@@ -1625,7 +1653,9 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   resetLiveVoice({notify:false});
-  saveSession({code:data.code,token:data.token,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
+  const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
+  saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
+  closeSpectatorOffer();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
   if(data?.inviteId)removeInviteCard(data.inviteId);
   if(data?.source==='matchmaking'){
     matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:'Partida encontrada.'};
@@ -1636,9 +1666,11 @@ socket.on('joined',data=>{
   renderMatchmaking();
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   syncPresenceProfile();
-  socket.emit('liveVoiceReady');
+  if(joinedRole==='PLAYER')socket.emit('liveVoiceReady');
   updateLiveMicUI();
+  if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
 });
+socket.on('spectatorOffer',info=>{openSpectatorOffer(info||{});playGameSound('chat')});
 socket.on('state',s=>{
   const prev=state;
   state=s;
@@ -1751,13 +1783,14 @@ socket.on('liveVoiceStatus',info=>{
 });
 socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
-  playSocialEffect(event.effect);showReaction(event.name||'Jogador',fx.emoji,fx.label,event.avatar);
+  const displayName=event.role==='SPECTATOR'?`👁️ ${event.name||'Observador'}`:(event.name||'Jogador');
+  playSocialEffect(event.effect);showReaction(displayName,fx.emoji,fx.label,event.avatar);
 });
 socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
-socket.on('gameError',e=>{passPending=false;playGameSound('error');toast(e.message);render();});
+socket.on('gameError',e=>{passPending=false;const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}playGameSound('error');toast(e.message);render();});
 socket.on('leftRoom',data=>{
   clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
@@ -1783,7 +1816,8 @@ socket.on('connect',()=>{
   }
   if(sess?.code&&sess?.token){
     $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
-    socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
+    if(sess.role==='SPECTATOR')socket.emit('joinSpectator',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
+    else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
   } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
 socket.on('disconnect',()=>{resetLiveVoice({notify:false});setConnection('offline');toast('Conexão perdida. Tentando reconectar...');renderControls();updateLiveMicUI();});
@@ -1794,7 +1828,7 @@ socket.on('connect_error',e=>{
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 
 function returnToLanding(message=''){
-  resetLiveVoice({notify:false});
+  resetLiveVoice({notify:false});closeSpectatorOffer();
   state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
@@ -1835,8 +1869,10 @@ function renderChat(){
   box.innerHTML=chatMessages.map(m=>{
     const mine=m.playerId===state?.me?.id;
     const time=new Date(m.at||Date.now()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const observerTag=m.role==='SPECTATOR'?'<span class="spectator-chat-tag">👁️ OBSERVADOR</span>':'';
+    const systemObserver=!!m.system&&String(m.text||'').includes('👁️');
     const body=m.kind==='voice'&&m.audioUrl?`<div class="chat-bubble voice-bubble"><div class="voice-bubble-title">🎙️ Áudio Rápido <span>${formatVoiceDuration(m.durationMs)}</span></div><audio class="chat-audio" data-voice-id="${esc(m.id||'')}" controls preload="metadata" src="${esc(m.audioUrl)}"></audio></div>`:`<div class="chat-bubble">${esc(m.text)}</div>`;
-    return `<div class="chat-message ${mine?'mine':''}"><div class="chat-meta">${avatarHTML(m.avatar,'xs')} <b>${esc(m.name||'Jogador')}</b> <span>${time}</span></div>${body}</div>`;
+    return `<div class="chat-message ${mine?'mine':''}${systemObserver?' system-observer':''}"><div class="chat-meta">${avatarHTML(m.avatar,'xs')} <b>${esc(m.name||'Jogador')}</b>${observerTag} <span>${time}</span></div>${body}</div>`;
   }).join('');
   box.querySelectorAll('audio.chat-audio').forEach(audio=>{
     audio.addEventListener('play',()=>{
@@ -1860,15 +1896,19 @@ function showReaction(name,emoji,label,avatar=null){
   layer.appendChild(el);setTimeout(()=>el.remove(),2100);
 }
 
-function canAct(){return !passPending&&socket.connected&&state?.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id}
+function canAct(){return !isSpectatorState()&&!passPending&&socket.connected&&state?.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id}
 function render(){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
-  const myTurnNow=state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
-  $('#game').classList.toggle('my-turn',!!myTurnNow);
+  const spectator=isSpectatorState();
+  const myTurnNow=!spectator&&state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
+  $('#game').classList.toggle('my-turn',!!myTurnNow);$('#game').classList.toggle('spectator-mode',spectator);
+  $('#spectatorModeBanner')?.classList.toggle('hidden',!spectator);
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
-  $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=`• ${state.me.hand.length} carta(s)`;
+  $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=spectator?'• OBSERVADOR':`• ${state.me.hand.length} carta(s)`;
+  $('#handPanel')?.classList.toggle('hidden',spectator);
+  $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
   renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
 }
 function playerDisplayOrderFromMe(){
@@ -2025,6 +2065,12 @@ function renderCenter(){
 
 function renderHand(){
   const h=$('#hand');h.innerHTML='';
+  if(isSpectatorState()){
+    previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';
+    $('#mauBtn').disabled=true;$('#batendoBtn').disabled=true;$('#passTurnBtn').disabled=true;$('#passTurnBtn').classList.add('hidden');
+    $('#drawPile').disabled=true;$('#drawPile').title='Modo Observador: o monte é apenas visual.';
+    return;
+  }
   const legal=new Set(state.me.legalCardIds),burn=new Set(state.me.burnableCardIds),quick=new Set(state.me.quickActionCardIds||[]);
   const doublePairs=state.me.doublePairs||[];
   const visibleHand=[...state.me.hand].sort(compareHandCards);
@@ -2158,6 +2204,12 @@ function renderControls(){
   const box=$('#hostControls');
   if(!state?.me){box.innerHTML='';return}
   const me=state.players.find(p=>p.id===state.me.id);box.innerHTML='';
+  if(isSpectatorState()){
+    if(state.roundReview&&(state.status==='between-rounds'||state.status==='finished')){
+      const reviewBtn=document.createElement('button');reviewBtn.className='round-review-open-btn';reviewBtn.textContent='🔍 Conferir cartas e pontuação';reviewBtn.onclick=()=>openRoundReview(state.roundReview);box.appendChild(reviewBtn);
+    }
+    return;
+  }
   const connected=state.players.filter(p=>p.connected).length;
   const available=state.players.filter(p=>p.connected||p.isBot||p.autoControlled).length;
   const disconnected=state.players.filter(p=>!p.isBot&&!p.connected&&!p.autoControlled).length;

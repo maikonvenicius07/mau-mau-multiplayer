@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.27.0",
-  "description": "Mau-Mau Candeias V40.30: área da figurinha própria mais discreta e reposicionada no lobby.",
+  "version": "40.31.0",
+  "description": "Mau-Mau Candeias V40.31: Modo Observador seguro, com estado SPECTATOR sem mãos privadas, chat e reações.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
