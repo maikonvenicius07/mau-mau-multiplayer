@@ -73,6 +73,22 @@
           <div class="avatar-field-title">Escolha seu avatar</div>
           <input id="avatarSelect" type="hidden" value="macaco" />
           <div id="avatarPicker" class="avatar-picker avatar-categories" role="radiogroup" aria-label="Escolha seu avatar">
+            <section class="avatar-group custom-avatar-group">
+              <div class="avatar-group-title">🖼️ Sua Figurinha</div>
+              <div class="custom-avatar-wrap">
+                <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
+                  <img id="customAvatarPreview" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
+                  <span id="customAvatarLabel">Escolher figurinha</span>
+                  <small>JPG • PNG • WEBP</small>
+                </button>
+                <div class="custom-avatar-actions">
+                  <label class="custom-avatar-upload-btn" for="customAvatarInput">Selecionar imagem</label>
+                  <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                  <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
+                </div>
+                <div class="custom-avatar-tip">A figurinha é ajustada automaticamente para avatar redondo.</div>
+              </div>
+            </section>
             <section class="avatar-group animals">
               <div class="avatar-group-title">🐾 Animais</div>
               <div class="avatar-group-grid avatar-grid-5">
@@ -104,6 +120,24 @@
                 </button>
                 <button type="button" class="avatar-option" data-avatar="perna" role="radio" aria-checked="false" title="Perna">
                   <img src="assets/avatars/perna.webp" alt="Perna" /><span>Perna</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="telaazul" role="radio" aria-checked="false" title="Tela Azul">
+                  <img src="assets/avatars/telaazul.webp" alt="Tela Azul" /><span>Tela Azul</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="caldo" role="radio" aria-checked="false" title="Caldo">
+                  <img src="assets/avatars/caldo.webp" alt="Caldo" /><span>Caldo</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="anao" role="radio" aria-checked="false" title="Anão">
+                  <img src="assets/avatars/anao.webp" alt="Anão" /><span>Anão</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="anaocabecao" role="radio" aria-checked="false" title="Anão Cabeção">
+                  <img src="assets/avatars/anaocabecao.webp" alt="Anão Cabeção" /><span>Anão Cabeção</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="vesgo" role="radio" aria-checked="false" title="Vesgo">
+                  <img src="assets/avatars/vesgo.webp" alt="Vesgo" /><span>Vesgo</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="magreloverde" role="radio" aria-checked="false" title="Magrelo Verde">
+                  <img src="assets/avatars/magreloverde.webp" alt="Magrelo Verde" /><span>Magrelo Verde</span>
                 </button>
               </div>
             </section>

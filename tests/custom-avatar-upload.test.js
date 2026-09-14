@@ -1,0 +1,14 @@
+'use strict';
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const pkg=require(path.join(root,'package.json'));
+if(pkg.version!=='40.25.0') throw new Error('Versão V40.25 não aplicada.');
+if(!app.includes("canvas.toDataURL('image/webp'")) throw new Error('A figurinha não está sendo convertida para WEBP.');
+if(!app.includes('handleCustomAvatarFile')) throw new Error('Fluxo de upload da figurinha não encontrado.');
+if(!app.includes('clearCustomAvatarSelection')) throw new Error('Remoção da figurinha personalizada não encontrada.');
+if(!app.includes('loadCustomAvatarLocally')) throw new Error('Carregamento local da figurinha não encontrado.');
+if(!server.includes('raw.length<=180000')) throw new Error('Servidor não aceita a figurinha personalizada sanitizada.');
+console.log('✓ V40.25: upload da figurinha própria validado.');

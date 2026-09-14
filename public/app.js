@@ -22,6 +22,9 @@ const liveMicPositionStorage='maumauLiveMicPositionV1';
 const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1', floatingQuickPositionStorage='maumauFloatingQuickPositionV1';
 const sessionKey='maumauSessionV1';
+const customAvatarStoragePrefix='maumauCustomAvatarV1:';
+const CUSTOM_AVATAR_MAX_DIMENSION=256;
+const CUSTOM_AVATAR_WEBP_QUALITY=.84;
 let googleUser=null;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
@@ -111,24 +114,87 @@ const avatarCatalog={
   preta:{label:'Tela Preta',src:'assets/avatars/preta.webp',grupo:'Mascotes'},
   costela:{label:'Costela',src:'assets/avatars/costela.webp',grupo:'Mascotes'},
   perna:{label:'Perna',src:'assets/avatars/perna.webp',grupo:'Mascotes'},
+  telaazul:{label:'Tela Azul',src:'assets/avatars/telaazul.webp',grupo:'Mascotes'},
+  caldo:{label:'Caldo',src:'assets/avatars/caldo.webp',grupo:'Mascotes'},
+  anao:{label:'Anão',src:'assets/avatars/anao.webp',grupo:'Mascotes'},
+  anaocabecao:{label:'Anão Cabeção',src:'assets/avatars/anaocabecao.webp',grupo:'Mascotes'},
+  vesgo:{label:'Vesgo',src:'assets/avatars/vesgo.webp',grupo:'Mascotes'},
+  magreloverde:{label:'Magrelo Verde',src:'assets/avatars/magreloverde.webp',grupo:'Mascotes'},
   homem:{label:'Homem',src:'assets/avatars/homem.webp',grupo:'Pessoas'},
   mulher:{label:'Mulher',src:'assets/avatars/mulher.webp',grupo:'Pessoas'},
 };
 function avatarInfo(value){return avatarCatalog[value]||null}
+function isCustomAvatarValue(value){return /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value||''))}
+function customAvatarStorageKey(){ return `${customAvatarStoragePrefix}${permanentPlayerKey()||'anon'}`; }
+function saveCustomAvatarLocally(dataUrl=''){
+  try{
+    if(!window.localStorage)return;
+    const key=customAvatarStorageKey();
+    if(dataUrl) localStorage.setItem(key,dataUrl); else localStorage.removeItem(key);
+  }catch{}
+}
+function loadCustomAvatarLocally(){
+  try{return localStorage.getItem(customAvatarStorageKey())||''}catch{return ''}
+}
+function updateCustomAvatarPreview(value=''){
+  const img=$('#customAvatarPreview'),label=$('#customAvatarLabel'),clearBtn=$('#customAvatarClear'),opt=$('#customAvatarOption');
+  if(!img||!label||!clearBtn||!opt)return;
+  const active=isCustomAvatarValue(value);
+  img.src=active?value:'assets/avatars/custom_placeholder.webp';
+  label.textContent=active?'Sua figurinha':'Escolher figurinha';
+  clearBtn.disabled=!active;
+  opt.title=active?'Sua figurinha personalizada':'Escolher figurinha';
+}
 function avatarHTML(value,size='md'){
   const info=avatarInfo(value);
   if(info) return `<img class="avatar-photo avatar-${size}" src="${info.src}" alt="${info.label}" title="${info.label}" />`;
+  if(isCustomAvatarValue(value)) return `<img class="avatar-photo avatar-${size} avatar-user-upload" src="${esc(value)}" alt="Figurinha do jogador" title="Figurinha do jogador" />`;
   return `<span class="avatar-emoji avatar-${size}">${esc(value||'🂡')}</span>`;
 }
 function setAvatarSelection(value='macaco'){
-  const chosen=avatarCatalog[value]?value:'macaco';
+  const chosen=isCustomAvatarValue(value)?value:(avatarCatalog[value]?value:'macaco');
+  const isCustom=isCustomAvatarValue(chosen);
   const input=$('#avatarSelect');if(input)input.value=chosen;
   $$('.avatar-option').forEach(btn=>{
-    const active=btn.dataset.avatar===chosen;
+    const active=btn.dataset.avatar==='__custom__'?isCustom:(btn.dataset.avatar===chosen);
     btn.classList.toggle('selected',active);
     btn.setAttribute('aria-checked',active?'true':'false');
   });
+  updateCustomAvatarPreview(isCustom?chosen:'');
+  if(isCustom) saveCustomAvatarLocally(chosen);
   schedulePresenceSync();
+}
+async function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onerror=()=>reject(new Error('Não foi possível ler a imagem.'));reader.onload=()=>resolve(String(reader.result||''));reader.readAsDataURL(file);
+  });
+}
+async function prepareCustomAvatar(file){
+  if(!file) throw new Error('Selecione uma imagem.');
+  if(!/^image\/(png|jpe?g|webp)$/i.test(file.type||'')) throw new Error('Use JPG, PNG ou WEBP.');
+  const dataUrl=await fileToDataUrl(file);
+  const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Imagem inválida.'));i.src=dataUrl;});
+  const side=Math.max(1,Math.min(img.naturalWidth||img.width||256,img.naturalHeight||img.height||256));
+  const sx=Math.max(0,Math.floor(((img.naturalWidth||img.width)-side)/2));
+  const sy=Math.max(0,Math.floor(((img.naturalHeight||img.height)-side)/2));
+  const canvas=document.createElement('canvas');canvas.width=CUSTOM_AVATAR_MAX_DIMENSION;canvas.height=CUSTOM_AVATAR_MAX_DIMENSION;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,sx,sy,side,side,0,0,canvas.width,canvas.height);
+  const out=canvas.toDataURL('image/webp',CUSTOM_AVATAR_WEBP_QUALITY);
+  if(!isCustomAvatarValue(out)) throw new Error('Não foi possível preparar a figurinha.');
+  if(out.length>180000) throw new Error('A figurinha ficou muito grande. Escolha outra imagem.');
+  return out;
+}
+async function handleCustomAvatarFile(file){
+  try{
+    const dataUrl=await prepareCustomAvatar(file);setAvatarSelection(dataUrl);toast('Figurinha personalizada pronta para usar.');
+  }catch(err){toast(err?.message||'Não foi possível preparar a figurinha.');}
+  const input=$('#customAvatarInput');if(input)input.value='';
+}
+function clearCustomAvatarSelection(){
+  const current=$('#avatarSelect')?.value||''; if(isCustomAvatarValue(current)) saveCustomAvatarLocally('');
+  setAvatarSelection('macaco');
 }
 
 function permanentPlayerKey(){ return googleUser?.playerKey || ''; }
@@ -861,8 +927,17 @@ $('#matchmakingClose').onclick=closeMatchmaking;
 $('#matchmakingCancel').onclick=cancelMatchmaking;
 setInterval(updateMatchmakingCountdown,250);
 
-$$('.avatar-option').forEach(btn=>btn.onclick=()=>setAvatarSelection(btn.dataset.avatar));
-setAvatarSelection($('#avatarSelect')?.value||'macaco');
+$$('.avatar-option').forEach(btn=>btn.onclick=()=>{
+  if(btn.dataset.avatar==='__custom__'){
+    const current=$('#avatarSelect')?.value||'';
+    if(isCustomAvatarValue(current)) return setAvatarSelection(current);
+    return $('#customAvatarInput')?.click();
+  }
+  setAvatarSelection(btn.dataset.avatar);
+});
+$('#customAvatarInput')?.addEventListener('change',ev=>handleCustomAvatarFile(ev.target.files?.[0]||null));
+$('#customAvatarClear')?.addEventListener('click',()=>clearCustomAvatarSelection());
+setAvatarSelection($('#avatarSelect')?.value||loadCustomAvatarLocally()||'macaco');
 $('#googleLogoutBtn').onclick=logoutGoogle;
 $('#nameInput').addEventListener('input',schedulePresenceSync);
 $('#nameInput').addEventListener('change',schedulePresenceSync);

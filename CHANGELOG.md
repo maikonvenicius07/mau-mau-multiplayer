@@ -1,5 +1,11 @@
 # Changelog
 
+## V40.25 — Figurinha própria e novos avatares
+- incluída opção para o jogador enviar a própria figurinha (JPG, PNG ou WEBP);
+- a imagem é centralizada, recortada e convertida automaticamente para WEBP antes de ser usada;
+- adicionados os novos avatares: **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
+- mantidas as regras existentes do jogo, sem alteração de turnos, cartas especiais ou ranking.
+
 ## V40.24 — Avatares Fixos + Turno em Destaque
 - corrigida a ordem visual dos assentos para que ela não dependa mais de `direction`;
 - Dama/inversão, Ás/pulo e demais cartas especiais agora mudam apenas a fila/indicadores, sem reorganizar os avatares;

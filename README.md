@@ -1,4 +1,5 @@
-# Mau-Mau Candeias — V40.24
+# Mau-Mau Candeias — V40.25
+
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
 
@@ -39,6 +40,14 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 - Depois de alguns segundos sem interação, ela fica **semi-transparente** automaticamente.
 - Ao tocar, arrastar, focar ou abrir o painel, ela volta a ficar **totalmente visível**.
 - A posição continua salva no navegador do jogador.
+
+## V40.25 — Figurinha própria + novos avatares
+
+- o jogador agora pode escolher a própria **figurinha** (JPG, PNG ou WEBP) direto do celular ou computador;
+- a imagem é recortada automaticamente em formato quadrado, redimensionada e comprimida antes de ser salva;
+- a figurinha fica vinculada ao perfil local do jogador e é enviada para a mesa quando ele entra na sala;
+- incluídos novos avatares fixos: **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
+- nenhuma regra do jogo foi alterada.
 
 ## Recursos atuais
 

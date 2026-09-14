@@ -341,7 +341,7 @@ function maybeStartReplay(room) {
 
 function nextBotInfo(room) {
   const bots = room.players.filter(p => p.isBot);
-  const avatars = ['preta','costela','perna','homem','mulher'];
+  const avatars = ['preta','costela','perna','homem','mulher','telaazul','caldo','anao','anaocabecao','vesgo','magreloverde'];
   const n = bots.length + 1;
   return {
     socketId: null,
@@ -426,7 +426,7 @@ function emitChatHistory(socket, room) {
 function cleanPresenceName(value) {
   return String(value || 'Jogador').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,24) || 'Jogador';
 }
-function cleanAvatar(value) { return String(value || 'macaco').trim().slice(0,24) || 'macaco'; }
+function cleanAvatar(value) { const raw=String(value || 'macaco').trim(); if(/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/i.test(raw) && raw.length<=180000) return raw; return raw.slice(0,24) || 'macaco'; }
 function presenceFor(playerKey) { return onlinePresence.get(String(playerKey||'')) || null; }
 function registerPresenceSocket(socket) {
   const key=socket.data.auth?.playerKey; if(!key)return;

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.24.0",
-  "description": "Mau-Mau Candeias V40.24: avatares permanecem em assentos fixos e o turno atual recebe destaque visual claro, sem alterar as regras do servidor.",
+  "version": "40.25.0",
+  "description": "Mau-Mau Candeias V40.25: novos avatares fixos e figurinha própria do jogador com upload local, sem alterar as regras do servidor.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
