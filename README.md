@@ -43,7 +43,7 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 
 ## V40.26 — Avatares Premium
 
-Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo padrão visual dos avatares principais do jogo: **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**. As novas artes usam acabamento 3D/cartoon, iluminação e halo colorido, mantendo boa leitura em telas pequenas. Nenhuma regra do jogo foi alterada.
+Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo padrão visual dos avatares principais do jogo: **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo**. As novas artes usam acabamento 3D/cartoon, iluminação e halo colorido, mantendo boa leitura em telas pequenas. Nenhuma regra do jogo foi alterada.
 
 ## V40.25 — Figurinha própria + novos avatares
 
@@ -291,6 +291,11 @@ O botão **🔊** reproduz a fala **"JOGA BOCA ABERTA!"** com um clique.
 No painel lateral, o efeito também foi simplificado para o ícone de alto-falante, facilitando o uso no celular.
 
 
-## V40.28 — Ajuste no nome do avatar Caldinho
+## V40.29 — Ajuste no nome do avatar Caldinho
 
 Foi alterado apenas o nome exibido do avatar **Caldinho** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `caldo` para evitar quebrar compatibilidade com seleções já existentes.
+
+
+## V40.29 — Ajuste no nome do avatar Hulk Magrelo
+
+Foi alterado apenas o nome exibido do avatar **Hulk Magrelo** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `magreloverde` para evitar quebrar compatibilidade com seleções já existentes.

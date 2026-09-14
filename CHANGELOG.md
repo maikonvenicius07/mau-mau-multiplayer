@@ -1,5 +1,5 @@
 
-## V40.28 — Figurinha mais discreta
+## V40.29 — Figurinha mais discreta
 
 - A área **Sua Figurinha** foi movida para a parte inferior da galeria de avatares, ficando mais alinhada com o layout da tela inicial.
 - O componente ficou mais **compacto e discreto**, com preview menor e botões reduzidos.
@@ -9,7 +9,7 @@
 # Changelog
 
 ## V40.26 — Avatares Premium
-- redesenhados **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**;
+- redesenhados **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo**;
 - novo padrão visual com acabamento 3D/cartoon, luz, volume e halo, compatível com os avatares originais;
 - imagens otimizadas em WEBP para manter boa qualidade sem pesar no carregamento;
 - nenhuma regra, turno, ranking ou lógica multiplayer foi alterada.

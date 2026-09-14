@@ -1,5 +1,5 @@
-V40.28 - Ajuste no nome do avatar
+V40.29 - Ajuste no nome do avatar
 
-- O avatar exibido como "Caldo" agora aparece como "Caldinho".
+- O avatar exibido como "Hulk Magrelo Verde" agora aparece como "Hulk Magrelo".
 - A alteração é apenas visual/nome exibido.
-- O identificador interno do avatar foi mantido para não quebrar compatibilidade com dados já salvos.
+- O identificador interno do avatar foi mantido como `magreloverde` para não quebrar compatibilidade com dados já salvos.

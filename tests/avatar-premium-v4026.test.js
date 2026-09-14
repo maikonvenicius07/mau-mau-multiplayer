@@ -12,6 +12,6 @@ for(const id of ['telaazul','caldo','anao','anaocabecao','vesgo','magreloverde']
   assert(fs.existsSync(f),`avatar premium ${id} ausente`);
   assert(fs.statSync(f).size>30000,`avatar premium ${id} parece simplificado ou inválido`);
 }
-assert(app.includes("label:'Hulk Magrelo Verde'"),'novo nome Hulk Magrelo Verde ausente no catálogo');
-assert(html.includes('Hulk Magrelo Verde'),'novo nome Hulk Magrelo Verde ausente no seletor');
+assert(app.includes("label:'Hulk Magrelo'"),'novo nome Hulk Magrelo ausente no catálogo');
+assert(html.includes('Hulk Magrelo'),'novo nome Hulk Magrelo ausente no seletor');
 console.log('✓ V40.26: seis avatares premium padronizados e otimizados.');

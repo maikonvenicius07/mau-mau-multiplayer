@@ -119,7 +119,7 @@ const avatarCatalog={
   anao:{label:'Anão',src:'assets/avatars/anao.webp',grupo:'Mascotes'},
   anaocabecao:{label:'Anão Cabeção',src:'assets/avatars/anaocabecao.webp',grupo:'Mascotes'},
   vesgo:{label:'Vesgo',src:'assets/avatars/vesgo.webp',grupo:'Mascotes'},
-  magreloverde:{label:'Hulk Magrelo Verde',src:'assets/avatars/magreloverde.webp',grupo:'Mascotes'},
+  magreloverde:{label:'Hulk Magrelo',src:'assets/avatars/magreloverde.webp',grupo:'Mascotes'},
   homem:{label:'Homem',src:'assets/avatars/homem.webp',grupo:'Pessoas'},
   mulher:{label:'Mulher',src:'assets/avatars/mulher.webp',grupo:'Pessoas'},
 };
