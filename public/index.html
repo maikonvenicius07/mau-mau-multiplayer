@@ -185,6 +185,15 @@
       <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
+
+    <div id="spectatorModeBanner" class="spectator-mode-banner hidden" role="status" aria-live="polite">
+      <span class="spectator-mode-icon" aria-hidden="true">👁️</span>
+      <div class="spectator-mode-copy">
+        <strong>MODO OBSERVADOR</strong>
+        <small>Você está apenas assistindo. Suas ações de jogo estão bloqueadas e as cartas privadas dos jogadores não são enviadas ao seu navegador.</small>
+      </div>
+    </div>
+
     <div id="quickReactionsWidget" class="quick-reactions-widget quick-reactions-widget-minimal" aria-label="Reações rápidas">
       <button id="allReactionsBtn" class="quick-reaction-btn all-reactions-toggle quick-reaction-main" type="button" title="Ver todas as reações. Arraste para mover. Duplo toque para voltar à posição inicial." aria-label="Ver todas as reações" aria-expanded="false">😊</button>
       <div id="allReactionsPanel" class="all-reactions-panel hidden" role="menu" aria-label="Todas as reações">
@@ -226,7 +235,7 @@
         </div>
       </div>
 
-      <section class="hand-panel">
+      <section id="handPanel" class="hand-panel">
         <div class="hand-toolbar">
           <div class="hand-owner-row"><span class="hand-owner"><strong id="meLabel">Você</strong> <span id="handCount"></span></span><button id="sortHandBtn" class="sort-hand-btn" type="button" title="Organizar as cartas da sua mão por número ou por naipe">🔢 Número</button></div>
           <div class="toolbar-actions">
@@ -290,6 +299,31 @@
     </main>
   </section>
 
+
+  <dialog id="spectatorOfferDialog" class="modal spectator-offer-modal">
+    <button class="close spectator-offer-close" id="spectatorOfferClose" type="button" aria-label="Fechar oferta para assistir">×</button>
+    <div class="spectator-offer-head">
+      <span class="spectator-offer-icon" aria-hidden="true">👁️</span>
+      <div>
+        <div class="eyebrow">PARTIDA EM ANDAMENTO</div>
+        <h2>Assistir como observador?</h2>
+      </div>
+    </div>
+    <p id="spectatorOfferText" class="spectator-offer-text">Esta partida já começou. Você pode entrar apenas para assistir.</p>
+    <div class="spectator-privacy-note">
+      <strong>🔒 Privacidade protegida</strong>
+      <span>Você não verá nem receberá as cartas privadas dos jogadores. O observador também não ocupa uma das 5 vagas da mesa.</span>
+    </div>
+    <div class="spectator-offer-features" aria-label="Recursos disponíveis para observadores">
+      <span>💬 Chat de texto</span>
+      <span>😊 Reações</span>
+      <span>👁️ Mesa ao vivo</span>
+    </div>
+    <div class="spectator-offer-actions">
+      <button id="spectatorCancelBtn" type="button" class="spectator-cancel-btn">Cancelar</button>
+      <button id="spectatorJoinBtn" type="button" class="primary spectator-join-btn">👁️ ASSISTIR PARTIDA</button>
+    </div>
+  </dialog>
 
   <dialog id="matchmakingDialog" class="modal matchmaking-modal">
     <button class="close matchmaking-close" id="matchmakingClose" type="button" aria-label="Fechar acompanhamento da busca">×</button>

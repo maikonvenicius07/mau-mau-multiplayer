@@ -1,0 +1,27 @@
+MAU-MAU CANDEIAS — V40.31
+CORREÇÃO FINAL DO MODO OBSERVADOR
+
+Arquivos que precisam ser substituídos no projeto:
+
+1) public/index.html
+2) public/styles.css
+
+O que esta correção completa:
+- Diálogo "👁️ ASSISTIR PARTIDA" quando a sala já está em andamento.
+- Botões para entrar como observador ou cancelar.
+- Faixa "MODO OBSERVADOR" dentro da sala.
+- Remoção visual do painel da mão para observadores.
+- Identificação "👁️ OBSERVADOR" no chat.
+- Layout responsivo do modo observador no celular e computador.
+- Aviso visual de privacidade: cartas privadas não são enviadas ao observador.
+
+IMPORTANTE:
+- server.js, game-engine.js e public/app.js NÃO precisam ser substituídos nesta correção.
+- A lógica de segurança do servidor já estava implementada na V40.31.
+- Após a correção, a suíte completa foi executada com 51/51 testes aprovados.
+
+Procedimento:
+- No GitHub, abra a pasta public.
+- Substitua index.html pelo arquivo deste pacote.
+- Substitua styles.css pelo arquivo deste pacote.
+- Faça commit e aguarde o Render publicar a nova versão.
