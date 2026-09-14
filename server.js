@@ -960,23 +960,46 @@ function emitPendingInvitesFor(socket){
 }
 
 
-// ========================= V40.5 — MICROFONE AO VIVO / WEBRTC =========================
+// ========================= V40.34 — MICROFONE AO VIVO / WEBRTC =========================
 // O áudio não passa pelo servidor: o Socket.IO transporta apenas a sinalização WebRTC.
-// Cada jogador que liga o microfone cria conexões de envio P2P para os demais humanos da sala.
-const liveVoiceSenders = new Map(); // socketId -> {roomCode, playerId, name}
+// Jogadores humanos E observadores podem conversar. Observadores continuam sem receber cartas
+// privadas e sem permissão para executar qualquer ação de jogo.
+const liveVoiceSenders = new Map(); // socketId -> {roomCode, participantId, role, name}
+// V40.36 — relay PCM de compatibilidade apenas para caminhos com OBSERVADOR.
+const liveVoiceRelayRate = new Map();
+function liveVoiceRelayAllowed(socket, bytes){
+  const now=Date.now();let rec=liveVoiceRelayRate.get(socket.id);
+  if(!rec||now-rec.at>=1000)rec={at:now,packets:0,bytes:0};
+  rec.packets++;rec.bytes+=bytes;liveVoiceRelayRate.set(socket.id,rec);
+  return rec.packets<=30&&rec.bytes<=180000;
+}
 
-function currentHumanSocketInRoom(roomCode, socketId) {
+function currentVoiceParticipant(socket) {
+  const room = rooms.get(socket.data.roomCode);
+  if (!room) return null;
+  if (socket.data.role === ROLE_SPECTATOR) {
+    const spectator = spectatorForSocket(room,socket);
+    if (!spectator || !spectator.connected || spectator.socketId !== socket.id) return null;
+    return {room, actor:{id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}, socket};
+  }
+  const player = room.players.find(p => p.id === socket.data.playerId && !p.isBot && p.connected && p.socketId === socket.id);
+  if (!player) return null;
+  return {room, actor:{id:player.id,name:player.name,avatar:player.avatar,role:ROLE_PLAYER,isBot:false}, socket};
+}
+function currentVoiceSocketInRoom(roomCode, socketId) {
   const target = io.sockets.sockets.get(String(socketId || ''));
   if (!target || target.data.roomCode !== roomCode) return null;
-  const room = rooms.get(roomCode);
-  if (!room) return null;
-  const player = room.players.find(p => p.id === target.data.playerId && !p.isBot && p.connected && p.socketId === target.id);
-  return player ? { socket: target, player } : null;
+  const current = currentVoiceParticipant(target);
+  return current && current.room.code === roomCode ? current : null;
 }
 function liveVoicePeersFor(room, excludeSocketId) {
-  return room.players
+  const players = room.players
     .filter(p => !p.isBot && p.connected && p.socketId && p.socketId !== excludeSocketId)
-    .map(p => ({ socketId:p.socketId, playerId:p.id, name:p.name }));
+    .map(p => ({socketId:p.socketId,participantId:p.id,playerId:p.id,role:ROLE_PLAYER,name:p.name}));
+  const spectators = ensureSpectators(room)
+    .filter(s => s.connected && s.socketId && s.socketId !== excludeSocketId)
+    .map(s => ({socketId:s.socketId,participantId:s.id,playerId:s.id,role:ROLE_SPECTATOR,name:s.name}));
+  return [...players,...spectators];
 }
 function clearLiveVoiceSender(socket, {broadcast=true}={}) {
   const rec = liveVoiceSenders.get(socket.id);
@@ -985,22 +1008,27 @@ function clearLiveVoiceSender(socket, {broadcast=true}={}) {
   if (!rec || !broadcast) return;
   const room = rooms.get(rec.roomCode);
   if (!room) return;
-  io.to(rec.roomCode).emit('liveVoiceStatus', {playerId:rec.playerId, name:rec.name, on:false});
-  io.to(rec.roomCode).emit('liveVoiceSenderStopped', {socketId:socket.id, playerId:rec.playerId});
+  io.to(rec.roomCode).emit('liveVoiceStatus', {participantId:rec.participantId,playerId:rec.participantId,role:rec.role,name:rec.name,on:false});
+  io.to(rec.roomCode).emit('liveVoiceSenderStopped', {socketId:socket.id,participantId:rec.participantId,playerId:rec.participantId,role:rec.role});
 }
 function notifyExistingLiveVoiceSendersAbout(socket) {
-  const current = currentSocketRoom(socket);
-  if (!current || current.player.isBot || !current.player.connected) return;
+  const current = currentVoiceParticipant(socket);
+  if (!current) return;
+  const {room,actor} = current;
   for (const [senderSocketId, rec] of liveVoiceSenders) {
-    if (senderSocketId === socket.id || rec.roomCode !== current.room.code) continue;
+    if (senderSocketId === socket.id || rec.roomCode !== room.code) continue;
     io.to(senderSocketId).emit('liveVoicePeerAvailable', {
       socketId:socket.id,
-      playerId:current.player.id,
-      name:current.player.name,
+      participantId:actor.id,
+      playerId:actor.id,
+      role:actor.role,
+      name:actor.name,
     });
   }
+  const active=[...liveVoiceSenders.values()].filter(x=>x.roomCode===room.code);
   socket.emit('liveVoiceStatusSnapshot', {
-    playerIds:[...liveVoiceSenders.values()].filter(x=>x.roomCode===current.room.code).map(x=>x.playerId),
+    participantIds:active.map(x=>x.participantId),
+    playerIds:active.filter(x=>x.role===ROLE_PLAYER).map(x=>x.participantId),
   });
 }
 
@@ -1035,14 +1063,13 @@ io.on('connection', socket => {
 
   socket.on('liveVoiceJoin', () => {
     try {
-      const current = currentSocketRoom(socket);
-      if (!current) throw new Error('Sala não encontrada para o microfone.');
-      const {room,player} = current;
-      if (player.isBot || !player.connected || player.socketId !== socket.id) throw new Error('Jogador não disponível para usar o microfone.');
-      liveVoiceSenders.set(socket.id,{roomCode:room.code,playerId:player.id,name:player.name});
+      const current = currentVoiceParticipant(socket);
+      if (!current) throw new Error('Participante não disponível para usar o microfone.');
+      const {room,actor} = current;
+      liveVoiceSenders.set(socket.id,{roomCode:room.code,participantId:actor.id,role:actor.role,name:actor.name});
       socket.data.liveVoiceOn=true;
       socket.emit('liveVoicePeers',{peers:liveVoicePeersFor(room,socket.id)});
-      io.to(room.code).emit('liveVoiceStatus',{playerId:player.id,name:player.name,on:true});
+      io.to(room.code).emit('liveVoiceStatus',{participantId:actor.id,playerId:actor.id,role:actor.role,name:actor.name,on:true});
     } catch(e) { err(socket,e); }
   });
 
@@ -1052,13 +1079,13 @@ io.on('connection', socket => {
 
   socket.on('liveVoiceSignal', payload => {
     try {
-      const current=currentSocketRoom(socket);
+      const current=currentVoiceParticipant(socket);
       if(!current) throw new Error('Sala não encontrada para a chamada de voz.');
       const kind=String(payload?.kind||'');
       if(!['offer','answer','candidate'].includes(kind)) throw new Error('Sinalização de voz inválida.');
       const targetSocketId=String(payload?.targetSocketId||'').slice(0,120);
       if(!targetSocketId || targetSocketId===socket.id) return;
-      const target=currentHumanSocketInRoom(current.room.code,targetSocketId);
+      const target=currentVoiceSocketInRoom(current.room.code,targetSocketId);
       if(!target) return;
       const sessionId=String(payload?.sessionId||'').slice(0,120);
       if(!sessionId) throw new Error('Sessão de voz inválida.');
@@ -1079,10 +1106,39 @@ io.on('connection', socket => {
       target.socket.emit('liveVoiceSignal',{
         ...out,
         fromSocketId:socket.id,
-        fromPlayerId:current.player.id,
-        fromName:current.player.name,
+        fromParticipantId:current.actor.id,
+        fromPlayerId:current.actor.id,
+        fromRole:current.actor.role,
+        fromName:current.actor.name,
       });
     }catch(e){ err(socket,e); }
+  });
+
+
+  socket.on('liveVoiceRelayPcm', payload => {
+    try {
+      const current=currentVoiceParticipant(socket);
+      if(!current||!socket.data.liveVoiceOn)return;
+      const sampleRate=Number(payload?.sampleRate||0);
+      if(sampleRate!==16000)return;
+      const raw=payload?.pcm;let pcm=null;
+      if(Buffer.isBuffer(raw))pcm=raw;
+      else if(raw instanceof ArrayBuffer)pcm=Buffer.from(raw);
+      else if(ArrayBuffer.isView(raw))pcm=Buffer.from(raw.buffer,raw.byteOffset,raw.byteLength);
+      if(!pcm||pcm.length<2||pcm.length>16000||pcm.length%2!==0)return;
+      if(!liveVoiceRelayAllowed(socket,pcm.length))return;
+      const {room,actor}=current,targetSocketIds=[];
+      if(actor.role===ROLE_SPECTATOR){
+        for(const p of room.players)if(!p.isBot&&p.connected&&p.socketId&&p.socketId!==socket.id)targetSocketIds.push(p.socketId);
+        for(const s of ensureSpectators(room))if(s.connected&&s.socketId&&s.socketId!==socket.id)targetSocketIds.push(s.socketId);
+      }else{
+        // Player → somente observadores. Player ↔ player permanece no WebRTC P2P.
+        for(const s of ensureSpectators(room))if(s.connected&&s.socketId&&s.socketId!==socket.id)targetSocketIds.push(s.socketId);
+      }
+      if(!targetSocketIds.length)return;
+      const packet={fromSocketId:socket.id,fromParticipantId:actor.id,fromPlayerId:actor.id,fromRole:actor.role,fromName:actor.name,sampleRate,pcm};
+      for(const socketId of targetSocketIds)io.to(socketId).emit('liveVoiceRelayPcm',packet);
+    } catch(e) { err(socket,e); }
   });
 
   socket.on('startMatchmaking', payload => {
@@ -1619,7 +1675,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
-    clearLiveVoiceSender(socket);
+    clearLiveVoiceSender(socket);liveVoiceRelayRate.delete(socket.id);
     const presenceKey=socket.data.auth?.playerKey;
     queueMicrotask(()=>{
       unregisterPresenceSocket(socket);

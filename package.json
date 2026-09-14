@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.35.0",
-  "description": "Mau-Mau Candeias V40.35: microfone do observador sempre visível, fora do felt, com posição própria e voz WebRTC preservada.",
+  "version": "40.36.0",
+  "description": "Mau-Mau Candeias V40.36: voz do observador com relay PCM pelo servidor, sem depender de P2P/TURN nos caminhos com observadores.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

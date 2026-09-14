@@ -25,6 +25,12 @@ let liveVoiceRtcConfig={
 };
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTimers=new Map(),liveMicRetryCounts=new Map(),liveMicRecoveringPeers=new Set();
+// V40.36 — rota de compatibilidade para toda conversa que envolve OBSERVADOR.
+// PCM mono/16 kHz trafega pelo Socket.IO somente quando há observador na mesa.
+// Jogador ↔ jogador continua usando WebRTC P2P.
+const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
+let liveVoiceRelayCapture=null,liveVoiceRelayWarned=false;
+const liveVoiceRelayPlaybackNext=new Map();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
 const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
 let liveMicPositionRole=null;
@@ -1084,7 +1090,7 @@ $('#musicStyleRock').onclick=()=>setMusicStyle('rock');
 $('#musicVolume').addEventListener('input',e=>setMusicVolume(Number(e.target.value)/100));
 document.addEventListener('pointerdown',()=>{audioCtx();unlockMusic()},{once:true});
 document.addEventListener('keydown',()=>{audioCtx();unlockMusic()},{once:true});
-document.addEventListener('pointerdown',()=>{for(const a of liveMicRemoteAudios.values())if(a.paused)a.play?.().catch?.(()=>{})});
+document.addEventListener('pointerdown',()=>{audioCtx();for(const a of liveMicRemoteAudios.values())if(a.paused)a.play?.().catch?.(()=>{})});
 
 // ========================= V40.33 — MICROFONE AO VIVO / WEBRTC ESTÁVEL =========================
 const LIVE_VOICE_DEFAULT_ICE=[
@@ -1228,7 +1234,77 @@ function bindOutboundLivePeerHealth(pc,peer){
   };
   pc.onconnectionstatechange=assess;pc.oniceconnectionstatechange=assess;
 }
+function liveVoiceRelayRequired(){
+  return !!liveMicOn && (isSpectatorState() || Number(state?.spectatorCount||0)>0);
+}
+function pcm16FromFloatDownsample(input,inputRate,targetRate=LIVE_VOICE_RELAY_SAMPLE_RATE){
+  if(!input?.length)return new Int16Array(0);
+  const ratio=Math.max(1,Number(inputRate||targetRate)/targetRate);
+  const outLength=Math.max(1,Math.floor(input.length/ratio));
+  const out=new Int16Array(outLength);
+  for(let i=0;i<outLength;i++){
+    const start=Math.floor(i*ratio),end=Math.min(input.length,Math.max(start+1,Math.floor((i+1)*ratio)));
+    let sum=0;for(let j=start;j<end;j++)sum+=input[j];
+    const v=Math.max(-1,Math.min(1,sum/Math.max(1,end-start)));
+    out[i]=v<0?v*0x8000:v*0x7fff;
+  }
+  return out;
+}
+function stopLiveVoiceRelayCapture(){
+  const rec=liveVoiceRelayCapture;if(!rec)return;
+  try{rec.processor.onaudioprocess=null;rec.source.disconnect();rec.processor.disconnect();rec.sink.disconnect()}catch{}
+  liveVoiceRelayCapture=null;
+}
+function startLiveVoiceRelayCapture(){
+  if(liveVoiceRelayCapture||!liveVoiceRelayRequired()||!liveMicStream||!socket.connected)return;
+  const ac=audioCtx();if(!ac)return;
+  const createProcessor=ac.createScriptProcessor||ac.createJavaScriptNode;
+  if(!createProcessor)return;
+  try{
+    const source=ac.createMediaStreamSource(liveMicStream);
+    const processor=createProcessor.call(ac,4096,1,1);
+    const sink=ac.createGain();sink.gain.value=0;
+    source.connect(processor);processor.connect(sink);sink.connect(ac.destination);
+    processor.onaudioprocess=e=>{
+      if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
+      const input=e.inputBuffer?.getChannelData?.(0);if(!input?.length)return;
+      const pcm=pcm16FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);
+      if(!pcm.length)return;
+      socket.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,pcm:pcm.buffer});
+    };
+    liveVoiceRelayCapture={ac,source,processor,sink};
+  }catch{stopLiveVoiceRelayCapture()}
+}
+function syncLiveVoiceRelayCapture(){
+  if(liveVoiceRelayRequired())startLiveVoiceRelayCapture();else stopLiveVoiceRelayCapture();
+}
+function liveVoiceRelayBytes(value){
+  if(value instanceof ArrayBuffer)return new Uint8Array(value);
+  if(ArrayBuffer.isView(value))return new Uint8Array(value.buffer,value.byteOffset,value.byteLength);
+  if(value?.type==='Buffer'&&Array.isArray(value.data))return new Uint8Array(value.data);
+  return null;
+}
+function playLiveVoiceRelayPcm(payload){
+  try{
+    const bytes=liveVoiceRelayBytes(payload?.pcm);if(!bytes||bytes.byteLength<2)return;
+    const sampleRate=Math.max(8000,Math.min(24000,Number(payload?.sampleRate)||LIVE_VOICE_RELAY_SAMPLE_RATE));
+    const frames=Math.floor(bytes.byteLength/2);if(!frames)return;
+    const ac=audioCtx();if(!ac)return;
+    if(ac.state==='suspended'&&!liveVoiceRelayWarned){liveVoiceRelayWarned=true;toast('🔊 Toque na tela uma vez para liberar a conversa ao vivo.');}
+    const buffer=ac.createBuffer(1,frames,sampleRate),out=buffer.getChannelData(0),view=new DataView(bytes.buffer,bytes.byteOffset,frames*2);
+    for(let i=0;i<frames;i++)out[i]=view.getInt16(i*2,true)/32768;
+    const source=ac.createBufferSource();source.buffer=buffer;source.connect(ac.destination);
+    const key=String(payload?.fromParticipantId||payload?.fromSocketId||'voice');
+    const now=ac.currentTime,minStart=now+.10;
+    let next=Number(liveVoiceRelayPlaybackNext.get(key)||0);
+    if(next<now-.03||next-now>.7)next=minStart;else next=Math.max(next,minStart);
+    source.start(next);liveVoiceRelayPlaybackNext.set(key,next+buffer.duration);
+    source.onended=()=>{try{source.disconnect()}catch{}};
+  }catch{}
+}
 async function createOutboundLivePeer(peer,{recovery=false}={}){
+  // V40.36: qualquer caminho que envolva observador usa relay no servidor.
+  if(isSpectatorState()||peer?.role==='SPECTATOR')return;
   if(!liveMicOn||!liveMicStream||!peer?.socketId||peer.socketId===socket.id)return;
   liveMicPeerInfo.set(peer.socketId,{socketId:peer.socketId,participantId:peer.participantId||peer.playerId,playerId:peer.playerId,role:peer.role||'PLAYER',name:peer.name||'Participante'});
   if(liveMicOutboundPeers.has(peer.socketId))return;
@@ -1289,6 +1365,7 @@ async function startLiveMic(){
     const stream=await navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints());
     if(!state||!socket.connected){stream.getTracks().forEach(x=>x.stop());return;}
     liveMicStream=stream;liveMicSessionId=liveVoiceSession();liveMicOn=true;
+    syncLiveVoiceRelayCapture();
     for(const track of stream.getAudioTracks()){try{if('contentHint' in track)track.contentHint='speech'}catch{}track.onended=()=>{if(liveMicOn)stopLiveMic({notify:true,showToast:true,reason:'Microfone desligado pelo dispositivo.'})}};
     refreshQuickAudioMusicDuck();socket.emit('liveVoiceJoin');
     toast(isSpectatorState()?'🎙️ Microfone ligado. Você pode conversar com a mesa como observador.':'🎙️ Microfone ao vivo ligado com recuperação automática de conexão.');
@@ -1301,6 +1378,7 @@ function stopLiveMic({notify=true,showToast=false,reason='🎙️ Microfone ao v
   if(!keepWanted)liveMicWanted=false;
   if(notify&&socket.connected&&liveMicOn)socket.emit('liveVoiceLeave');
   for(const id of [...liveMicOutboundPeers.keys()])closeOutboundLivePeer(id);
+  stopLiveVoiceRelayCapture();liveVoiceRelayPlaybackNext.clear();
   try{liveMicStream?.getTracks?.().forEach(t=>{t.onended=null;t.stop()})}catch{}
   liveMicStream=null;liveMicOn=false;liveMicStarting=false;liveMicSessionId=null;
   if(state?.me?.id)liveVoiceActivePlayerIds.delete(state.me.id);
@@ -1846,6 +1924,7 @@ socket.on('spectatorOffer',info=>{openSpectatorOffer(info||{});playGameSound('ch
 socket.on('state',s=>{
   const prev=state;
   state=s;
+  syncLiveVoiceRelayCapture();
   if(passPending && state?.me && state.currentPlayerId !== state.me.id){
     passPending=false;
   }
@@ -1955,6 +2034,7 @@ socket.on('liveVoiceStatus',info=>{
   if(info.on)liveVoiceActivePlayerIds.add(id);else liveVoiceActivePlayerIds.delete(id);
   if(state){renderPlayers();renderSpectatorLivePanel();}
 });
+socket.on('liveVoiceRelayPcm',playLiveVoiceRelayPcm);
 socket.on('soundEffect',event=>{
   const fx=effectCatalog[event.effect];if(!fx)return;
   const displayName=event.role==='SPECTATOR'?`👁️ ${event.name||'Observador'}`:(event.name||'Jogador');

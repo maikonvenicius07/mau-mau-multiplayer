@@ -8,7 +8,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.ok(['40.34.0','40.35.0'].includes(pkg.version));
+assert.ok(['40.34.0','40.35.0','40.36.0'].includes(pkg.version));
 assert(!app.includes('Microfone ao vivo não está disponível no Modo Observador.'),'frontend ainda bloqueia microfone para observador');
 assert(app.includes("btn.classList.remove('hidden')"),'botão do microfone não é exibido para observador');
 assert(app.includes("socket.emit('liveVoiceReady');"),'observador não anuncia disponibilidade para receber voz');

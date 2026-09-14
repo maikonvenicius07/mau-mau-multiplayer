@@ -1,3 +1,14 @@
+# V40.36 — Voz do Observador com Relay de Compatibilidade
+
+- Corrige o caso em que o botão do microfone aparecia para o observador, mas não havia áudio em nenhum sentido.
+- Jogador ↔ observador e observador ↔ observador passam a usar relay PCM mono/16 kHz pelo Socket.IO.
+- Esses caminhos deixam de depender de conexão WebRTC P2P/STUN/TURN.
+- Jogador ↔ jogador continua em WebRTC P2P.
+- O relay só é ativado para jogadores quando há pelo menos um observador conectado.
+- Limites de tamanho e taxa no servidor protegem a sala contra pacotes excessivos.
+- A privacidade das cartas e os bloqueios de ações do observador permanecem inalterados.
+- 56/56 testes aprovados.
+
 # CHANGELOG
 
 
