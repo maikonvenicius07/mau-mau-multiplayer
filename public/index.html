@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=40.38" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -65,11 +65,7 @@
         <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
         <button id="matchmakingStart" class="matchmaking-main" type="button"><span>🔎</span><strong id="matchmakingBtnTitle">BUSCAR JOGADORES</strong><small id="matchmakingBtnSubtitle">Encontre alguém automaticamente</small></button>
         <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
-        <button id="watchRoomsOpen" class="watch-rooms-main" type="button" aria-label="Ver partidas públicas ao vivo">
-          <span class="watch-rooms-eye" aria-hidden="true">👁️</span>
-          <span class="watch-rooms-copy"><strong>ASSISTIR</strong><small><b id="watchableRoomsCount">0</b> AO VIVO</small></span>
-          <span class="watch-rooms-extra" aria-hidden="true"><b id="publicRoomsCountLanding">0</b> salas • <b id="liveSpectatorsCount">0</b> observando</span>
-        </button>
+        <button id="watchRoomsOpen" class="watch-rooms-main" type="button"><span>👁️</span><strong>ASSISTIR PARTIDAS</strong><small><b id="publicRoomsCountLanding">0</b> salas • <b id="watchableRoomsCount">0</b> ao vivo • <b id="liveSpectatorsCount">0</b> observando</small></button>
       </section>
 
       <div class="setup-grid avatar-setup">
@@ -113,8 +109,8 @@
                 <button type="button" class="avatar-option" data-avatar="telaazul" role="radio" aria-checked="false" title="Tela Azul">
                   <img src="assets/avatars/telaazul.webp" alt="Tela Azul" /><span>Tela Azul</span>
                 </button>
-                <button type="button" class="avatar-option" data-avatar="caldo" role="radio" aria-checked="false" title="Caldinho">
-                  <img src="assets/avatars/caldo.webp" alt="Caldinho" /><span>Caldinho</span>
+                <button type="button" class="avatar-option" data-avatar="caldo" role="radio" aria-checked="false" title="Kaldynho">
+                  <img src="assets/avatars/caldo.webp" alt="Kaldynho" /><span>Kaldynho</span>
                 </button>
                 <button type="button" class="avatar-option" data-avatar="anao" role="radio" aria-checked="false" title="Anão">
                   <img src="assets/avatars/anao.webp" alt="Anão" /><span>Anão</span>
@@ -229,14 +225,11 @@
       </div>
     </div>
 
-    <!-- V40.35: microfone ao vivo é um controle global da partida.
-         Fica fora do felt para nunca ser recortado pelo overflow da mesa, inclusive no Modo Observador. -->
-    <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone estável. Arraste para mover." aria-label="Microfone ao vivo estável: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
-
     <main class="table-shell">
       <div class="scoreboard" id="scoreboard"></div>
       <div class="felt">
         <button id="pileSideBtn" class="pile-side-toggle" type="button" title="Trocar o lado do baralho e da carta da mesa" aria-label="Trocar o lado do baralho e da carta da mesa">⇄ Trocar lados</button>
+        <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone. Arraste para mover." aria-label="Microfone ao vivo flutuante: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
         <button id="floatingBurnBtn" class="floating-game-action floating-burn-action hidden" type="button" title="Queima disponível. Clique para queimar ou arraste para mover." aria-label="Botão flutuante de Queima"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">🔥</span><strong>QUEIMA</strong></button>
         <button id="floatingDoubleBtn" class="floating-game-action floating-double-action hidden" type="button" title="Carta Dupla disponível. Clique para jogar a dupla ou arraste para mover." aria-label="Botão flutuante de Carta Dupla"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">×2</span><strong>DUPLA</strong></button>
         <button id="floatingQuickBtn" class="floating-game-action floating-quick-action hidden" type="button" title="Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover." aria-label="Botão flutuante de Ação Rápida"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">⚡</span><strong>RÁPIDA</strong></button>
@@ -519,7 +512,7 @@
     <div class="rules-extras">
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
-      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.33 adiciona recuperação automática da conexão, tratamento de voz e suporte a TURN quando configurado. O áudio continua sendo transmitido por WebRTC e não é gravado nem salvo no PostgreSQL ou no ranking.</p>
+      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. O áudio é transmitido diretamente entre os navegadores dos jogadores da sala por WebRTC e não é gravado nem salvo no PostgreSQL ou no ranking.</p>
       <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
@@ -567,6 +560,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=40.38"></script>
 </body>
 </html>
