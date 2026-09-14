@@ -1,0 +1,20 @@
+V40.34 — ARQUIVOS PARA SUBSTITUIR NO GITHUB
+
+Substitua mantendo as mesmas pastas:
+- server.js
+- package.json
+- public/app.js
+- public/styles.css
+- README.md
+- CHANGELOG.md
+- tests/live-voice-stability-v4033.test.js
+
+Adicione:
+- tests/spectator-live-voice-v4034.test.js
+- docs/MICROFONE_OBSERVADOR_V40_34.md
+- LEIA-ME-V40.34.txt
+
+A alteração funcional está principalmente em server.js e public/app.js.
+public/styles.css adiciona apenas o indicador 🎙️ na lista de observadores.
+
+Depois do deploy, teste jogador + observador com o microfone ligado nos dois aparelhos.

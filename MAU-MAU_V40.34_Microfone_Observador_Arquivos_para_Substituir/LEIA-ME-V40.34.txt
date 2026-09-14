@@ -1,0 +1,28 @@
+MAU-MAU CANDEIAS — V40.34
+MICROFONE AO VIVO PARA OBSERVADORES
+
+O que mudou:
+- Observadores agora veem o botão flutuante 🎙️ LIGAR MICROFONE.
+- Observadores podem falar com jogadores e com outros observadores.
+- Jogadores também recebem a voz dos observadores.
+- A voz continua WebRTC P2P; o servidor transporta apenas a sinalização.
+- Fila ICE, reconexão automática, Opus e TURN opcional da V40.33 foram mantidos.
+- A lista de observadores mostra 🎙️ ao lado de quem estiver com o microfone ligado.
+
+Segurança mantida:
+- observador não ocupa vaga de jogador;
+- observador continua com hand: [];
+- cartas privadas não são enviadas ao navegador do observador;
+- jogar, comprar, queimar, Carta Dupla, Ação Rápida e demais ações continuam bloqueadas no servidor.
+
+Validação:
+- npm run verify: APROVADO
+- 54/54 testes: APROVADOS
+
+Teste recomendado após o deploy:
+1. Abra uma partida em um navegador/celular.
+2. Entre como observador em outro aparelho.
+3. Confirme que o botão 🎙️ LIGAR MICROFONE aparece para o observador.
+4. Ligue o microfone do observador e de um jogador.
+5. Confirme voz nos dois sentidos.
+6. Se possível, repita com Wi-Fi e 4G/5G.
