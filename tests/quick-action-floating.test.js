@@ -5,7 +5,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-if(pkg.version!=='40.23.0') throw new Error('Versão V40.23 não aplicada.');
+if(pkg.version!=='40.24.0') throw new Error('Versão V40.24 não aplicada.');
 if(!html.includes('id="floatingQuickBtn"')) throw new Error('Botão flutuante de Ação Rápida não encontrado no HTML.');
 if(!app.includes("floatingQuickPositionStorage='maumauFloatingQuickPositionV1'")) throw new Error('Storage do botão flutuante de Ação Rápida não encontrado.');
 if(!app.includes("initDraggableGameAction('quick',triggerFloatingQuick)")) throw new Error('Inicialização do botão flutuante de Ação Rápida não encontrada.');

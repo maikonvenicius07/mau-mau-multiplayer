@@ -2,7 +2,7 @@ const fs=require('fs');
 const path=require('path');
 const root=path.resolve(__dirname,'..');
 const pkg=require(path.join(root,'package.json'));
-if(pkg.version!=='40.23.0') throw new Error('Versão V40.23 não aplicada.');
+if(pkg.version!=='40.24.0') throw new Error('Versão V40.24 não aplicada.');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 if(!css.includes('.quick-reactions-widget.idle')) throw new Error('Estado idle das reações rápidas não encontrado no CSS.');
 if(!css.includes('opacity:.42')) throw new Error('Transparência automática da carinha não encontrada.');

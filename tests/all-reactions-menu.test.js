@@ -5,7 +5,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','public','index.html'),'utf8
 const app=fs.readFileSync(path.join(__dirname,'..','public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'..','public','styles.css'),'utf8');
 
-if(pkg.version!=='40.23.0') throw new Error('Versão V40.23 não aplicada.');
+if(pkg.version!=='40.24.0') throw new Error('Versão V40.24 não aplicada.');
 if(!html.includes('id="allReactionsBtn"')) throw new Error('Botão 😊 para todas as reações ausente.');
 if(!html.includes('id="allReactionsPanel"')) throw new Error('Painel de todas as reações ausente.');
 for(const effect of ['applause','laugh','angry','horn','drum','victory','wow','jogaBoca']){

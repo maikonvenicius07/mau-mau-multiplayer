@@ -1,9 +1,13 @@
-MAU-MAU CANDEIAS — V40.23
+MAU-MAU CANDEIAS — V40.24
 
-Melhoria desta versão:
-- o botão da AÇÃO RÁPIDA (⚡) agora é flutuante e arrastável;
-- aparece somente quando a Ação Rápida estiver disponível;
-- o jogador pode colocar onde quiser;
-- o botão antigo sobre a carta foi removido para limpar a mão, especialmente no celular.
+OBJETIVO DESTA VERSÃO
+- manter cada avatar no mesmo assento visual durante a partida;
+- inverter o sentido ou pular jogadores altera somente a indicação/fila do turno;
+- destacar claramente quem está jogando com SUA VEZ ou VEZ DE [NOME];
+- preservar o indicador PRÓXIMO;
+- manter reconexão no mesmo assento visual;
+- não alterar as regras do motor do jogo.
 
-Envie esta pasta/zip no GitHub apenas para substituir os arquivos alterados.
+VALIDAÇÃO
+- npm run verify: 45 testes aprovados.
+- game-engine.js e server.js permaneceram inalterados.

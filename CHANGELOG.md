@@ -1,5 +1,13 @@
 # Changelog
 
+## V40.24 — Avatares Fixos + Turno em Destaque
+- corrigida a ordem visual dos assentos para que ela não dependa mais de `direction`;
+- Dama/inversão, Ás/pulo e demais cartas especiais agora mudam apenas a fila/indicadores, sem reorganizar os avatares;
+- adicionado destaque forte e elegante no jogador de `currentPlayerId`;
+- adicionado indicador `SUA VEZ` para o jogador local e `VEZ DE [NOME]` para os demais;
+- preservado o indicador `PRÓXIMO`, calculado pela fila real do servidor;
+- nenhuma alteração em `game-engine.js` ou `server.js`.
+
 ## V40.23 — Ação Rápida Flutuante
 - a **Ação Rápida (⚡)** agora usa um **botão flutuante**, igual à Queima e à Carta Dupla;
 - o botão aparece **somente quando a ação estiver disponível**;

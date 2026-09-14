@@ -1,8 +1,17 @@
-# Mau-Mau Candeias — V40.23
+# Mau-Mau Candeias — V40.24
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
 
 
+
+## V40.24 — Assentos fixos e indicação clara de turno
+
+- Os avatares agora permanecem **fixos no mesmo assento visual**, mesmo quando uma Dama inverte o sentido da partida.
+- A fila de turno continua sendo calculada pelo estado real do servidor (`currentPlayerId` + `direction`).
+- O jogador atual recebe brilho/pulso discreto e um indicador **SUA VEZ** ou **VEZ DE [NOME]**.
+- O indicador **PRÓXIMO** continua acompanhando a fila real.
+- Reconexão não troca o assento: o servidor preserva o mesmo jogador/ID e a interface mantém a posição visual.
+- Nenhuma regra do motor foi alterada.
 
 ## V40.23 — Ação Rápida flutuante
 

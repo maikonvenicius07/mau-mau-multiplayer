@@ -3,7 +3,7 @@ const fs=require('fs');
 const path=require('path');
 const pkg=require('../package.json');
 
-assert.equal(pkg.version,'40.23.0');
+assert.equal(pkg.version,'40.24.0');
 const app=fs.readFileSync(path.join(__dirname,'..','public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'..','public','styles.css'),'utf8');
 
@@ -14,6 +14,6 @@ assert(app.includes("d.classList.add('next-turn-seat')"),'destaque do assento do
 assert(css.includes('.next-turn-arrow'),'estilo da seta PRÓXIMO ausente');
 assert(css.includes('.player-card.next-turn'),'destaque visual do próximo jogador ausente');
 assert(css.includes('@keyframes nextTurnBounce'),'animação da seta ausente');
-assert(css.includes('@media(prefers-reduced-motion:reduce){.next-turn-arrow{animation:none}}'),'redução de movimento da seta ausente');
+assert(css.includes('.player-card.active,.current-turn-dot,.next-turn-arrow{animation:none!important}'),'redução de movimento da seta/turno ausente');
 
 console.log('✓ V40.16: seta animada identifica e destaca o próximo jogador da fila.');

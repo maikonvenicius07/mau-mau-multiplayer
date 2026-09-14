@@ -35,6 +35,8 @@ const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
 const handSortStorage='maumauHandSortV1';
 let handSort=localStorage.getItem(handSortStorage)==='suit'?'suit':'rank';
+// V40.24 — mapa visual de assentos. Mantém o mesmo jogador no mesmo lugar durante a sala/partida.
+let fixedSeatContextKey='', fixedSeatAssignments=new Map();
 
 const rankSortOrder={A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13};
 const suitSortOrder={hearts:1,diamonds:2,clubs:3,spades:4};
@@ -1800,10 +1802,14 @@ function playerDisplayOrderFromMe(){
   const meId=state?.me?.id;
   const meIndex=players.findIndex(p=>p.id===meId);
   if(meIndex<0) return players.slice();
-  const dir=state?.direction===1?1:-1;
+  // V40.24: os assentos visuais são independentes do sentido atual da partida.
+  // A mesa começa no sentido anti-horário, então usamos essa ordem apenas para
+  // definir os lugares ao redor do jogador local. Depois disso, Q/inversões,
+  // pulos e demais efeitos alteram somente a fila de turno, nunca os assentos.
+  const visualDir=-1;
   const ordered=[];
   for(let step=0;step<players.length;step++){
-    ordered.push(players[(meIndex + (step*dir) + players.length*8)%players.length]);
+    ordered.push(players[(meIndex + (step*visualDir) + players.length*8)%players.length]);
   }
   return ordered;
 }
@@ -1827,18 +1833,64 @@ function playerQueueLabel(playerId){
   if(idx>1) return `${idx+1}º NA ORDEM`;
   return '';
 }
+function visualSeatLayout(count){
+  const desktop=count===2?[[50,88],[50,12]]:count===3?[[50,88],[22,18],[78,18]]:count===4?[[50,88],[14,48],[50,12],[86,48]]:[[50,88],[12,36],[31,11],[69,11],[88,36]];
+  const mobile=count===2?[[50,90],[50,13]]:count===3?[[50,90],[23,18],[77,18]]:count===4?[[50,90],[16,21],[50,11],[84,21]]:[[50,90],[14,22],[36,10],[64,10],[86,22]];
+  return desktop.map((spot,i)=>({desktop:spot,mobile:mobile[i]||spot}));
+}
+function fixedSeatCandidatePool(){
+  const desktop=[[50,88],[14,48],[50,12],[86,48],[31,11],[69,11],[12,36],[88,36],[22,18],[78,18]];
+  const mobile=[[50,90],[16,21],[50,11],[84,21],[36,10],[64,10],[14,22],[86,22],[23,18],[77,18]];
+  return desktop.map((spot,i)=>({desktop:spot,mobile:mobile[i]}));
+}
+function seatDistanceSq(a,b){const dx=a[0]-b[0],dy=a[1]-b[1];return dx*dx+dy*dy}
+function syncFixedSeatAssignments(orderedPlayers){
+  const key=`${state?.code||''}:${state?.me?.id||''}`;
+  if(key!==fixedSeatContextKey){fixedSeatContextKey=key;fixedSeatAssignments=new Map()}
+  const liveIds=new Set(orderedPlayers.map(p=>p.id));
+  if(state?.status==='lobby'&&Number(state?.round||0)===0){
+    for(const id of [...fixedSeatAssignments.keys()])if(!liveIds.has(id))fixedSeatAssignments.delete(id);
+  }
+  if(!fixedSeatAssignments.size){
+    const layout=visualSeatLayout(orderedPlayers.length);
+    orderedPlayers.forEach((p,i)=>fixedSeatAssignments.set(p.id,layout[i]||layout[layout.length-1]));
+    return;
+  }
+  const used=[...fixedSeatAssignments.entries()].filter(([id])=>liveIds.has(id)).map(([,spot])=>spot.desktop);
+  const pool=fixedSeatCandidatePool();
+  for(const p of orderedPlayers){
+    if(fixedSeatAssignments.has(p.id))continue;
+    if(p.id===state?.me?.id){
+      fixedSeatAssignments.set(p.id,{desktop:[50,88],mobile:[50,90]});
+      used.push([50,88]);
+      continue;
+    }
+    const candidates=pool.filter(c=>!used.some(u=>seatDistanceSq(c.desktop,u)<36));
+    const source=candidates.length?candidates:pool;
+    const best=source.slice().sort((a,b)=>{
+      const da=used.length?Math.min(...used.map(u=>seatDistanceSq(a.desktop,u))):99999;
+      const db=used.length?Math.min(...used.map(u=>seatDistanceSq(b.desktop,u))):99999;
+      return db-da;
+    })[0]||{desktop:[50,12],mobile:[50,13]};
+    fixedSeatAssignments.set(p.id,best);used.push(best.desktop);
+  }
+}
+function fixedPlayerSpot(player,mobile){
+  const assigned=fixedSeatAssignments.get(player?.id);
+  return assigned?(mobile?assigned.mobile:assigned.desktop):[50,50];
+}
 function renderPlayers(){
   const ring=$('#playersRing');ring.innerHTML='';
   const mobile=window.innerWidth<=900;
   const orderedPlayers=playerDisplayOrderFromMe();
-  const n=orderedPlayers.length;
-  const desktopSpots=n===2?[[50,88],[50,12]]:n===3?[[50,88],[22,18],[78,18]]:n===4?[[50,88],[14,48],[50,12],[86,48]]:[[50,88],[12,36],[31,11],[69,11],[88,36]];
-  const mobileSpots=n===2?[[50,90],[50,13]]:n===3?[[50,90],[23,18],[77,18]]:n===4?[[50,90],[16,21],[50,11],[84,21]]:[[50,90],[14,22],[36,10],[64,10],[86,22]];
+  const queue=playerTurnQueue();
+  syncFixedSeatAssignments(orderedPlayers);
   orderedPlayers.forEach((p,i)=>{
     const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
-    const spot=(mobile?mobileSpots:desktopSpots)[i]||[50,50];
+    const spot=fixedPlayerSpot(p,mobile);
     d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';
-    const active=state.currentPlayerId===p.id?' active':'';
+    const isCurrent=state.status==='playing'&&!state.paused&&state.currentPlayerId===p.id;
+    const active=isCurrent?' active':'';
     const waitingReconnect=!p.isBot&&!p.connected&&!p.autoControlled;
     const disc=waitingReconnect?' disconnect':'';
     const auto=p.autoControlled?' auto-control':'';
@@ -1850,15 +1902,17 @@ function renderPlayers(){
     const countClass=p.cardCount===1?' mau-count':p.cardCount===2?' warning-count':'';
     const countWord=p.cardCount===1?'CARTA':'CARTAS';
     const orderText=playerQueueLabel(p.id);
-    const queue=playerTurnQueue();
     const queueIndex=queue.findIndex(x=>x.id===p.id);
     const nextTurn=state.status==='playing'&&!state.paused&&queueIndex===1;
     const arrowSide=spot[1]<50?'below':'above';
     const arrowGlyph=spot[1]<50?'↑':'↓';
     const nextArrow=nextTurn?`<div class="next-turn-arrow ${arrowSide}" aria-label="Próximo jogador">${arrowGlyph} PRÓXIMO</div>`:'';
+    const currentTurnText=p.id===state.me.id?'SUA VEZ':`VEZ DE ${p.name||'JOGADOR'}`;
+    const currentTurnIndicator=isCurrent?`<div class="current-turn-indicator ${arrowSide}" aria-label="${esc(currentTurnText)}"><span class="current-turn-dot" aria-hidden="true"></span>${esc(currentTurnText)}</div>`:'';
     if(nextTurn)d.classList.add('next-turn-seat');
-    const orderBadge=orderText?`<div class="player-order-badge ${active?'now':''}${nextTurn?' next':''}">${esc(orderText)}</div>`:'';
-    d.innerHTML=`${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
+    if(isCurrent)d.classList.add('current-turn-seat');
+    const orderBadge=!isCurrent&&orderText?`<div class="player-order-badge ${nextTurn?'next':''}">${esc(orderText)}</div>`:'';
+    d.innerHTML=`${currentTurnIndicator}${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"${isCurrent?' aria-current="true"':''}><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
 }
@@ -1873,7 +1927,7 @@ function renderCenter(){
     const reconnectBanner=reconnectBannerText();
     banner=reconnectBanner || (current?.autoControlled
       ? `🤖 Máquina jogando temporariamente por ${current.name||'Jogador'}...`
-      : (current?.id===state.me.id?'✨ Sua vez':`Vez de ${current?.name||'Jogador'}`));
+      : (current?.id===state.me.id?'✨ SUA VEZ':`🎯 VEZ DE ${current?.name||'Jogador'}`));
   }
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
     if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue qualquer carta válida ou passe e guarde a comprada';
