@@ -1,3 +1,13 @@
+## V40.32 — Central de Partidas ao Vivo e Modo Observador aprimorado
+
+- Nova opção **👁️ ASSISTIR PARTIDAS** na tela inicial.
+- Contadores de salas públicas, partidas ao vivo e observadores conectados.
+- Lista de salas públicas em andamento com entrada direta como observador.
+- Cada sala criada pela tela inicial pode ser marcada como pública ou privada.
+- O anfitrião pode alternar a visibilidade da sala durante a sessão.
+- Painel exclusivo do observador com jogadores, rodada, número de espectadores, lista de observadores e acontecimentos recentes.
+- As cartas privadas continuam protegidas no servidor e não são enviadas ao observador.
+
 ## V40.31 — Lobby de avatares mais equilibrado
 
 - agrupados **Pessoas** e **Sua Figurinha** em uma coluna lateral própria;

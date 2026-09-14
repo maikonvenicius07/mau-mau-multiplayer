@@ -1,7 +1,26 @@
-V40.31 - Lobby de avatares mais equilibrado
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.32
 
-- Pessoas e Sua Figurinha agora ficam agrupadas na coluna da direita.
-- A figurinha aparece imediatamente abaixo de Pessoas, sem o grande espaço vazio.
-- O bloco da figurinha ficou mais compacto e discreto.
-- No celular, a galeria continua responsiva e empilhada.
-- Nenhuma regra do Mau-Mau foi alterada.
+COMO ATUALIZAR NO GITHUB
+1. Preserve a mesma estrutura de pastas.
+2. Substitua os arquivos existentes pelos arquivos deste pacote.
+3. Adicione os novos arquivos que ainda não existirem.
+4. Faça commit/push e aguarde o novo deploy do Render.
+
+PRINCIPAIS ARQUIVOS DE EXECUÇÃO ALTERADOS
+- server.js
+- game-engine.js
+- package.json
+- public/index.html
+- public/app.js
+- public/styles.css
+
+NOVIDADES
+- Central 👁️ ASSISTIR PARTIDAS.
+- Quantidade de salas públicas, partidas ao vivo e observadores.
+- Sala pública/privada controlada pelo anfitrião.
+- Entrada direta como observador em partidas públicas.
+- Painel do observador com rodada, jogadores, observadores e acontecimentos.
+- Cartas privadas continuam protegidas no servidor.
+
+TESTES
+52/52 testes automatizados aprovados.

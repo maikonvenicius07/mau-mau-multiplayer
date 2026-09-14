@@ -1,4 +1,9 @@
-# Mau-Mau Candeias — V40.31
+# Mau-Mau Candeias — V40.32
+
+## V40.32 — Partidas ao Vivo
+
+A tela inicial agora possui uma Central de Partidas ao Vivo para observadores. Salas públicas iniciadas podem ser encontradas e assistidas sem código prévio, mantendo cartas privadas protegidas no servidor.
+
 
 
 Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.

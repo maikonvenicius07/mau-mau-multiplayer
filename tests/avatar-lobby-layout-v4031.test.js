@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.equal(pkg.version,'40.31.0');
+assert.equal(pkg.version,'40.32.0');
 assert(html.includes('class="avatar-side-column"'),'coluna lateral de avatares ausente');
 const sideStart=html.indexOf('class="avatar-side-column"');
 const people=html.indexOf('class="avatar-group people"',sideStart);

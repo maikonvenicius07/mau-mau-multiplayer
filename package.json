@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.31.0",
-  "description": "Mau-Mau Candeias V40.31: seleção de avatares reorganizada com Pessoas e Sua Figurinha em uma coluna lateral compacta e equilibrada.",
+  "version": "40.32.0",
+  "description": "Mau-Mau Candeias V40.32: Central de Partidas ao Vivo e Modo Observador aprimorado com salas públicas, contadores e painel de acompanhamento.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

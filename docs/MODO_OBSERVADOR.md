@@ -1,4 +1,47 @@
-# Modo Observador — V40.31
+# Modo Observador — V40.32
+
+## O que mudou nesta versão
+
+A V40.32 transforma o Modo Observador em uma área própria para assistir partidas. A tela inicial agora possui **👁️ ASSISTIR PARTIDAS**, com contadores de salas públicas, partidas ao vivo e observadores conectados.
+
+### Salas públicas e privadas
+
+- Ao criar uma sala pela tela inicial, o anfitrião escolhe se ela será pública para observadores.
+- Salas privadas não aparecem na Central de Partidas ao Vivo.
+- O anfitrião pode alternar a visibilidade durante a sessão.
+- Convites e salas internas criadas automaticamente continuam privadas por padrão.
+
+### Central de Partidas ao Vivo
+
+Cada sala pública em andamento mostra apenas dados públicos:
+
+- código da sala;
+- rodada atual;
+- quantidade de jogadores;
+- quantidade de máquinas;
+- quantidade de observadores;
+- nome de exibição do anfitrião;
+- situação AO VIVO ou INTERVALO.
+
+O botão **👁️ ASSISTIR** entra diretamente como `SPECTATOR`, sem ocupar vaga de jogador.
+
+### Painel do observador
+
+Ao assistir, a interface mostra:
+
+- quantidade de jogadores;
+- rodada atual;
+- total de observadores;
+- lista dos observadores conectados;
+- acontecimentos recentes da mesa;
+- número de cartas restantes de cada jogador, sem revelar quais cartas são.
+
+### Segurança
+
+A proteção continua no servidor. O observador recebe `roomSpectatorState`, com `hand: []` e sem IDs de cartas jogáveis, Queima, Ação Rápida ou Carta Dupla. A lista pública de salas também contém apenas metadados da partida e nunca inclui mãos ou cartas privadas.
+
+---
+
 
 ## Separação de papéis
 

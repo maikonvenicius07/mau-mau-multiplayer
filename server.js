@@ -565,7 +565,40 @@ function buildPresenceSnapshot() {
   players.sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name,'pt-BR'));
   return {onlineCount:[...onlinePresence.values()].filter(r=>r.sockets.size).length,players,at:Date.now()};
 }
-function broadcastPresence() { io.emit('presenceSnapshot',buildPresenceSnapshot()); }
+function publicRoomCard(room) {
+  ensureSpectators(room);
+  const host=room.players.find(p=>p.host&&!p.isBot) || room.players.find(p=>!p.isBot) || room.players[0] || null;
+  return {
+    code: room.code,
+    status: room.status,
+    round: Number(room.round||0),
+    rounds: Number(room.rules?.rounds||5),
+    playerCount: room.players.length,
+    connectedPlayerCount: room.players.filter(p=>p.connected||p.isBot||p.autoControlled).length,
+    spectatorCount: room.spectators.filter(x=>x.connected).length,
+    hostName: cleanPresenceName(host?.name||'Mesa'),
+    botCount: room.players.filter(p=>p.isBot).length,
+    createdAt: Number(room.createdAt||Date.now()),
+  };
+}
+function buildPublicRoomsSnapshot() {
+  const publicRooms=[...rooms.values()].filter(room=>room?.isPublic===true);
+  const watchable=publicRooms
+    .filter(room=>Number(room.round||0)>0&&room.status!=='lobby'&&room.status!=='finished')
+    .map(publicRoomCard)
+    .sort((a,b)=>b.spectatorCount-a.spectatorCount||b.playerCount-a.playerCount||b.round-a.round||a.code.localeCompare(b.code));
+  return {
+    publicRoomCount: publicRooms.length,
+    watchableRoomCount: watchable.length,
+    activeSpectatorCount: watchable.reduce((sum,room)=>sum+room.spectatorCount,0),
+    rooms: watchable,
+    at: Date.now(),
+  };
+}
+function broadcastPresence() {
+  io.emit('presenceSnapshot',buildPresenceSnapshot());
+  io.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
+}
 function emitToPlayerKey(playerKey,event,payload) {
   const rec=presenceFor(playerKey);if(!rec)return;
   for(const socketId of rec.sockets)io.to(socketId).emit(event,payload);
@@ -961,12 +994,17 @@ io.on('connection', socket => {
   socket.data.role=null;socket.data.spectatorId=null;
   registerPresenceSocket(socket);
   socket.emit('presenceSnapshot',buildPresenceSnapshot());
+  socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
   socket.emit('matchmakingState',matchmakingPayloadFor(socket.data.auth.playerKey));
   emitPendingInvitesFor(socket);
   setTimeout(broadcastPresence,0);
 
   socket.on('presenceProfile', payload => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
+  });
+
+  socket.on('requestPublicRooms', () => {
+    socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
   });
 
 
@@ -1067,6 +1105,7 @@ io.on('connection', socket => {
         playerKey:socket.data.auth.playerKey,
       });
       rooms.set(code,room);
+      room.isPublic = payload?.publicRoom !== false;
       ensureSocial(room);
       if (payload?.withBot) addBotToRoom(room);
       const p=room.players[0];
@@ -1079,6 +1118,13 @@ io.on('connection', socket => {
       broadcastPresence();
     } catch(e){err(socket,e);}
   });
+
+  socket.on('setRoomPublic', payload => withRoom(socket,(room,p)=>{
+    if(!p.host) throw new Error('Somente o anfitrião pode alterar a visibilidade da sala.');
+    room.isPublic=!!payload?.isPublic;
+    Engine.appendLog(room,room.isPublic?'👁️ Sala pública: pode ser encontrada por observadores.':'🔒 Sala privada: removida da Central de Partidas ao Vivo.','system');
+    emitRoom(room);broadcastPresence();
+  }));
 
   socket.on('joinRoom', payload => {
     try {

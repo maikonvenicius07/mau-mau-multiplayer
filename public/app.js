@@ -33,6 +33,8 @@ const inviteCards=new Map();
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
 let matchmakingDialogDismissed=false;
 let pendingSpectatorOffer=null;
+let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,rooms:[],at:0};
+let liveRoomsRefreshTimer=null;
 let rankingPeriod='day', rankingMode='official';
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
@@ -948,13 +950,13 @@ $('#createBtn').onclick=()=>{
   if(!googleUser) return showAuthGate('Entre com sua Conta Google para criar uma sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
-  socket.emit('createRoom',{...profile(),token:crypto.randomUUID()});
+  socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 $('#botGameBtn').onclick=()=>{
   if(!googleUser) return showAuthGate('Entre com sua Conta Google para jogar.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
-  socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true});
+  socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true,publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 $('#joinBtn').onclick=()=>{
   if(!googleUser) return showAuthGate('Entre com sua Conta Google para entrar na sala.');
@@ -966,6 +968,44 @@ $('#joinBtn').onclick=()=>{
   socket.emit('joinRoom',{...profile(),code,token});
 };
 $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
+function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
+  publicRoomsSnapshot={publicRoomCount:Number(snapshot?.publicRoomCount||0),watchableRoomCount:Number(snapshot?.watchableRoomCount||0),activeSpectatorCount:Number(snapshot?.activeSpectatorCount||0),rooms:Array.isArray(snapshot?.rooms)?snapshot.rooms:[],at:Number(snapshot?.at||Date.now())};
+  const landingPublic=$('#publicRoomsCountLanding'),landingRooms=$('#watchableRoomsCount'),landingSpectators=$('#liveSpectatorsCount');
+  if(landingPublic)landingPublic.textContent=publicRoomsSnapshot.publicRoomCount;
+  if(landingRooms)landingRooms.textContent=publicRoomsSnapshot.watchableRoomCount;
+  if(landingSpectators)landingSpectators.textContent=publicRoomsSnapshot.activeSpectatorCount;
+  if($('#publicRoomCountDialog'))$('#publicRoomCountDialog').textContent=publicRoomsSnapshot.publicRoomCount;
+  if($('#watchableRoomCountDialog'))$('#watchableRoomCountDialog').textContent=publicRoomsSnapshot.watchableRoomCount;
+  if($('#activeSpectatorCountDialog'))$('#activeSpectatorCountDialog').textContent=publicRoomsSnapshot.activeSpectatorCount;
+  const box=$('#liveRoomsList');if(!box)return;
+  if(!publicRoomsSnapshot.rooms.length){box.innerHTML='<div class="live-rooms-empty"><strong>👁️ Nenhuma partida pública ao vivo agora.</strong><span>Quando uma sala pública iniciar a primeira rodada, ela aparecerá aqui automaticamente.</span></div>';return;}
+  box.innerHTML=publicRoomsSnapshot.rooms.map(room=>{
+    const between=room.status==='between-rounds';
+    const botText=room.botCount?` • 🤖 ${room.botCount}`:'';
+    return `<article class="live-room-card"><div class="live-room-main"><div class="live-room-code"><small>SALA</small><strong>${esc(room.code)}</strong></div><div class="live-room-info"><strong>${esc(room.hostName||'Mesa')} ${between?'<span class="live-room-break">INTERVALO</span>':'<span class="live-room-now">AO VIVO</span>'}</strong><span>Rodada ${Number(room.round||0)}/${Number(room.rounds||5)} • 👥 ${Number(room.playerCount||0)}/5${botText} • 👁️ ${Number(room.spectatorCount||0)}</span></div></div><button class="live-room-watch-btn" data-watch-room="${esc(room.code)}" type="button">👁️ ASSISTIR</button></article>`;
+  }).join('');
+  box.querySelectorAll('[data-watch-room]').forEach(btn=>btn.onclick=()=>watchPublicRoom(btn.dataset.watchRoom,btn));
+}
+function requestPublicRooms(){if(socket.connected)socket.emit('requestPublicRooms')}
+function openLiveRooms(){
+  if(!googleUser)return showAuthGate('Entre com sua Conta Google para assistir partidas.');
+  const dlg=$('#liveRoomsDialog');requestPublicRooms();if(dlg&&!dlg.open)dlg.showModal();
+  clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
+}
+function closeLiveRooms(){clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;const dlg=$('#liveRoomsDialog');if(dlg?.open)dlg.close()}
+function watchPublicRoom(code,button=null){
+  if(!code||!socket.connected)return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
+  if(button){button.disabled=true;button.textContent='Entrando...'}
+  clearSession();
+  socket.emit('joinSpectator',{...profile(),code:String(code).toUpperCase(),token:crypto.randomUUID()});
+  setTimeout(()=>{if(button&&button.isConnected){button.disabled=false;button.textContent='👁️ ASSISTIR'}},2500);
+}
+$('#watchRoomsOpen')?.addEventListener('click',openLiveRooms);
+$('#liveRoomsClose')?.addEventListener('click',closeLiveRooms);
+$('#liveRoomsRefresh')?.addEventListener('click',requestPublicRooms);
+$('#liveRoomsDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeLiveRooms()});
+$('#liveRoomsDialog')?.addEventListener('click',e=>{if(e.target===$('#liveRoomsDialog'))closeLiveRooms()});
+
 function closeSpectatorOffer(){
   pendingSpectatorOffer=null;const dlg=$('#spectatorOfferDialog');if(dlg?.open)dlg.close();
 }
@@ -1655,7 +1695,7 @@ socket.on('joined',data=>{
   resetLiveVoice({notify:false});
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
-  closeSpectatorOffer();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
+  closeSpectatorOffer();closeLiveRooms();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
   if(data?.inviteId)removeInviteCard(data.inviteId);
   if(data?.source==='matchmaking'){
     matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:'Partida encontrada.'};
@@ -1670,6 +1710,7 @@ socket.on('joined',data=>{
   updateLiveMicUI();
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
 });
+socket.on('publicRoomsSnapshot',snapshot=>renderPublicRoomsSnapshot(snapshot||{}));
 socket.on('spectatorOffer',info=>{openSpectatorOffer(info||{});playGameSound('chat')});
 socket.on('state',s=>{
   const prev=state;
@@ -1790,7 +1831,7 @@ socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
-socket.on('gameError',e=>{passPending=false;const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}playGameSound('error');toast(e.message);render();});
+socket.on('gameError',e=>{passPending=false;const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}$$('[data-watch-room]').forEach(btn=>{btn.disabled=false;btn.textContent='👁️ ASSISTIR'});requestPublicRooms();playGameSound('error');toast(e.message);render();});
 socket.on('leftRoom',data=>{
   clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
@@ -1806,6 +1847,7 @@ socket.on('sessionReplaced',()=>{resetLiveVoice({notify:true});toast('Esta sess�
 socket.on('connect',()=>{
   setConnection('online');
   syncPresenceProfile();
+  requestPublicRooms();
   const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
   const sess=saved();
 
@@ -1909,6 +1951,7 @@ function render(){
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=spectator?'• OBSERVADOR':`• ${state.me.hand.length} carta(s)`;
   $('#handPanel')?.classList.toggle('hidden',spectator);
   $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
+  renderSpectatorLivePanel();
   renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
 }
 function playerDisplayOrderFromMe(){
@@ -2199,6 +2242,22 @@ function renderHand(){
       : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }
+function renderSpectatorLivePanel(){
+  const spectator=isSpectatorState(),panel=$('#spectatorLivePanel');if(!panel)return;
+  panel.classList.toggle('hidden',!spectator);if(!spectator||!state)return;
+  $('#spectatorLivePlayers').textContent=state.players.length;
+  $('#spectatorLiveRound').textContent=`${state.round}/${state.rounds}`;
+  $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
+  const people=$('#spectatorPeople');
+  if(people){
+    const viewers=Array.isArray(state.spectators)?state.spectators:[];
+    people.innerHTML=viewers.length?viewers.map(v=>`<span class="spectator-person">${avatarHTML(v.avatar,'xs')}<b>${esc(v.name||'Observador')}</b></span>`).join(''):'<span class="spectator-person-empty">Só você está assistindo agora.</span>';
+  }
+  const feed=$('#spectatorFeed');if(feed){
+    const items=(state.log||[]).slice(-6).reverse();
+    feed.innerHTML=items.length?items.map(x=>`<div class="spectator-feed-item ${esc(x.kind||'info')}"><span>•</span><p>${esc(x.message)}</p></div>`).join(''):'<div class="spectator-feed-empty">Aguardando acontecimentos da mesa...</div>';
+  }
+}
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}
 function renderControls(){
   const box=$('#hostControls');
@@ -2219,6 +2278,14 @@ function renderControls(){
   const canTakeHost=!connectedHost;
   const canStart=(me?.host||canTakeHost)&&(state.status==='lobby'||state.status==='between-rounds');
   const bots=state.players.filter(p=>p.isBot);
+
+  if(me?.host){
+    const visibility=document.createElement('button');visibility.className='room-public-control';
+    visibility.textContent=state.isPublic?'👁️ Sala pública':'🔒 Sala privada';
+    visibility.title=state.isPublic?'A sala pode aparecer em Assistir Partidas. Clique para tornar privada.':'A sala não aparece em Assistir Partidas. Clique para tornar pública.';
+    visibility.onclick=()=>socket.emit('setRoomPublic',{isPublic:!state.isPublic});
+    box.appendChild(visibility);
+  }
 
   if(state.roundReview && (state.status==='between-rounds'||state.status==='finished')){
     const reviewBtn=document.createElement('button');

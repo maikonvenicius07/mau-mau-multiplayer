@@ -169,6 +169,8 @@ function createRoom(code, hostInfo) {
     // Isso permite registrar o ranking da partida anterior mesmo se o grupo já iniciou outra.
     matchSerial: 1,
     replayReadyPlayerIds: [],
+    // V40.32 — salas só aparecem na Central de Partidas ao Vivo quando o anfitrião autoriza.
+    isPublic: false,
   };
 }
 
@@ -1155,6 +1157,7 @@ function roomPublicState(room, viewerId) {
     rules: room.rules,
     connectedCount: room.players.filter(p => p.connected).length,
     spectatorCount: Array.isArray(room.spectators) ? room.spectators.filter(s => s.connected).length : 0,
+    isPublic: room.isPublic === true,
     spectators: Array.isArray(room.spectators) ? room.spectators.filter(s => s.connected).map(s => ({
       id:s.id,
       name:s.name,

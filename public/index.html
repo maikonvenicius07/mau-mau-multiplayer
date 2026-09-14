@@ -61,10 +61,11 @@
         <div class="mini-card red">A♥</div><div class="mini-card black">7♣</div><div class="mini-card red">J♦</div><div class="mini-card black">Q♠</div>
       </div>
 
-      <section class="online-discovery" aria-label="Encontrar jogadores">
+      <section class="online-discovery" aria-label="Encontrar jogadores e assistir partidas">
         <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
         <button id="matchmakingStart" class="matchmaking-main" type="button"><span>🔎</span><strong id="matchmakingBtnTitle">BUSCAR JOGADORES</strong><small id="matchmakingBtnSubtitle">Encontre alguém automaticamente</small></button>
         <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
+        <button id="watchRoomsOpen" class="watch-rooms-main" type="button"><span>👁️</span><strong>ASSISTIR PARTIDAS</strong><small><b id="publicRoomsCountLanding">0</b> salas • <b id="watchableRoomsCount">0</b> ao vivo • <b id="liveSpectatorsCount">0</b> observando</small></button>
       </section>
 
       <div class="setup-grid avatar-setup">
@@ -160,10 +161,13 @@
         </div>
       </div>
 
+      <div class="room-visibility-option">
+        <label class="visibility-toggle"><input id="publicRoomToggle" type="checkbox" checked /><span class="visibility-switch" aria-hidden="true"></span><span><strong>👁️ Sala pública para observadores</strong><small>Quando a partida começar, ela poderá aparecer em “Assistir Partidas”. Desmarque para manter privada.</small></span></label>
+      </div>
       <div class="action-grid">
-        <button id="createBtn" class="primary">Criar sala</button>
+        <button id="createBtn" class="primary">➕ Criar sala</button>
         <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
-        <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">Entrar</button></div>
+        <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">🎮 Entrar</button></div>
       </div>
       <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
@@ -193,6 +197,16 @@
         <small>Você está apenas assistindo. Suas ações de jogo estão bloqueadas e as cartas privadas dos jogadores não são enviadas ao seu navegador.</small>
       </div>
     </div>
+
+    <section id="spectatorLivePanel" class="spectator-live-panel hidden" aria-label="Acompanhamento da partida para observadores">
+      <div class="spectator-live-stats">
+        <div><strong id="spectatorLivePlayers">0</strong><span>jogadores</span></div>
+        <div><strong id="spectatorLiveRound">0/5</strong><span>rodada</span></div>
+        <div><strong id="spectatorLiveWatching">0</strong><span>assistindo</span></div>
+      </div>
+      <div class="spectator-watchers-wrap"><strong>👁️ Observadores</strong><div id="spectatorPeople" class="spectator-people"></div></div>
+      <div class="spectator-feed-wrap"><div class="spectator-feed-head"><strong>📡 Acontecimentos da mesa</strong><small>Atualização ao vivo</small></div><div id="spectatorFeed" class="spectator-feed"></div></div>
+    </section>
 
     <div id="quickReactionsWidget" class="quick-reactions-widget quick-reactions-widget-minimal" aria-label="Reações rápidas">
       <button id="allReactionsBtn" class="quick-reaction-btn all-reactions-toggle quick-reaction-main" type="button" title="Ver todas as reações. Arraste para mover. Duplo toque para voltar à posição inicial." aria-label="Ver todas as reações" aria-expanded="false">😊</button>
@@ -299,6 +313,21 @@
     </main>
   </section>
 
+
+  <dialog id="liveRoomsDialog" class="modal live-rooms-modal">
+    <button class="close live-rooms-close" id="liveRoomsClose" type="button" aria-label="Fechar partidas ao vivo">×</button>
+    <div class="live-rooms-head">
+      <div><div class="eyebrow">MODO OBSERVADOR</div><h2>👁️ Partidas ao vivo</h2><p>Escolha uma sala pública que já começou e entre apenas para assistir.</p></div>
+      <button id="liveRoomsRefresh" class="live-rooms-refresh" type="button">↻ Atualizar</button>
+    </div>
+    <div class="live-rooms-summary">
+      <div><strong id="publicRoomCountDialog">0</strong><span>salas públicas</span></div>
+      <div><strong id="watchableRoomCountDialog">0</strong><span>ao vivo</span></div>
+      <div><strong id="activeSpectatorCountDialog">0</strong><span>observadores</span></div>
+    </div>
+    <div id="liveRoomsList" class="live-rooms-list"><div class="live-rooms-empty">Nenhuma partida pública em andamento agora.</div></div>
+    <div class="live-rooms-privacy">🔒 O observador não recebe as cartas privadas dos jogadores e não ocupa uma das 5 vagas da mesa.</div>
+  </dialog>
 
   <dialog id="spectatorOfferDialog" class="modal spectator-offer-modal">
     <button class="close spectator-offer-close" id="spectatorOfferClose" type="button" aria-label="Fechar oferta para assistir">×</button>
