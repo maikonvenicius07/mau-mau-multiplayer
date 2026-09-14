@@ -1,5 +1,5 @@
 
-## V40.27 — Figurinha mais discreta
+## V40.28 — Figurinha mais discreta
 
 - A área **Sua Figurinha** foi movida para a parte inferior da galeria de avatares, ficando mais alinhada com o layout da tela inicial.
 - O componente ficou mais **compacto e discreto**, com preview menor e botões reduzidos.
@@ -9,7 +9,7 @@
 # Changelog
 
 ## V40.26 — Avatares Premium
-- redesenhados **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**;
+- redesenhados **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**;
 - novo padrão visual com acabamento 3D/cartoon, luz, volume e halo, compatível com os avatares originais;
 - imagens otimizadas em WEBP para manter boa qualidade sem pesar no carregamento;
 - nenhuma regra, turno, ranking ou lógica multiplayer foi alterada.
@@ -17,7 +17,7 @@
 ## V40.25 — Figurinha própria e novos avatares
 - incluída opção para o jogador enviar a própria figurinha (JPG, PNG ou WEBP);
 - a imagem é centralizada, recortada e convertida automaticamente para WEBP antes de ser usada;
-- adicionados os novos avatares: **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
+- adicionados os novos avatares: **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
 - mantidas as regras existentes do jogo, sem alteração de turnos, cartas especiais ou ranking.
 
 ## V40.24 — Avatares Fixos + Turno em Destaque

@@ -43,14 +43,14 @@ O botão de microfone ao vivo agora pode ser arrastado com mouse ou toque para q
 
 ## V40.26 — Avatares Premium
 
-Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo padrão visual dos avatares principais do jogo: **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**. As novas artes usam acabamento 3D/cartoon, iluminação e halo colorido, mantendo boa leitura em telas pequenas. Nenhuma regra do jogo foi alterada.
+Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo padrão visual dos avatares principais do jogo: **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Hulk Magrelo Verde**. As novas artes usam acabamento 3D/cartoon, iluminação e halo colorido, mantendo boa leitura em telas pequenas. Nenhuma regra do jogo foi alterada.
 
 ## V40.25 — Figurinha própria + novos avatares
 
 - o jogador agora pode escolher a própria **figurinha** (JPG, PNG ou WEBP) direto do celular ou computador;
 - a imagem é recortada automaticamente em formato quadrado, redimensionada e comprimida antes de ser salva;
 - a figurinha fica vinculada ao perfil local do jogador e é enviada para a mesa quando ele entra na sala;
-- incluídos novos avatares fixos: **Tela Azul, Caldo, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
+- incluídos novos avatares fixos: **Tela Azul, Caldinho, Anão, Anão Cabeção, Vesgo e Magrelo Verde**;
 - nenhuma regra do jogo foi alterada.
 
 ## Recursos atuais
@@ -289,3 +289,8 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 Agora a mesa mostra **3 atalhos rápidos sempre visíveis**: **😂**, **😡** e **🔊**.
 O botão **🔊** reproduz a fala **"JOGA BOCA ABERTA!"** com um clique.
 No painel lateral, o efeito também foi simplificado para o ícone de alto-falante, facilitando o uso no celular.
+
+
+## V40.28 — Ajuste no nome do avatar Caldinho
+
+Foi alterado apenas o nome exibido do avatar **Caldinho** no lobby e na seleção de avatares. O identificador interno do avatar foi mantido como `caldo` para evitar quebrar compatibilidade com seleções já existentes.

@@ -115,7 +115,7 @@ const avatarCatalog={
   costela:{label:'Costela',src:'assets/avatars/costela.webp',grupo:'Mascotes'},
   perna:{label:'Perna',src:'assets/avatars/perna.webp',grupo:'Mascotes'},
   telaazul:{label:'Tela Azul',src:'assets/avatars/telaazul.webp',grupo:'Mascotes'},
-  caldo:{label:'Caldo',src:'assets/avatars/caldo.webp',grupo:'Mascotes'},
+  caldo:{label:'Caldinho',src:'assets/avatars/caldo.webp',grupo:'Mascotes'},
   anao:{label:'Anão',src:'assets/avatars/anao.webp',grupo:'Mascotes'},
   anaocabecao:{label:'Anão Cabeção',src:'assets/avatars/anaocabecao.webp',grupo:'Mascotes'},
   vesgo:{label:'Vesgo',src:'assets/avatars/vesgo.webp',grupo:'Mascotes'},

@@ -1,13 +1,5 @@
-V40.27 - Figurinha mais discreta
-- A seção "Sua Figurinha" foi movida para a parte inferior da galeria de avatares.
-- O bloco ficou mais compacto, com preview menor e botões mais discretos.
+V40.28 - Ajuste no nome do avatar
 
-MAU-MAU CANDEIAS — V40.23
-
-Melhoria desta versão:
-- o botão da AÇÃO RÁPIDA (⚡) agora é flutuante e arrastável;
-- aparece somente quando a Ação Rápida estiver disponível;
-- o jogador pode colocar onde quiser;
-- o botão antigo sobre a carta foi removido para limpar a mão, especialmente no celular.
-
-Envie esta pasta/zip no GitHub apenas para substituir os arquivos alterados.
+- O avatar exibido como "Caldo" agora aparece como "Caldinho".
+- A alteração é apenas visual/nome exibido.
+- O identificador interno do avatar foi mantido para não quebrar compatibilidade com dados já salvos.
