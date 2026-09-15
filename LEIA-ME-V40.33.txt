@@ -1,0 +1,42 @@
+MAU-MAU CANDEIAS — V40.33
+MICROFONE AO VIVO MAIS ESTÁVEL
+
+O QUE FOI MELHORADO
+- fila segura de candidatos ICE durante a negociação WebRTC;
+- recuperação automática quando uma conexão de voz entra em disconnected/failed;
+- retomada automática do microfone após oscilação da conexão do jogo;
+- captura de voz otimizada: cancelamento de eco, redução de ruído, ganho automático, mono e 48 kHz quando suportado;
+- preferência pelo codec Opus e limite de bitrate de 48 kbps por conexão;
+- música reduzida automaticamente enquanto existe conversa por voz;
+- estado visual RECONECTANDO... no botão do microfone;
+- suporte opcional a TURN para redes móveis/corporativas/CGNAT;
+- áudio ao vivo continua P2P e não é salvo no PostgreSQL, ranking ou chat.
+
+RESULTADO DOS TESTES
+53/53 testes aprovados com npm run verify.
+
+ARQUIVOS ALTERADOS
+- server.js
+- package.json
+- public/app.js
+- public/index.html
+- public/styles.css
+- README.md
+- CHANGELOG.md
+- docs/MICROFONE_V40_33.md
+- tests/live-voice-contract.test.js
+- tests/live-voice-stability-v4033.test.js
+- tests/avatar-lobby-layout-v4031.test.js
+- tests/public-spectator-rooms-v4032.test.js
+- tests/spectator-ui-contract.test.js
+
+TURN OPCIONAL NO RENDER
+Para a maior compatibilidade possível entre redes, configure um serviço TURN no Render com:
+VOICE_TURN_URLS
+VOICE_TURN_USERNAME
+VOICE_TURN_CREDENTIAL
+
+Exemplo de VOICE_TURN_URLS:
+turn:seu-host:3478?transport=udp,turns:seu-host:5349?transport=tcp
+
+Sem TURN, o jogo continua funcionando com STUN/P2P e com todas as correções de recuperação da V40.33.

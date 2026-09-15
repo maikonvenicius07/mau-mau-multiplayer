@@ -1,0 +1,21 @@
+{
+  "name": "mau-mau-multiplayer",
+  "version": "40.41.0",
+  "description": "Mau-Mau Candeias V40.41 consolidada: Modo Observador, central de partidas, microfone estável com suporte mobile e relay para observadores, sem duplicidade de frontend.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/run-all.js",
+    "verify": "node --check server.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "socket.io": "4.8.1",
+    "pg": "8.13.1",
+    "google-auth-library": "11.0.2"
+  },
+  "private": true
+}

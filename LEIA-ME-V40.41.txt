@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V40.41 CONSOLIDADA
+
+Esta versão reúne as correções do microfone do observador e limpa duplicidades do projeto.
+
+IMPORTANTE PARA QUEM VAI ATUALIZAR UMA VERSÃO ANTIGA:
+1. Substitua os arquivos enviados no pacote de atualização.
+2. Exclua da RAIZ do projeto, se existirem:
+   - app.js
+   - index.html
+   - README.txt
+   - pasta MAU-MAU_V40.34_Microfone_Observador_Arquivos_para_Substituir
+3. O frontend oficial deve existir SOMENTE dentro de public/.
+4. Faça commit/push e aguarde o Render concluir o deploy.
+5. No celular, feche a aba antiga e abra novamente.
+
+Verificação local:
+  npm run verify
+
+Resultado esperado da V40.41:
+  58 testes aprovados.

@@ -1,0 +1,23 @@
+MAU-MAU CANDEIAS — V40.36
+
+CORREÇÃO PRINCIPAL
+O microfone do observador agora possui uma rota de áudio de compatibilidade pelo servidor.
+
+COMO FUNCIONA
+- jogador para jogador: WebRTC P2P;
+- jogador para observador: relay pelo servidor;
+- observador para jogador: relay pelo servidor;
+- observador para observador: relay pelo servidor.
+
+Isso corrige o cenário em que o botão de microfone ficava verde/ligado, mas a rede não conseguia criar uma conexão P2P de áudio.
+
+TESTE RECOMENDADO
+1. Abra a partida em um aparelho/conta como jogador.
+2. Entre em outro aparelho/conta como observador.
+3. Ligue o microfone do jogador e fale.
+4. Confirme que o observador ouve.
+5. Ligue o microfone do observador e responda.
+6. Confirme que o jogador ouve.
+7. Teste de preferência uma vez no mesmo Wi-Fi e outra usando 4G/5G em um dos aparelhos.
+
+RESULTADO DA SUÍTE: 56/56 testes aprovados.
