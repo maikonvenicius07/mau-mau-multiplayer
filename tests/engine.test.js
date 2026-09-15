@@ -222,7 +222,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(bot.hand.length,1);
 }
 
-// V8: Dama com 2 jogadores devolve a vez a quem jogou.
+// Regra validada: Dama com 2 jogadores inverte o sentido e devolve a vez a quem jogou.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   r.direction=-1;r.currentPlayer=0;r.discard=[card('5','hearts','topQ2')];

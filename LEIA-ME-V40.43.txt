@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.43
+
+Esta versão substitui a V40.42 anterior.
+
+REGRA PRESERVADA:
+- Com 2 jogadores ativos, a Dama (Q) inverte o sentido e quem jogou a Dama joga novamente, exatamente como na V40.41.
+
+CORREÇÕES MANTIDAS:
+- Ás pula exatamente o próximo jogador.
+- Partidas iniciam cada rodada em anti-horário.
+- Q com 3–5 jogadores inverte o sentido uma única vez.
+- Falha de bot/AUTO não altera currentPlayer diretamente.
+- Auditoria de turnos disponível com MAUMAU_TURN_DEBUG=1.
+
+Aplique esta versão no lugar da V40.42.

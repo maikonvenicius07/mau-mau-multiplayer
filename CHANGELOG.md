@@ -1,3 +1,24 @@
+## V40.43 — Turnos corrigidos com regra Q de 2 jogadores preservada
+
+- **Preserva integralmente a regra validada da Dama com 2 jogadores:** Q inverte o sentido e quem a jogou joga novamente.
+- Mantém a correção de segurança da V40.42 que impede falhas do bot/AUTO de avançarem `currentPlayer` diretamente.
+- Mantém o Ás como efeito de pulo: ele avança duas posições no sentido atual e pula exatamente o próximo jogador.
+- Para 3, 4 e 5 jogadores, a Dama continua invertendo uma única vez e seguindo para o jogador adjacente no novo sentido.
+- Restaura no frontend o alerta **SUA VEZ** quando uma Q de 2 jogadores devolve a vez ao mesmo jogador.
+- Mantém a auditoria `turnAudit` e `MAUMAU_TURN_DEBUG=1`.
+- Adiciona teste de regressão exclusivo para impedir que a regra Q de 2 jogadores seja alterada novamente.
+
+> A V40.42 anterior não deve ser usada como referência para a regra Q de 2 jogadores; a V40.43 restaura o comportamento correto já existente na V40.41.
+
+## V40.42 — Integridade de turnos (substituída pela V40.43)
+
+- Alteração experimental da V40.42 (revertida na V40.43): Q havia sido uniformizada para seguir ao outro jogador também em partidas de 2; essa mudança **não faz parte da regra atual**.
+- Mantém **A como a única carta de pulo**: o Ás avança exatamente duas posições no sentido atual, pulando somente o próximo jogador.
+- Remove o avanço direto de `currentPlayer` no tratamento de erro do bot/AUTO; a recuperação agora usa somente ações válidas da Engine (comprar/passar) e, se falhar, mantém a vez parada.
+- Adiciona trilha interna `turnAudit` e console opcional com `MAUMAU_TURN_DEBUG=1` para investigar transições de turno sem expor dados ao frontend.
+- Adiciona teste profundo de turnos com 2, 3, 4 e 5 jogadores, incluindo cartas normais, A, Q, várias Q, Q→A, Queima, Ação Rápida, ×2, compra/passe, reconexão e partidas completas com bots.
+- Assentos/avatares continuam fixos; somente a fila real de turno muda.
+
 ## V40.41 — Consolidação e limpeza
 
 - Consolida integralmente a V40.40 sobre a última base do projeto.

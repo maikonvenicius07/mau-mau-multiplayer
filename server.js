@@ -251,6 +251,47 @@ function requireRoundNotPaused(room) {
   if(roomWaitingForReconnect(room)) throw new Error('Partida pausada: aguardando a reconexão de um jogador.');
 }
 function isAutomatedPlayer(player) { return !!(player && (player.isBot || player.autoControlled)); }
+
+// V40.42 — recuperação segura de falha do bot/AUTO.
+// Nunca altera currentPlayer diretamente. Se a estratégia automática falhar,
+// a cadeira realiza uma ação legal de contingência (comprar/passar). Se até a
+// contingência falhar, a vez permanece onde está para não pular ninguém.
+function recoverAutomatedTurn(room, player) {
+  if(!room || room.status!=='playing' || !player) return false;
+  if(room.players[room.currentPlayer]?.id!==player.id) return false;
+  try {
+    player.declaration=null;
+    if(room.pendingSeven>0){
+      Engine.drawAction(room,player.id);
+      return true;
+    }
+    if(room.continuationPlayerId===player.id){
+      if(player.justDrawnCardId){
+        Engine.passTurn(room,player.id);
+        return true;
+      }
+      try {
+        Engine.passTurn(room,player.id);
+        return true;
+      } catch {
+        Engine.drawAction(room,player.id);
+        if(room.status==='playing' && room.players[room.currentPlayer]?.id===player.id) Engine.passTurn(room,player.id);
+        return true;
+      }
+    }
+    if(player.justDrawnCardId){
+      Engine.passTurn(room,player.id);
+      return true;
+    }
+    Engine.drawAction(room,player.id);
+    if(room.status==='playing' && room.players[room.currentPlayer]?.id===player.id) Engine.passTurn(room,player.id);
+    return true;
+  } catch(recoveryError) {
+    Engine.appendLog(room, `A recuperação automática de ${player.name} falhou sem avançar a vez: ${recoveryError.message}`, 'system');
+    return false;
+  }
+}
+
 function scheduleReconnectTakeover(room, player) {
   const matchActive=room && (room.status==='playing' || (room.status==='between-rounds' && room.round>0));
   if(!matchActive || !player || player.isBot || player.connected) return;
@@ -311,20 +352,12 @@ function scheduleBotTurn(room) {
       else { emitRoom(liveRoom); return; }
     } catch (e) {
       Engine.appendLog(liveRoom, `${liveBot.name} encontrou uma jogada automática inválida: ${e.message}`, 'system');
-      // Só avançamos a vez por segurança quando o erro ocorreu durante a vez
-      // normal do bot. Uma tentativa de queima fora da vez nunca pula terceiros.
+      // V40.42: jamais pulamos a cadeira alterando currentPlayer diretamente.
+      // Se era a vez normal do bot/AUTO, usamos somente ações válidas da Engine
+      // (comprar/passar) como contingência. Se elas também falharem, a vez fica parada.
       if (isCurrentTurn) {
-        liveBot.justDrawnCardId = null;
-        liveRoom.continuationPlayerId = null;
-        const idx = liveRoom.players.findIndex(p => p.id === liveBot.id);
-        if (idx >= 0 && liveRoom.status === 'playing') {
-          const n = liveRoom.players.length;
-          let cursor = idx;
-          for (let i=0; i<n; i++) {
-            cursor = (cursor + liveRoom.direction + n) % n;
-            if (!liveRoom.players[cursor].finishedRound) { liveRoom.currentPlayer = cursor; break; }
-          }
-        }
+        const recovered=recoverAutomatedTurn(liveRoom,liveBot);
+        if(recovered) Engine.appendLog(liveRoom, `${liveBot.name} concluiu a vez pela recuperação automática segura.`, 'system');
       }
     }
     emitRoom(liveRoom);

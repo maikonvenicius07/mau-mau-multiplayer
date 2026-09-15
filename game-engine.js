@@ -103,6 +103,40 @@ function log(room, message, kind='info', meta=null) {
   if (room.log.length > 80) room.log.splice(0, room.log.length-80);
 }
 
+// V40.42 — trilha interna de auditoria de turnos. Não é enviada ao frontend.
+// Ative MAUMAU_TURN_DEBUG=1 no servidor para também imprimir os eventos no console.
+function auditTurn(room, {fromIdx=null,toIdx=null,card=null,reason='normal',skippedIdx=null,directionBefore=null}={}) {
+  if (!room) return;
+  if (!Array.isArray(room.turnAudit)) room.turnAudit=[];
+  const from = Number.isInteger(fromIdx) && fromIdx >= 0 ? room.players[fromIdx] : null;
+  const to = Number.isInteger(toIdx) && toIdx >= 0 ? room.players[toIdx] : null;
+  const skipped = Number.isInteger(skippedIdx) && skippedIdx >= 0 ? room.players[skippedIdx] : null;
+  const entry={
+    ts:Date.now(),
+    fromPlayerId:from?.id||null,
+    fromPlayerName:from?.name||null,
+    toPlayerId:to?.id||null,
+    toPlayerName:to?.name||null,
+    card:card ? cardLabel(card) : null,
+    rank:card?.rank||null,
+    direction:room.direction,
+    directionLabel:room.direction===1?'horário':'anti-horário',
+    directionBefore:Number.isInteger(directionBefore)?directionBefore:room.direction,
+    reason,
+    skippedPlayerId:skipped?.id||null,
+    skippedPlayerName:skipped?.name||null,
+  };
+  room.turnAudit.push(entry);
+  if (room.turnAudit.length>200) room.turnAudit.splice(0,room.turnAudit.length-200);
+  if (process.env.MAUMAU_TURN_DEBUG==='1') {
+    if (Number.isInteger(directionBefore) && directionBefore!==room.direction) {
+      console.log(`[DIREÇÃO] ${directionBefore===1?'horário':'anti-horário'} -> ${room.direction===1?'horário':'anti-horário'}${card?` | carta: ${cardLabel(card)}`:''}`);
+    }
+    const skippedText=skipped?` | ${skipped.name} pulado`:'';
+    console.log(`[TURNO] ${from?.name||'-'} -> ${to?.name||'-'}${card?` | carta: ${cardLabel(card)}`:''} | direção: ${entry.directionLabel} | motivo: ${reason}${skippedText}`);
+  }
+}
+
 function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}) {
   return {
     id: id('p'),
@@ -161,6 +195,7 @@ function createRoom(code, hostInfo) {
     // quando a rodada ja terminou, nunca durante o jogo.
     roundReview: null,
     log: [],
+    turnAudit: [],
     createdAt: Date.now(),
     finishedAt: null,
     rankingRecorded: false,
@@ -232,6 +267,7 @@ function resetMatch(room) {
   room.rankingRecording = false;
   room.replayReadyPlayerIds = [];
   room.log = [];
+  room.turnAudit = [];
 
   room.players.forEach(p => {
     p.hand = [];
@@ -325,6 +361,7 @@ function startRound(room) {
 
   // Começa o jogador seguinte a quem virou a carta, no sentido anti-horário.
   room.currentPlayer = (flipper - 1 + room.players.length) % room.players.length;
+  auditTurn(room,{fromIdx:flipper,toIdx:room.currentPlayer,reason:'round-start'});
 
   // QUEIMA DA ABERTURA: a carta inicial não foi jogada por um participante,
   // portanto qualquer jogador que tenha uma carta NORMAL exatamente igual pode
@@ -529,6 +566,7 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
         finalizeRound(room);
       } else {
         room.currentPlayer = target;
+        auditTurn(room,{fromIdx:idx,toIdx:target,card:played,reason:'seven-final-chain'});
       }
       return;
     }
@@ -546,11 +584,13 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
         finalizeRound(room);
       } else {
         room.currentPlayer = target;
+        auditTurn(room,{fromIdx:idx,toIdx:target,card:played,reason:'seven-final-start'});
       }
       return;
     }
 
     room.currentPlayer = nextIndex(room, idx, 1);
+    auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played,reason:'seven-chain'});
     applyMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
     return;
   }
@@ -597,30 +637,38 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
     const next = nextIndex(room, idx, 2);
     log(room, `${room.players[skipped].name} perdeu a vez por causa do Ás.`, 'special');
     room.currentPlayer = next;
+    auditTurn(room,{fromIdx:idx,toIdx:next,card:played,reason:'ace-skip',skippedIdx:skipped});
   } else if (played.rank === 'Q') {
+    const directionBefore=room.direction;
     room.direction *= -1;
     const ativos = activePlayers(room);
     if (ativos.length === 2) {
-      // Regra do Mau-Mau desta versão: com apenas dois jogadores, inverter o
-      // sentido equivale a devolver a vez a quem jogou a Dama.
+      // Regra validada do Mau-Mau Candeias: com apenas dois jogadores ativos,
+      // inverter o sentido devolve a vez a quem jogou a Dama.
+      // V40.43 preserva exatamente o comportamento existente na V40.41.
       room.currentPlayer = idx;
       log(room, `A Dama inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'} e, com 2 jogadores, ${player.name} joga novamente.`, 'special');
+      auditTurn(room,{fromIdx:idx,toIdx:idx,card:played,reason:'queen-reverse-two-player-replay',directionBefore});
     } else {
       room.currentPlayer = nextIndex(room, idx, 1);
       log(room, `A Dama inverteu o sentido para ${room.direction === 1 ? 'horário' : 'anti-horário'}.`, 'special');
+      auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played,reason:'queen-reverse',directionBefore});
     }
   } else if (played.rank === 'K') {
     const target = previousIndex(room, idx);
     drawCards(room, room.players[target], 1);
     log(room, `${room.players[target].name} comprou 1 carta por causa do Rei.`, 'penalty');
     room.currentPlayer = nextIndex(room, idx, 1);
+    auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played,reason:'king-penalty'});
   } else if (played.rank === '8') {
     const target = previousIndex(room, idx);
     drawCards(room, room.players[target], 2);
     log(room, `${room.players[target].name} comprou 2 cartas por causa do Oito.`, 'penalty');
     room.currentPlayer = nextIndex(room, idx, 1);
+    auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played,reason:'eight-penalty'});
   } else {
     room.currentPlayer = nextIndex(room, idx, 1);
+    auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played,reason:'normal'});
   }
 
   // Só agora, com o próximo jogador já definido (inclusive após A/Q/K/8),
@@ -719,6 +767,7 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
 
   applyDoubleMauMauPenaltyIfNeeded(room, player, before, player.hand.length);
   room.currentPlayer = nextIndex(room, idx, 1);
+  auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,card:played2,reason:'double-normal'});
   openReaction(room, player.id, played2.id);
 }
 
@@ -799,8 +848,10 @@ function burnMatch(room, playerId, cardId) {
     return;
   }
 
+  const previousCurrentPlayer = room.currentPlayer;
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
+  auditTurn(room,{fromIdx:previousCurrentPlayer,toIdx:idx,card:played,reason:openingBurn && previousCurrentPlayer!==idx?'opening-burn-takeover':'burn-continuation'});
 
   const followUps = player.hand.filter(c => burnContinuationCardLegal(room,c,player));
   if (followUps.length) {
@@ -878,6 +929,7 @@ function drawAction(room, playerId) {
       finalizeRound(room);
     } else {
       room.currentPlayer = nextIndex(room, idx, 1);
+      auditTurn(room,{fromIdx:idx,toIdx:room.currentPlayer,reason:'seven-penalty-draw'});
     }
     return;
   }
@@ -934,6 +986,7 @@ function passTurn(room, playerId) {
 
     const next = nextIndex(room, idx, 1);
     room.currentPlayer = next;
+    auditTurn(room,{fromIdx:idx,toIdx:next,reason:'pass-after-burn'});
     room.lastPass = {
       playerId: p.id,
       keptCardId,
@@ -964,6 +1017,7 @@ function passTurn(room, playerId) {
 
   const next = nextIndex(room, idx, 1);
   room.currentPlayer = next;
+  auditTurn(room,{fromIdx:idx,toIdx:next,reason:'pass-after-draw'});
   room.lastPass = {
     playerId: p.id,
     keptCardId,
@@ -1109,6 +1163,7 @@ function quickAction(room, playerId, cardId) {
   }
 
   const normalNextId = room.reactionNextPlayerId;
+  const preservedTurnIdx = room.currentPlayer;
   const before = player.hand.length;
   const played = removeCard(player, cardId);
   room.discard.push(played);
@@ -1120,6 +1175,7 @@ function quickAction(room, playerId, cardId) {
   // seu efeito especial não é reexecutado, pois a regra manda a ordem normal continuar.
   const nextIdx = room.players.findIndex(p => p.id === normalNextId);
   if (nextIdx >= 0 && !room.players[nextIdx].finishedRound) room.currentPlayer = nextIdx;
+  auditTurn(room,{fromIdx:preservedTurnIdx,toIdx:room.currentPlayer,card:played,reason:'quick-action-preserve'});
 
   log(room, `${player.name} fez AÇÃO RÁPIDA com ${cardLabel(played)}. A vez continua com ${room.players[room.currentPlayer]?.name || 'o próximo jogador'}.`, 'quick');
 

@@ -1,0 +1,6 @@
+V40.43 — ARQUIVOS ATUALIZADOS
+
+Substitua/adicone os arquivos deste pacote mantendo a estrutura de pastas.
+Esta versão pode ser aplicada diretamente sobre a V40.41 ou V40.42.
+
+Importante: a regra da Dama com 2 jogadores foi restaurada exatamente ao comportamento da V40.41.

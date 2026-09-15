@@ -1,3 +1,21 @@
+# Mau-Mau Candeias — V40.43
+
+## Integridade de turnos com regra da Dama de 2 jogadores preservada
+
+Esta versão substitui a V40.42 anterior e mantém a regra já validada do Mau-Mau Candeias:
+
+- toda rodada inicia em **sentido anti-horário**;
+- carta normal avança **uma posição**;
+- **Ás (A)** pula exatamente o próximo jogador;
+- **Dama (Q), com 2 jogadores ativos:** inverte o sentido e **quem jogou a Dama joga novamente**, exatamente como na V40.41;
+- **Dama (Q), com 3, 4 ou 5 jogadores:** inverte o sentido e a vez segue para o jogador adjacente no novo sentido;
+- falhas de bot/AUTO não podem avançar `currentPlayer` diretamente;
+- `MAUMAU_TURN_DEBUG=1` habilita logs detalhados de transição no console do servidor.
+
+A Queima da primeira carta permanece como exceção já existente: uma Queima válida na abertura pode transferir a jogada ao jogador que queimou. A Ação Rápida continua sem roubar a vez.
+
+---
+
 # Mau-Mau Candeias — V40.35
 
 ## Microfone ao vivo para jogadores e observadores

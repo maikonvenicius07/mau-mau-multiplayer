@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — V40.43
+
+Esta versão SUBSTITUI a V40.42 anterior.
+
+REGRA QUE NÃO FOI ALTERADA:
+- Com 2 jogadores ativos, a Dama (Q) inverte o sentido e quem jogou a Dama joga novamente.
+- Esse comportamento foi comparado diretamente com a V40.41 e permaneceu idêntico.
+
+Pode ser aplicada diretamente sobre a V40.41 ou sobre a V40.42.
+Substitua os arquivos mantendo as pastas public/, tests/ e docs/.

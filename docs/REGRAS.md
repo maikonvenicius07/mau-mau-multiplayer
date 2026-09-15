@@ -37,7 +37,7 @@ Quando o jogador estiver com duas cartas e uma jogada composta puder eliminar as
 - **7:** o próximo jogador recebe +2. Outro 7 pode rebater e acumula +2 por carta.
 - **8:** o jogador anterior, considerando o sentido atual, compra 2 cartas.
 - **J — Valete:** coringa de naipe. O jogador escolhe o naipe a ser seguido. Não interrompe cadeia ativa de 7. Se for a carta da batida, dobra os pontos dos adversários na rodada.
-- **Q — Dama:** inverte o sentido. Com apenas 2 jogadores ativos, quem joga a Dama joga novamente.
+- **Q — Dama:** inverte o sentido. Com apenas 2 jogadores ativos, quem joga a Dama joga novamente. Com 3, 4 ou 5 jogadores, a vez segue para o jogador adjacente no novo sentido.
 - **K — Rei:** o jogador anterior, considerando o sentido atual, compra 1 carta.
 
 Cartas especiais não podem iniciar Queima, nem ser usadas em Ação Rápida ou Carta Dupla. Elas podem ser usadas como continuação válida de uma Queima e, nesse caso, o efeito é aplicado normalmente.
