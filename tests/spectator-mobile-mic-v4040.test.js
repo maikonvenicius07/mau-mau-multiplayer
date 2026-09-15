@@ -1,0 +1,11 @@
+const fs=require('fs');
+const assert=require('assert');
+const app=fs.readFileSync('public/app.js','utf8');
+const css=fs.readFileSync('public/styles.css','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+assert(html.includes('id="liveMicBtn"'),'botão de microfone ao vivo ausente');
+assert(app.includes("btn.classList.remove('hidden')"),'UI não força o microfone a permanecer visível');
+assert(!app.includes("btn.classList.toggle('hidden',spectator)"),'regressão: observador ainda esconde o microfone');
+assert(app.includes("const bottomGap=mobile?86:18"),'posição móvel segura do microfone do observador ausente');
+assert(css.includes('.spectator-mode .live-mic-btn{display:inline-flex!important'),'CSS não garante microfone visível no modo observador');
+console.log('✓ V40.40: microfone do observador permanece visível no celular e usa posição segura.');

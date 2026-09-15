@@ -1,0 +1,7 @@
+MAU-MAU CANDEIAS — FAIXA DA TELA INICIAL
+
+Arquivo: tela_inicial_instrumental.mp3
+Origem: versão instrumental derivada do arquivo de áudio fornecido pelo usuário nesta conversa.
+Processamento: redução/cancelamento da voz central para priorizar o acompanhamento instrumental.
+Observação: por ser derivada de uma mixagem estéreo pronta, pequenos resíduos vocais podem permanecer.
+Esta faixa não deve ser confundida com as trilhas originais do projeto descritas em ORIGEM_E_LICENCA.txt.
