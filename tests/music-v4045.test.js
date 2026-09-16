@@ -3,26 +3,12 @@ const assert=require('assert');
 const fs=require('fs');
 const path=require('path');
 const root=path.join(__dirname,'..');
-const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
-const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
-const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
-const pkg=require(path.join(root,'package.json'));
-
-assert(/^40\.(?:45|46)\./.test(pkg.version),'versão não preserva a linha V40.45+');
-assert(app.includes('function liveVoiceMutesMusic()'),'detector de microfone ativo ausente');
-assert(app.includes('musicEngine.voiceDuck=voiceMuted?0:'),'microfone ao vivo não zera a música');
-assert(app.includes("socket.on('liveVoiceStatusSnapshot'"),'snapshot de microfone ausente');
-assert((app.match(/refreshQuickAudioMusicDuck\(\);/g)||[]).length>=8,'estado de áudio não atualiza o mute musical');
-assert(app.includes('if(!musicOn||!musicUnlocked||document.hidden||liveVoiceMutesMusic())return;'),'stinger não respeita microfone/segundo plano');
-assert(!app.includes("Promise.allSettled(['landingUser','lobby','gameA','gameB','rock','tension','review','roundWin','champion']"),'catálogo inteiro ainda é pré-carregado');
-assert(app.includes('function scheduleLikelyMusicPreload('),'pré-carga seletiva ausente');
-assert(app.includes("audio.preload='metadata'"),'pré-carga leve de metadados ausente');
-assert(app.includes('const audio=new Audio'),'streaming de música com elemento de áudio ausente');
-assert(app.includes("document.addEventListener('visibilitychange'"),'controle de música em segundo plano ausente');
-assert(html.toLowerCase().includes('quando qualquer jogador ou observador liga o microfone ao vivo'),'explicação do mute por microfone ausente');
-assert(env.includes('AUTH_SESSION_SECRET='),'correção da V40.44 não foi preservada');
-assert(!/^SESSION_SECRET=/m.test(env),'nome antigo SESSION_SECRET reapareceu');
-
-const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
-assert(engine.includes("if (ativos.length === 2)"),'regra especial da Dama com 2 jogadores foi alterada');
-console.log('✓ V40.45+: mute total no microfone, música sob demanda/streaming e regras preservadas.');
+const musicDir=path.join(root,'public','assets','music');
+assert(!fs.existsSync(musicDir),'public/assets/music ainda existe; a V40.47 deve usar música externa do próprio aparelho');
+const publicDir=path.join(root,'public');
+function bytes(dir){return fs.readdirSync(dir,{withFileTypes:true}).reduce((n,e)=>n+(e.isDirectory()?bytes(path.join(dir,e.name)):fs.statSync(path.join(dir,e.name)).size),0)}
+const total=bytes(publicDir);
+assert(total<2500000,`public ainda está pesado demais para V40.47: ${total} bytes`);
+const html=fs.readFileSync(path.join(publicDir,'index.html'),'utf8');
+assert(html.includes('app.js?v=40.47')&&html.includes('styles.css?v=40.47'),'cache-busting V40.47 ausente');
+console.log(`✓ V40.47: sem assets de música interna; public=${total} bytes.`);

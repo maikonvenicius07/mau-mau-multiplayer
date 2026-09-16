@@ -1,0 +1,19 @@
+MAU-MAU CANDEIAS — V40.47 ÁUDIO SIMPLIFICADO
+
+1. Substitua/adicone os arquivos deste ZIP mantendo as mesmas pastas.
+2. Apague do GitHub a pasta public/assets/music/ inteira.
+3. Faça commit/push.
+4. Aguarde o deploy do Render.
+5. No celular, feche a aba antiga e abra o jogo novamente.
+
+O que permanece:
+- efeitos sonoros;
+- avisos falados;
+- Áudio Rápido;
+- microfone ao vivo;
+- observadores;
+- ranking;
+- reconexão;
+- todas as regras do Mau-Mau.
+
+A música de fundo passa a ser escolhida pelo próprio jogador no celular/computador.

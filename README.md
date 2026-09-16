@@ -1,4 +1,15 @@
-# Mau-Mau Candeias — V40.44
+# Mau-Mau Candeias — V40.47
+
+## V40.47 — áudio simplificado e projeto mais leve
+
+- A música de fundo interna foi removida do projeto.
+- Cada jogador pode usar a música que quiser no próprio celular ou computador.
+- Efeitos sonoros, avisos falados, Áudio Rápido e microfone ao vivo continuam funcionando.
+- A pasta `public/assets/music/` não existe mais.
+- Otimizações de avatares, figurinha e cache da V40.46 foram preservadas.
+- Todas as regras e proteções das V40.43/V40.44 foram preservadas.
+
+# Histórico técnico
 
 ## V40.44 — manutenção técnica sem alteração de regras
 
@@ -152,8 +163,7 @@ As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
 │   ├── index.html
 │   ├── styles.css
 │   └── assets/
-│       ├── avatars/
-│       └── music/
+│       └── avatars/
 ├── tests/
 │   ├── run-all.js
 │   └── *.test.js
@@ -218,9 +228,9 @@ npm run verify
 
 O projeto já inclui `render.yaml`. As instruções consolidadas de Login Google, PostgreSQL e deploy estão em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
 
-## Música
+## Áudio
 
-As trilhas do projeto ficam em `public/assets/music/`. As faixas originais possuem declaração de origem em `public/assets/music/ORIGEM_E_LICENCA.txt`; a música instrumental da tela inicial deriva do áudio fornecido pelo usuário.
+A V40.47 não inclui música de fundo interna. O jogador pode usar o player do próprio celular (Spotify, YouTube Music, Deezer etc.). O jogo mantém apenas efeitos sonoros, fala, Áudio Rápido e microfone ao vivo. Dependendo do sistema operacional, ativar o microfone pode reduzir ou pausar o áudio de outro aplicativo; esse comportamento é controlado pelo aparelho.
 
 ## Histórico
 
@@ -362,6 +372,10 @@ A área de seleção de avatar foi reorganizada para aproveitar melhor a largura
 ## V40.45 — Música otimizada
 
 A trilha musical agora é carregada sob demanda. Quando qualquer jogador ou observador liga o microfone ao vivo, a música é silenciada automaticamente em todos os clientes da sala e retorna ao volume salvo quando todos desligam o microfone. Efeitos sonoros e voz permanecem independentes da música.
+## V40.47 — Áudio Simplificado
+
+A trilha interna foi removida para deixar o jogo menor e mais simples no celular. O botão/painel de música saiu da interface e `public/assets/music/` não faz mais parte do projeto. Efeitos sonoros, avisos de voz, Áudio Rápido e microfone ao vivo continuam funcionando. Quem quiser música pode usar o próprio player do aparelho.
+
 ## V40.46 — Performance Mobile
 
 A V40.46 reduz o peso para celulares sem alterar as regras do Mau-Mau. As trilhas longas são reproduzidas com streaming/buffering nativo do navegador, evitando manter músicas inteiras decodificadas em RAM. Os avatares fixos foram otimizados para 256×256 e as novas figurinhas personalizadas para 192×192. A música da tela inicial também foi recomprimida.

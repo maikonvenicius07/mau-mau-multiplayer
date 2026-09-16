@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.46.0",
-  "description": "Mau-Mau Candeias V40.46: performance mobile com música em streaming, avatares otimizados e figurinha mais leve; regras V40.43 preservadas.",
+  "version": "40.47.0",
+  "description": "Mau-Mau Candeias V40.47: áudio simplificado sem música interna; efeitos, voz, performance mobile e regras V40.43 preservadas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

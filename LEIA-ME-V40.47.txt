@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V40.47 ÁUDIO SIMPLIFICADO
+
+OBJETIVO
+Deixar o jogo mais leve e permitir que cada jogador escolha a própria música no celular.
+
+REMOVIDO
+- trilhas internas MP3;
+- painel/botão de música;
+- playlist e motor de música de fundo.
+
+MANTIDO
+- efeitos sonoros;
+- fala de Mau-Mau e avisos;
+- Áudio Rápido;
+- microfone ao vivo;
+- áudio do observador;
+- todas as regras e demais funções.
+
+ATUALIZAÇÃO MANUAL
+Além de substituir os arquivos do pacote, APAGUE a pasta public/assets/music/ do repositório.

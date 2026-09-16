@@ -528,15 +528,6 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 
 /* V38.1 — MÚSICA DINÂMICA ORIGINAL */
-.music-btn{position:relative;transition:.18s ease}.music-btn:not(.music-off){background:#d8aa4a22;border:1px solid #d8aa4a55!important;box-shadow:0 0 0 1px #d8aa4a18 inset}.music-btn.music-off{opacity:.55;filter:grayscale(.8)}
-.music-panel{position:fixed;right:62px;top:72px;z-index:175;width:min(330px,calc(100vw - 24px));padding:14px;background:#0b1914f5;border:1px solid #3b5c4d;border-radius:18px;box-shadow:0 18px 55px #0009;backdrop-filter:blur(14px)}
-.music-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}.music-panel-head>div{display:grid;gap:2px}.music-panel-head small{font-size:8px;letter-spacing:.13em;color:#d7b661;font-weight:900}.music-panel-head strong{font-size:14px}.music-panel-head button{width:32px;height:32px;border:0;border-radius:10px;background:#233d31;color:#fff;font-size:20px;display:grid;place-items:center}
-.music-toggle{width:100%;border:1px solid #476a5a;background:#172c23;color:#d7e3dc;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:900}.music-toggle.active{background:#294f3d;color:#fff2c2;border-color:#8f7841}
-.music-style-block{margin-top:11px}.music-style-label{margin:0 2px 6px;color:#a9bbb1;font-size:9px;font-weight:900;letter-spacing:.08em}.music-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.music-style-btn{min-width:0;border:1px solid #365647;background:#10241b;color:#b9c9c0;border-radius:12px;padding:9px 7px;display:grid;grid-template-columns:auto 1fr;grid-template-areas:'icon title' 'icon note';align-items:center;text-align:left;column-gap:6px;cursor:pointer}.music-style-btn>span{grid-area:icon;font-size:20px}.music-style-btn>strong{grid-area:title;font-size:9px;letter-spacing:.04em;color:#e7efe9}.music-style-btn>small{grid-area:note;font-size:7.5px;color:#80978b;white-space:nowrap}.music-style-btn.active{border-color:#d6aa4d;background:linear-gradient(145deg,#4a3814,#2c2411);box-shadow:inset 0 0 0 1px #ffd87422}.music-style-btn.active>strong{color:#ffe39a}.music-style-btn.active>small{color:#d7c185}
-.music-volume-label{display:flex;align-items:center;justify-content:space-between;margin:13px 2px 4px;font-size:10px;color:#a9bbb1;text-transform:uppercase;letter-spacing:.07em;font-weight:850}.music-volume-label b{color:#f3d581}
-.music-volume{width:100%;accent-color:#d8aa4a;cursor:pointer}.music-now{margin-top:9px;padding:8px 10px;border-radius:10px;background:#07130f;border:1px solid #203a2f;color:#e9cf8a;font-size:10px;font-weight:900;text-align:center}.music-panel p{margin:9px 2px 0;color:#849b8f;font-size:9px;line-height:1.4}
-@media(max-width:900px){.music-panel{right:max(8px,var(--safe-right));top:calc(65px + var(--safe-top));width:min(330px,calc(100vw - 16px))}}
-@media(max-width:390px){.music-panel{top:calc(58px + var(--safe-top));padding:12px}.music-btn{min-width:32px!important}}
 
 
 /* V38 — topo limpo + Áudio Rápido de até 15 segundos */
@@ -547,10 +538,6 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .voice-record-actions,.voice-preview-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.voice-record-actions button,.voice-preview-actions button{min-height:34px;border-radius:9px;border:1px solid #3a5c4d;font-size:9px;font-weight:900}.voice-cancel-btn{background:#281b19;color:#f1c5bf;border-color:#5f3732!important}.voice-stop-btn{background:#274c3c;color:#e8f7ef}.voice-send-btn{background:#d6a64e;color:#271c08;border-color:#e8c26e!important}.voice-preview-audio{width:100%;height:34px;display:block}.quick-audio-note{font-size:8.5px;line-height:1.35;color:#8ba096;padding:0 2px}.voice-bubble{min-width:220px}.voice-bubble-title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:5px;color:#e9d083;font-size:9px;font-weight:900}.voice-bubble-title span{color:#9eb3a8;font-weight:800}.chat-audio{display:block;width:220px;max-width:100%;height:32px}
 @media(max-width:900px){.chat-form .voice-record-btn,.chat-form .chat-send-btn{width:46px;min-width:46px;height:44px}.voice-record-actions button,.voice-preview-actions button{min-height:42px;font-size:10px}.chat-audio{height:38px}.voice-bubble{min-width:min(235px,78vw)}}
 
-/* V38 — botão de música também na tela inicial */
-.landing-music-btn{flex:0 0 auto!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;margin:0!important;padding:0!important;display:grid!important;place-items:center;border:1px solid #d8aa4a55!important;background:#d8aa4a22!important;border-radius:10px!important;font-size:18px!important;line-height:1!important;box-shadow:0 0 0 1px #d8aa4a18 inset}
-.landing-music-btn.music-off{opacity:.55;filter:grayscale(.8)}
-@media(max-width:520px){.landing-music-btn{width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;font-size:17px!important}}
 
 
 /* Regras — apresentação consolidada */
@@ -982,6 +969,3 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 @media(max-width:700px){.online-discovery{grid-template-columns:1fr!important}.watch-rooms-main,.watch-rooms-compact{min-height:52px;height:52px;padding:9px 12px!important}.watch-rooms-copy strong{font-size:11px}.watch-rooms-copy small{font-size:9px}.spectator-mode .live-mic-btn{min-width:48px;min-height:44px}}
 
 
-/* V40.45 — música silenciada automaticamente durante microfone ao vivo */
-.music-btn.music-voice-muted{opacity:.72;box-shadow:0 0 0 1px #62b5d655 inset!important;border-color:#62b5d688!important}
-.music-now.voice-muted{border-color:#3b7186;background:#0a1c24;color:#bfeeff}

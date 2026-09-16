@@ -1,4 +1,16 @@
-V40.45 — correção mínima
+MAU-MAU CANDEIAS — V40.47 ÁUDIO SIMPLIFICADO
 
-Substitua apenas o arquivo .env.example na raiz do projeto.
-Nenhuma regra ou função do jogo foi alterada.
+A música de fundo interna foi removida.
+O jogador pode usar a música que quiser no próprio celular.
+
+Mantidos:
+- efeitos sonoros do jogo;
+- avisos falados;
+- Áudio Rápido;
+- microfone ao vivo;
+- Modo Observador;
+- regras/turnos da V40.43;
+- segurança V40.44;
+- otimizações de avatar/figurinha/cache V40.46.
+
+IMPORTANTE: ao atualizar por arquivos, exclua a pasta public/assets/music/ do GitHub.

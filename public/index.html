@@ -5,28 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.46" />
+  <link rel="stylesheet" href="styles.css?v=40.47" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="inviteInbox" class="invite-inbox" aria-live="polite" aria-label="Convites para jogar"></div>
 
   <!-- Painel global: pode ser aberto tanto na tela inicial quanto dentro da sala -->
-    <div id="musicPanel" class="music-panel hidden" role="dialog" aria-label="Configurações de música">
-      <div class="music-panel-head"><div><small>TRILHA ORIGINAL</small><strong>🎵 Música da mesa</strong></div><button id="musicClose" type="button" aria-label="Fechar">×</button></div>
-      <button id="musicToggle" type="button" class="music-toggle active">🎵 Música ligada</button>
-      <div class="music-style-block">
-        <div class="music-style-label">ESTILO DURANTE A PARTIDA</div>
-        <div class="music-style-grid" role="group" aria-label="Escolha o estilo da música durante a partida">
-          <button id="musicStyleDynamic" type="button" class="music-style-btn active" aria-pressed="true"><span>🎼</span><strong>DINÂMICA</strong><small>Muda conforme o jogo</small></button>
-          <button id="musicStyleRock" type="button" class="music-style-btn" aria-pressed="false"><span>🎸</span><strong>ROCK CANDEIAS</strong><small>Rock original do jogo</small></button>
-        </div>
-      </div>
-      <label class="music-volume-label" for="musicVolume"><span>Volume</span><b id="musicVolumeValue">18%</b></label>
-      <input id="musicVolume" class="music-volume" type="range" min="0" max="45" step="1" value="18" aria-label="Volume da música" />
-      <div id="musicNow" class="music-now">Aguardando a mesa</div>
-      <p>No modo Rock, <strong>Rock Candeias</strong> toca durante a partida. <strong>Quando qualquer jogador ou observador liga o microfone ao vivo, a música é silenciada automaticamente para a sala e volta quando todos desligam o microfone.</strong> Efeitos e vozes continuam separados em 🔊.</p>
-    </div>
 
   <section id="authGate" class="screen auth-screen">
     <div class="auth-card">
@@ -45,7 +30,6 @@
       <div class="google-account-bar">
         <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da Conta Google" referrerpolicy="no-referrer" />
         <div class="google-account-meta"><small>CONTA GOOGLE CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
-        <button id="musicBtnLanding" class="landing-music-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
         <button id="googleLogoutBtn" class="google-logout-btn" type="button">Sair da conta</button>
       </div>
       <div class="brand-row">
@@ -191,7 +175,6 @@
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
       <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
-      <button id="musicBtn" class="icon-btn music-btn" type="button" title="Música da mesa" aria-label="Abrir configurações de música">🎵</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
 
@@ -309,7 +292,7 @@
             <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
             <button data-effect="jogaBoca" class="effect-shout effect-speaker-only" title="Falar JOGA BOCA ABERTA!">🔊<span>Joga boca aberta</span></button>
           </div>
-          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis; o botão 🎵 controla separadamente a música de fundo.</div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. A música de fundo fica por conta do próprio celular do jogador.</div>
         </div>
       </aside>
       <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
@@ -521,7 +504,7 @@
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
       <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.33 adiciona recuperação automática da conexão, tratamento de voz e suporte a TURN quando configurado. O áudio continua sendo transmitido por WebRTC e não é gravado nem salvo no PostgreSQL ou no ranking.</p>
-      <p><strong>Música:</strong> o botão 🎵 permite ligar/desligar a trilha e ajustar o volume separadamente dos efeitos e das vozes.</p>
+      <p><strong>Música pessoal:</strong> a V40.47 não inclui trilha de fundo interna. Quem quiser pode ouvir Spotify, YouTube Music, Deezer ou outro player do próprio aparelho. Efeitos do jogo e microfone continuam no Mau-Mau.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
       <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
@@ -568,6 +551,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.46"></script>
+  <script src="app.js?v=40.47"></script>
 </body>
 </html>

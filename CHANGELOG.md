@@ -1,3 +1,12 @@
+# V40.47 — Áudio Simplificado
+
+- Remove todas as trilhas internas e a pasta `public/assets/music/`.
+- Remove o botão e o painel 🎵 de música da interface.
+- Mantém efeitos sonoros, avisos falados, Áudio Rápido e microfone ao vivo.
+- O jogador pode usar a música do próprio celular/app de streaming.
+- Preserva as otimizações de avatares/figurinhas/cache da V40.46 e todas as regras da V40.43.
+- Reduz significativamente o tamanho público do projeto e elimina RAM/tráfego destinados às trilhas internas.
+
 # V40.46 — Performance Mobile
 
 - Músicas longas passaram de `AudioBuffer/decodeAudioData` para `HTMLAudioElement`, usando streaming/buffering nativo do navegador e reduzindo pressão de memória no celular.
