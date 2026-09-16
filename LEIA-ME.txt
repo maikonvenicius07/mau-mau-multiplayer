@@ -1,13 +1,4 @@
-MAU-MAU CANDEIAS — V40.33 — Ajuste visual “Assistir” mais discreto
+V40.45 — correção mínima
 
-Substitua no GitHub somente:
-- public/index.html
-- public/styles.css
-
-O que mudou:
-- “ASSISTIR PARTIDAS” passou a aparecer como “ASSISTIR”.
-- Na tela inicial aparece somente a quantidade de partidas AO VIVO.
-- Quantidade total de salas e observadores continua disponível dentro da Central de Partidas.
-- Botão menor, fundo mais escuro, borda e ícone mais discretos.
-- Nenhuma regra do jogo, Modo Observador ou microfone foi alterada.
-- Suíte completa: 53/53 testes aprovados.
+Substitua apenas o arquivo .env.example na raiz do projeto.
+Nenhuma regra ou função do jogo foi alterada.
