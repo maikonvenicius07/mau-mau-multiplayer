@@ -394,8 +394,8 @@ const musicCatalog={
   champion:{file:'/assets/music/campeao_partida.mp3',label:'Campeão da Partida',stinger:true}
 };
 const musicEngine={
-  buffers:new Map(),loading:new Map(),current:null,currentKey:null,desiredKey:null,
-  loopBus:null,stingerBus:null,speechDuck:1,speechDuckToken:0,voiceDuck:1,stingerDuck:1,stingerTimer:null
+  buffers:new Map(),loading:new Map(),bufferOrder:[],current:null,currentKey:null,desiredKey:null,
+  loopBus:null,stingerBus:null,speechDuck:1,speechDuckToken:0,voiceDuck:1,pageDuck:document.hidden?0:1,stingerDuck:1,stingerTimer:null
 };
 function musicNodes(){
   const ac=audioCtx();if(!ac)return null;
@@ -410,16 +410,30 @@ function refreshMusicBusGains(instant=false){
   if(!musicEngine.loopBus||!musicEngine.stingerBus)return;
   const ac=musicEngine.loopBus.context,now=ac.currentTime;
   const base=musicOn?musicVolume:0;
-  const loopTarget=base*musicEngine.speechDuck*musicEngine.voiceDuck*musicEngine.stingerDuck;
-  const stingerTarget=base*musicEngine.speechDuck*musicEngine.voiceDuck*.95;
+  const loopTarget=base*musicEngine.speechDuck*musicEngine.voiceDuck*musicEngine.pageDuck*musicEngine.stingerDuck;
+  const stingerTarget=base*musicEngine.speechDuck*musicEngine.voiceDuck*musicEngine.pageDuck*.95;
   for(const [gain,target] of [[musicEngine.loopBus.gain,loopTarget],[musicEngine.stingerBus.gain,stingerTarget]]){
     gain.cancelScheduledValues(now);
     if(instant) gain.setValueAtTime(target,now);
     else{gain.setValueAtTime(gain.value,now);gain.linearRampToValueAtTime(target,now+.16)}
   }
 }
+function rememberMusicBuffer(key,buffer){
+  musicEngine.buffers.set(key,buffer);
+  musicEngine.bufferOrder=musicEngine.bufferOrder.filter(x=>x!==key);musicEngine.bufferOrder.push(key);
+  const protectedKeys=new Set([musicEngine.currentKey,musicEngine.desiredKey,key].filter(Boolean));
+  for(const oldKey of [...musicEngine.bufferOrder]){
+    if(musicEngine.buffers.size<=4)break;
+    if(protectedKeys.has(oldKey))continue;
+    musicEngine.buffers.delete(oldKey);
+    musicEngine.bufferOrder=musicEngine.bufferOrder.filter(x=>x!==oldKey);
+  }
+}
+function touchMusicBuffer(key){
+  musicEngine.bufferOrder=musicEngine.bufferOrder.filter(x=>x!==key);musicEngine.bufferOrder.push(key);
+}
 async function loadMusicBuffer(key){
-  if(musicEngine.buffers.has(key))return musicEngine.buffers.get(key);
+  if(musicEngine.buffers.has(key)){touchMusicBuffer(key);return musicEngine.buffers.get(key);}
   if(musicEngine.loading.has(key))return musicEngine.loading.get(key);
   const item=musicCatalog[key];if(!item)return null;
   const job=(async()=>{
@@ -427,7 +441,7 @@ async function loadMusicBuffer(key){
     const response=await fetch(item.file,{cache:'force-cache'});
     if(!response.ok)throw new Error(`Falha ao carregar ${item.label}`);
     const buffer=await ac.decodeAudioData(await response.arrayBuffer());
-    musicEngine.buffers.set(key,buffer);musicEngine.loading.delete(key);return buffer;
+    rememberMusicBuffer(key,buffer);musicEngine.loading.delete(key);return buffer;
   })().catch(err=>{musicEngine.loading.delete(key);console.warn('[music]',err);return null});
   musicEngine.loading.set(key,job);return job;
 }
@@ -451,7 +465,7 @@ function desiredMusicKey(){
 async function switchMusic(key,{fade=1.15}={}){
   musicEngine.desiredKey=key;
   updateMusicUI();
-  if(!musicOn||!musicUnlocked||!key)return;
+  if(!musicOn||!musicUnlocked||!key||document.hidden)return;
   if(musicEngine.currentKey===key&&musicEngine.current)return;
   const buffer=await loadMusicBuffer(key);
   if(!buffer||musicEngine.desiredKey!==key||!musicOn||!musicUnlocked)return;
@@ -468,6 +482,7 @@ async function switchMusic(key,{fade=1.15}={}){
     setTimeout(()=>{try{prior.source.stop()}catch{};try{prior.source.disconnect();prior.gain.disconnect()}catch{}},(fade+.15)*1000);
   }
   updateMusicUI();
+  scheduleLikelyMusicPreload(key);
 }
 function stopMusic({fade=.45}={}){
   musicEngine.desiredKey=null;
@@ -496,14 +511,20 @@ function beginMusicSpeechDuck(){
     musicEngine.speechDuck=1;refreshMusicBusGains(false);
   };
 }
+function liveVoiceMutesMusic(){
+  return !!liveMicOn||liveVoiceActivePlayerIds.size>0||liveMicRemoteAudios.size>0;
+}
 function refreshQuickAudioMusicDuck(){
   const recording=!!voiceRecorder&&voiceRecorder.state==='recording';
-  const liveVoiceActive=!!liveMicOn||liveMicRemoteAudios.size>0;
-  musicEngine.voiceDuck=(recording||playingVoiceAudios.size||liveVoiceActive)?0.18:1;
+  const quickAudioActive=recording||playingVoiceAudios.size>0;
+  // V40.45: qualquer microfone ao vivo ativo na sala silencia completamente a música.
+  // A preferência de música do jogador permanece salva e volta automaticamente quando todos desligam o microfone.
+  musicEngine.voiceDuck=liveVoiceMutesMusic()?0:(quickAudioActive?0.18:1);
   refreshMusicBusGains(false);
+  updateMusicUI();
 }
 async function playMusicStinger(key){
-  if(!musicOn||!musicUnlocked)return;
+  if(!musicOn||!musicUnlocked||document.hidden||liveVoiceMutesMusic())return;
   const item=musicCatalog[key];if(!item?.stinger)return;
   const buffer=await loadMusicBuffer(key);if(!buffer||!musicOn)return;
   const ac=musicNodes();if(!ac)return;
@@ -540,26 +561,47 @@ function setMusicStyle(style){
 }
 function updateMusicUI(){
   const buttons=$$('.music-btn'),toggle=$('#musicToggle'),slider=$('#musicVolume'),value=$('#musicVolumeValue'),now=$('#musicNow');
-  const styleDynamic=$('#musicStyleDynamic'),styleRock=$('#musicStyleRock');
-  for(const btn of buttons){btn.textContent='🎵';btn.classList.toggle('music-off',!musicOn);btn.title=musicOn?'Música da mesa':'Música desligada';btn.setAttribute('aria-label',musicOn?'Abrir configurações de música':'Abrir configurações de música — música desligada');}
+  const styleDynamic=$('#musicStyleDynamic'),styleRock=$('#musicStyleRock'),voiceMute=liveVoiceMutesMusic();
+  for(const btn of buttons){
+    btn.textContent='🎵';btn.classList.toggle('music-off',!musicOn);btn.classList.toggle('music-voice-muted',musicOn&&voiceMute);
+    btn.title=!musicOn?'Música desligada':voiceMute?'Música pausada enquanto o microfone está ligado':'Música da mesa';
+    btn.setAttribute('aria-label',!musicOn?'Abrir configurações de música — música desligada':voiceMute?'Abrir configurações de música — pausada pelo microfone':'Abrir configurações de música');
+  }
   if(toggle){toggle.textContent=musicOn?'🎵 Música ligada':'🔇 Música desligada';toggle.classList.toggle('active',musicOn)}
   if(slider)slider.value=String(Math.round(musicVolume*100));
   if(value)value.textContent=`${Math.round(musicVolume*100)}%`;
   if(styleDynamic){styleDynamic.classList.toggle('active',musicStyle==='dynamic');styleDynamic.setAttribute('aria-pressed',musicStyle==='dynamic'?'true':'false');}
   if(styleRock){styleRock.classList.toggle('active',musicStyle==='rock');styleRock.setAttribute('aria-pressed',musicStyle==='rock'?'true':'false');}
   if(now){
+    now.classList.toggle('voice-muted',musicOn&&voiceMute);
     if(!musicOn) now.textContent='Música desativada';
+    else if(voiceMute) now.textContent='🎙️ Música pausada enquanto há microfone ligado';
+    else if(document.hidden) now.textContent='Música pausada em segundo plano';
     else if(!musicUnlocked) now.textContent='Toque na tela para iniciar';
     else if(musicEngine.currentKey) now.textContent=`Tocando: ${musicCatalog[musicEngine.currentKey]?.label||'Mau-Mau'}`;
     else if(musicEngine.desiredKey) now.textContent=`Carregando: ${musicCatalog[musicEngine.desiredKey]?.label||'Mau-Mau'}`;
     else now.textContent='Aguardando a mesa';
   }
 }
+function likelyNextMusicKey(currentKey){
+  if(currentKey==='landingUser')return 'lobby';
+  if(currentKey==='lobby')return musicStyle==='rock'?'rock':preferredGameMusicKey();
+  if(['gameA','gameB','rock'].includes(currentKey))return 'tension';
+  if(currentKey==='tension')return 'review';
+  if(currentKey==='review')return 'lobby';
+  return null;
+}
+function scheduleLikelyMusicPreload(currentKey){
+  if(!googleUser||!musicUnlocked||!musicOn||document.hidden||liveVoiceMutesMusic())return;
+  const key=likelyNextMusicKey(currentKey);if(!key||musicEngine.buffers.has(key)||musicEngine.loading.has(key))return;
+  const run=()=>loadMusicBuffer(key);
+  if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:3000});else setTimeout(run,1200);
+}
 function preloadMusic(){
-  if(!googleUser)return;
-  // O carregamento começa em baixa prioridade depois do login; o navegador mantém os arquivos em cache.
-  const run=()=>Promise.allSettled(['landingUser','lobby','gameA','gameB','rock','tension','review','roundWin','champion'].map(loadMusicBuffer));
-  if('requestIdleCallback'in window)requestIdleCallback(run,{timeout:2500});else setTimeout(run,900);
+  // V40.45: não baixa mais o catálogo inteiro. A faixa atual é carregada sob demanda
+  // e somente uma provável próxima faixa é antecipada em baixa prioridade.
+  if(!googleUser||!musicUnlocked||!musicOn||document.hidden||liveVoiceMutesMusic())return;
+  const key=desiredMusicKey();if(key)loadMusicBuffer(key).then(()=>scheduleLikelyMusicPreload(key));
 }
 
 function tone(ac,freq,start,dur,type='sine',gain=.035){
@@ -1091,6 +1133,11 @@ $('#musicStyleRock').onclick=()=>setMusicStyle('rock');
 $('#musicVolume').addEventListener('input',e=>setMusicVolume(Number(e.target.value)/100));
 document.addEventListener('pointerdown',()=>{audioCtx();unlockMusic()},{once:true});
 document.addEventListener('keydown',()=>{audioCtx();unlockMusic()},{once:true});
+document.addEventListener('visibilitychange',()=>{
+  musicEngine.pageDuck=document.hidden?0:1;
+  refreshMusicBusGains(false);updateMusicUI();
+  if(!document.hidden&&musicOn&&musicUnlocked)syncMusicToState();
+});
 document.addEventListener('pointerdown',()=>{audioCtx();for(const a of liveMicRemoteAudios.values())if(a.paused)a.play?.().catch?.(()=>{})});
 
 // ========================= V40.33 — MICROFONE AO VIVO / WEBRTC ESTÁVEL =========================
@@ -2032,11 +2079,13 @@ socket.on('liveVoiceStatusSnapshot',payload=>{
   liveVoiceActivePlayerIds.clear();
   const ids=Array.isArray(payload?.participantIds)?payload.participantIds:(Array.isArray(payload?.playerIds)?payload.playerIds:[]);
   for(const id of ids)liveVoiceActivePlayerIds.add(id);
+  refreshQuickAudioMusicDuck();
   if(state){renderPlayers();renderSpectatorLivePanel();}
 });
 socket.on('liveVoiceStatus',info=>{
   const id=info?.participantId||info?.playerId;if(!id)return;
   if(info.on)liveVoiceActivePlayerIds.add(id);else liveVoiceActivePlayerIds.delete(id);
+  refreshQuickAudioMusicDuck();
   if(state){renderPlayers();renderSpectatorLivePanel();}
 });
 socket.on('liveVoiceRelayPcm',playLiveVoiceRelayPcm);

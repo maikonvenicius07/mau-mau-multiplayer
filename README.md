@@ -358,3 +358,7 @@ Foi alterado apenas o nome exibido do avatar **Hulk Magrelo** no lobby e na sele
 ## V40.31 — Lobby de avatares mais equilibrado
 
 A área de seleção de avatar foi reorganizada para aproveitar melhor a largura da tela. **Mascotes** permanece na coluna esquerda e, na coluna direita, **Pessoas** e **Sua Figurinha** ficam agrupadas uma logo abaixo da outra. Isso remove o grande espaço vazio que aparecia entre os blocos e aproxima os botões de criação/entrada da área de perfil. No celular, tudo continua empilhado e responsivo.
+
+## V40.45 — Música otimizada
+
+A trilha musical agora é carregada sob demanda. Quando qualquer jogador ou observador liga o microfone ao vivo, a música é silenciada automaticamente em todos os clientes da sala e retorna ao volume salvo quando todos desligam o microfone. Efeitos sonoros e voz permanecem independentes da música.

@@ -1,26 +1,17 @@
-MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.32
+V40.45 — ARQUIVOS PARA SUBSTITUIR/ADICIONAR
 
-COMO ATUALIZAR NO GITHUB
-1. Preserve a mesma estrutura de pastas.
-2. Substitua os arquivos existentes pelos arquivos deste pacote.
-3. Adicione os novos arquivos que ainda não existirem.
-4. Faça commit/push e aguarde o novo deploy do Render.
+Copie o conteúdo deste ZIP por cima do projeto atual, preservando a estrutura das pastas.
 
-PRINCIPAIS ARQUIVOS DE EXECUÇÃO ALTERADOS
-- server.js
-- game-engine.js
+Arquivos principais alterados:
+- .env.example
 - package.json
-- public/index.html
 - public/app.js
+- public/index.html
 - public/styles.css
+- tests/music-v4045.test.js (novo)
+- tests/project-cleanliness-v4041.test.js
+- README.md
+- CHANGELOG.md
+- ATUALIZACAO_V40.45.txt
 
-NOVIDADES
-- Central 👁️ ASSISTIR PARTIDAS.
-- Quantidade de salas públicas, partidas ao vivo e observadores.
-- Sala pública/privada controlada pelo anfitrião.
-- Entrada direta como observador em partidas públicas.
-- Painel do observador com rodada, jogadores, observadores e acontecimentos.
-- Cartas privadas continuam protegidas no servidor.
-
-TESTES
-52/52 testes automatizados aprovados.
+Não apague as demais pastas do projeto.

@@ -980,3 +980,8 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .spectator-mode .live-mic-btn{display:inline-flex!important;visibility:visible!important;opacity:1!important;z-index:240!important}
 @media(max-width:1100px){.online-discovery{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:700px){.online-discovery{grid-template-columns:1fr!important}.watch-rooms-main,.watch-rooms-compact{min-height:52px;height:52px;padding:9px 12px!important}.watch-rooms-copy strong{font-size:11px}.watch-rooms-copy small{font-size:9px}.spectator-mode .live-mic-btn{min-width:48px;min-height:44px}}
+
+
+/* V40.45 — música silenciada automaticamente durante microfone ao vivo */
+.music-btn.music-voice-muted{opacity:.72;box-shadow:0 0 0 1px #62b5d655 inset!important;border-color:#62b5d688!important}
+.music-now.voice-muted{border-color:#3b7186;background:#0a1c24;color:#bfeeff}

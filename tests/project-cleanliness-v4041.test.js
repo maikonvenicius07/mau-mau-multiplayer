@@ -8,9 +8,9 @@ assert(!fs.existsSync(path.join(root,'app.js')),'não deve existir app.js duplic
 assert(!fs.existsSync(path.join(root,'index.html')),'não deve existir index.html duplicado na raiz');
 assert(!fs.existsSync(path.join(root,'MAU-MAU_V40.34_Microfone_Observador_Arquivos_para_Substituir')),'pasta de patch antigo não deve ficar dentro do projeto');
 const pkg=JSON.parse(read('package.json'));
-assert.strictEqual(pkg.version,'40.44.0','package.json deve identificar a V40.44');
+assert.strictEqual(pkg.version,'40.45.0','package.json deve identificar a V40.45');
 const html=read('public/index.html');
-assert(html.includes('app.js?v=40.44'),'index deve usar cache-busting V40.44 para app.js');
-assert(html.includes('styles.css?v=40.44'),'index deve usar cache-busting V40.44 para styles.css');
+assert(html.includes('app.js?v=40.45'),'index deve usar cache-busting V40.45 para app.js');
+assert(html.includes('styles.css?v=40.45'),'index deve usar cache-busting V40.45 para styles.css');
 assert(html.includes('Kaldynho'),'nome Kaldynho deve estar no frontend');
-console.log('✓ V40.44: projeto consolidado sem frontend duplicado e com cache-busting atualizado.');
+console.log('✓ V40.45: projeto consolidado sem frontend duplicado e com cache-busting atualizado.');

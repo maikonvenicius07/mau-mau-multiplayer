@@ -1,6 +1,6 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.44.0",
+  "version": "40.45.0",
   "description": "Mau-Mau Candeias V40.44: hardening de ranking, sessão e salas; regras V40.43 preservadas, incluindo Q especial de 2 jogadores.",
   "main": "server.js",
   "scripts": {

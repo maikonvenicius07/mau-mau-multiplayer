@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V40.45
+MÚSICA OTIMIZADA + MICROFONE PRIORITÁRIO
+
+O que mudou
+1. Se qualquer jogador ou observador ligar o microfone ao vivo, a música é silenciada completamente na sala.
+2. Quando todos desligam o microfone, a música volta automaticamente ao volume salvo de cada aparelho.
+3. O catálogo inteiro de músicas não é mais baixado de uma vez.
+4. A faixa atual é carregada sob demanda e apenas uma provável próxima faixa é antecipada em baixa prioridade.
+5. O cache de áudio em memória fica limitado a quatro faixas.
+6. Em segundo plano, a música fica silenciada e retorna ao voltar para o jogo.
+7. Stingers de vitória/fim de rodada não começam enquanto houver microfone ao vivo ativo.
+8. Correção herdada da V40.44: .env.example usa AUTH_SESSION_SECRET.
+
+IMPORTANTE
+- Efeitos sonoros e microfone continuam funcionando normalmente enquanto a música está silenciada.
+- A preferência Música ligada/desligada e o volume não são apagados pelo uso do microfone.
+- Nenhuma regra do Mau-Mau foi alterada: Ás, Dama Q2, Queima, Carta Dupla, Ação Rápida e turnos permanecem iguais.
+
+VALIDAÇÃO
+- 62/62 testes aprovados.

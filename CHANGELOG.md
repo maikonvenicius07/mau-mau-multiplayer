@@ -1,3 +1,14 @@
+# V40.45 — Música otimizada e microfone prioritário
+
+- A música de fundo é silenciada completamente quando qualquer participante liga o microfone ao vivo.
+- A preferência e o volume do jogador são preservados e a música volta automaticamente quando não há mais microfones ativos.
+- O catálogo inteiro de músicas deixou de ser pré-carregado; agora a faixa atual é carregada sob demanda e apenas uma provável próxima faixa é antecipada em baixa prioridade.
+- O cache de buffers de música fica limitado a quatro faixas para reduzir uso de memória em celulares.
+- A música é silenciada quando o navegador fica em segundo plano e volta ao retornar.
+- Stingers de vitória/fim de rodada não iniciam enquanto houver microfone ao vivo ativo.
+- Correção de continuidade da V40.44: `.env.example` usa `AUTH_SESSION_SECRET`.
+- Nenhuma regra de cartas, turnos, Dama de 2 jogadores, Ás, Queima, Ação Rápida ou Carta Dupla foi alterada.
+
 ## V40.44 — Hardening técnico (sem alteração de regras)
 
 - Corrigido risco de figurinha Base64 exceder `avatar VARCHAR(40)` do ranking PostgreSQL; ranking agora salva `custom`.
