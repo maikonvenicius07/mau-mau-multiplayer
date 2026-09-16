@@ -362,3 +362,11 @@ A área de seleção de avatar foi reorganizada para aproveitar melhor a largura
 ## V40.45 — Música otimizada
 
 A trilha musical agora é carregada sob demanda. Quando qualquer jogador ou observador liga o microfone ao vivo, a música é silenciada automaticamente em todos os clientes da sala e retorna ao volume salvo quando todos desligam o microfone. Efeitos sonoros e voz permanecem independentes da música.
+## V40.46 — Performance Mobile
+
+A V40.46 reduz o peso para celulares sem alterar as regras do Mau-Mau. As trilhas longas são reproduzidas com streaming/buffering nativo do navegador, evitando manter músicas inteiras decodificadas em RAM. Os avatares fixos foram otimizados para 256×256 e as novas figurinhas personalizadas para 192×192. A música da tela inicial também foi recomprimida.
+
+A regra de áudio continua: **qualquer jogador ou observador que ligar o microfone ao vivo pausa a música da sala**. Quando todos desligam o microfone, a trilha volta ao volume salvo de cada aparelho.
+
+Os avatares originais da V40.45 foram preservados em um ZIP de backup separado para restauração rápida caso se prefira a qualidade anterior.
+

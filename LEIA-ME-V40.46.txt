@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — V40.46 PERFORMANCE MOBILE
+
+Principais mudanças:
+- música longa por streaming/buffering nativo do navegador;
+- música da tela inicial menor;
+- avatares fixos otimizados para 256x256;
+- figurinhas personalizadas novas em 192x192;
+- cache HTTP leve para assets.
+
+IMPORTANTE: os avatares originais estão no ZIP separado
+MAU-MAU_V40.45_Backup_Avatares_Originais.zip.
+Se não gostar da qualidade, restaure apenas public/assets/avatars/.
+
+Nenhuma regra do jogo foi alterada.

@@ -1,3 +1,14 @@
+# V40.46 — Performance Mobile
+
+- Músicas longas passaram de `AudioBuffer/decodeAudioData` para `HTMLAudioElement`, usando streaming/buffering nativo do navegador e reduzindo pressão de memória no celular.
+- Mantida a regra V40.45: qualquer microfone ao vivo ativo pausa a música; ela volta quando todos desligam o microfone.
+- Música da tela inicial recomprimida de ~3,6 MB para ~2,1 MB, preservando a duração.
+- Avatares fixos reduzidos para 256×256 WebP; o conjunto caiu de ~635 KB para ~280 KB. Os originais foram preservados em ZIP de backup separado.
+- Novas figurinhas personalizadas passam a ser preparadas em 192×192 WebP, com limite de dados menor; figurinhas antigas grandes são migradas localmente quando possível.
+- Assets públicos recebem cache HTTP leve com `stale-while-revalidate`; HTML continua sem cache forte e JS/CSS usam cache-busting V40.46.
+- Regras de jogo, turnos, Dama especial de 2 jogadores, Ás, Queima, ×2, Ação Rápida, observador, microfone e reconexão preservados.
+- Suíte ampliada para 63 testes.
+
 # V40.45 — Música otimizada e microfone prioritário
 
 - A música de fundo é silenciada completamente quando qualquer participante liga o microfone ao vivo.

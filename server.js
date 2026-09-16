@@ -155,7 +155,13 @@ app.post('/api/auth/logout', (req,res)=>{
   res.json({ok:true});
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res,filePath){
+    if(filePath.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control','public, max-age=86400, stale-while-revalidate=604800');
+    else if(/\.(?:js|css)$/i.test(filePath)) res.setHeader('Cache-Control','public, max-age=3600, must-revalidate');
+    else if(/\.html?$/i.test(filePath)) res.setHeader('Cache-Control','no-cache');
+  }
+}));
 app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind}));
 
 app.get('/api/ranking', async (req,res)=>{

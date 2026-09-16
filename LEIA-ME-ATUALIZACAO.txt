@@ -1,17 +1,13 @@
-V40.45 — ARQUIVOS PARA SUBSTITUIR/ADICIONAR
+MAU-MAU CANDEIAS — V40.46 PERFORMANCE MOBILE
 
-Copie o conteúdo deste ZIP por cima do projeto atual, preservando a estrutura das pastas.
+Este pacote contém somente os arquivos alterados/adicionados em relação à V40.45 estável.
 
-Arquivos principais alterados:
-- .env.example
-- package.json
-- public/app.js
-- public/index.html
-- public/styles.css
-- tests/music-v4045.test.js (novo)
-- tests/project-cleanliness-v4041.test.js
-- README.md
-- CHANGELOG.md
-- ATUALIZACAO_V40.45.txt
+Substitua/adicone os arquivos mantendo a mesma estrutura de pastas.
 
-Não apague as demais pastas do projeto.
+Backup importante:
+Os avatares originais NÃO estão dentro deste pacote para não aumentar o peso do deploy.
+Guarde separadamente: MAU-MAU_V40.45_Backup_Avatares_Originais.zip
+
+Se não gostar dos avatares otimizados, restaure somente public/assets/avatars/ usando o backup.
+
+Nenhuma regra do jogo foi alterada.
