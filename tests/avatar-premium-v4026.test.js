@@ -10,7 +10,9 @@ assert.ok(/^40\./.test(pkg.version));
 for(const id of ['telaazul','caldo','anao','anaocabecao','vesgo','magreloverde']){
   const f=path.join(root,'public','assets','avatars',`${id}.webp`);
   assert(fs.existsSync(f),`avatar premium ${id} ausente`);
-  assert(fs.statSync(f).size>30000,`avatar premium ${id} parece simplificado ou inválido`);
+  const size=fs.statSync(f).size;
+  assert(size>9000,`avatar premium ${id} parece vazio ou inválido`);
+  assert(size<32000,`avatar premium ${id} não foi otimizado para mobile`);
 }
 assert(app.includes("label:'Hulk Magrelo'"),'novo nome Hulk Magrelo ausente no catálogo');
 assert(html.includes('Hulk Magrelo'),'novo nome Hulk Magrelo ausente no seletor');
