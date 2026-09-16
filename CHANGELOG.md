@@ -1,3 +1,11 @@
+## V40.44 — Hardening técnico (sem alteração de regras)
+
+- Corrigido risco de figurinha Base64 exceder `avatar VARCHAR(40)` do ranking PostgreSQL; ranking agora salva `custom`.
+- Ações da mesa agora exigem que o `socket.id` seja o socket atual da cadeira, bloqueando sessão antiga substituída.
+- Adicionada trava geral contra uma mesma Conta Google ocupar duas salas ativas ao mesmo tempo.
+- Corrigido `.env.example`: `AUTH_SESSION_SECRET` substitui o nome incorreto `SESSION_SECRET`.
+- Nenhuma regra de turno/cartas foi alterada; Q de 2 jogadores permanece exatamente como na V40.43.
+
 ## V40.43 — Turnos corrigidos com regra Q de 2 jogadores preservada
 
 - **Preserva integralmente a regra validada da Dama com 2 jogadores:** Q inverte o sentido e quem a jogou joga novamente.

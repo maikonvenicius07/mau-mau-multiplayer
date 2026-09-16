@@ -459,6 +459,8 @@ function withRoom(socket, fn) {
     const player = room.players.find(p => p.id === socket.data.playerId);
     if (!player) throw new Error('Jogador não encontrado na sala.');
     if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra Conta Google.');
+    if (!player.isBot && player.socketId !== socket.id) throw new Error('Esta conexão foi substituída por uma sessão mais recente.');
+    if (!player.isBot && !player.connected) throw new Error('Esta vaga não está conectada por esta sessão.');
     fn(room, player);
     emitRoom(room);
   } catch(e) { err(socket,e); }
@@ -683,12 +685,21 @@ function matchmakingPlayerPublic(playerKey) {
     avatar:cleanAvatar(rec?.avatar||'macaco'),
   };
 }
-function playerHasActiveRoom(playerKey) {
+function activePlayerRoomForKey(playerKey, exceptCode=null) {
+  const key=String(playerKey||'');
+  if(!key)return null;
   for(const room of rooms.values()){
-    if(room.status==='finished')continue;
-    if(room.players.some(p=>!p.isBot&&p.playerKey===playerKey))return true;
+    if(room.code===exceptCode||room.status==='finished')continue;
+    if(room.players.some(p=>!p.isBot&&p.playerKey===key))return room;
   }
-  return false;
+  return null;
+}
+function playerHasActiveRoom(playerKey, exceptCode=null) {
+  return !!activePlayerRoomForKey(playerKey,exceptCode);
+}
+function requireNoOtherActivePlayerRoom(socket, exceptCode=null) {
+  const other=activePlayerRoomForKey(socket.data.auth?.playerKey,exceptCode);
+  if(other)throw new Error(`Você já possui uma vaga ativa na sala ${other.code}. Saia dela antes de entrar em outra mesa.`);
 }
 function playerHasAcceptedInvite(playerKey) {
   return [...invitations.values()].some(inv=>inv.toKey===playerKey&&['accepted-waiting','ready'].includes(inv.status)&&inv.expiresAt>Date.now());
@@ -926,6 +937,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   broadcastPresence();
 }
 function createRoomForSocket(socket,profileData={}) {
+  requireNoOtherActivePlayerRoom(socket);
   removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
   const code=roomCode();
   const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
@@ -937,6 +949,7 @@ function createRoomForSocket(socket,profileData={}) {
 }
 function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
+  requireNoOtherActivePlayerRoom(socket,room.code);
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
@@ -1205,6 +1218,7 @@ io.on('connection', socket => {
   socket.on('createRoom', payload => {
     try {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
+      requireNoOtherActivePlayerRoom(socket);
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
       const code = roomCode();
       const room = Engine.createRoom(code, {
@@ -1245,6 +1259,7 @@ io.on('connection', socket => {
       }
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
+      requireNoOtherActivePlayerRoom(socket,code);
       ensureSocial(room);
       let p = null;
       if (payload?.token) {
@@ -1318,6 +1333,7 @@ io.on('connection', socket => {
       const key=socket.data.auth.playerKey;
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
+      requireNoOtherActivePlayerRoom(socket,code);
       const token=String(payload?.token||'').trim().slice(0,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
       let firstJoin=false;

@@ -1,4 +1,13 @@
-# Mau-Mau Candeias — V40.43
+# Mau-Mau Candeias — V40.44
+
+## V40.44 — manutenção técnica sem alteração de regras
+
+- Ranking persiste apenas um identificador curto para figurinha personalizada, evitando Base64 no PostgreSQL.
+- Ações de jogo só são aceitas pelo `socket.id` atualmente vinculado à cadeira.
+- Uma Conta Google não pode ocupar vagas ativas em duas salas simultaneamente.
+- `.env.example` usa corretamente `AUTH_SESSION_SECRET`.
+- As regras da V40.43 foram preservadas integralmente, inclusive a Dama (Q) especial com 2 jogadores.
+
 
 ## Integridade de turnos com regra da Dama de 2 jogadores preservada
 

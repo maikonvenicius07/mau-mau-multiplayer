@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — V40.44
+
+MANUTENÇÃO TÉCNICA, SEM ALTERAÇÃO DE REGRAS
+
+1. Ranking: figurinha personalizada não grava Base64 no PostgreSQL; usa identificador curto 'custom'.
+2. Sessão: somente o socket atual da cadeira pode executar ações de jogo.
+3. Salas: a mesma Conta Google não pode manter vaga ativa em duas salas diferentes.
+4. Ambiente: .env.example corrigido para AUTH_SESSION_SECRET.
+
+PRESERVADO:
+- Dama (Q) com 2 jogadores exatamente como V40.43.
+- Ás, Queima, Ação Rápida, Carta Dupla, 7 e demais regras.

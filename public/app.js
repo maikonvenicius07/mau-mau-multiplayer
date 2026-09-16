@@ -140,6 +140,7 @@ const avatarCatalog={
   magreloverde:{label:'Hulk Magrelo',src:'assets/avatars/magreloverde.webp',grupo:'Mascotes'},
   homem:{label:'Homem',src:'assets/avatars/homem.webp',grupo:'Pessoas'},
   mulher:{label:'Mulher',src:'assets/avatars/mulher.webp',grupo:'Pessoas'},
+  custom:{label:'Figurinha personalizada',src:'assets/avatars/custom_placeholder.webp',grupo:'Pessoas'},
 };
 function avatarInfo(value){return avatarCatalog[value]||null}
 function isCustomAvatarValue(value){return /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value||''))}

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.43.0",
-  "description": "Mau-Mau Candeias V40.43: integridade de turnos corrigida com regra Q de 2 jogadores preservada; Modo Observador, central de partidas, microfone estável com suporte mobile e relay para observadores, sem duplicidade de frontend.",
+  "version": "40.44.0",
+  "description": "Mau-Mau Candeias V40.44: hardening de ranking, sessão e salas; regras V40.43 preservadas, incluindo Q especial de 2 jogadores.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

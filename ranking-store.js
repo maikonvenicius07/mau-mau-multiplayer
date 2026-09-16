@@ -7,6 +7,15 @@ const RO_OFFSET_HOURS = -4;
 const RANKING_GENERATION = 'v40.8-season1';
 const CURRENT_SEASON_ID = 1;
 const CURRENT_SEASON_NAME = 'Temporada 1';
+const RANKING_CUSTOM_AVATAR = 'custom';
+
+function rankingAvatarValue(value) {
+  const raw = String(value || 'macaco').trim();
+  // A figurinha personalizada fica no navegador/presença da partida. No ranking
+  // persistimos apenas um identificador curto para não gravar Base64 no PostgreSQL.
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(raw)) return RANKING_CUSTOM_AVATAR;
+  return raw.slice(0,40) || 'macaco';
+}
 
 function normalizePeriod(value) {
   const p = String(value || 'day').toLowerCase();
@@ -298,7 +307,7 @@ function buildMatchRecord(room) {
   const positioned=humans.map(p=>({
     playerKey:p.playerKey,
     name:p.name,
-    avatar:p.avatar,
+    avatar:rankingAvatarValue(p.avatar),
     score:Number(p.score)||0,
     position:allScores.indexOf(Number(p.score)||0)+1,
   }));
@@ -318,6 +327,6 @@ function buildMatchRecord(room) {
 }
 
 module.exports={
-  RankingStore,buildMatchRecord,periodStart,normalizePeriod,normalizeMode,
-  RANKING_GENERATION,CURRENT_SEASON_ID,CURRENT_SEASON_NAME
+  RankingStore,buildMatchRecord,periodStart,normalizePeriod,normalizeMode,rankingAvatarValue,
+  RANKING_GENERATION,CURRENT_SEASON_ID,CURRENT_SEASON_NAME,RANKING_CUSTOM_AVATAR
 };

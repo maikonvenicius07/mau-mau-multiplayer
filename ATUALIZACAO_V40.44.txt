@@ -1,0 +1,17 @@
+MAU-MAU CANDEIAS — V40.44
+
+Este pacote contém somente arquivos novos/alterados.
+Copie mantendo a mesma estrutura de pastas e substitua os arquivos existentes.
+
+CORREÇÕES TÉCNICAS:
+1. Ranking: figurinha personalizada não grava Base64 no PostgreSQL.
+2. Sessão: somente o socket atualmente vinculado à cadeira pode executar ações.
+3. Sala única: uma Conta Google não pode ocupar duas salas ativas ao mesmo tempo.
+4. .env.example corrigido para AUTH_SESSION_SECRET.
+
+REGRAS PRESERVADAS:
+- Dama (Q) com 2 jogadores exatamente como V40.43.
+- Ás, Queima, Ação Rápida, Carta Dupla, 7 e demais regras sem alteração.
+
+VERIFICAÇÃO:
+61/61 testes aprovados na versão final.
