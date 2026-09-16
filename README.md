@@ -1,3 +1,15 @@
+# Mau-Mau Candeias — V40.48
+
+## V40.48 — Minha Música
+
+- Adiciona o botão **🎵 Minha Música** na tela inicial e na mesa.
+- O jogador escolhe um arquivo de áudio do próprio celular/computador; o arquivo toca apenas naquele aparelho.
+- A música local usa `URL.createObjectURL()` e não é enviada ao servidor, Socket.IO, PostgreSQL, ranking ou outros jogadores.
+- O arquivo não é persistido: ao fechar/atualizar a aba, deve ser escolhido novamente.
+- Música local pausa quando há microfone/voz ativa e retoma depois se estava tocando.
+- Continua sem existir pasta de trilhas internas no projeto; efeitos e voz permanecem preservados.
+- Regras da V40.43, segurança V40.44, performance V40.46 e áudio simplificado V40.47 continuam intactos.
+
 # Mau-Mau Candeias — V40.47
 
 ## V40.47 — áudio simplificado e projeto mais leve

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.47" />
+  <link rel="stylesheet" href="styles.css?v=40.48" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -158,7 +158,7 @@
         <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
         <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">🎮 Entrar</button></div>
       </div>
-      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
+      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
     </div>
   </section>
@@ -174,6 +174,7 @@
       <button id="onlinePlayersOpen2" class="icon-btn online-top-btn" title="Jogadores Online" aria-label="Abrir jogadores online">👥<span id="onlineTopBadge" class="online-top-badge">0</span></button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
       <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
+      <button id="localMusicOpen2" class="icon-btn local-music-top-btn" type="button" title="Minha Música" aria-label="Escolher música do próprio aparelho">🎵</button>
       <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
@@ -292,7 +293,7 @@
             <button data-effect="wow" title="Uau">😱<span>Uau!</span></button>
             <button data-effect="jogaBoca" class="effect-shout effect-speaker-only" title="Falar JOGA BOCA ABERTA!">🔊<span>Joga boca aberta</span></button>
           </div>
-          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. A música de fundo fica por conta do próprio celular do jogador.</div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. O botão 🎵 Minha Música permite escolher um arquivo de áudio do próprio aparelho. O arquivo não é enviado ao servidor.</div>
         </div>
       </aside>
       <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
@@ -304,6 +305,27 @@
     </main>
   </section>
 
+
+  <dialog id="localMusicDialog" class="modal local-music-modal">
+    <button class="close" id="localMusicClose" type="button" aria-label="Fechar">×</button>
+    <div class="local-music-head">
+      <div class="local-music-icon" aria-hidden="true">🎵</div>
+      <div><div class="eyebrow">MÚSICA DO SEU APARELHO</div><h2>Minha Música</h2><p>Escolha uma música salva no seu celular ou computador. Ela toca somente neste aparelho.</p></div>
+    </div>
+    <label class="local-music-file-btn" for="localMusicFile">📂 Escolher música
+      <input id="localMusicFile" type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.webm" />
+    </label>
+    <div class="local-music-track">
+      <strong id="localMusicFileName">Nenhuma música selecionada</strong>
+      <small id="localMusicStatus">Escolha um arquivo para começar.</small>
+    </div>
+    <audio id="localMusicAudio" class="local-music-audio" controls preload="metadata"></audio>
+    <div class="local-music-actions">
+      <button id="localMusicRemove" type="button">🗑️ Remover</button>
+      <button id="localMusicDone" class="primary" type="button">Pronto</button>
+    </div>
+    <p class="local-music-privacy">🔒 O arquivo fica somente no seu aparelho. Não há upload, envio pelo Socket.IO nem armazenamento no ranking/PostgreSQL. Ao fechar ou atualizar a aba, será necessário escolher o arquivo novamente.</p>
+  </dialog>
 
   <dialog id="liveRoomsDialog" class="modal live-rooms-modal">
     <button class="close live-rooms-close" id="liveRoomsClose" type="button" aria-label="Fechar partidas ao vivo">×</button>
@@ -504,7 +526,7 @@
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
       <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.33 adiciona recuperação automática da conexão, tratamento de voz e suporte a TURN quando configurado. O áudio continua sendo transmitido por WebRTC e não é gravado nem salvo no PostgreSQL ou no ranking.</p>
-      <p><strong>Música pessoal:</strong> a V40.47 não inclui trilha de fundo interna. Quem quiser pode ouvir Spotify, YouTube Music, Deezer ou outro player do próprio aparelho. Efeitos do jogo e microfone continuam no Mau-Mau.</p>
+      <p><strong>Minha Música:</strong> a V40.48 permite escolher um arquivo de áudio do próprio celular ou computador pelo botão 🎵. A música toca somente naquele aparelho, não é enviada ao servidor e não é compartilhada com os outros jogadores. Quando há microfone/voz ativa, a música local pausa para priorizar a conversa e volta depois, se estava tocando.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
       <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
@@ -551,6 +573,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.47"></script>
+  <script src="app.js?v=40.48"></script>
 </body>
 </html>

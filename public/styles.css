@@ -969,3 +969,15 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 @media(max-width:700px){.online-discovery{grid-template-columns:1fr!important}.watch-rooms-main,.watch-rooms-compact{min-height:52px;height:52px;padding:9px 12px!important}.watch-rooms-copy strong{font-size:11px}.watch-rooms-copy small{font-size:9px}.spectator-mode .live-mic-btn{min-width:48px;min-height:44px}}
 
 
+
+
+/* V40.48 — Minha Música local (arquivo permanece apenas no aparelho) */
+.local-music-link-btn{border:1px solid #4d735f;background:linear-gradient(180deg,#18372a,#10271e);color:#dff2e8;font-weight:900;border-radius:999px;padding:9px 16px;cursor:pointer}.local-music-link-btn:hover{filter:brightness(1.12)}
+.local-music-link-btn.has-track,.local-music-top-btn.has-track{border-color:#d0aa54!important;box-shadow:0 0 0 1px #d0aa5433 inset!important}
+.local-music-modal{width:min(520px,94vw);max-width:520px;background:#0b1b14;color:#edf7f1;border:1px solid #4e755f;border-radius:22px;padding:22px;box-shadow:0 24px 80px #000a}.local-music-modal::backdrop{background:#020a0790;backdrop-filter:blur(5px)}
+.local-music-head{display:flex;gap:13px;align-items:flex-start;padding-right:34px}.local-music-icon{width:48px;height:48px;display:grid;place-items:center;flex:0 0 auto;border-radius:15px;background:#17392b;border:1px solid #4b715e;font-size:25px}.local-music-head h2{margin:2px 0 4px;font-size:25px}.local-music-head p{margin:0;color:#9fb6aa;font-size:11px;line-height:1.4}
+.local-music-file-btn{display:flex;align-items:center;justify-content:center;margin:18px 0 10px;min-height:46px;border-radius:13px;border:1px dashed #6a907d;background:#10271e;color:#e2f4e9;font-size:12px;font-weight:900;cursor:pointer}.local-music-file-btn:hover{background:#153126}.local-music-file-btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.local-music-track{display:grid;gap:3px;padding:10px 12px;border:1px solid #2e4e3f;border-radius:12px;background:#08150f;overflow:hidden}.local-music-track strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.local-music-track small{font-size:9px;color:#8fab9d}
+.local-music-audio{display:block;width:100%;height:40px;margin:10px 0;background:#0a1711;border-radius:10px}.local-music-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.local-music-actions button{min-height:42px;border-radius:11px;border:1px solid #3e6551;font-size:10px;font-weight:900}.local-music-actions #localMusicRemove{background:#281b19;color:#edc9c1;border-color:#66423b}.local-music-actions .primary{background:#d7aa50;color:#251a08;border-color:#e6c06e}
+.local-music-privacy{margin:12px 0 0;color:#789588;font-size:9px;line-height:1.45;text-align:center}
+@media(max-width:700px){.local-music-modal{width:calc(100vw - 14px);padding:18px 12px}.local-music-head h2{font-size:22px}.local-music-file-btn{min-height:50px}.local-music-actions button{min-height:46px}}

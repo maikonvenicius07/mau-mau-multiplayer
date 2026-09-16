@@ -10,6 +10,8 @@ let chatMessages=[], unreadChat=0, activeSideTab='log';
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=700*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
 const playingVoiceAudios=new Set();
+// V40.48 — MINHA MÚSICA LOCAL. O arquivo permanece somente neste navegador/aparelho.
+let localMusicObjectUrl='',localMusicUserWantsPlay=false,localMusicPausedForVoice=false,localMusicInternalPause=false,localMusicSpeechDuckCount=0;
 // V40.33 — microfone ao vivo WebRTC estabilizado. O áudio continua P2P; Socket.IO carrega somente a sinalização.
 // A conexão agora mantém fila de ICE, recuperação automática, áudio otimizado para voz e TURN opcional.
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null,liveMicWanted=false;
@@ -387,18 +389,60 @@ function audioCtx(){
   }catch{return null}
 }
 
-// V40.47 — ÁUDIO SIMPLIFICADO
-// As trilhas internas foram removidas. O jogador pode usar a música do próprio celular.
-// Efeitos sonoros, fala, Áudio Rápido e microfone ao vivo permanecem independentes.
-// Estes hooks mínimos preservam chamadas legadas sem iniciar, baixar ou controlar música de fundo.
-function stopMusic(){}
-function syncMusicToState(){}
+// V40.48 — MINHA MÚSICA LOCAL
+// O arquivo escolhido é reproduzido por Object URL e nunca sai do aparelho do jogador.
+// Não há upload, Socket.IO, PostgreSQL, ranking nem persistência do arquivo em localStorage.
+function localMusicAudio(){return $('#localMusicAudio')}
+function localMusicVoiceActive(){return !!(liveMicOn||liveVoiceActivePlayerIds.size>0||voiceRecorder?.state==='recording'||playingVoiceAudios.size>0||localMusicSpeechDuckCount>0)}
+function updateLocalMusicUI(){
+  const audio=localMusicAudio(),name=$('#localMusicFileName'),status=$('#localMusicStatus');
+  const has=!!(localMusicObjectUrl&&audio?.src);
+  $$('#localMusicOpen,#localMusicOpen2').forEach(btn=>btn.classList.toggle('has-track',has));
+  if(!status)return;
+  if(!has){status.textContent='Escolha um arquivo para começar.';return}
+  if(localMusicVoiceActive()){status.textContent='🎙️ Pausada enquanto há microfone/voz ativa.';return}
+  status.textContent=audio&&!audio.paused?'▶️ Tocando somente neste aparelho.':'⏸️ Pausada.';
+}
+function setLocalMusicInternalPause(audio){
+  localMusicInternalPause=true;try{audio?.pause()}catch{};queueMicrotask(()=>{localMusicInternalPause=false});
+}
+function syncLocalMusicVoiceState(){
+  const audio=localMusicAudio();if(!audio||!localMusicObjectUrl){updateLocalMusicUI();return}
+  if(localMusicVoiceActive()){
+    if(!audio.paused){localMusicPausedForVoice=true;setLocalMusicInternalPause(audio)}
+  }else if(localMusicPausedForVoice){
+    localMusicPausedForVoice=false;
+    if(localMusicUserWantsPlay)audio.play().catch(()=>{updateLocalMusicUI()});
+  }
+  updateLocalMusicUI();
+}
+function clearLocalMusic(){
+  const audio=localMusicAudio();if(audio){setLocalMusicInternalPause(audio);audio.removeAttribute('src');try{audio.load()}catch{}}
+  if(localMusicObjectUrl){try{URL.revokeObjectURL(localMusicObjectUrl)}catch{}}
+  localMusicObjectUrl='';localMusicUserWantsPlay=false;localMusicPausedForVoice=false;
+  const input=$('#localMusicFile');if(input)input.value='';const name=$('#localMusicFileName');if(name)name.textContent='Nenhuma música selecionada';updateLocalMusicUI();
+}
+function chooseLocalMusicFile(file){
+  if(!file)return;
+  if(file.type&&!String(file.type).startsWith('audio/'))return toast('Escolha um arquivo de áudio válido.');
+  const audio=localMusicAudio();if(!audio)return;
+  if(localMusicObjectUrl){try{URL.revokeObjectURL(localMusicObjectUrl)}catch{}}
+  localMusicObjectUrl=URL.createObjectURL(file);localMusicUserWantsPlay=true;localMusicPausedForVoice=false;
+  audio.src=localMusicObjectUrl;audio.preload='metadata';const name=$('#localMusicFileName');if(name)name.textContent=file.name||'Música selecionada';
+  if(localMusicVoiceActive()){localMusicPausedForVoice=true;updateLocalMusicUI();toast('🎵 Música escolhida. Ela começará quando o microfone/voz estiver livre.');return}
+  audio.play().then(()=>{updateLocalMusicUI();toast('🎵 Tocando sua música neste aparelho.')}).catch(()=>{updateLocalMusicUI();toast('🎵 Música selecionada. Toque em ▶️ para reproduzir.')});
+}
+function stopMusic(){clearLocalMusic()}
+function syncMusicToState(){syncLocalMusicVoiceState()}
 function unlockMusic(){}
-function updateMusicUI(){}
+function updateMusicUI(){updateLocalMusicUI()}
 function preloadMusic(){}
 function maybeMusicStinger(){}
-function refreshQuickAudioMusicDuck(){}
-function beginMusicSpeechDuck(){return ()=>{}}
+function refreshQuickAudioMusicDuck(){syncLocalMusicVoiceState()}
+function beginMusicSpeechDuck(){
+  localMusicSpeechDuckCount+=1;syncLocalMusicVoiceState();let released=false;
+  return()=>{if(released)return;released=true;localMusicSpeechDuckCount=Math.max(0,localMusicSpeechDuckCount-1);syncLocalMusicVoiceState()};
+}
 
 function tone(ac,freq,start,dur,type='sine',gain=.035){
   if(!ac)return;
@@ -916,6 +960,31 @@ $('#vibrationBtn').onclick=()=>{
   if(turnVibrationOn){vibrateYourTurn();toast('📳 Vibração de SUA VEZ ativada.')}
   else{try{navigator.vibrate?.(0)}catch{};toast('📵 Vibração de SUA VEZ desativada.')}
 };
+// V40.48 — controles de Minha Música local
+function openLocalMusic(){const d=$('#localMusicDialog');if(d&&!d.open)d.showModal();updateLocalMusicUI()}
+function closeLocalMusic(){const d=$('#localMusicDialog');if(d?.open)d.close()}
+$('#localMusicOpen')?.addEventListener('click',openLocalMusic);
+$('#localMusicOpen2')?.addEventListener('click',openLocalMusic);
+$('#localMusicClose')?.addEventListener('click',closeLocalMusic);
+$('#localMusicDone')?.addEventListener('click',closeLocalMusic);
+$('#localMusicRemove')?.addEventListener('click',()=>{clearLocalMusic();toast('🎵 Música removida deste aparelho.')});
+$('#localMusicFile')?.addEventListener('change',e=>{const file=e.target.files?.[0];chooseLocalMusicFile(file);e.target.value=''});
+$('#localMusicDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeLocalMusic()});
+$('#localMusicDialog')?.addEventListener('click',e=>{if(e.target===$('#localMusicDialog'))closeLocalMusic()});
+const localMusicElement=localMusicAudio();
+if(localMusicElement){
+  localMusicElement.addEventListener('play',()=>{
+    localMusicUserWantsPlay=true;
+    if(localMusicVoiceActive()){localMusicPausedForVoice=true;setLocalMusicInternalPause(localMusicElement);toast('🎙️ Sua música fica pausada enquanto há microfone/voz ativa.');}
+    updateLocalMusicUI();
+  });
+  localMusicElement.addEventListener('pause',()=>{if(!localMusicInternalPause&&!localMusicVoiceActive())localMusicUserWantsPlay=false;updateLocalMusicUI()});
+  localMusicElement.addEventListener('ended',()=>{localMusicUserWantsPlay=false;localMusicPausedForVoice=false;updateLocalMusicUI()});
+  localMusicElement.addEventListener('error',()=>{if(localMusicObjectUrl)toast('Não foi possível reproduzir este arquivo de áudio.');updateLocalMusicUI()});
+}
+window.addEventListener('beforeunload',()=>{if(localMusicObjectUrl)try{URL.revokeObjectURL(localMusicObjectUrl)}catch{}});
+updateLocalMusicUI();
+
 document.addEventListener('pointerdown',()=>{audioCtx()},{once:true});
 document.addEventListener('keydown',()=>{audioCtx()},{once:true});
 document.addEventListener('pointerdown',()=>{audioCtx();for(const a of liveMicRemoteAudios.values())if(a.paused)a.play?.().catch?.(()=>{})});

@@ -1,3 +1,13 @@
+# V40.48 — Minha Música local
+
+- Botão 🎵 Minha Música na tela inicial e dentro da partida.
+- Seleção de arquivo de áudio local (`audio/*`), reproduzido somente no aparelho do jogador.
+- Sem upload, Socket.IO, PostgreSQL, ranking ou compartilhamento do arquivo.
+- Object URL é revogada ao trocar/remover música ou fechar a aba.
+- Música pausa quando há microfone/voz ativa e retoma depois se estava tocando.
+- Nenhuma trilha interna volta ao projeto.
+- Regras, turnos, observador, reconexão e microfone permanecem inalterados.
+
 # V40.47 — Áudio Simplificado
 
 - Remove todas as trilhas internas e a pasta `public/assets/music/`.

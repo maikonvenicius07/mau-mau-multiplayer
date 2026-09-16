@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.48 — MINHA MÚSICA
+
+Substitua/adicone no GitHub mantendo a mesma estrutura de pastas.
+Não há arquivo para excluir nesta versão.
+
+Principais arquivos alterados:
+- package.json
+- public/index.html
+- public/app.js
+- public/styles.css
+- testes de música/performance
+- README/CHANGELOG
+
+A música escolhida pelo jogador é LOCAL: não é enviada ao servidor, Socket.IO, PostgreSQL ou ranking.
+Ao fechar/atualizar a página, o jogador escolhe novamente seu arquivo.

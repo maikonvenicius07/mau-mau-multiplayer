@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS — V40.48 — MINHA MÚSICA
+
+1. Use o botão 🎵 Minha Música.
+2. Escolha um arquivo de áudio do seu celular ou computador.
+3. A música toca somente no seu aparelho.
+4. O arquivo NÃO é enviado ao servidor e NÃO fica salvo no projeto ou PostgreSQL.
+5. Se houver microfone/voz ativa, a música pausa e volta depois se estava tocando.
+6. Ao atualizar/fechar a página, será necessário escolher o arquivo novamente.
+7. Todas as regras do jogo permanecem iguais à V40.47/V40.43.
