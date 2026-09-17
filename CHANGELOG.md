@@ -1,3 +1,12 @@
+
+## V40.49 — Estabilidade de rede e voz do observador
+- Relay do observador comprimido e com supressão de silêncio.
+- Pacotes de áudio em modo VOLATILE para não bloquear turnos/heartbeat.
+- Jitter buffer mais curto para conversa em tempo real.
+- Reconexão móvel mais rápida e debounce de microquedas de 3 s.
+- Heartbeat Socket.IO ajustado.
+- Nenhuma regra do jogo alterada.
+
 # V40.48 — Minha Música local
 
 - Botão 🎵 Minha Música na tela inicial e dentro da partida.

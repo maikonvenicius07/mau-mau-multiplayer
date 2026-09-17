@@ -21,7 +21,7 @@ assert(server.includes("googlePlayerKey(payload.sub)"),'identidade não deriva d
 assert(html.includes('id="authGate"'),'tela obrigatória de login ausente');
 assert(html.includes('accounts.google.com/gsi/client'),'Google Identity Services ausente');
 assert(!html.toLowerCase().includes('jogar como visitante'),'modo visitante não pode existir');
-assert(app.includes('io({autoConnect:false})'),'socket deve aguardar autenticação');
+assert(/const socket\s*=\s*io\(\{[\s\S]{0,500}?autoConnect\s*:\s*false/.test(app),'socket deve aguardar autenticação');
 assert(app.includes('initializeGoogleAuth()'),'inicialização da autenticação ausente');
 assert(app.includes("fetch('/api/auth/google'"),'cliente não envia credencial ao servidor');
 assert(!app.includes("const playerKeyStorage='maumauPlayerKeyV1'"),'playerKey local antigo ainda ativo');

@@ -1,3 +1,7 @@
+## V40.49 — Estabilidade de rede e voz
+
+A V40.49 reduz o tráfego do microfone do observador e reforça a reconexão móvel sem alterar as regras do jogo.
+
 # Mau-Mau Candeias — V40.48
 
 ## V40.48 — Minha Música

@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — V40.49
+
+Copie estes arquivos sobre o projeto atual V40.48, preservando a estrutura de pastas.
+Não há arquivos para excluir nesta atualização.
+
+Foco da versão:
+- estabilidade de conexão em celular;
+- voz do observador mais leve e com menor atraso;
+- microquedas de até 3 s não pausam imediatamente a mesa;
+- nenhuma regra do Mau-Mau foi alterada.

@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — V40.49
+
+ESTABILIDADE DE REDE E VOZ DO OBSERVADOR
+
+- Relay do observador comprimido em 8 bits/16 kHz.
+- Gate de silêncio: microfone aberto sem fala quase não trafega áudio.
+- Pacotes de voz VOLATILE: áudio atrasado é descartado e não forma fila sobre a partida.
+- Jitter buffer limitado para reduzir voz atrasada/picotada.
+- Socket.IO com reconexão móvel mais rápida e fallback entre transportes.
+- Microquedas de até 3 segundos não congelam imediatamente a mesa.
+- Heartbeat ajustado para oscilações móveis.
+- MAUMAU_CONNECTION_DEBUG=1 ativa logs de conexão no servidor.
+
+Nenhuma regra do Mau-Mau foi alterada.

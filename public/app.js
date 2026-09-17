@@ -1,4 +1,14 @@
-const socket = io({autoConnect:false});
+const socket = io({
+  autoConnect:false,
+  reconnection:true,
+  reconnectionAttempts:Infinity,
+  reconnectionDelay:500,
+  reconnectionDelayMax:4000,
+  randomizationFactor:.4,
+  timeout:15000,
+  // Socket.IO 4.8+: se um transporte não funcionar bem na rede móvel, tenta o outro.
+  tryAllTransports:true,
+});
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 let passPending=false;
@@ -22,10 +32,14 @@ let liveVoiceRtcConfig={
 };
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTimers=new Map(),liveMicRetryCounts=new Map(),liveMicRecoveringPeers=new Set();
-// V40.36 — rota de compatibilidade para toda conversa que envolve OBSERVADOR.
-// PCM mono/16 kHz trafega pelo Socket.IO somente quando há observador na mesa.
-// Jogador ↔ jogador continua usando WebRTC P2P.
+// V40.49 — rota de compatibilidade para conversa que envolve OBSERVADOR.
+// Voz logarítmica de 8 bits/16 kHz + gate de silêncio + envio VOLATILE reduz
+// drasticamente filas e tráfego sem misturar áudio antigo com eventos da partida.
+// Jogador ↔ jogador continua usando WebRTC/Opus P2P.
 const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
+const LIVE_VOICE_RELAY_CODEC='mulaw8';
+const LIVE_VOICE_RELAY_VAD_THRESHOLD=.0045;
+let liveVoiceRelaySpeechHangover=0;
 let liveVoiceRelayCapture=null,liveVoiceRelayWarned=false;
 const liveVoiceRelayPlaybackNext=new Map();
 const liveMicPositionStorage='maumauLiveMicPositionV1';
@@ -383,7 +397,7 @@ function triggerYourTurnCue(){
 
 function audioCtx(){
   try{
-    const ac=audioCtx.ac||(audioCtx.ac=new (window.AudioContext||window.webkitAudioContext)());
+    const ac=audioCtx.ac||(audioCtx.ac=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'}));
     if(ac.state==='suspended') ac.resume().catch(()=>{});
     return ac;
   }catch{return null}
@@ -1134,23 +1148,32 @@ function bindOutboundLivePeerHealth(pc,peer){
 function liveVoiceRelayRequired(){
   return !!liveMicOn && (isSpectatorState() || Number(state?.spectatorCount||0)>0);
 }
-function pcm16FromFloatDownsample(input,inputRate,targetRate=LIVE_VOICE_RELAY_SAMPLE_RATE){
-  if(!input?.length)return new Int16Array(0);
+function muLaw8EncodeSample(value){
+  const v=Math.max(-1,Math.min(1,Number(value)||0)),sign=v<0?-1:1,mag=Math.abs(v),mu=255;
+  const compressed=sign*Math.log1p(mu*mag)/Math.log1p(mu);
+  return Math.max(0,Math.min(255,Math.round((compressed+1)*127.5)));
+}
+function muLaw8DecodeSample(byte){
+  const y=Math.max(-1,Math.min(1,(Number(byte)/127.5)-1)),sign=y<0?-1:1,mu=255;
+  return sign*(Math.pow(1+mu,Math.abs(y))-1)/mu;
+}
+function muLaw8FromFloatDownsample(input,inputRate,targetRate=LIVE_VOICE_RELAY_SAMPLE_RATE){
+  if(!input?.length)return{data:new Uint8Array(0),rms:0};
   const ratio=Math.max(1,Number(inputRate||targetRate)/targetRate);
   const outLength=Math.max(1,Math.floor(input.length/ratio));
-  const out=new Int16Array(outLength);
+  const out=new Uint8Array(outLength);let energy=0;
   for(let i=0;i<outLength;i++){
     const start=Math.floor(i*ratio),end=Math.min(input.length,Math.max(start+1,Math.floor((i+1)*ratio)));
     let sum=0;for(let j=start;j<end;j++)sum+=input[j];
     const v=Math.max(-1,Math.min(1,sum/Math.max(1,end-start)));
-    out[i]=v<0?v*0x8000:v*0x7fff;
+    energy+=v*v;out[i]=muLaw8EncodeSample(v);
   }
-  return out;
+  return{data:out,rms:Math.sqrt(energy/Math.max(1,outLength))};
 }
 function stopLiveVoiceRelayCapture(){
   const rec=liveVoiceRelayCapture;if(!rec)return;
   try{rec.processor.onaudioprocess=null;rec.source.disconnect();rec.processor.disconnect();rec.sink.disconnect()}catch{}
-  liveVoiceRelayCapture=null;
+  liveVoiceRelayCapture=null;liveVoiceRelaySpeechHangover=0;
 }
 function startLiveVoiceRelayCapture(){
   if(liveVoiceRelayCapture||!liveVoiceRelayRequired()||!liveMicStream||!socket.connected)return;
@@ -1165,9 +1188,12 @@ function startLiveVoiceRelayCapture(){
     processor.onaudioprocess=e=>{
       if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
       const input=e.inputBuffer?.getChannelData?.(0);if(!input?.length)return;
-      const pcm=pcm16FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);
-      if(!pcm.length)return;
-      socket.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,pcm:pcm.buffer});
+      const encoded=muLaw8FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);
+      if(!encoded.data.length)return;
+      if(encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD)liveVoiceRelaySpeechHangover=4;
+      else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
+      else return; // silêncio: não ocupa a conexão da partida
+      socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
     };
     liveVoiceRelayCapture={ac,source,processor,sink};
   }catch{stopLiveVoiceRelayCapture()}
@@ -1185,16 +1211,24 @@ function playLiveVoiceRelayPcm(payload){
   try{
     const bytes=liveVoiceRelayBytes(payload?.pcm);if(!bytes||bytes.byteLength<2)return;
     const sampleRate=Math.max(8000,Math.min(24000,Number(payload?.sampleRate)||LIVE_VOICE_RELAY_SAMPLE_RATE));
-    const frames=Math.floor(bytes.byteLength/2);if(!frames)return;
+    const codec=String(payload?.codec||'pcm16');
+    const frames=codec==='mulaw8'?bytes.byteLength:Math.floor(bytes.byteLength/2);if(!frames)return;
     const ac=audioCtx();if(!ac)return;
     if(ac.state==='suspended'&&!liveVoiceRelayWarned){liveVoiceRelayWarned=true;toast('🔊 Toque na tela uma vez para liberar a conversa ao vivo.');}
-    const buffer=ac.createBuffer(1,frames,sampleRate),out=buffer.getChannelData(0),view=new DataView(bytes.buffer,bytes.byteOffset,frames*2);
-    for(let i=0;i<frames;i++)out[i]=view.getInt16(i*2,true)/32768;
+    const buffer=ac.createBuffer(1,frames,sampleRate),out=buffer.getChannelData(0);
+    if(codec==='mulaw8'){
+      for(let i=0;i<frames;i++)out[i]=muLaw8DecodeSample(bytes[i]);
+    }else{
+      const view=new DataView(bytes.buffer,bytes.byteOffset,frames*2);
+      for(let i=0;i<frames;i++)out[i]=view.getInt16(i*2,true)/32768;
+    }
     const source=ac.createBufferSource();source.buffer=buffer;source.connect(ac.destination);
     const key=String(payload?.fromParticipantId||payload?.fromSocketId||'voice');
-    const now=ac.currentTime,minStart=now+.10;
+    const now=ac.currentTime,minStart=now+.065;
     let next=Number(liveVoiceRelayPlaybackNext.get(key)||0);
-    if(next<now-.03||next-now>.7)next=minStart;else next=Math.max(next,minStart);
+    // Áudio atrasado não é útil em conversa ao vivo. Limitamos o jitter buffer
+    // para impedir que a voz fique cada vez mais atrasada após uma oscilação.
+    if(next<now-.025||next-now>.32)next=minStart;else next=Math.max(next,minStart);
     source.start(next);liveVoiceRelayPlaybackNext.set(key,next+buffer.duration);
     source.onended=()=>{try{source.disconnect()}catch{}};
   }catch{}
@@ -1287,7 +1321,16 @@ function resetLiveVoice({notify=false,keepWanted=false}={}){
   refreshQuickAudioMusicDuck();updateLiveMicUI();
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
-window.addEventListener('online',()=>{if(liveMicWanted&&state&&socket.connected&&!liveMicOn)setTimeout(()=>startLiveMic(),250)});
+function nudgeSocketReconnect(){
+  if(!googleUser||socket.connected)return;
+  setTimeout(()=>{if(googleUser&&!socket.connected)socket.connect()},120);
+}
+window.addEventListener('online',()=>{
+  nudgeSocketReconnect();
+  if(liveMicWanted&&state&&socket.connected&&!liveMicOn)setTimeout(()=>startLiveMic(),250);
+});
+window.addEventListener('pageshow',nudgeSocketReconnect);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')nudgeSocketReconnect()});
 
 // V40.22 — carinha 😊 ainda mais discreta.
 // Continua visível sozinha, pode ser arrastada e, após alguns segundos sem uso,
@@ -1976,7 +2019,7 @@ socket.on('connect',()=>{
     else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
   } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',()=>{resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');toast('Conexão perdida. Tentando reconectar...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente com Google.');renderGoogleSignIn();}

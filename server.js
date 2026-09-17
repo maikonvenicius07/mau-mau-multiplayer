@@ -11,7 +11,15 @@ const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 900000 });
+const io = new Server(server, {
+  cors: { origin: '*' },
+  maxHttpBufferSize: 900000,
+  // V40.49 — tolerância maior a pequenas oscilações de rede móvel sem deixar
+  // uma conexão realmente perdida presa por tempo excessivo.
+  pingInterval: 20000,
+  pingTimeout: 30000,
+  connectTimeout: 20000,
+});
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
 const ROLE_PLAYER = 'PLAYER';
@@ -19,7 +27,25 @@ const ROLE_SPECTATOR = 'SPECTATOR';
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
 const reconnectTimers = new Map();
 const spectatorReconnectTimers = new Map();
+// V40.49 — microquedas de Wi‑Fi/4G de poucos segundos não congelam a mesa.
+// Se o mesmo jogador voltar rapidamente, o novo socket substitui o antigo antes
+// de a cadeira ser marcada como desconectada.
+const disconnectDebounceTimers = new Map();
+const DISCONNECT_DEBOUNCE_MS = 3000;
 const RECONNECT_GRACE_MS = 60 * 1000;
+const CONNECTION_DEBUG = String(process.env.MAUMAU_CONNECTION_DEBUG || '') === '1';
+function connectionDebug(...args){ if(CONNECTION_DEBUG) console.log('[connection]', ...args); }
+function disconnectDebounceKey(role,roomCode,participantId){return `${role}:${roomCode}:${participantId}`;}
+function cancelDisconnectDebounce(role,roomCode,participantId){
+  const key=disconnectDebounceKey(role,roomCode,participantId),timer=disconnectDebounceTimers.get(key);
+  if(timer)clearTimeout(timer);disconnectDebounceTimers.delete(key);
+}
+function scheduleDisconnectDebounce(role,roomCode,participantId,fn){
+  cancelDisconnectDebounce(role,roomCode,participantId);
+  const key=disconnectDebounceKey(role,roomCode,participantId);
+  const timer=setTimeout(()=>{disconnectDebounceTimers.delete(key);fn();},DISCONNECT_DEBOUNCE_MS);
+  timer.unref?.();disconnectDebounceTimers.set(key,timer);
+}
 
 // V40.1 — presença online e convites são efêmeros e vivem somente na memória.
 // A identidade é a playerKey derivada da Conta Google, nunca o socketId.
@@ -1017,13 +1043,16 @@ function emitPendingInvitesFor(socket){
 // Jogadores humanos E observadores podem conversar. Observadores continuam sem receber cartas
 // privadas e sem permissão para executar qualquer ação de jogo.
 const liveVoiceSenders = new Map(); // socketId -> {roomCode, participantId, role, name}
-// V40.36 — relay PCM de compatibilidade apenas para caminhos com OBSERVADOR.
+// V40.49 — relay de compatibilidade para caminhos com OBSERVADOR.
+// O cliente usa voz logarítmica de 8 bits (16 kHz), gate de silêncio e pacotes
+// VOLATILE. Isso reduz o tráfego e, sobretudo, evita que áudio atrasado forme uma
+// fila que possa competir com os eventos e heartbeats da partida.
 const liveVoiceRelayRate = new Map();
 function liveVoiceRelayAllowed(socket, bytes){
   const now=Date.now();let rec=liveVoiceRelayRate.get(socket.id);
   if(!rec||now-rec.at>=1000)rec={at:now,packets:0,bytes:0};
   rec.packets++;rec.bytes+=bytes;liveVoiceRelayRate.set(socket.id,rec);
-  return rec.packets<=30&&rec.bytes<=180000;
+  return rec.packets<=30&&rec.bytes<=100000;
 }
 
 function currentVoiceParticipant(socket) {
@@ -1171,13 +1200,15 @@ io.on('connection', socket => {
     try {
       const current=currentVoiceParticipant(socket);
       if(!current||!socket.data.liveVoiceOn)return;
+      const codec=String(payload?.codec||'pcm16');
       const sampleRate=Number(payload?.sampleRate||0);
-      if(sampleRate!==16000)return;
+      if(sampleRate!==16000||!['mulaw8','pcm16'].includes(codec))return;
       const raw=payload?.pcm;let pcm=null;
       if(Buffer.isBuffer(raw))pcm=raw;
       else if(raw instanceof ArrayBuffer)pcm=Buffer.from(raw);
       else if(ArrayBuffer.isView(raw))pcm=Buffer.from(raw.buffer,raw.byteOffset,raw.byteLength);
-      if(!pcm||pcm.length<2||pcm.length>16000||pcm.length%2!==0)return;
+      if(!pcm||pcm.length<1||pcm.length>16000)return;
+      if(codec==='pcm16'&&pcm.length%2!==0)return;
       if(!liveVoiceRelayAllowed(socket,pcm.length))return;
       const {room,actor}=current,targetSocketIds=[];
       if(actor.role===ROLE_SPECTATOR){
@@ -1188,8 +1219,11 @@ io.on('connection', socket => {
         for(const s of ensureSpectators(room))if(s.connected&&s.socketId&&s.socketId!==socket.id)targetSocketIds.push(s.socketId);
       }
       if(!targetSocketIds.length)return;
-      const packet={fromSocketId:socket.id,fromParticipantId:actor.id,fromPlayerId:actor.id,fromRole:actor.role,fromName:actor.name,sampleRate,pcm};
-      for(const socketId of targetSocketIds)io.to(socketId).emit('liveVoiceRelayPcm',packet);
+      const packet={fromSocketId:socket.id,fromParticipantId:actor.id,fromPlayerId:actor.id,fromRole:actor.role,fromName:actor.name,sampleRate,codec,pcm};
+      // Voz em tempo real não deve disputar a fila confiável da partida. Se o
+      // transporte estiver congestionado, é melhor descartar um quadro velho do
+      // que atrasar turnos, heartbeat ou reconexão.
+      for(const socketId of targetSocketIds)io.to(socketId).volatile.emit('liveVoiceRelayPcm',packet);
     } catch(e) { err(socket,e); }
   });
 
@@ -1279,6 +1313,7 @@ io.on('connection', socket => {
         const wasDisconnected=!!(existing && !existing.connected);
         const wasAutoControlled=!!existing?.autoControlled;
         if(existing){
+          cancelDisconnectDebounce(ROLE_PLAYER,room.code,existing.id);
           cancelReconnectTimer(room.code,existing.id);
           // Pode haver uma jogada automática já agendada para esta vaga.
           if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
@@ -1295,6 +1330,7 @@ io.on('connection', socket => {
       if(!p){
         const byKey=room.players.find(x=>!x.isBot&&x.playerKey===socket.data.auth.playerKey);
         if(byKey){
+          cancelDisconnectDebounce(ROLE_PLAYER,room.code,byKey.id);
           cancelReconnectTimer(room.code,byKey.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
           if(byKey.socketId&&byKey.socketId!==socket.id)io.to(byKey.socketId).emit('sessionReplaced');
           p=Engine.reconnectPlayer(room,byKey.token,socket.id);
@@ -1345,6 +1381,7 @@ io.on('connection', socket => {
       let firstJoin=false;
       if(spectator){
         if(spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
+        cancelDisconnectDebounce(ROLE_SPECTATOR,code,spectator.id);
         cancelSpectatorReconnectTimer(code,spectator.id);
         if(spectator.socketId&&spectator.socketId!==socket.id)io.to(spectator.socketId).emit('sessionReplaced');
         spectator.socketId=socket.id;spectator.connected=true;spectator.disconnectedAt=null;
@@ -1740,50 +1777,56 @@ io.on('connection', socket => {
     });
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', reason => {
     const code = socket.data.roomCode;
     const playerId = socket.data.playerId;
+    const role=socket.data.role;
     const room=rooms.get(code);
     if(!room) return;
-    if(socket.data.role===ROLE_SPECTATOR){
-      const spectator=spectatorForSocket(room,socket);
-      if(spectator&&spectator.socketId===socket.id){spectator.connected=false;spectator.socketId=null;spectator.disconnectedAt=Date.now();scheduleSpectatorRemoval(room,spectator);emitRoom(room);}
+    connectionDebug('disconnect', {reason,code,role,participantId:role===ROLE_SPECTATOR?socket.data.spectatorId:playerId});
+
+    if(role===ROLE_SPECTATOR){
+      const spectatorId=socket.data.spectatorId;
+      if(!spectatorId)return;
+      scheduleDisconnectDebounce(ROLE_SPECTATOR,code,spectatorId,()=>{
+        const liveRoom=rooms.get(code);if(!liveRoom)return;
+        const spectator=ensureSpectators(liveRoom).find(s=>s.id===spectatorId);
+        // Se outro socket já assumiu esta vaga, a microqueda foi recuperada.
+        if(!spectator||spectator.socketId!==socket.id)return;
+        spectator.connected=false;spectator.socketId=null;spectator.disconnectedAt=Date.now();
+        scheduleSpectatorRemoval(liveRoom,spectator);emitRoom(liveRoom);
+      });
       return;
     }
-    const p=room.players.find(x=>x.id===playerId);
 
-    // Se outra aba já reconectou com o mesmo token, este socket é antigo.
-    // Não devemos marcar o jogador como desconectado por causa da aba antiga.
-    if(p && p.socketId === socket.id){
+    if(!playerId)return;
+    scheduleDisconnectDebounce(ROLE_PLAYER,code,playerId,()=>{
+      const liveRoom=rooms.get(code);if(!liveRoom)return;
+      const p=liveRoom.players.find(x=>x.id===playerId);
+      // Se outra aba/socket já reconectou, não alteramos a vaga.
+      if(!p||p.socketId!==socket.id)return;
       p.connected=false;
       p.socketId=null;
       p.disconnectedAt=Date.now();
 
-      // Uma jogada automática que já estava agendada é cancelada: durante a janela
-      // de 60 s a mesa fica realmente congelada.
-      if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
-
-      // IMPORTANTE: não retiramos o papel de anfitrião imediatamente. Um F5, uma
-      // ligação ou a troca Wi-Fi/5G não podem destruir a vaga do jogador.
-      const matchActive=room.status==='playing' || (room.status==='between-rounds' && room.round>0);
+      if(liveRoom.botTimer){ clearTimeout(liveRoom.botTimer); liveRoom.botTimer=null; }
+      const matchActive=liveRoom.status==='playing' || (liveRoom.status==='between-rounds' && liveRoom.round>0);
       if(matchActive){
         p.autoControlled=false;
         p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
-        Engine.appendLog(room, `🔴 ${p.name} perdeu a conexão. 60 segundos para retornar.`, 'system');
-        io.to(room.code).emit('reconnectionEvent',{kind:'lost',playerId:p.id,name:p.name,deadlineAt:p.reconnectDeadlineAt});
-        scheduleReconnectTakeover(room,p);
-        emitRoom(room);
+        Engine.appendLog(liveRoom, `🔴 ${p.name} perdeu a conexão. 60 segundos para retornar.`, 'system');
+        io.to(liveRoom.code).emit('reconnectionEvent',{kind:'lost',playerId:p.id,name:p.name,deadlineAt:p.reconnectDeadlineAt});
+        scheduleReconnectTakeover(liveRoom,p);
+        emitRoom(liveRoom);
         broadcastPresence();
         return;
       }
 
       p.autoControlled=false;
       p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
-      emitRoom(room);
+      emitRoom(liveRoom);
       broadcastPresence();
 
-      // Antes da primeira rodada a cadeira fica reservada por 60 s. Se o jogador
-      // não retornar, a vaga é removida porque ainda não existe partida a preservar.
       const timer=setTimeout(() => {
         reconnectTimers.delete(reconnectTimerKey(code,playerId));
         const currentRoom = rooms.get(code);
@@ -1811,7 +1854,7 @@ io.on('connection', socket => {
       }, RECONNECT_GRACE_MS);
       if(typeof timer.unref==='function') timer.unref();
       reconnectTimers.set(reconnectTimerKey(code,playerId),timer);
-    }
+    });
   });
 });
 
