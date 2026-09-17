@@ -21,4 +21,4 @@ const inviteBranchEnd=app.indexOf('\n  }',inviteBranchStart);
 assert(inviteBranchEnd>inviteBranchStart,'fim do ramo do convite por link não encontrado');
 const inviteBranch=app.slice(inviteBranchStart,inviteBranchEnd);
 assert(!inviteBranch.includes("socket.emit('resumeActiveSeat')"),'link de outra sala não pode auto-retomar cadeira antiga antes da escolha do usuário');
-console.log('✓ V40.58.4: troca de sala libera apenas vagas antigas desconectadas/AUTO e não bloqueia novo convite.');
+console.log('✓ V40.58.5: troca de sala libera apenas vagas antigas desconectadas/AUTO e não bloqueia novo convite.');

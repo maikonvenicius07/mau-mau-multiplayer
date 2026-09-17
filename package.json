@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.58.4",
-  "description": "Mau-Mau Candeias V40.58.4: saída voluntária confirmada e liberação robusta da Conta Google entre salas.",
+  "version": "40.58.5",
+  "description": "Mau-Mau Candeias V40.58.5: convite por link com troca explícita e segura de sala entre partidas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

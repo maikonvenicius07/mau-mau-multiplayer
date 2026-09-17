@@ -1,3 +1,13 @@
+## V40.58.5 — Convite por Link com Troca Explícita
+
+- O botão **ENTRAR NA SALA** de um convite por link agora usa um fluxo próprio, separado da entrada por código digitado.
+- Ao confirmar um link para outra sala, a Conta Google pode abandonar com segurança uma cadeira antiga ainda presa a outra aba/aparelho.
+- Se a mesa anterior estiver em partida ativa, a cadeira vira Máquina preservando mão, placar e posição; fora de partida, a vaga antiga é liberada.
+- O socket atual deixa o canal da sala anterior antes de concluir a entrada na nova sala.
+- A entrada manual por código continua conservadora e não força a saída de uma mesa conectada.
+- Regras de cartas, reconexão, observador, chat por sala, ranking e áudio/WebRTC não foram alterados.
+- 81 testes aprovados.
+
 ## V40.58.4 — Saída Confirmada + Conta Livre entre Salas
 
 - **Sair** durante partida ativa continua entregando a cadeira à Máquina sem reiniciar a rodada.

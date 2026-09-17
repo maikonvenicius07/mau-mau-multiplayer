@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.58.5
+
+Resultado: 81/81 testes aprovados.
+
+Validações principais:
+- convite por link envia switchIntent=link somente após clique explícito;
+- servidor reconhece o fluxo de link e libera cadeira antiga da mesma Conta Google;
+- partida anterior ativa continua com Máquina sem reiniciar a rodada;
+- socket não permanece inscrito na sala anterior;
+- entrada por código manual mantém a proteção antiga;
+- Dama em 2 jogadores, turnos, Queima, Dupla, Ação Rápida, observador, chat por sala, ranking e áudio/WebRTC preservados.
+
+Comando executado: npm run verify
+Status: sucesso.

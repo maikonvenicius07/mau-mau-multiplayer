@@ -15,4 +15,4 @@ assert(server.includes("ack({ok:true"),'servidor deve confirmar saída bem-suced
 assert(app.includes("socket.timeout(5000).emit('leaveRoom'"),'cliente deve aguardar confirmação de saída');
 assert(app.includes("btn.textContent='⏳ Saindo...'"),'interface deve indicar saída em andamento');
 assert(app.includes('leaveRoomPending=false;'),'estado de saída deve ser liberado ao receber leftRoom');
-console.log('✓ V40.58.4: saída voluntária é confirmada, resiliente a socket antigo e libera troca de sala sem perder continuidade por Máquina.');
+console.log('✓ V40.58.5: saída voluntária é confirmada, resiliente a socket antigo e libera troca de sala sem perder continuidade por Máquina.');

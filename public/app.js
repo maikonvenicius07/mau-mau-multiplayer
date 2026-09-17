@@ -1103,15 +1103,16 @@ $('#botGameBtn').onclick=()=>{
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true,publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
-$('#joinBtn').onclick=()=>{
+function joinRoomByCode(rawCode,{fromLink=false}={}){
   if(!googleUser) return showAuthGate('Entre com sua Conta Google para entrar na sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
-  const code=$('#roomInput').value.trim().toUpperCase();
+  const code=String(rawCode||'').trim().toUpperCase();
   if(!code) return toast('Informe o código da sala.');
   const sess=saved();
   const token=sess?.code===code&&sess?.token?sess.token:crypto.randomUUID();
-  socket.emit('joinRoom',{...profile(),code,token});
-};
+  socket.emit('joinRoom',{...profile(),code,token,switchIntent:fromLink?'link':null});
+}
+$('#joinBtn').onclick=()=>joinRoomByCode($('#roomInput').value);
 $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
 function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
   publicRoomsSnapshot={publicRoomCount:Number(snapshot?.publicRoomCount||0),watchableRoomCount:Number(snapshot?.watchableRoomCount||0),activeSpectatorCount:Number(snapshot?.activeSpectatorCount||0),rooms:Array.isArray(snapshot?.rooms)?snapshot.rooms:[],at:Number(snapshot?.at||Date.now())};
@@ -1195,7 +1196,11 @@ function renderLinkInviteBanner(explicitCode=''){
   if($('#linkInviteCode'))$('#linkInviteCode').textContent=code;
   if($('#roomInput'))$('#roomInput').value=code;
 }
-$('#linkInviteJoin')?.addEventListener('click',()=>{const code=$('#linkInviteCode')?.textContent?.trim()||'';if($('#roomInput'))$('#roomInput').value=code;$('#joinBtn')?.click()});
+$('#linkInviteJoin')?.addEventListener('click',()=>{
+  const code=$('#linkInviteCode')?.textContent?.trim()||'';
+  if($('#roomInput'))$('#roomInput').value=code;
+  joinRoomByCode(code,{fromLink:true});
+});
 $('#linkInviteCopy')?.addEventListener('click',()=>copyRoomInvite($('#linkInviteCode')?.textContent||''));
 $('#copyInvite').onclick=()=>shareRoomInvite(state?.code);
 $('#leaveBtn').onclick=()=>{

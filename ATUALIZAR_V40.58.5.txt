@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.58.5
+
+Correção: entrada por convite/link após partida anterior.
+
+O botão "ENTRAR NA SALA" do convite por link agora informa ao servidor que se trata
+de uma escolha explícita de troca de mesa. Se a mesma Conta Google ainda estiver
+presa a uma sala anterior por socket/aba antiga, a transição é feita com segurança:
+
+- partida antiga ativa: cadeira vira Máquina preservando mão, placar e posição;
+- lobby/intervalo sem partida ativa: vaga antiga é liberada;
+- socket/aba antiga é aposentado quando necessário;
+- o novo socket deixa o canal da sala antiga antes de entrar na sala do link;
+- entrada por código digitado continua conservadora e não força troca automática.
+
+Nenhuma regra de cartas foi alterada.

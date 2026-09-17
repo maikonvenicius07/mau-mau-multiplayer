@@ -1120,6 +1120,49 @@ function releaseDisconnectedReservedSeatsForSwitch(socket, exceptCode=null) {
   if(changed)broadcastPresence();
   return changed;
 }
+// V40.58.5 — clicar em ENTRAR NA SALA a partir de um link é uma escolha
+// explícita de troca. Diferente de um código digitado manualmente, esse gesto pode
+// aposentar uma sessão antiga da mesma Conta Google que ainda esteja viva em outra
+// aba/aparelho. A mesa anterior continua normalmente: em partida ativa, a cadeira
+// vira Máquina preservando mão/placar/posição; fora de partida, a vaga é removida.
+function prepareForLinkRoomSwitch(socket, exceptCode=null) {
+  const key=String(socket.data.auth?.playerKey||'');
+  if(!key)return;
+
+  const currentCode=String(socket.data.roomCode||'');
+  if(socket.data.role===ROLE_SPECTATOR&&currentCode&&currentCode!==exceptCode){
+    const currentRoom=rooms.get(currentCode);
+    if(currentRoom){
+      const spectator=spectatorForSocket(currentRoom,socket);
+      if(spectator)removeSpectator(currentRoom,spectator,{announce:true});
+      emitRoom(currentRoom);
+    }
+    socket.leave(currentCode);
+    socket.data.roomCode=null;
+    socket.data.playerId=null;
+    socket.data.spectatorId=null;
+    socket.data.role=null;
+  }
+
+  const previousSocketRoom=String(socket.data.roomCode||'');
+  for(const room of rooms.values()){
+    if(!room||room.code===exceptCode||room.status==='finished')continue;
+    const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
+    if(!player)continue;
+    player.voluntaryLeftAt=Date.now();
+  }
+  releaseDisconnectedReservedSeatsForSwitch(socket,exceptCode);
+
+  if(previousSocketRoom&&previousSocketRoom!==exceptCode){
+    socket.leave(previousSocketRoom);
+    socket.data.roomCode=null;
+    socket.data.playerId=null;
+    socket.data.spectatorId=null;
+    socket.data.role=null;
+  }
+
+  requireNoOtherActivePlayerRoom(socket,exceptCode);
+}
 function prepareForRoomSwitch(socket, exceptCode=null) {
   releaseDisconnectedReservedSeatsForSwitch(socket,exceptCode);
   requireNoOtherActivePlayerRoom(socket,exceptCode);
@@ -1778,13 +1821,15 @@ io.on('connection', socket => {
   socket.on('joinRoom', payload => {
     try {
       const code=String(payload?.code||'').trim().toUpperCase();
-      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode){
+      const linkSwitch=payload?.switchIntent==='link';
+      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode&&!linkSwitch){
         if(socket.data.roomCode===code)throw new Error('Você já está assistindo a esta sala como observador.');
         throw new Error('Saia do Modo Observador antes de entrar em outra sala.');
       }
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
-      prepareForRoomSwitch(socket,code);
+      if(linkSwitch)prepareForLinkRoomSwitch(socket,code);
+      else prepareForRoomSwitch(socket,code);
       ensureSocial(room);
       let p = null;
       if (payload?.token) {
