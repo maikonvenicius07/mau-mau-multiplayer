@@ -268,9 +268,9 @@ function resetMatch(room) {
   room.replayReadyPlayerIds = [];
   room.log = [];
   room.turnAudit = [];
-  // V40.58.2 — conversa é da partida atual, não da sala para sempre.
-  // Ao iniciar uma nova partida na mesma sala, o histórico anterior é descartado.
-  room.chat = [];
+  // V40.58.3 — o chat pertence à SALA, não à rodada. Uma revanche na mesma
+  // sala preserva a conversa. Uma sala nova nasce com seu próprio histórico vazio.
+  if (!Array.isArray(room.chat)) room.chat = [];
 
   room.players.forEach(p => {
     p.hand = [];

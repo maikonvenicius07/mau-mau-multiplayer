@@ -2161,8 +2161,9 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   savedSessionResumePending=false;accountSeatResumePending=false;
-  // V40.58.2 — nunca mostre, nem por alguns instantes, conversa da sala/partida anterior.
-  // O servidor enviará chatHistory logo em seguida com somente o histórico da mesa atual.
+  // V40.58.3 — o chat é por SALA. Ao entrar em outra sala, limpamos primeiro
+  // a tela local; em seguida o servidor envia somente o histórico daquela sala.
+  // Revanche na mesma sala mantém a conversa da própria sala.
   for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}
   chatMessages=[];unreadChat=0;
   for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}
@@ -2375,8 +2376,11 @@ socket.on('connect',()=>{
   // outra sala, ele continua preenchido na tela. Antes de qualquer entrada manual,
   // porém, o servidor pode recuperar uma cadeira humana que ainda pertença à conta.
   if(urlRoom&&(!sess?.code||sess.code!==urlRoom)){
+    // V40.58.3 — um link de convite para OUTRA sala tem prioridade sobre a
+    // recuperação automática de uma cadeira antiga. A cadeira antiga só é
+    // liberada quando o usuário realmente confirma a entrada na nova sala.
     $('#roomInput').value=urlRoom;
-    accountSeatResumePending=true;socket.emit('resumeActiveSeat');
+    accountSeatResumePending=false;
     return;
   }
 

@@ -11,7 +11,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.58.2','package.json deve identificar V40.54');
+assert(pkg.version==='40.58.3','package.json deve identificar V40.54');
 
 const custom=`data:image/webp;base64,${'A'.repeat(60000)}`;
 assert(AvatarWire.isCustomAvatarData(custom),'amostra custom deve ser reconhecida');
@@ -55,6 +55,6 @@ assert(app.includes('requestMissingAvatarRefs'),'cliente não recupera referênc
 assert(app.includes("socket.on('avatarAsset'"),'cliente não recebe asset separado');
 assert(app.includes('AVATAR_ASSET_CACHE_MAX=32'),'cache de sessão precisa de limite');
 assert(html.includes('id="networkStatePayloadValue"')&&html.includes('id="networkAvatarCacheValue"')&&html.includes('id="networkAvatarBytesValue"'),'diagnóstico de payload/cache ausente');
-assert(html.includes('app.js?v=40.58.2')&&html.includes('styles.css?v=40.58.2'),'cache-busting V40.54 ausente');
+assert(html.includes('app.js?v=40.58.3')&&html.includes('styles.css?v=40.58.3'),'cache-busting V40.54 ausente');
 
 console.log(`✓ V40.54: state leve confirmado (${rawJson.length} -> ${leanJson.length} caracteres no cenário sintético).`);

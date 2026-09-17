@@ -27,7 +27,9 @@ assert(server.includes('Esta conexão foi substituída por uma sessão mais rece
 // 3) Uma conta não ocupa duas salas ativas.
 assert(server.includes('function activePlayerRoomForKey('),'busca de sala ativa ausente');
 assert(server.includes('function requireNoOtherActivePlayerRoom('),'trava central de sala ativa ausente');
-assert((server.match(/requireNoOtherActivePlayerRoom\(/g)||[]).length>=6,'trava não foi aplicada aos principais fluxos de sala');
+assert(server.includes('function prepareForRoomSwitch('),'gate de troca segura entre salas ausente');
+assert((server.match(/prepareForRoomSwitch\(/g)||[]).length>=6,'gate de troca segura não foi aplicado aos principais fluxos de sala');
+assert(server.includes('requireNoOtherActivePlayerRoom(socket,exceptCode);'),'troca segura deve terminar na trava central de sala ativa');
 
 // 4) Segredo de sessão com o nome certo.
 assert(env.includes('AUTH_SESSION_SECRET='),'.env.example não usa AUTH_SESSION_SECRET');

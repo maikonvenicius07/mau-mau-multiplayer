@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — V40.58.3
+
+CORREÇÕES
+1. Chat volta a ser por SALA: revanche na mesma sala mantém a conversa.
+2. Sala diferente sempre possui histórico próprio, sem mensagens da sala anterior.
+3. Link de convite para outra sala não força a reconexão automática na sala antiga.
+4. Ao escolher entrar/criar/assistir outra sala, uma vaga antiga desconectada/AUTO deixa de bloquear a conta.
+5. Se a partida antiga estiver em andamento, a mesma cadeira vira Máquina permanente, preservando mão, placar e posição para que a partida não reinicie.
+6. Uma cadeira que ainda esteja realmente conectada em outro dispositivo continua protegida e não é tomada automaticamente.
+
+VALIDAÇÃO
+Executar: npm run verify

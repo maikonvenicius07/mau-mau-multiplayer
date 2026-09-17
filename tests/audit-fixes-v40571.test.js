@@ -8,8 +8,8 @@ const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.58.2');
-assert(html.includes('app.js?v=40.58.2')&&html.includes('styles.css?v=40.58.2'),'cache-busting V40.58.2 ausente');
+assert.strictEqual(pkg.version,'40.58.3');
+assert(html.includes('app.js?v=40.58.3')&&html.includes('styles.css?v=40.58.3'),'cache-busting V40.58.3 ausente');
 
 // Arquivos/configuração recuperados da V40.56/V40.54.1.
 for(const rel of ['.node-version','.npmrc','.github/workflows/verify.yml']){
@@ -37,4 +37,4 @@ assert(server.includes("!player || !player.connected || player.isBot || player.s
 assert(server.includes("const activeMatch=room.status==='playing' || (room.status==='between-rounds' && Number(room.round||0)>0)"),'detecção de partida ativa ausente na limpeza');
 assert(server.includes('if(!activeMatch && allHumansGone && now-room.createdAt>6*60*60*1000)'),'limpeza de 6 h não pode remover partida ativa');
 
-console.log('✓ V40.58.2: deploy restaurado, socket substituído encerrado e partida ativa preservada sem limite de 6 h.');
+console.log('✓ V40.58.3: deploy restaurado, socket substituído encerrado e partida ativa preservada sem limite de 6 h.');

@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.58.3
+
+- Chat por sala, preservado em revanche da mesma sala.
+- Chat isolado entre salas diferentes.
+- Troca segura de sala sem bloqueio por vaga antiga desconectada/AUTO.
+- Link de convite para sala diferente não auto-retoma a sala antiga.
+- Continuidade da partida antiga com Máquina quando o jogador opta por outra sala.
+- Regras, reconexão, observador, áudio e ranking mantidos.
+
+Resultado esperado: todos os testes aprovados em npm run verify.

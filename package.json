@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.58.2",
-  "description": "Mau-Mau Candeias V40.58.2: continuidade da partida ao sair e isolamento do chat entre partidas/salas.",
+  "version": "40.58.3",
+  "description": "Mau-Mau Candeias V40.58.3: chat por sala e troca segura entre salas com continuidade por Máquina.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

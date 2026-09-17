@@ -1,3 +1,11 @@
+## V40.58.3 — Chat por Sala + Troca Segura de Mesa
+
+- A conversa pertence à sala e continua nas revanches da mesma sala.
+- Uma sala diferente começa com conversa própria, sem vazamento visual da sala anterior.
+- Convites por link para outra sala têm prioridade sobre a reconexão automática antiga.
+- Ao optar por outra mesa, vaga antiga desconectada/AUTO é liberada sem reiniciar a partida anterior: a cadeira vira Máquina permanente.
+- Vagas ainda conectadas em outro dispositivo continuam protegidas.
+
 ## V40.58.2 — Continuidade ao Sair + Chat Isolado
 
 - Durante uma partida ativa, o botão **Sair** não remove mais o jogador nem cancela/reinicia a rodada. A cadeira humana, mão, pontuação e posição permanecem reservadas e a **Máquina assume imediatamente** até a mesma Conta Google voltar.
