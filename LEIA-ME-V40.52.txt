@@ -1,0 +1,19 @@
+MAU-MAU CANDEIAS — V40.52
+ESTADO E AVATARES LEVES
+
+O que mudou:
+- Figurinha personalizada não é mais repetida dentro de cada atualização de estado.
+- O estado recebe uma referência curta custom-avatar:<hash>.
+- A imagem é enviada separadamente uma única vez por conexão/socket.
+- O navegador mantém cache apenas durante a sessão.
+- Se uma referência estiver faltando, o navegador solicita somente aquela imagem.
+- O diagnóstico mostra tamanho do estado, cache de avatares e bytes de avatar recebidos.
+
+O que NÃO mudou:
+- qualidade/tamanho da figurinha personalizada;
+- avatares fixos;
+- regras, turnos, Ás, Dama de 2 jogadores, Queima, ×2 e Ação Rápida;
+- WebRTC/TURN, relay de voz e reconexão;
+- ranking.
+
+Não há arquivo para excluir nesta versão.

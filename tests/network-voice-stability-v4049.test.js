@@ -8,8 +8,8 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.strictEqual(pkg.version,'40.51.0');
-assert(server.includes('pingInterval: 20000')&&server.includes('pingTimeout: 30000'),'heartbeat móvel V40.51 ausente');
+assert.strictEqual(pkg.version,'40.52.0');
+assert(server.includes('pingInterval: 20000')&&server.includes('pingTimeout: 30000'),'heartbeat móvel V40.52 ausente');
 assert(server.includes('DISCONNECT_DEBOUNCE_MS = 3000'),'debounce de microqueda ausente');
 assert(server.includes('scheduleDisconnectDebounce(ROLE_PLAYER'),'jogador não usa debounce de microqueda');
 assert(server.includes('scheduleDisconnectDebounce(ROLE_SPECTATOR'),'observador não usa debounce de microqueda');
@@ -21,5 +21,5 @@ assert(app.includes('LIVE_VOICE_RELAY_VAD_THRESHOLD'),'gate de silêncio do rela
 assert(app.includes('muLaw8FromFloatDownsample'),'encoder de voz leve ausente');
 assert(app.includes('muLaw8DecodeSample'),'decoder de voz leve ausente');
 assert(!app.includes("socket.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,pcm:"),'relay antigo PCM confiável ainda ativo');
-assert(html.includes('app.js?v=40.51'),'cache-busting V40.51 ausente');
-console.log('✓ V40.51: voz do observador leve/volatile e reconexão móvel reforçada.');
+assert(html.includes('app.js?v=40.52'),'cache-busting V40.52 ausente');
+console.log('✓ V40.52: voz do observador leve/volatile e reconexão móvel reforçada.');

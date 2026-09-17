@@ -39,7 +39,7 @@ const liveVoiceRelayFallbackPeers=new Set(),liveVoiceConnectTimers=new Map();
 const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
 const LIVE_VOICE_RELAY_CODEC='mulaw8';
 const LIVE_VOICE_RELAY_VAD_THRESHOLD=.0045;
-const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.51';
+const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.52';
 let liveVoiceRelaySpeechHangover=0;
 let liveVoiceRelayCapture=null,liveVoiceRelayCaptureStarting=false,liveVoiceRelayWorkletPromise=null,liveVoiceRelayWarned=false;
 const liveVoiceRelayPlaybackNext=new Map();
@@ -47,7 +47,10 @@ const liveVoiceRelayPlaybackNext=new Map();
 // entre sondas, falhas recentes, transporte Socket.IO e estatísticas WebRTC.
 const NETWORK_PROBE_INTERVAL_MS=5000,NETWORK_PROBE_TIMEOUT_MS=3500;
 let networkProbeTimer=null,networkRtcStatsTimer=null,networkReconnectCount=0;
-const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,rtcRoute:'—',lastUpdatedAt:0};
+const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,rtcRoute:'—',lastUpdatedAt:0,lastStateBytes:null,avatarAssetBytes:0};
+const AVATAR_ASSET_CACHE_MAX=32;
+const avatarAssetCache=new Map(),pendingAvatarAssetRefs=new Set();
+let avatarAssetRequestTimer=null;
 const liveMicPositionStorage='maumauLiveMicPositionV1';
 const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
 let liveMicPositionRole=null;
@@ -162,6 +165,56 @@ const avatarCatalog={
 };
 function avatarInfo(value){return avatarCatalog[value]||null}
 function isCustomAvatarValue(value){return /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value||''))}
+function isCustomAvatarRef(value){return /^custom-avatar:[a-f0-9]{32}$/i.test(String(value||''))}
+function avatarDataByteSize(value=''){
+  const raw=String(value||''),comma=raw.indexOf(',');
+  if(comma<0)return raw.length;
+  const b64=raw.slice(comma+1);
+  return Math.max(0,Math.floor((b64.length*3)/4)-(b64.endsWith('==')?2:b64.endsWith('=')?1:0));
+}
+function cacheAvatarAsset(ref,dataUrl){
+  if(!isCustomAvatarRef(ref)||!isCustomAvatarValue(dataUrl))return false;
+  if(avatarAssetCache.has(ref))avatarAssetCache.delete(ref);
+  avatarAssetCache.set(ref,dataUrl);
+  while(avatarAssetCache.size>AVATAR_ASSET_CACHE_MAX){
+    const oldest=avatarAssetCache.keys().next().value;
+    if(!oldest)break;
+    avatarAssetCache.delete(oldest);
+  }
+  return true;
+}
+function requestMissingAvatarRefs(refs=[]){
+  for(const ref of refs){
+    const key=String(ref||'');
+    if(isCustomAvatarRef(key)&&!avatarAssetCache.has(key))pendingAvatarAssetRefs.add(key);
+  }
+  if(!pendingAvatarAssetRefs.size||avatarAssetRequestTimer||!socket.connected)return;
+  avatarAssetRequestTimer=setTimeout(()=>{
+    avatarAssetRequestTimer=null;
+    if(!socket.connected||!pendingAvatarAssetRefs.size)return;
+    const refs=[...pendingAvatarAssetRefs].slice(0,16);
+    socket.emit('requestAvatarAssets',{refs});
+  },30);
+}
+function collectStateAvatarRefs(snapshot){
+  const refs=new Set(),add=value=>{if(isCustomAvatarRef(value))refs.add(String(value))};
+  if(!snapshot||typeof snapshot!=='object')return [];
+  for(const p of Array.isArray(snapshot.players)?snapshot.players:[])add(p?.avatar);
+  for(const v of Array.isArray(snapshot.spectators)?snapshot.spectators:[])add(v?.avatar);
+  add(snapshot.me?.avatar);add(snapshot.roundReview?.winnerAvatar);
+  for(const p of Array.isArray(snapshot.roundReview?.players)?snapshot.roundReview.players:[])add(p?.avatar);
+  return [...refs];
+}
+function resolveAvatarValue(value){
+  if(!isCustomAvatarRef(value))return value;
+  const key=String(value),cached=avatarAssetCache.get(key);
+  if(cached){
+    avatarAssetCache.delete(key);avatarAssetCache.set(key,cached);
+    return cached;
+  }
+  requestMissingAvatarRefs([value]);
+  return 'custom';
+}
 function customAvatarStorageKey(){ return `${customAvatarStoragePrefix}${permanentPlayerKey()||'anon'}`; }
 function saveCustomAvatarLocally(dataUrl=''){
   try{
@@ -183,10 +236,11 @@ function updateCustomAvatarPreview(value=''){
   opt.title=active?'Sua figurinha personalizada':'Escolher figurinha';
 }
 function avatarHTML(value,size='md'){
-  const info=avatarInfo(value);
+  const resolved=resolveAvatarValue(value);
+  const info=avatarInfo(resolved);
   if(info) return `<img class="avatar-photo avatar-${size}" src="${info.src}" alt="${info.label}" title="${info.label}" />`;
-  if(isCustomAvatarValue(value)) return `<img class="avatar-photo avatar-${size} avatar-user-upload" src="${esc(value)}" alt="Figurinha do jogador" title="Figurinha do jogador" />`;
-  return `<span class="avatar-emoji avatar-${size}">${esc(value||'🂡')}</span>`;
+  if(isCustomAvatarValue(resolved)) return `<img class="avatar-photo avatar-${size} avatar-user-upload" src="${esc(resolved)}" alt="Figurinha do jogador" title="Figurinha do jogador" />`;
+  return `<span class="avatar-emoji avatar-${size}">${esc(resolved||'🂡')}</span>`;
 }
 function setAvatarSelection(value='macaco'){
   const chosen=isCustomAvatarValue(value)?value:(avatarCatalog[value]?value:'macaco');
@@ -377,6 +431,12 @@ function networkQuality(){
 }
 function formatDiagMs(value){return Number.isFinite(value)?`${Math.round(value)} ms`:'—'}
 function formatDiagPct(value){return Number.isFinite(value)?`${value.toFixed(value>=10?0:1)}%`:'—'}
+function formatDiagBytes(value){
+  if(!Number.isFinite(value))return'—';
+  if(value<1024)return`${Math.round(value)} B`;
+  if(value<1024*1024)return`${(value/1024).toFixed(value<10240?1:0)} KB`;
+  return`${(value/(1024*1024)).toFixed(1)} MB`;
+}
 function updateNetworkDiagnosticsUI(){
   networkDiagnostics.transport=socket.io?.engine?.transport?.name||networkDiagnostics.transport||'-';
   networkDiagnostics.voiceMode=networkVoiceMode();
@@ -394,6 +454,9 @@ function updateNetworkDiagnosticsUI(){
   set('#networkLossValue',formatDiagPct(networkDiagnostics.probeLoss));
   set('#networkTransportValue',String(networkDiagnostics.transport||'-').toUpperCase());
   set('#networkReconnectValue',String(networkReconnectCount));
+  set('#networkStatePayloadValue',formatDiagBytes(networkDiagnostics.lastStateBytes));
+  set('#networkAvatarCacheValue',`${avatarAssetCache.size} imagem(ns)`);
+  set('#networkAvatarBytesValue',formatDiagBytes(networkDiagnostics.avatarAssetBytes));
   set('#networkVoiceModeValue',networkDiagnostics.voiceMode);
   set('#networkTurnValue',liveVoiceTurnConfigured?(liveVoiceTurnAuthMode==='ephemeral'?'Configurado • credencial temporária':'Configurado'):'Não configurado');
   set('#networkRtcRouteValue',networkDiagnostics.rtcRoute||'—');
@@ -2057,9 +2120,20 @@ socket.on('joined',data=>{
 });
 socket.on('publicRoomsSnapshot',snapshot=>renderPublicRoomsSnapshot(snapshot||{}));
 socket.on('spectatorOffer',info=>{openSpectatorOffer(info||{});playGameSound('chat')});
+socket.on('avatarAsset',payload=>{
+  const ref=String(payload?.ref||''),dataUrl=String(payload?.dataUrl||'');
+  if(!cacheAvatarAsset(ref,dataUrl))return;
+  pendingAvatarAssetRefs.delete(ref);
+  networkDiagnostics.avatarAssetBytes+=avatarDataByteSize(dataUrl);
+  updateNetworkDiagnosticsUI();
+  if(state&&collectStateAvatarRefs(state).includes(ref))render();
+});
 socket.on('state',s=>{
   const prev=state;
+  try{networkDiagnostics.lastStateBytes=new TextEncoder().encode(JSON.stringify(s)).byteLength}catch{networkDiagnostics.lastStateBytes=JSON.stringify(s||{}).length}
+  requestMissingAvatarRefs(collectStateAvatarRefs(s));
   state=s;
+  updateNetworkDiagnosticsUI();
   syncLiveVoiceRelayCapture();
   if(passPending && state?.me && state.currentPlayerId !== state.me.id){
     passPending=false;

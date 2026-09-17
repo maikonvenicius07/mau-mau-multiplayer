@@ -1,19 +1,24 @@
-MAU-MAU CANDEIAS — V40.47 ÁUDIO SIMPLIFICADO
+MAU-MAU CANDEIAS — V40.52 ESTADO E AVATARES LEVES
 
-1. Substitua/adicone os arquivos deste ZIP mantendo as mesmas pastas.
-2. Apague do GitHub a pasta public/assets/music/ inteira.
-3. Faça commit/push.
-4. Aguarde o deploy do Render.
-5. No celular, feche a aba antiga e abra o jogo novamente.
+1. Faça backup da V40.51 estável.
+2. Substitua/adicione os arquivos deste pacote mantendo exatamente as mesmas pastas.
+3. Não é necessário excluir nenhum arquivo nesta atualização.
+4. Faça commit/push no GitHub.
+5. Aguarde o deploy do Render.
+6. No celular, feche a aba antiga e abra o jogo novamente para carregar app.js?v=40.52.
+7. Abra 📶 Diagnóstico durante um teste e observe:
+   - Último estado;
+   - Avatares em cache;
+   - Dados de avatar.
 
-O que permanece:
-- efeitos sonoros;
-- avisos falados;
-- Áudio Rápido;
-- microfone ao vivo;
-- observadores;
-- ranking;
-- reconexão;
-- todas as regras do Mau-Mau.
+O que permanece intacto:
+- todas as regras do Mau-Mau;
+- Dama especial com 2 jogadores;
+- Ás, Queima, Carta Dupla e Ação Rápida;
+- microfone WebRTC/TURN e fallback;
+- reconexão inteligente;
+- ranking e observadores;
+- Minha Música.
 
-A música de fundo passa a ser escolhida pelo próprio jogador no celular/computador.
+Novo arquivo:
+- avatar-wire.js

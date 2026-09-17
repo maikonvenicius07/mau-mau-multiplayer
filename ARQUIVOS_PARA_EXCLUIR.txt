@@ -1,10 +1,6 @@
-V40.47 — EXCLUSÃO NECESSÁRIA
+V40.52 — NENHUMA EXCLUSÃO NECESSÁRIA
 
-Depois de substituir os arquivos deste pacote, APAGUE do GitHub a pasta inteira:
+Nesta atualização não é preciso apagar nenhum arquivo do projeto.
 
-public/assets/music/
-
-Ela contém as trilhas antigas e não é mais usada na V40.47.
-Se não apagar, o jogo continuará funcionando, mas o projeto continuará pesado sem necessidade.
-
-NÃO apague public/assets/avatars/ nem qualquer outra pasta.
+Observação:
+A pasta public/assets/music/ já havia sido removida na V40.47 e deve continuar ausente.

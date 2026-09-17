@@ -1,3 +1,9 @@
+## V40.52 — Estado e avatares leves
+
+A V40.52 reduz o tráfego repetitivo da partida sem mudar a aparência. Figurinhas personalizadas continuam armazenadas no estado interno da sala, mas os eventos `state` enviados a jogadores e observadores carregam apenas uma referência curta baseada no conteúdo. A imagem correspondente é enviada separadamente uma vez por socket e mantida em cache de sessão no navegador. Se o cache estiver vazio após uma reconexão, o cliente solicita somente as referências ausentes.
+
+O painel de diagnóstico agora também mostra o tamanho do último estado recebido, a quantidade de imagens em cache e o volume acumulado de dados de avatar. As regras do jogo, a voz WebRTC/TURN da V40.51, o fallback de áudio e a reconexão não foram alterados.
+
 ## V40.51 — WebRTC/TURN robusto para jogadores e observadores
 
 A V40.51 muda a arquitetura da voz sem alterar nenhuma regra do Mau-Mau. Jogadores e observadores passam a tentar **WebRTC/Opus primeiro**. Quando uma rota direta não funciona, o navegador pode usar **TURN** automaticamente se o servidor estiver configurado; se mesmo assim um peer não conectar, entra apenas para esse destinatário o relay leve μ-law/Socket.IO da V40.49/V40.50. O fallback é seletivo e `volatile`, evitando colocar voz atrasada na fila da partida.

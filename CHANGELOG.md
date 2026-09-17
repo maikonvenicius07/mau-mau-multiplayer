@@ -1,3 +1,13 @@
+## V40.52 — Estado e avatares leves
+
+- Figurinhas personalizadas deixam de ser repetidas em cada evento `state`.
+- O estado usa referência de conteúdo `custom-avatar:<hash>`; a imagem é enviada separadamente uma única vez por socket.
+- Cache de avatares no navegador com recuperação automática sob demanda após reconexão/cache ausente.
+- Estado de jogador, observador e Conferência da Rodada usam a mesma referência leve sem alterar a aparência.
+- Diagnóstico passa a mostrar tamanho do último estado, quantidade de avatares em cache e bytes de avatar recebidos.
+- Servidor só atende pedidos de avatar que pertençam à sala atual, evitando acesso cruzado entre salas.
+- Motor de regras, bots, ranking, WebRTC/TURN e reconexão permanecem inalterados.
+
 ## V40.51 — WebRTC/TURN robusto para observadores
 
 - WebRTC/Opus passa a ser a rota principal também para observadores.

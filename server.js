@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
+const AvatarWire = require('./avatar-wire');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 
 const app = express();
@@ -272,14 +273,42 @@ function maybeRecordFinished(room) {
   });
 }
 
+// V40.52 — imagens personalizadas deixam de viajar dentro de cada estado da sala.
+// O estado usa uma referência curta por conteúdo; o arquivo é enviado uma única vez
+// por socket e pode ser solicitado novamente pelo cliente se o cache local estiver vazio.
+function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
+  if (!socket || !room) return;
+  const assets=AvatarWire.collectRoomAvatarAssets(room);
+  if (!(socket.data.avatarAssetRefsSent instanceof Set)) socket.data.avatarAssetRefsSent=new Set();
+  const sent=socket.data.avatarAssetRefsSent;
+  const requested=Array.isArray(requestedRefs)
+    ? new Set(requestedRefs.map(String).filter(ref=>AvatarWire.isCustomAvatarRef(ref)).slice(0,16))
+    : null;
+  for (const [ref,dataUrl] of assets) {
+    const explicitlyRequested=!!(requested&&requested.has(ref));
+    if (requested && !explicitlyRequested) continue;
+    if (!requested && sent.has(ref)) continue;
+    socket.emit('avatarAsset',{ref,dataUrl});
+    sent.add(ref);
+  }
+}
+
 function emitRoom(room) {
   maybeRecordFinished(room);
   for (const p of room.players) {
-    if (p.socketId) io.to(p.socketId).emit('state', Engine.roomPublicState(room,p.id));
+    if (!p.socketId) continue;
+    const target=io.sockets.sockets.get(p.socketId);
+    if (!target) continue;
+    emitRoomAvatarAssets(target,room);
+    target.emit('state', AvatarWire.leanStateAvatars(Engine.roomPublicState(room,p.id)));
   }
   ensureSpectators(room);
   for (const spectator of room.spectators) {
-    if (spectator.connected && spectator.socketId) io.to(spectator.socketId).emit('state', Engine.roomSpectatorState(room,spectator));
+    if (!spectator.connected || !spectator.socketId) continue;
+    const target=io.sockets.sockets.get(spectator.socketId);
+    if (!target) continue;
+    emitRoomAvatarAssets(target,room);
+    target.emit('state', AvatarWire.leanStateAvatars(Engine.roomSpectatorState(room,spectator)));
   }
   scheduleBotTurn(room);
   refreshInviteReadiness();
@@ -1163,6 +1192,18 @@ io.on('connection', socket => {
 
   socket.on('requestPublicRooms', () => {
     socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
+  });
+
+  // V40.52 — recuperação sob demanda de figurinha personalizada.
+  // O cliente só pode pedir referências que pertençam à sala em que está conectado.
+  socket.on('requestAvatarAssets', payload => {
+    try {
+      const roomCode=String(socket.data.roomCode||'');
+      const room=rooms.get(roomCode);
+      if(!room)return;
+      const refs=Array.isArray(payload?.refs)?payload.refs:[];
+      emitRoomAvatarAssets(socket,room,refs);
+    } catch(e) { err(socket,e); }
   });
 
   // V40.50 — sonda mínima de RTT. Não transporta estado da partida nem dados pessoais;
