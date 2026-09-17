@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.57.0",
-  "description": "Mau-Mau Candeias V40.57: Reconexão Inteligente Permanente com retomada automática da vaga humana mesmo após o AUTO temporário.",
+  "version": "40.57.1",
+  "description": "Mau-Mau Candeias V40.57.1: correções da auditoria na reconexão, sessão substituída e reserva de partida ativa.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

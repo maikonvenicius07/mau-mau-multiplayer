@@ -1,3 +1,7 @@
+## V40.57.1 — Correções da Auditoria
+
+A V40.57.1 preserva integralmente a Reconexão Inteligente Permanente e corrige três pontos encontrados na auditoria: restaura os arquivos do deploy seguro, encerra completamente o socket antigo quando uma nova sessão assume a vaga e impede que uma partida ativa seja removida apenas por ultrapassar 6 horas. Chat, efeitos e Áudio Rápido também passam a exigir o socket proprietário atual da cadeira.
+
 ## V40.57 — Reconexão Inteligente Permanente
 
 A V40.57 fecha a principal lacuna da reconexão longa. A cadeira humana continua reservada durante toda a partida mesmo depois que a Máquina assume temporariamente. O mesmo navegador continua priorizando o token persistente salvo em `localStorage`; se o código/token local não estiver disponível, o servidor pode localizar automaticamente a vaga pela `playerKey` da Conta Google autenticada em cookie HttpOnly. Nome e avatar nunca são usados como prova de identidade. Em outro aparelho, o retorno automático só acontece depois de autenticar a mesma Conta Google e somente se a vaga estiver desconectada/AUTO.

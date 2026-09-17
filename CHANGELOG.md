@@ -1,3 +1,11 @@
+## V40.57.1 — Correções da Auditoria
+
+- Restaurados `.node-version`, `.npmrc`, workflow de verificação do GitHub e `.env.example` completo.
+- Sessão substituída agora é removida da sala, perde o papel e é desconectada do servidor.
+- Chat, efeitos e Áudio Rápido validam o socket proprietário atual.
+- Partidas ativas deixam de ser removidas pela limpeza histórica de 6 horas.
+- Regras do Mau-Mau, mãos, turnos, posições, WebRTC e ranking preservados.
+
 ## V40.57 — Reconexão Inteligente Permanente
 
 - Vaga humana permanece reservada durante toda a partida mesmo após os 60 s e entrada em AUTO temporário.

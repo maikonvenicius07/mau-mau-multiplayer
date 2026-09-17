@@ -1,0 +1,5 @@
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.57.1
+
+Atualize os arquivos fornecidos no pacote de substituição. Não há arquivos para excluir.
+Depois do deploy, confirme que o Render executou npm run verify com sucesso.
+Esta versão não exige nova variável no Render.

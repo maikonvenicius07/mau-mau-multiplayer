@@ -1,0 +1,25 @@
+MAU-MAU CANDEIAS — V40.57.1 CORREÇÕES DA AUDITORIA
+
+Esta versão é uma correção conservadora sobre a V40.57.
+
+1) RESTAURAÇÃO DO DEPLOY SEGURO
+- .node-version restaurado;
+- .npmrc restaurado;
+- .github/workflows/verify.yml restaurado;
+- .env.example restaurado com ROOM_SNAPSHOT_TTL_MS e opções TURN.
+
+2) SESSÃO SUBSTITUÍDA
+Quando uma nova conexão assume uma cadeira já vinculada a outro socket, o socket antigo:
+- recebe sessionReplaced;
+- sai da sala Socket.IO;
+- perde os vínculos de PLAYER/SPECTATOR;
+- encerra a voz ao vivo;
+- é desconectado pelo servidor.
+Chat, efeitos e Áudio Rápido também validam que o socket é o proprietário atual da vaga.
+
+3) RESERVA DA VAGA DURANTE PARTIDA ATIVA
+A limpeza histórica de salas com mais de 6 horas não remove mais uma partida ativa.
+Enquanto a partida estiver em andamento (playing ou between-rounds após a primeira rodada),
+a cadeira humana continua reservada e o AUTO permanece apenas temporário.
+
+Nenhuma regra do Mau-Mau foi alterada.

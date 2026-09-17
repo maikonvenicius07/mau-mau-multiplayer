@@ -597,10 +597,36 @@ function spectatorForSocket(room,socket){
 function socialActorForSocket(room,socket){
   if(socket.data.role===ROLE_SPECTATOR){
     const spectator=spectatorForSocket(room,socket);
-    return spectator&&spectator.connected?{id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}:null;
+    return spectator&&spectator.connected&&spectator.socketId===socket.id
+      ? {id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}
+      : null;
   }
   const player=room.players.find(p=>p.id===socket.data.playerId);
-  return player&&player.connected&&!player.isBot?{id:player.id,name:player.name,avatar:player.avatar,role:ROLE_PLAYER,isBot:false}:null;
+  return player&&player.connected&&!player.isBot&&player.socketId===socket.id
+    ? {id:player.id,name:player.name,avatar:player.avatar,role:ROLE_PLAYER,isBot:false}
+    : null;
+}
+
+// V40.57.1 — uma sessão antiga não permanece como participante fantasma depois
+// que a mesma vaga é retomada por outro socket. Limpamos voz/papel/sala ANTES de
+// desconectar para que o handler de disconnect não marque a cadeira nova como offline.
+function retireReplacedSocket(socketId,{roomCode=null}={}){
+  const oldId=String(socketId||'');
+  if(!oldId)return false;
+  const stale=io.sockets.sockets.get(oldId);
+  if(!stale)return false;
+  notifyLiveVoicePeerUnavailable(stale);
+  clearLiveVoiceSender(stale);
+  liveVoiceRelayRate.delete(stale.id);
+  stale.emit('sessionReplaced');
+  if(roomCode)stale.leave(roomCode);
+  stale.data.roomCode=null;
+  stale.data.playerId=null;
+  stale.data.spectatorId=null;
+  stale.data.role=null;
+  stale.data.liveVoiceOn=false;
+  setImmediate(()=>{if(stale.connected)stale.disconnect(true);});
+  return true;
 }
 function appendSystemChat(room,text){
   ensureSocial(room);const now=Date.now();
@@ -845,7 +871,7 @@ function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) 
   // porque scheduleBotTurn verifica isAutomatedPlayer() antes de agir.
   if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
   if(player.socketId&&player.socketId!==socket.id){
-    io.to(player.socketId).emit('sessionReplaced');
+    retireReplacedSocket(player.socketId,{roomCode:room.code});
   }
 
   const resumed=Engine.reconnectPlayer(room,player.token,socket.id);
@@ -1131,7 +1157,7 @@ function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
   if(p){
     cancelReconnectTimer(room.code,p.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
-    if(p.socketId&&p.socketId!==socket.id)io.to(p.socketId).emit('sessionReplaced');
+    if(p.socketId&&p.socketId!==socket.id)retireReplacedSocket(p.socketId,{roomCode:room.code});
     p=Engine.reconnectPlayer(room,p.token,socket.id);
   }else{
     p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:presenceFor(key)?.name||socket.data.auth.name,avatar:presenceFor(key)?.avatar||'macaco',playerKey:key});
@@ -1538,7 +1564,7 @@ io.on('connection', socket => {
           throw new Error('Esta vaga pertence a outra Conta Google.');
         }
         if (existing?.socketId && existing.socketId !== socket.id) {
-          io.to(existing.socketId).emit('sessionReplaced');
+          retireReplacedSocket(existing.socketId,{roomCode:room.code});
         }
         const wasDisconnected=!!(existing && !existing.connected);
         const wasAutoControlled=!!existing?.autoControlled;
@@ -1562,7 +1588,7 @@ io.on('connection', socket => {
         if(byKey){
           cancelDisconnectDebounce(ROLE_PLAYER,room.code,byKey.id);
           cancelReconnectTimer(room.code,byKey.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
-          if(byKey.socketId&&byKey.socketId!==socket.id)io.to(byKey.socketId).emit('sessionReplaced');
+          if(byKey.socketId&&byKey.socketId!==socket.id)retireReplacedSocket(byKey.socketId,{roomCode:room.code});
           p=Engine.reconnectPlayer(room,byKey.token,socket.id);
         }
       }
@@ -1613,7 +1639,7 @@ io.on('connection', socket => {
         if(spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
         cancelDisconnectDebounce(ROLE_SPECTATOR,code,spectator.id);
         cancelSpectatorReconnectTimer(code,spectator.id);
-        if(spectator.socketId&&spectator.socketId!==socket.id)io.to(spectator.socketId).emit('sessionReplaced');
+        if(spectator.socketId&&spectator.socketId!==socket.id)retireReplacedSocket(spectator.socketId,{roomCode:room.code});
         spectator.socketId=socket.id;spectator.connected=true;spectator.disconnectedAt=null;
         spectator.name=cleanPresenceName(payload?.name||spectator.name||socket.data.auth.name);
         spectator.avatar=cleanAvatar(payload?.avatar||spectator.avatar||'macaco');
@@ -1927,7 +1953,7 @@ io.on('connection', socket => {
       const room = rooms.get(socket.data.roomCode);
       if (!room) throw new Error('Sala não encontrada.');
       const player = room.players.find(p => p.id === socket.data.playerId);
-      if (!player || !player.connected || player.isBot) throw new Error('Jogador não disponível para enviar áudio.');
+      if (!player || !player.connected || player.isBot || player.socketId !== socket.id) throw new Error('Jogador não disponível para enviar áudio.');
 
       const now = Date.now();
       if (socket.data.lastVoiceAt && now - socket.data.lastVoiceAt < QUICK_AUDIO_COOLDOWN_MS) {
@@ -2093,7 +2119,10 @@ setInterval(()=>{
   for(const [code,room] of rooms){
     const humans=room.players.filter(p=>!p.isBot);
     const allHumansGone=!humans.length || humans.every(p=>!p.connected);
-    if(allHumansGone && now-room.createdAt>6*60*60*1000) {
+    const activeMatch=room.status==='playing' || (room.status==='between-rounds' && Number(room.round||0)>0);
+    // V40.57.1 — uma partida ativa não expira por idade. A cadeira humana segue
+    // reservada até o encerramento da partida, mesmo que todos estejam offline/AUTO.
+    if(!activeMatch && allHumansGone && now-room.createdAt>6*60*60*1000) {
       if (room.botTimer) clearTimeout(room.botTimer);
       clearReconnectTimersForRoom(code);
       closeSpectatorsForRoom(room);
