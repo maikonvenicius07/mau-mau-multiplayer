@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.54.1",
-  "description": "Mau-Mau Candeias V40.54.1: correção da configuração TURN/snapshots no .env.example; V40.54 preservada sem alteração de regras.",
+  "version": "40.55.0",
+  "description": "Mau-Mau Candeias V40.55: estabilidade final com Connection State Recovery, Áudio Rápido mais leve e snapshots sem Base64 repetida.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

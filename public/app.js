@@ -17,7 +17,7 @@ const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
 let chatMessages=[], unreadChat=0, activeSideTab='log';
-const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=700*1024;
+const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=250*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
 const playingVoiceAudios=new Set();
 // V40.48 — MINHA MÚSICA LOCAL. O arquivo permanece somente neste navegador/aparelho.

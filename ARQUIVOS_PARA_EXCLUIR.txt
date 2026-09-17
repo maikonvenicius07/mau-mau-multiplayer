@@ -1,6 +1,1 @@
-V40.54 — NENHUMA EXCLUSÃO NECESSÁRIA
-
-Nesta atualização não é preciso apagar nenhum arquivo do projeto.
-
-Observação:
-A pasta public/assets/music/ já havia sido removida na V40.47 e deve continuar ausente.
+V40.55: não há arquivos para excluir nesta atualização.

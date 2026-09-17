@@ -15,7 +15,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
-  maxHttpBufferSize: 900000,
+  maxHttpBufferSize: 400000,
+  // V40.55 — Socket.IO mantém por até 60 s o contexto de uma conexão interrompida
+  // e pode entregar pacotes perdidos após uma microqueda. Nossa reconexão de cadeira
+  // continua sendo a segunda camada de proteção para quedas maiores.
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 60 * 1000,
+    skipMiddlewares: false,
+  },
   // V40.49 — tolerância maior a pequenas oscilações de rede móvel sem deixar
   // uma conexão realmente perdida presa por tempo excessivo.
   pingInterval: 20000,
@@ -564,7 +571,7 @@ function withRoom(socket, fn) {
 
 const SOCIAL_EFFECTS = new Set(['applause','laugh','angry','horn','drum','victory','wow','jogaBoca']);
 const QUICK_AUDIO_MAX_MS = 15000;
-const QUICK_AUDIO_MAX_BYTES = 700 * 1024;
+const QUICK_AUDIO_MAX_BYTES = 250 * 1024;
 const QUICK_AUDIO_COOLDOWN_MS = 2500;
 function ensureSpectators(room) {
   if (!Array.isArray(room.spectators)) room.spectators = [];
@@ -1188,7 +1195,10 @@ io.use((socket,next)=>{
 });
 
 io.on('connection', socket => {
-  socket.data.role=null;socket.data.spectatorId=null;
+  // V40.55 — quando o próprio Socket.IO recupera a sessão, preservamos os dados
+  // restaurados até o join automático do cliente confirmar/revincular a vaga.
+  if(!socket.recovered){socket.data.role=null;socket.data.spectatorId=null;}
+  else connectionDebug('socket.io recovered', {socketId:socket.id,roomCode:socket.data.roomCode,role:socket.data.role});
   registerPresenceSocket(socket);
   socket.emit('presenceSnapshot',buildPresenceSnapshot());
   socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());

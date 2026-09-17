@@ -1,3 +1,15 @@
+## V40.55 — Estabilidade Final
+
+- Ativa `connectionStateRecovery` do Socket.IO por 60 s, sem substituir a reconexão inteligente existente.
+- Preserva `socket.data` quando a conexão é recuperada nativamente.
+- Reduz `maxHttpBufferSize` de 900 KB para 400 KB.
+- Reduz o limite do Áudio Rápido de 700 KB para 250 KB, mantendo 15 s e 48 kbps.
+- Snapshots deixam de repetir Data URLs/Base64 dentro do JSON da sala.
+- Adiciona `mm_room_avatar_assets` no PostgreSQL, com assets endereçados por hash e limpeza por sala.
+- Assets de avatar só são regravados quando o conjunto de referências muda.
+- Mantém compatibilidade com snapshots antigos da V40.53/V40.54.
+- Regras do jogo, WebRTC, observadores, ranking e Minha Música permanecem inalterados.
+
 ## V40.54.1 — Correção de configuração TURN / snapshots
 
 - Completa `.env.example` com `VOICE_TURN_SECRET` e `VOICE_TURN_TTL_SECONDS=3600`.

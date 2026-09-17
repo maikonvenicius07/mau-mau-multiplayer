@@ -1,0 +1,23 @@
+MAU-MAU CANDEIAS — V40.55 — ESTABILIDADE FINAL
+
+OBJETIVO
+Consolidar rede e persistência sem alterar nenhuma regra do jogo.
+
+MELHORIAS
+1. Socket.IO Connection State Recovery por até 60 segundos para microquedas.
+2. A Reconexão Inteligente de 60 s continua existindo como segunda proteção.
+3. Áudio Rápido continua com até 15 s, mas passa a aceitar no máximo 250 KB.
+4. O Socket.IO passa a rejeitar pacotes acima de 400 KB.
+5. Snapshots salvam referências de avatar no JSON e os bytes das figurinhas em tabela separada.
+6. Figurinhas só são regravadas no banco quando o conjunto de avatares da sala muda.
+7. TURN continua opcional. Não é necessário contratar serviço pago.
+
+NÃO ALTERADO
+- Ás, Dama (incluindo regra especial de 2 jogadores), Queima, Carta Dupla, Ação Rápida e 7.
+- Ordem anti-horária inicial e assentos fixos.
+- WebRTC/Opus, AudioWorklet e fallback de voz.
+- Observador e proteção de cartas privadas.
+- Ranking, convites, jogadores recentes e Minha Música.
+
+DEPLOY
+Não há nova variável obrigatória no Render. As variáveis já configuradas na V40.54.1 continuam válidas.
