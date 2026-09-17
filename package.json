@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.58.1",
-  "description": "Mau-Mau Candeias V40.58.1: correção de empacotamento/deploy da V40.58, com arquivos ocultos restaurados e configuração documentada.",
+  "version": "40.58.2",
+  "description": "Mau-Mau Candeias V40.58.2: continuidade da partida ao sair e isolamento do chat entre partidas/salas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

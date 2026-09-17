@@ -639,6 +639,9 @@ function maybeStartReplay(room) {
   room.players=room.players.filter(p=>p.isBot||p.connected);
   ensureHost(room);
   Engine.resetMatch(room);
+  // V40.58.2 — clientes que permaneceram na mesma sala também precisam apagar
+  // imediatamente o chat da partida anterior; não basta limpar só no servidor.
+  io.to(room.code).emit('chatHistory',[]);
   Engine.startRound(room);
   Engine.appendLog(room, '🎮 Todos confirmaram. A revanche começou!', 'system');
   return true;
@@ -665,35 +668,23 @@ function addBotToRoom(room) {
   return bot;
 }
 
-function cancelCurrentRoundAfterLeave(room, leavingName) {
-  // A saída voluntária no meio da rodada não pode deixar a mesa pausada.
-  // A rodada corrente é anulada e pode ser reiniciada com os jogadores restantes.
-  room.round = Math.max(0, room.round - 1);
-  room.status = room.round === 0 ? 'lobby' : 'between-rounds';
-  room.deck = [];
-  room.discard = [];
-  room.direction = -1;
-  room.currentPlayer = -1;
-  room.requestedSuit = null;
-  room.pendingSeven = 0;
-  room.winnerId = null;
-  room.lastWinnerCard = null;
-  room.continuationPlayerId = null;
-  room.lastPlayedById = null;
-  room.burnTopCardId = null;
-  room.reactionTopCardId = null;
-  room.reactionSourcePlayerId = null;
-  room.reactionNextPlayerId = null;
-  room.finishPendingSeven = false;
-  room.roundRoles = null;
-  for (const p of room.players) {
-    p.hand = [];
-    p.roundScore = 0;
-    p.finishedRound = false;
-    p.declaration = null;
-    p.justDrawnCardId = null;
-  }
-  Engine.appendLog(room, `${leavingName} saiu da sala. A rodada em andamento foi cancelada e deverá ser reiniciada.`, 'system');
+function handoffActiveSeatToAuto(room, player) {
+  const matchActive=!!(room && player && !player.isBot && (room.status==='playing' || (room.status==='between-rounds' && Number(room.round||0)>0)));
+  if(!matchActive) return false;
+
+  // V40.58.2 — sair voluntariamente de uma partida ativa NÃO remove a cadeira,
+  // NÃO apaga a mão e NÃO reinicia a rodada. A vaga humana fica reservada para
+  // a Conta Google original e a Máquina assume imediatamente até o retorno.
+  cancelReconnectTimer(room.code,player.id);
+  if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+  player.connected=false;
+  player.socketId=null;
+  player.disconnectedAt=Date.now();
+  player.autoControlled=true;
+  player.reconnectDeadlineAt=null;
+  Engine.appendLog(room, `🤖 ${player.name} saiu da sala. A Máquina assumiu temporariamente sua vaga até ele voltar.`, 'system');
+  io.to(room.code).emit('reconnectionEvent',{kind:'auto',playerId:player.id,name:player.name,voluntary:true});
+  return true;
 }
 function withRoom(socket, fn) {
   try {
@@ -1858,9 +1849,25 @@ io.on('connection', socket => {
       }
 
       const leaving = room.players[idx];
-      cancelReconnectTimer(code,leaving.id);
       invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
-      const wasPlaying = room.status === 'playing';
+
+      // Em uma partida que já começou, "Sair" significa entregar temporariamente
+      // a cadeira à Máquina. A identidade, mão, pontuação e posição permanecem intactas.
+      if(handoffActiveSeatToAuto(room,leaving)){
+        socket.leave(code);
+        socket.data.roomCode=null;
+        socket.data.playerId=null;
+        socket.data.spectatorId=null;
+        socket.data.role=null;
+        socket.emit('leftRoom',{keepSeat:true,message:'Você saiu da mesa. A Máquina assumiu sua vaga e a partida continuará até você voltar.'});
+        emitRoom(room);
+        broadcastPresence();
+        return;
+      }
+
+      // Antes da partida começar (ou depois que ela terminou), sair continua sendo
+      // uma remoção definitiva normal da sala.
+      cancelReconnectTimer(code,leaving.id);
       const wasFinished = room.status === 'finished';
       room.players.splice(idx, 1);
       if(Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=room.replayReadyPlayerIds.filter(id=>id!==leaving.id);
@@ -1873,14 +1880,7 @@ io.on('connection', socket => {
         removeRoom(code);
         invalidateInvitesForRoom(code);
       } else {
-        if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
-        else Engine.appendLog(room, `${leaving.name} saiu da sala.`, 'system');
-
-        // Se restou somente um participante durante uma partida já iniciada,
-        // ele retorna à espera. As regras de entrada tardia continuam valendo.
-        if (room.players.length === 1 && room.status === 'between-rounds' && room.round === 0) {
-          room.status = 'lobby';
-        }
+        Engine.appendLog(room, `${leaving.name} saiu da sala.`, 'system');
         ensureHost(room);
         if(wasFinished) maybeStartReplay(room);
         emitRoom(room);

@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS — V40.58.2
+
+CORREÇÕES
+1. Sair durante partida ativa não cancela mais a rodada: a Máquina assume imediatamente a vaga humana.
+2. A cadeira, mão, pontuação e identidade Google ficam preservadas para retorno.
+3. O chat da partida anterior é apagado ao iniciar uma nova partida na mesma sala.
+4. Ao entrar em outra sala ou como observador, o chat local anterior é limpo imediatamente.
+
+A queda involuntária de internet continua com 60 segundos de tolerância antes da Máquina assumir.

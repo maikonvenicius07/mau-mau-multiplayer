@@ -1,0 +1,18 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.58.2
+
+Correções validadas:
+- Sair durante partida ativa não remove a cadeira humana.
+- A Máquina assume imediatamente a vaga, sem reiniciar/cancelar a rodada.
+- Mão, pontuação, posição e identidade Google permanecem reservadas.
+- Ao retornar, o jogador recupera a mesma cadeira em AUTO.
+- Queda involuntária de internet continua com 60 s de tolerância antes do AUTO.
+- Chat da partida anterior é apagado ao iniciar nova partida na mesma sala.
+- Clientes já conectados recebem chatHistory vazio na revanche.
+- Ao entrar em outra sala ou como observador, o chat local anterior é limpo imediatamente.
+
+Validação técnica:
+- node --check: aprovado
+- npm run verify: aprovado
+- Suíte completa: 78/78 testes aprovados
+- Regras da Dama com 2 jogadores, Ás, Queima, Carta Dupla, Ação Rápida, observador,
+  ranking, áudio/WebRTC/TURN e Reconexão Permanente preservadas.

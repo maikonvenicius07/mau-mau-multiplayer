@@ -1,3 +1,11 @@
+## V40.58.2 — Continuidade ao Sair + Chat Isolado
+
+- Durante uma partida ativa, o botão **Sair** não remove mais o jogador nem cancela/reinicia a rodada. A cadeira humana, mão, pontuação e posição permanecem reservadas e a **Máquina assume imediatamente** até a mesma Conta Google voltar.
+- A perda involuntária de conexão continua usando a janela de 60 segundos antes do AUTO, como nas versões anteriores.
+- Ao iniciar uma nova partida na mesma sala, o histórico de chat da partida anterior é apagado.
+- Ao entrar em qualquer sala ou no Modo Observador, o navegador limpa imediatamente o chat local anterior antes de receber o histórico da sala atual.
+- Regras de cartas, Dama em 2 jogadores, Queima, Dupla, Ação Rápida, observador, ranking e áudio/WebRTC não foram alterados.
+
 ## V40.58.1 — Correção de Empacotamento e Deploy
 - Restaurados `.node-version`, `.npmrc` e `.github/workflows/verify.yml` que ficaram fora do ZIP da V40.58.
 - `.env.example` voltou a documentar snapshots, TURN temporário e as opções `MAUMAU_ALLOWED_ORIGINS`/logs da V40.58.

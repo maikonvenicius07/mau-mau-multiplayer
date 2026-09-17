@@ -1200,11 +1200,11 @@ $('#copyInvite').onclick=()=>shareRoomInvite(state?.code);
 $('#leaveBtn').onclick=()=>{
   if(!state) return;
   const spectator=isSpectatorState();
-  const duringRound=state.status==='playing';
+  const activeMatch=Number(state.round||0)>0&&state.status!=='finished';
   const message=spectator
     ? 'Deseja sair do Modo Observador? A partida continuará normalmente para os jogadores.'
-    : duringRound
-      ? 'Deseja sair da sala? A rodada atual será cancelada para os jogadores que permanecerem.'
+    : activeMatch
+      ? 'Deseja sair da mesa? A Máquina assumirá sua vaga e a partida continuará normalmente. Quando você voltar com a mesma Conta Google, recuperará seu lugar, suas cartas e sua pontuação.'
       : 'Deseja sair desta sala?';
   if(!window.confirm(message)) return;
   if(!socket.connected){
@@ -2161,6 +2161,12 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   savedSessionResumePending=false;accountSeatResumePending=false;
+  // V40.58.2 — nunca mostre, nem por alguns instantes, conversa da sala/partida anterior.
+  // O servidor enviará chatHistory logo em seguida com somente o histórico da mesa atual.
+  for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}
+  chatMessages=[];unreadChat=0;
+  for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}
+  refreshQuickAudioMusicDuck();renderChat();renderChatBadge();
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   const resumeLiveMic=!!liveMicWanted;
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
@@ -2338,7 +2344,9 @@ socket.on('gameError',e=>{
   playGameSound('error');toast(e.message);render();
 });
 socket.on('leftRoom',data=>{
-  clearSession();
+  // Quando a cadeira ficou em AUTO, preservamos código/token local. Assim, ao
+  // reabrir o jogo, a mesma Conta Google volta automaticamente para a vaga.
+  if(!data?.keepSeat)clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
   syncPresenceProfile();
 });
