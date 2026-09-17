@@ -1,3 +1,13 @@
+## V40.58 — Segurança e Monitoramento
+
+A V40.58 reforça o servidor sem alterar as regras do jogo: remove o CORS global do Socket.IO, valida a origem do handshake no servidor, adiciona cabeçalhos HTTP de segurança, cria correlação por `X-Request-Id` e amplia os endpoints `/health` e `/ready`. Os logs opcionais trabalham com uma lista restrita de campos e não registram cartas, mãos, cookies, corpo das requisições, tokens ou credenciais.
+
+Para o uso normal no próprio domínio do Render, nenhuma origem extra precisa ser configurada. A variável `MAUMAU_ALLOWED_ORIGINS` deve ser usada somente se um frontend legítimo em outro domínio precisar acessar o servidor.
+
+A Reconexão Inteligente Permanente da V40.57.1, o Modo Observador, o áudio/WebRTC, o ranking e todas as regras continuam preservados. A regra da Dama em partidas com 2 jogadores permanece intacta.
+
+---
+
 ## V40.57.1 — Correções da Auditoria
 
 A V40.57.1 preserva integralmente a Reconexão Inteligente Permanente e corrige três pontos encontrados na auditoria: restaura os arquivos do deploy seguro, encerra completamente o socket antigo quando uma nova sessão assume a vaga e impede que uma partida ativa seja removida apenas por ultrapassar 6 horas. Chat, efeitos e Áudio Rápido também passam a exigir o socket proprietário atual da cadeira.

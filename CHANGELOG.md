@@ -1,3 +1,13 @@
+## V40.58 — Segurança e Monitoramento
+- Remove CORS global (`origin: *`) do Socket.IO.
+- Autoriza automaticamente a mesma origem do jogo e permite origens externas somente por `MAUMAU_ALLOWED_ORIGINS`.
+- Valida o `Origin` também no handshake do servidor com `allowRequest`.
+- Adiciona CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy e Permissions-Policy.
+- Adiciona `X-Request-Id`, `/ready` e métricas operacionais mínimas em `/health`.
+- Adiciona logs HTTP estruturados opcionais (`MAUMAU_HTTP_LOGS=1`) sem query string, cookies, corpo, cartas ou tokens.
+- Preserva integralmente regras, reconexão, observador, ranking e áudio.
+- 76 testes aprovados.
+
 ## V40.57.1 — Correções da Auditoria
 
 - Restaurados `.node-version`, `.npmrc`, workflow de verificação do GitHub e `.env.example` completo.

@@ -13,8 +13,70 @@ const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_
 
 const app = express();
 const server = http.createServer(app);
+const APP_VERSION = require('./package.json').version;
+const SERVICE_STARTED_AT = Date.now();
+const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
+const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(value=>value.trim())
+  .filter(Boolean)
+  .map(value=>{try{return new URL(value).origin}catch{return ''}})
+  .filter(Boolean);
+const ALLOWED_CROSS_ORIGIN_SET = new Set(ALLOWED_CROSS_ORIGINS);
+const monitor = {
+  httpRequests:0,
+  http5xx:0,
+  rejectedHttpOrigins:0,
+  socketConnections:0,
+  socketDisconnects:0,
+  rejectedSocketOrigins:0,
+};
+function safeRequestHost(req){
+  return String(req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(',')[0].trim().toLowerCase();
+}
+function normalizedOrigin(value){
+  try{
+    const url=new URL(String(value||''));
+    if(!/^https?:$/.test(url.protocol))return '';
+    return url.origin;
+  }catch{return ''}
+}
+function requestOriginAllowed(req){
+  const rawOrigin=String(req?.headers?.origin || '').trim();
+  if(!rawOrigin)return true; // clientes não-browser / mesma política sem Origin
+  const origin=normalizedOrigin(rawOrigin);
+  if(!origin)return false;
+  if(ALLOWED_CROSS_ORIGIN_SET.has(origin))return true;
+  try{return new URL(origin).host.toLowerCase()===safeRequestHost(req)}catch{return false}
+}
+function logMonitor(level,scope,message,details={}){
+  const safeDetails={};
+  for(const key of ['requestId','method','path','status','durationMs','reason','origin','host']){
+    const value=details?.[key];
+    if(value!==undefined&&value!==null&&value!=='')safeDetails[key]=String(value).slice(0,240);
+  }
+  const line={ts:new Date().toISOString(),scope,message,...safeDetails};
+  const fn=level==='error'?console.error:level==='warn'?console.warn:console.log;
+  fn(JSON.stringify(line));
+}
 const io = new Server(server, {
-  cors: { origin: '*' },
+  // V40.58 — o navegador normal usa a mesma origem do jogo. Origens externas só
+  // recebem CORS quando estiverem explicitamente listadas em MAUMAU_ALLOWED_ORIGINS.
+  cors: {
+    origin: ALLOWED_CROSS_ORIGINS.length ? ALLOWED_CROSS_ORIGINS : false,
+    credentials: true,
+    methods: ['GET','POST'],
+  },
+  // CORS é uma proteção do navegador; allowRequest também bloqueia o handshake
+  // no próprio servidor, inclusive clientes que tentem contornar o navegador.
+  allowRequest: (req, callback) => {
+    const allowed=requestOriginAllowed(req);
+    if(!allowed){
+      monitor.rejectedSocketOrigins++;
+      logMonitor('warn','security','socket-origin-rejected',{origin:req?.headers?.origin,host:safeRequestHost(req)});
+    }
+    callback(null,allowed);
+  },
   maxHttpBufferSize: 400000,
   // V40.55 — Socket.IO mantém por até 60 s o contexto de uma conexão interrompida
   // e pode entregar pacotes perdidos após uma microqueda. Nossa reconexão de cadeira
@@ -181,6 +243,61 @@ function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
 }
 
 app.set('trust proxy', 1);
+
+// V40.58 — camada HTTP: origem restrita, cabeçalhos de segurança e telemetria
+// mínima. Nunca registra query string, cookies, corpo da requisição, cartas ou tokens.
+app.use((req,res,next)=>{
+  const requestId=/^[A-Za-z0-9._-]{8,80}$/.test(String(req.headers['x-request-id']||''))
+    ? String(req.headers['x-request-id'])
+    : crypto.randomUUID();
+  const started=process.hrtime.bigint();
+  monitor.httpRequests++;
+  res.setHeader('X-Request-Id',requestId);
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.setHeader('X-Frame-Options','DENY');
+  res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy','camera=(), geolocation=(), payment=(), usb=(), microphone=(self)');
+  res.setHeader('Content-Security-Policy',[
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "script-src 'self' https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    "connect-src 'self' ws: wss: https://accounts.google.com",
+    "frame-src https://accounts.google.com",
+    "worker-src 'self' blob:",
+    "form-action 'self'",
+  ].join('; '));
+
+  const origin=String(req.headers.origin||'').trim();
+  if(origin && !requestOriginAllowed(req)){
+    monitor.rejectedHttpOrigins++;
+    logMonitor('warn','security','http-origin-rejected',{requestId,method:req.method,path:req.path,origin,host:safeRequestHost(req)});
+    return res.status(403).json({ok:false,message:'Origem não autorizada.'});
+  }
+  const normalized=normalizedOrigin(origin);
+  if(normalized && ALLOWED_CROSS_ORIGIN_SET.has(normalized)){
+    res.setHeader('Access-Control-Allow-Origin',normalized);
+    res.setHeader('Access-Control-Allow-Credentials','true');
+    res.setHeader('Vary','Origin');
+    res.setHeader('Access-Control-Allow-Headers','Content-Type, X-Request-Id');
+    res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS');
+  }
+  if(req.method==='OPTIONS')return res.sendStatus(204);
+
+  res.on('finish',()=>{
+    if(res.statusCode>=500)monitor.http5xx++;
+    if(MONITOR_HTTP_LOGS){
+      const durationMs=Number(process.hrtime.bigint()-started)/1e6;
+      logMonitor(res.statusCode>=500?'error':'info','http','request',{requestId,method:req.method,path:req.path,status:res.statusCode,durationMs:durationMs.toFixed(1)});
+    }
+  });
+  next();
+});
 app.use(express.json({limit:'16kb'}));
 
 app.get('/api/auth/config', (_,res)=>res.json({ok:true,configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID || null}));
@@ -229,7 +346,32 @@ app.use(express.static(path.join(__dirname, 'public'), {
     else if(/\.html?$/i.test(filePath)) res.setHeader('Cache-Control','no-cache');
   }
 }));
-app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind, roomSnapshots:roomSnapshotStore.kind}));
+app.get('/health', (_, res) => {
+  res.setHeader('Cache-Control','no-store');
+  res.json({
+    ok:true,
+    status:'live',
+    version:APP_VERSION,
+    uptimeSeconds:Math.floor((Date.now()-SERVICE_STARTED_AT)/1000),
+    rooms:rooms.size,
+    sockets:io.engine?.clientsCount || 0,
+    ranking:rankingStore.kind,
+    roomSnapshots:roomSnapshotStore.kind,
+    monitor:{
+      httpRequests:monitor.httpRequests,
+      http5xx:monitor.http5xx,
+      socketConnections:monitor.socketConnections,
+      socketDisconnects:monitor.socketDisconnects,
+      rejectedOrigins:monitor.rejectedHttpOrigins+monitor.rejectedSocketOrigins,
+    },
+  });
+});
+app.get('/ready', async (_,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  const [rankingOk,snapshotOk]=await Promise.all([rankingReady,roomSnapshotsReady]);
+  const ok=!!(rankingOk&&snapshotOk);
+  res.status(ok?200:503).json({ok,status:ok?'ready':'degraded',version:APP_VERSION,ranking:rankingStore.kind,roomSnapshots:roomSnapshotStore.kind});
+});
 
 app.get('/api/ranking', async (req,res)=>{
   try {
@@ -1295,6 +1437,12 @@ io.use((socket,next)=>{
 });
 
 io.on('connection', socket => {
+  monitor.socketConnections++;
+  connectionDebug('connected',{socketId:socket.id,recovered:!!socket.recovered});
+  socket.once('disconnect',reason=>{
+    monitor.socketDisconnects++;
+    connectionDebug('disconnected',{socketId:socket.id,reason});
+  });
   // V40.55 — quando o próprio Socket.IO recupera a sessão, preservamos os dados
   // restaurados até o join automático do cliente confirmar/revincular a vaga.
   if(!socket.recovered){socket.data.role=null;socket.data.spectatorId=null;}

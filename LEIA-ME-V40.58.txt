@@ -1,0 +1,33 @@
+MAU-MAU CANDEIAS — V40.58
+SEGURANÇA E MONITORAMENTO
+
+O que mudou
+1. Socket.IO deixou de aceitar CORS global com origin "*".
+2. A mesma origem do próprio jogo continua funcionando automaticamente.
+3. Frontends externos só são aceitos se estiverem na variável MAUMAU_ALLOWED_ORIGINS.
+4. O handshake Socket.IO também é bloqueado no servidor quando a origem não é autorizada.
+5. Foram adicionados cabeçalhos HTTP de proteção: CSP, X-Content-Type-Options,
+   X-Frame-Options, Referrer-Policy e Permissions-Policy.
+6. O CSP preserva os recursos usados pelo projeto, inclusive Google Sign-In,
+   WebSocket/WebRTC do jogo e imagens da Conta Google.
+7. /health agora informa versão, uptime e contadores operacionais mínimos.
+8. /ready informa se os armazenamentos necessários foram inicializados.
+9. Cada requisição recebe X-Request-Id.
+10. Logs HTTP estruturados podem ser ativados com MAUMAU_HTTP_LOGS=1.
+
+Privacidade dos logs
+Os logs de monitoramento NÃO registram query string, cookies, corpo da requisição,
+cartas, mãos dos jogadores, tokens de autenticação nem credenciais.
+
+Render
+Para o uso normal do jogo hospedado no próprio Render, não é necessário preencher
+MAUMAU_ALLOWED_ORIGINS. A mesma origem é aceita automaticamente.
+
+Somente preencha MAUMAU_ALLOWED_ORIGINS se houver outro frontend legítimo em outro
+domínio. Exemplo:
+MAUMAU_ALLOWED_ORIGINS=https://outro-front.exemplo
+
+Regras preservadas
+Esta versão não altera regras de turno, Ás, Dama, Queima, Carta Dupla, Ação Rápida,
+reconexão, observador, ranking, áudio ou WebRTC. A regra da Dama para 2 jogadores
+permanece preservada integralmente.

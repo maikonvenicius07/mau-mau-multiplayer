@@ -1,0 +1,23 @@
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.58
+
+Arquivos desta atualização:
+- server.js
+- package.json
+- .env.example
+- public/index.html
+- testes que acompanham a versão corrente
+- tests/security-monitoring-v4058.test.js
+- LEIA-ME-V40.58.txt
+- ATUALIZAR_V40.58.txt
+
+No GitHub, substitua/adicone os arquivos mantendo a mesma estrutura de pastas.
+Depois faça commit e push. O Render executará npm install e npm run verify antes
+de publicar, conforme a configuração já existente.
+
+Variáveis novas opcionais:
+MAUMAU_ALLOWED_ORIGINS=
+MAUMAU_HTTP_LOGS=0
+MAUMAU_CONNECTION_DEBUG=0
+
+Para o site principal, deixe MAUMAU_ALLOWED_ORIGINS vazio. A origem do próprio jogo
+é reconhecida automaticamente.
