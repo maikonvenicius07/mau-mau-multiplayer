@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — V40.58.4
+
+CORREÇÃO PRINCIPAL
+- Sair durante partida ativa deixa de depender apenas do estado connected/socket.
+- O servidor marca explicitamente a saída voluntária e libera a Conta Google para outra mesa.
+- A Máquina continua a partida na vaga deixada.
+- Se o jogador voltar antes de escolher outra mesa, pode retomar a mesma cadeira.
+- Se escolher outra mesa, a cadeira antiga vira Máquina permanente e não bloqueia a nova sala.
+- O botão Sair agora aguarda confirmação do servidor e exibe "Saindo...".
+
+CHAT
+- Continua por sala: mesma sala mantém conversa; sala diferente possui conversa própria.

@@ -1,3 +1,12 @@
+## V40.58.4 — Saída Confirmada + Conta Livre entre Salas
+
+- **Sair** durante partida ativa continua entregando a cadeira à Máquina sem reiniciar a rodada.
+- A saída voluntária agora recebe uma marca explícita no servidor (`voluntaryLeftAt`), evitando que um socket antigo mantenha a Conta Google presa à sala anterior.
+- Ao escolher outra sala, a vaga antiga em AUTO é liberada mesmo em condições de corrida de conexão; se a partida continuar, a cadeira vira Máquina permanente mantendo mão/placar/posição.
+- O botão **Sair** usa confirmação Socket.IO com timeout e estado **Saindo...**, tornando falhas de saída visíveis em vez de silenciosas.
+- Se o jogador apenas sair e depois voltar à mesma partida sem escolher outra mesa, a cadeira continua recuperável pela mesma Conta Google.
+- O chat continua sendo **por sala**: revanche na mesma sala mantém a conversa; sala diferente começa com outro histórico.
+
 ## V40.58.3 — Chat por Sala + Troca Segura de Mesa
 
 - A conversa pertence à sala e continua nas revanches da mesma sala.

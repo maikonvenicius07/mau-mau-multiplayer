@@ -17,6 +17,7 @@ const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
 let chatMessages=[], unreadChat=0, activeSideTab='log';
+let leaveRoomPending=false;
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=250*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
 const playingVoiceAudios=new Set();
@@ -1198,7 +1199,7 @@ $('#linkInviteJoin')?.addEventListener('click',()=>{const code=$('#linkInviteCod
 $('#linkInviteCopy')?.addEventListener('click',()=>copyRoomInvite($('#linkInviteCode')?.textContent||''));
 $('#copyInvite').onclick=()=>shareRoomInvite(state?.code);
 $('#leaveBtn').onclick=()=>{
-  if(!state) return;
+  if(!state||leaveRoomPending) return;
   const spectator=isSpectatorState();
   const activeMatch=Number(state.round||0)>0&&state.status!=='finished';
   const message=spectator
@@ -1213,7 +1214,17 @@ $('#leaveBtn').onclick=()=>{
     return;
   }
   if(liveMicOn)stopLiveMic({notify:true,showToast:false});
-  socket.emit('leaveRoom');
+  leaveRoomPending=true;
+  const btn=$('#leaveBtn');
+  if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent||'🚪 Sair';btn.textContent='⏳ Saindo...'}
+  socket.timeout(5000).emit('leaveRoom',(timeoutErr,response)=>{
+    if(!state)return; // o evento leftRoom já confirmou e voltou ao lobby
+    if(timeoutErr||!response?.ok){
+      leaveRoomPending=false;
+      if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'🚪 Sair'}
+      toast(response?.message||'Não foi possível confirmar a saída. Tente novamente.');
+    }
+  });
 };
 
 applyPileSide();
@@ -2345,6 +2356,8 @@ socket.on('gameError',e=>{
   playGameSound('error');toast(e.message);render();
 });
 socket.on('leftRoom',data=>{
+  leaveRoomPending=false;
+  const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
   // Quando a cadeira ficou em AUTO, preservamos código/token local. Assim, ao
   // reabrir o jogo, a mesma Conta Google volta automaticamente para a vaga.
   if(!data?.keepSeat)clearSession();

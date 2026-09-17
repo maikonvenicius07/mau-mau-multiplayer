@@ -7,7 +7,7 @@ const pkg=require(path.join(root,'package.json'));
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-assert.strictEqual(pkg.version,'40.58.3');
+assert.strictEqual(pkg.version,'40.58.4');
 assert(!html.includes('id="musicBtn"')&&!html.includes('id="musicBtnLanding"'),'botão de música interna antiga ainda aparece');
 assert(!html.includes('id="musicPanel"'),'painel de música interna ainda aparece');
 assert(!app.includes('const musicCatalog='),'catálogo de trilhas internas ainda existe');

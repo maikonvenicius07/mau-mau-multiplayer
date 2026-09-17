@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.58.4
+
+Resultado: 80/80 testes aprovados.
+Comando: npm run verify
+
+Correção validada:
+- Sair voluntário em partida ativa marca a cadeira explicitamente no servidor.
+- Máquina assume sem reiniciar a rodada.
+- Conta Google fica livre para criar, entrar ou assistir outra sala.
+- Socket antigo não pode manter a conta presa depois de uma saída confirmada.
+- Se o jogador apenas sair e retornar à mesma partida, a cadeira permanece recuperável.
+- Ao escolher outra sala, a vaga antiga vira Máquina permanente e deixa de reservar a Conta Google.
+- Botão Sair aguarda confirmação do servidor e mostra “Saindo...”.
+- Chat continua isolado por sala e persiste em revanche na mesma sala.

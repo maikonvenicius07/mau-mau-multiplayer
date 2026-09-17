@@ -680,6 +680,11 @@ function handoffActiveSeatToAuto(room, player) {
   player.socketId=null;
   player.disconnectedAt=Date.now();
   player.autoControlled=true;
+  // V40.58.4 — esta marca distingue SAÍDA VOLUNTÁRIA de simples queda de internet.
+  // Ela libera a Conta Google para trocar de mesa sem depender de um socket antigo
+  // ainda aparecer como conectado por alguns instantes. Enquanto o usuário não
+  // escolher outra mesa, a mesma cadeira continua recuperável pela própria conta.
+  player.voluntaryLeftAt=Date.now();
   player.reconnectDeadlineAt=null;
   Engine.appendLog(room, `🤖 ${player.name} saiu da sala. A Máquina assumiu temporariamente sua vaga até ele voltar.`, 'system');
   io.to(room.code).emit('reconnectionEvent',{kind:'auto',playerId:player.id,name:player.name,voluntary:true});
@@ -1008,6 +1013,7 @@ function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) 
 
   const resumed=Engine.reconnectPlayer(room,player.token,socket.id);
   if(!resumed)throw new Error('Não foi possível recuperar sua vaga.');
+  resumed.voluntaryLeftAt=null;
 
   removeFromMatchmaking(authKey,{reason:'Busca encerrada porque sua partida foi retomada.',notify:true});
   socket.data.roomCode=room.code;
@@ -1051,7 +1057,14 @@ function releaseDisconnectedReservedSeatsForSwitch(socket, exceptCode=null) {
     const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
     if(!player)continue;
     const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
-    if(player.connected&&liveSocket)continue;
+    const voluntaryLeft=Number(player.voluntaryLeftAt||0)>0;
+    // Uma saída voluntária é definitiva para fins de troca de mesa, mesmo se um
+    // socket antigo ainda estiver visível durante uma corrida de eventos. Só
+    // bloqueamos a troca quando a cadeira está realmente conectada E não houve Sair.
+    if(player.connected&&liveSocket&&!voluntaryLeft)continue;
+    if(voluntaryLeft&&liveSocket&&player.socketId!==socket.id){
+      retireReplacedSocket(player.socketId,{roomCode:room.code});
+    }
 
     cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
     cancelReconnectTimer(room.code,player.id);
@@ -1069,6 +1082,7 @@ function releaseDisconnectedReservedSeatsForSwitch(socket, exceptCode=null) {
       player.autoControlled=false;
       player.disconnectedAt=null;
       player.reconnectDeadlineAt=null;
+      player.voluntaryLeftAt=null;
       player.playerKey=null;
       player.token=crypto.randomUUID();
       player.host=false;
@@ -1790,6 +1804,7 @@ io.on('connection', socket => {
           if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
         }
         p = Engine.reconnectPlayer(room,payload.token,socket.id);
+        if(p)p.voluntaryLeftAt=null;
         if(p && wasDisconnected){
           Engine.appendLog(room, wasAutoControlled
             ? `🟢 ${p.name} voltou e retomou seu lugar da Máquina.`
@@ -1805,6 +1820,7 @@ io.on('connection', socket => {
           cancelReconnectTimer(room.code,byKey.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
           if(byKey.socketId&&byKey.socketId!==socket.id)retireReplacedSocket(byKey.socketId,{roomCode:room.code});
           p=Engine.reconnectPlayer(room,byKey.token,socket.id);
+          if(p)p.voluntaryLeftAt=null;
         }
       }
       if(!p){
@@ -1892,7 +1908,8 @@ io.on('connection', socket => {
     broadcastPresence();
   }));
 
-  socket.on('leaveRoom', () => {
+  socket.on('leaveRoom', (ack) => {
+    const confirmLeave=(payload={})=>{try{if(typeof ack==='function')ack({ok:true,...payload})}catch{}};
     try {
       notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
       const code = socket.data.roomCode;
@@ -1904,13 +1921,14 @@ io.on('connection', socket => {
         socket.data.spectatorId = null;
         socket.data.role = null;
         socket.emit('leftRoom');
+        confirmLeave({keepSeat:false});
         return;
       }
       if(socket.data.role===ROLE_SPECTATOR){
         const spectator=spectatorForSocket(room,socket);
         if(spectator)removeSpectator(room,spectator,{announce:true});
         socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
-        socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});emitRoom(room);broadcastPresence();return;
+        socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});confirmLeave({keepSeat:false});emitRoom(room);broadcastPresence();return;
       }
 
       const idx = room.players.findIndex(p => p.id === playerId);
@@ -1921,6 +1939,7 @@ io.on('connection', socket => {
         socket.data.spectatorId = null;
         socket.data.role = null;
         socket.emit('leftRoom');
+        confirmLeave({keepSeat:false});
         return;
       }
 
@@ -1936,6 +1955,7 @@ io.on('connection', socket => {
         socket.data.spectatorId=null;
         socket.data.role=null;
         socket.emit('leftRoom',{keepSeat:true,message:'Você saiu da mesa. A Máquina assumiu sua vaga e a partida continuará até você voltar.'});
+        confirmLeave({keepSeat:true,roomCode:code});
         emitRoom(room);
         broadcastPresence();
         return;
@@ -1968,8 +1988,12 @@ io.on('connection', socket => {
       socket.data.spectatorId = null;
       socket.data.role = null;
       socket.emit('leftRoom');
+      confirmLeave({keepSeat:false});
       broadcastPresence();
-    } catch(e) { err(socket,e); }
+    } catch(e) {
+      try{if(typeof ack==='function')ack({ok:false,message:e?.message||'Não foi possível sair da sala.'})}catch{}
+      err(socket,e);
+    }
   });
 
   socket.on('playAgain', () => withRoom(socket,(room,p)=>{

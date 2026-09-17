@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.58.3",
-  "description": "Mau-Mau Candeias V40.58.3: chat por sala e troca segura entre salas com continuidade por Máquina.",
+  "version": "40.58.4",
+  "description": "Mau-Mau Candeias V40.58.4: saída voluntária confirmada e liberação robusta da Conta Google entre salas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

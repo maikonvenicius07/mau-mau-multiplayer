@@ -12,7 +12,7 @@ assert(server.includes('player.playerKey=null;'), 'vaga antiga não pode continu
 assert(server.includes('prepareForRoomSwitch(socket,code);'), 'entrada em outra sala deve preparar troca segura');
 assert(server.includes('prepareForRoomSwitch(socket);'), 'criação de nova sala deve liberar reserva antiga desconectada');
 assert(server.includes('releaseDisconnectedReservedSeatsForSwitch(socket,dest.code);'), 'convite aceito deve liberar reserva antiga desconectada');
-assert(server.includes('if(player.connected&&liveSocket)continue;'), 'uma cadeira realmente conectada nunca pode ser tomada automaticamente');
+assert(server.includes('if(player.connected&&liveSocket&&!voluntaryLeft)continue;'), 'uma cadeira realmente conectada e sem saída voluntária nunca pode ser tomada automaticamente');
 assert(app.includes('um link de convite para OUTRA sala tem prioridade'), 'link de outra sala deve ter prioridade sobre auto-resume antigo');
 
 const inviteBranchStart=app.indexOf("if(urlRoom&&(!sess?.code||sess.code!==urlRoom)){");
@@ -21,4 +21,4 @@ const inviteBranchEnd=app.indexOf('\n  }',inviteBranchStart);
 assert(inviteBranchEnd>inviteBranchStart,'fim do ramo do convite por link não encontrado');
 const inviteBranch=app.slice(inviteBranchStart,inviteBranchEnd);
 assert(!inviteBranch.includes("socket.emit('resumeActiveSeat')"),'link de outra sala não pode auto-retomar cadeira antiga antes da escolha do usuário');
-console.log('✓ V40.58.3: troca de sala libera apenas vagas antigas desconectadas/AUTO e não bloqueia novo convite.');
+console.log('✓ V40.58.4: troca de sala libera apenas vagas antigas desconectadas/AUTO e não bloqueia novo convite.');
