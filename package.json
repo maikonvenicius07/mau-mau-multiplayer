@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.54.0",
-  "description": "Mau-Mau Candeias V40.54: convite por link aprimorado e jogadores recentes integrados ao histórico; estabilidade e regras preservadas.",
+  "version": "40.54.1",
+  "description": "Mau-Mau Candeias V40.54.1: correção da configuração TURN/snapshots no .env.example; V40.54 preservada sem alteração de regras.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

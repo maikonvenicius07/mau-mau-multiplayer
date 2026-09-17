@@ -1,3 +1,9 @@
+## V40.54.1 — Correção de configuração do Render
+
+A V40.54.1 é uma atualização de manutenção. Ela não altera o comportamento do jogo. O `.env.example` passa a documentar todas as variáveis usadas pelas melhorias de TURN temporário da V40.51 e retenção dos snapshots da V40.53. O objetivo é evitar que uma atualização do repositório deixe o Render sem referência para `VOICE_TURN_SECRET`, `VOICE_TURN_TTL_SECONDS` e `ROOM_SNAPSHOT_TTL_MS`.
+
+Para TURN, use **uma** das formas: credenciais estáticas (`VOICE_TURN_USERNAME` + `VOICE_TURN_CREDENTIAL`) ou credenciais temporárias/coturn (`VOICE_TURN_SECRET`). Quando `VOICE_TURN_SECRET` estiver configurado, ele tem prioridade.
+
 ## V40.54 — Convite por link + jogadores recentes
 
 A V40.54 adiciona duas funções sociais leves sem alterar o motor do jogo. O botão 🔗 da sala usa a folha de compartilhamento nativa em celulares compatíveis e mantém cópia para a área de transferência como fallback. Quem abre um link com `?room=CODIGO` vê um cartão claro de convite e pode entrar diretamente; se a partida já tiver começado, continua valendo o fluxo existente que oferece o Modo Observador.

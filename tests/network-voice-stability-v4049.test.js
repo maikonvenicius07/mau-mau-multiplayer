@@ -8,7 +8,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.strictEqual(pkg.version,'40.54.0');
+assert.strictEqual(pkg.version,'40.54.1');
 assert(server.includes('pingInterval: 20000')&&server.includes('pingTimeout: 30000'),'heartbeat móvel V40.54 ausente');
 assert(server.includes('DISCONNECT_DEBOUNCE_MS = 3000'),'debounce de microqueda ausente');
 assert(server.includes('scheduleDisconnectDebounce(ROLE_PLAYER'),'jogador não usa debounce de microqueda');

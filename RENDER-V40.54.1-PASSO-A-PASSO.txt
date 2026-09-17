@@ -1,0 +1,59 @@
+MAU-MAU CANDEIAS — V40.54.1
+PASSO A PASSO — CONFIGURAÇÃO NO RENDER
+
+IMPORTANTE
+- Não invente valores de TURN. VOICE_TURN_URLS e as credenciais precisam vir do seu servidor/provedor TURN.
+- Não troque AUTH_SESSION_SECRET se ele já estiver configurado e funcionando. Alterá-lo encerra as sessões existentes.
+- Para snapshots sobreviverem a reinício/deploy, DATABASE_URL precisa apontar para PostgreSQL persistente.
+
+1) Abra o Render Dashboard e selecione o Web Service do Mau-Mau.
+2) No menu lateral, abra Environment.
+3) Em Environment Variables, use + Add Environment Variable.
+4) Confirme/adicone:
+   ROOM_SNAPSHOT_TTL_MS = 28800000
+   VOICE_TURN_TTL_SECONDS = 3600
+5) Confirme que DATABASE_URL existe e aponta para seu PostgreSQL.
+6) Confirme que AUTH_SESSION_SECRET existe. Se já existe, NÃO altere.
+7) Configure TURN usando SOMENTE UMA forma:
+
+   OPÇÃO A — credenciais estáticas
+   VOICE_TURN_URLS = URL real fornecida pelo TURN
+   VOICE_TURN_USERNAME = usuário real
+   VOICE_TURN_CREDENTIAL = senha/credencial real
+   Deixe VOICE_TURN_SECRET vazio/ausente.
+
+   OPÇÃO B — TURN REST/coturn com shared secret
+   VOICE_TURN_URLS = URL real do coturn/TURN
+   VOICE_TURN_SECRET = o MESMO shared secret configurado no servidor coturn
+   VOICE_TURN_TTL_SECONDS = 3600
+   Deixe VOICE_TURN_USERNAME e VOICE_TURN_CREDENTIAL vazios/ausentes.
+
+   Se VOICE_TURN_SECRET estiver preenchido, o Mau-Mau dá prioridade à autenticação temporária.
+
+8) Salve usando Save and deploy (essas variáveis são usadas em runtime).
+9) Aguarde o serviço ficar Live.
+
+VERIFICAÇÃO DE SNAPSHOT
+Abra:
+https://SEU-SERVICO.onrender.com/health
+Procure por:
+"roomSnapshots":"postgres"
+Se aparecer "json", os snapshots não estão usando PostgreSQL e não sobreviverão de forma confiável aos reinícios do Render.
+
+VERIFICAÇÃO DE TURN
+1) Faça login Google normalmente no Mau-Mau.
+2) Na mesma sessão/navegador, abra:
+   https://SEU-SERVICO.onrender.com/api/voice/config
+3) Confira:
+   "turnConfigured": true
+   "turnAuthMode": "ephemeral"  (VOICE_TURN_SECRET)
+   ou
+   "turnAuthMode": "static"     (usuário/senha)
+4) Não compartilhe publicamente o JSON completo, pois ele pode conter credenciais TURN destinadas ao navegador.
+
+DIAGNÓSTICO DURANTE A PARTIDA
+Abra o painel 📶 Diagnóstico.
+- P2P: conexão WebRTC direta.
+- TURN: WebRTC está usando relay TURN.
+- MISTA: há mais de uma rota.
+- FALLBACK: o relay leve Socket.IO entrou para algum participante.

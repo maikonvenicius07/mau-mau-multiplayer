@@ -12,7 +12,7 @@ const {RankingStore}=require('../ranking-store');
   const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
   const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
   const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-  assert.strictEqual(pkg.version,'40.54.0');
+  assert.strictEqual(pkg.version,'40.54.1');
 
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-v4054-'));
   const store=new RankingStore({databaseUrl:'',filePath:path.join(dir,'ranking.json')});

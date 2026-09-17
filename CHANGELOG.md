@@ -1,3 +1,11 @@
+## V40.54.1 — Correção de configuração TURN / snapshots
+
+- Completa `.env.example` com `VOICE_TURN_SECRET` e `VOICE_TURN_TTL_SECONDS=3600`.
+- Documenta `ROOM_SNAPSHOT_TTL_MS=28800000` (8 horas).
+- Explica no próprio exemplo as duas formas de autenticação TURN: estática ou temporária/coturn.
+- Nenhuma regra, turno, áudio, WebRTC, reconexão, avatar, snapshot ou função social foi alterada.
+- Adiciona teste de regressão para impedir que essas variáveis desapareçam novamente.
+
 ## V40.54 — Convite por link + jogadores recentes
 
 - O botão 🔗 da sala usa o compartilhamento nativo do celular quando disponível; em outros navegadores copia o link.

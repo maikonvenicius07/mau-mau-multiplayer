@@ -9,7 +9,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.54.0','package.json deve identificar V40.54');
+assert(pkg.version==='40.54.1','package.json deve identificar V40.54');
 assert(app.includes('LIVE_VOICE_RTC_MAX_PEERS=6'),'limite protetor de peers WebRTC ausente');
 assert(app.includes('LIVE_VOICE_CONNECT_TIMEOUT_MS=4500'),'timeout para fallback de WebRTC ausente');
 assert(app.includes('scheduleLiveVoiceConnectTimeout'),'fallback não é ativado após timeout de conexão');

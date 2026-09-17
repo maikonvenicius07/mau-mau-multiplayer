@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — V40.54.1
+CORREÇÃO DE CONFIGURAÇÃO TURN / SNAPSHOTS
+
+1. Esta é uma atualização de manutenção sobre a V40.54.
+2. Nenhuma regra do jogo foi alterada.
+3. O .env.example agora inclui:
+   - VOICE_TURN_SECRET=
+   - VOICE_TURN_TTL_SECONDS=3600
+   - ROOM_SNAPSHOT_TTL_MS=28800000
+4. TURN pode usar credenciais estáticas OU secret temporário compatível com coturn.
+5. Se VOICE_TURN_SECRET estiver preenchido, o servidor prefere autenticação temporária.
+6. AUTH_SESSION_SECRET deve permanecer fixo no Render; não troque uma chave que já esteja funcionando.
+7. DATABASE_URL deve apontar para PostgreSQL para snapshots persistirem entre reinícios/deploys.
+8. Consulte o README e a orientação do ChatGPT para o passo a passo no Render.
