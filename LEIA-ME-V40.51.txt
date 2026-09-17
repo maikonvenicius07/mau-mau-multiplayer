@@ -1,0 +1,16 @@
+MAU-MAU CANDEIAS — V40.51
+
+FOCO: estabilidade e qualidade da voz com observadores.
+
+1. Jogadores e observadores tentam WebRTC/Opus primeiro.
+2. Se TURN estiver configurado, o ICE usa TURN automaticamente quando P2P não funcionar.
+3. Se um peer ainda não conectar, somente aquele destinatário recebe o fallback leve pelo Socket.IO.
+4. O fallback não carrega a fila confiável da partida: continua VOLATILE.
+5. O painel de diagnóstico mostra TURN e rota P2P/TURN.
+
+TURN NO RENDER (opcional, recomendado para redes móveis):
+- VOICE_TURN_URLS
+- EITHER: VOICE_TURN_USERNAME + VOICE_TURN_CREDENTIAL
+- OR, para coturn/TURN REST: VOICE_TURN_SECRET (+ VOICE_TURN_TTL_SECONDS)
+
+Nenhuma regra do jogo foi alterada.

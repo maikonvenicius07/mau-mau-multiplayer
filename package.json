@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.50.0",
-  "description": "Mau-Mau Candeias V40.50: AudioWorklet no relay do observador e diagnóstico de conexão; regras V40.43 e Minha Música local preservadas.",
+  "version": "40.51.0",
+  "description": "Mau-Mau Candeias V40.51: WebRTC/Opus também para observadores, TURN reforçado e relay Socket.IO somente como fallback seletivo; regras preservadas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

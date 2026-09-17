@@ -1,4 +1,3 @@
-
 'use strict';
 const assert=require('assert');
 const fs=require('fs');
@@ -9,16 +8,16 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
 assert.ok(/^40\./.test(pkg.version));
-assert(app.includes('LIVE_VOICE_RELAY_SAMPLE_RATE=16000'),'relay deve usar voz mono 16 kHz');
-assert(app.includes("socket.volatile.emit('liveVoiceRelayPcm'"),'cliente não envia relay de compatibilidade em modo volatile');
-assert(app.includes("socket.on('liveVoiceRelayPcm',playLiveVoiceRelayPcm)"),'cliente não reproduz relay do observador');
-assert(app.includes("if(isSpectatorState()||peer?.role==='SPECTATOR')return"),'WebRTC P2P ainda está sendo usado no caminho do observador');
-assert(app.includes('Number(state?.spectatorCount||0)>0'),'jogador não ativa relay quando há observador na mesa');
-assert(app.includes("document.addEventListener('pointerdown',()=>{audioCtx();"),'toque na tela deve reativar a saída de áudio do relay');
-assert(server.includes("socket.on('liveVoiceRelayPcm'"),'servidor não recebe PCM do relay');
-assert(server.includes('actor.role===ROLE_SPECTATOR'),'servidor não diferencia voz do observador');
-assert(server.includes('Player → somente observadores'),'relay de jogador deve ser direcionado somente aos observadores');
-assert(server.includes('pcm.length>16000'),'relay não limita tamanho dos pacotes');
-assert(app.includes("LIVE_VOICE_RELAY_CODEC='mulaw8'"),'relay leve mulaw8 ausente');
-assert(server.includes('liveVoiceRelayAllowed'),'relay não possui limite de taxa');
-console.log('✓ V40.50: voz envolvendo observador usa relay leve/volatile pelo servidor, sem depender de P2P/TURN.');
+assert(app.includes('LIVE_VOICE_RELAY_SAMPLE_RATE=16000'),'fallback deve manter voz mono 16 kHz');
+assert(app.includes("socket.volatile.emit('liveVoiceRelayPcm'"),'fallback do cliente deve permanecer volatile');
+assert(app.includes("socket.on('liveVoiceRelayPcm',playLiveVoiceRelayPcm)"),'cliente não reproduz fallback de voz');
+assert(!app.includes("if(isSpectatorState()||peer?.role==='SPECTATOR')return"),'V40.51 ainda bloqueia WebRTC para observador');
+assert(app.includes('liveVoiceRelayFallbackPeers'),'fallback seletivo por peer ausente');
+assert(app.includes('targetSocketIds:liveVoiceRelayTargets()'),'cliente não direciona fallback apenas aos peers problemáticos');
+assert(app.includes('healthyInboundLiveVoiceFrom'),'proteção contra duplicação WebRTC + fallback ausente');
+assert(server.includes('requestedTargets'),'servidor não valida alvos seletivos do fallback');
+assert(server.includes('currentVoiceSocketInRoom(room.code,targetSocketId)'),'servidor não restringe fallback à própria sala');
+assert(server.includes('pcm.length>16000'),'fallback não limita tamanho dos pacotes');
+assert(app.includes("LIVE_VOICE_RELAY_CODEC='mulaw8'"),'fallback leve mulaw8 ausente');
+assert(server.includes('liveVoiceRelayAllowed'),'fallback não possui limite de taxa');
+console.log('✓ V40.51: observadores usam WebRTC/Opus primeiro e relay leve somente como fallback seletivo.');

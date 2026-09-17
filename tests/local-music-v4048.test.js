@@ -8,7 +8,7 @@ const pkg=require(path.join(root,'package.json'));
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-assert.strictEqual(pkg.version,'40.50.0');
+assert.strictEqual(pkg.version,'40.51.0');
 assert(html.includes('id="localMusicOpen"')&&html.includes('id="localMusicOpen2"'),'atalhos Minha Música ausentes');
 assert(html.includes('id="localMusicDialog"')&&html.includes('id="localMusicFile"'),'seletor de música local ausente');
 assert(/id="localMusicFile"[^>]+type="file"[^>]+accept="audio\//.test(html),'input não restringe seleção a áudio');
@@ -29,4 +29,4 @@ assert(!block.includes('FileReader'),'arquivo local não deve ser convertido em 
 assert(!block.includes('localStorage.setItem'),'arquivo da música não deve ser persistido em localStorage');
 assert(css.includes('.local-music-modal')&&css.includes('.local-music-file-btn'),'estilos Minha Música ausentes');
 assert(!fs.existsSync(path.join(root,'public','assets','music')),'trilhas internas voltaram ao projeto');
-console.log('✓ V40.50: Minha Música é local, sem upload, e pausa com voz/microfone.');
+console.log('✓ V40.51: Minha Música é local, sem upload, e pausa com voz/microfone.');

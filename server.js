@@ -80,9 +80,33 @@ const VOICE_TURN_URLS = String(process.env.VOICE_TURN_URLS || process.env.VOICE_
   .split(',').map(x=>x.trim()).filter(x=>/^turns?:/.test(x));
 const VOICE_TURN_USERNAME = String(process.env.VOICE_TURN_USERNAME || '').trim();
 const VOICE_TURN_CREDENTIAL = String(process.env.VOICE_TURN_CREDENTIAL || '').trim();
-function voiceIceServers(){
+// V40.51 — além de credenciais TURN estáticas, aceita o padrão TURN REST do coturn.
+// Com VOICE_TURN_SECRET, o navegador recebe credenciais temporárias por sessão,
+// evitando deixar uma senha TURN permanente exposta no cliente.
+const VOICE_TURN_SECRET = String(process.env.VOICE_TURN_SECRET || '').trim();
+const VOICE_TURN_TTL_SECONDS = Math.max(300,Math.min(86400,Number(process.env.VOICE_TURN_TTL_SECONDS)||3600));
+function voiceTurnConfigured(){
+  return !!(VOICE_TURN_URLS.length && (VOICE_TURN_SECRET || (VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)));
+}
+function voiceTurnAuthMode(){
+  if(!voiceTurnConfigured())return 'none';
+  return VOICE_TURN_SECRET?'ephemeral':'static';
+}
+function voiceTurnCredentials(session){
+  if(VOICE_TURN_SECRET){
+    const expires=Math.floor(Date.now()/1000)+VOICE_TURN_TTL_SECONDS;
+    const identity=String(session?.playerKey||'player').replace(/[^A-Za-z0-9_-]/g,'').slice(-24)||'player';
+    const username=`${expires}:${identity}`;
+    const credential=crypto.createHmac('sha1',VOICE_TURN_SECRET).update(username).digest('base64');
+    return {username,credential};
+  }
+  if(VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)return {username:VOICE_TURN_USERNAME,credential:VOICE_TURN_CREDENTIAL};
+  return null;
+}
+function voiceIceServers(session=null){
   const out=VOICE_STUN_URLS.length?VOICE_STUN_URLS.map(urls=>({urls})):[{urls:'stun:stun.l.google.com:19302'}];
-  if(VOICE_TURN_URLS.length&&VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)out.push({urls:VOICE_TURN_URLS,username:VOICE_TURN_USERNAME,credential:VOICE_TURN_CREDENTIAL});
+  const auth=voiceTurnCredentials(session);
+  if(VOICE_TURN_URLS.length&&auth)out.push({urls:VOICE_TURN_URLS,...auth});
   return out;
 }
 
@@ -152,7 +176,7 @@ app.get('/api/voice/config', (req,res)=>{
   const session=authFromCookieHeader(req.headers.cookie);
   if(!session) return res.status(401).json({ok:false,message:'Login necessário para usar voz.'});
   res.setHeader('Cache-Control','no-store');
-  res.json({ok:true,iceServers:voiceIceServers(),turnConfigured:!!(VOICE_TURN_URLS.length&&VOICE_TURN_USERNAME&&VOICE_TURN_CREDENTIAL)});
+  res.json({ok:true,iceServers:voiceIceServers(session),turnConfigured:voiceTurnConfigured(),turnAuthMode:voiceTurnAuthMode(),turnTtlSeconds:VOICE_TURN_SECRET?VOICE_TURN_TTL_SECONDS:null});
 });
 app.post('/api/auth/google', async (req,res)=>{
   try {
@@ -945,7 +969,7 @@ function completeInvite(invite,message='Convite concluído.'){
 }
 function currentSocketRoom(socket){const room=rooms.get(socket.data.roomCode);if(!room)return null;const player=room.players.find(p=>p.id===socket.data.playerId);return player?{room,player}:null;}
 function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
-  clearLiveVoiceSender(socket);
+  notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
   const code=socket.data.roomCode,playerId=socket.data.playerId,room=rooms.get(code);
   if(!room){socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
   if(socket.data.role===ROLE_SPECTATOR){
@@ -1112,6 +1136,10 @@ function notifyExistingLiveVoiceSendersAbout(socket) {
     playerIds:active.filter(x=>x.role===ROLE_PLAYER).map(x=>x.participantId),
   });
 }
+function notifyLiveVoicePeerUnavailable(socket){
+  const roomCode=String(socket.data.roomCode||'');if(!roomCode)return;
+  socket.to(roomCode).emit('liveVoicePeerUnavailable',{socketId:socket.id});
+}
 
 io.use((socket,next)=>{
   const session=authFromCookieHeader(socket.handshake.headers.cookie);
@@ -1217,11 +1245,21 @@ io.on('connection', socket => {
       if(codec==='pcm16'&&pcm.length%2!==0)return;
       if(!liveVoiceRelayAllowed(socket,pcm.length))return;
       const {room,actor}=current,targetSocketIds=[];
-      if(actor.role===ROLE_SPECTATOR){
+      // V40.51 — o relay virou fallback SELETIVO. O remetente informa somente os
+      // peers cujo WebRTC/Opus ainda não conectou ou caiu. Cada alvo é validado
+      // novamente no servidor para impedir relay para sockets fora da própria sala.
+      const requestedTargets=Array.isArray(payload?.targetSocketIds)?[...new Set(payload.targetSocketIds.map(x=>String(x||'').slice(0,120)).filter(Boolean))].slice(0,12):[];
+      if(requestedTargets.length){
+        for(const targetSocketId of requestedTargets){
+          if(targetSocketId===socket.id)continue;
+          const target=currentVoiceSocketInRoom(room.code,targetSocketId);
+          if(target)targetSocketIds.push(targetSocketId);
+        }
+      }else if(actor.role===ROLE_SPECTATOR){
+        // Compatibilidade com clientes V40.50 ainda abertos durante um deploy.
         for(const p of room.players)if(!p.isBot&&p.connected&&p.socketId&&p.socketId!==socket.id)targetSocketIds.push(p.socketId);
         for(const s of ensureSpectators(room))if(s.connected&&s.socketId&&s.socketId!==socket.id)targetSocketIds.push(s.socketId);
       }else{
-        // Player → somente observadores. Player ↔ player permanece no WebRTC P2P.
         for(const s of ensureSpectators(room))if(s.connected&&s.socketId&&s.socketId!==socket.id)targetSocketIds.push(s.socketId);
       }
       if(!targetSocketIds.length)return;
@@ -1429,7 +1467,7 @@ io.on('connection', socket => {
 
   socket.on('leaveRoom', () => {
     try {
-      clearLiveVoiceSender(socket);
+      notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
       const code = socket.data.roomCode;
       const playerId = socket.data.playerId;
       const room = rooms.get(code);
@@ -1773,7 +1811,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
-    clearLiveVoiceSender(socket);liveVoiceRelayRate.delete(socket.id);
+    notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);liveVoiceRelayRate.delete(socket.id);
     const presenceKey=socket.data.auth?.playerKey;
     queueMicrotask(()=>{
       unregisterPresenceSocket(socket);

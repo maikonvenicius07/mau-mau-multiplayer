@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.50" />
+  <link rel="stylesheet" href="styles.css?v=40.51" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -345,6 +345,8 @@
       <div><span>Transporte</span><strong id="networkTransportValue">—</strong></div>
       <div><span>Reconexões</span><strong id="networkReconnectValue">0</strong></div>
       <div class="network-diagnostics-wide"><span>Rota da voz</span><strong id="networkVoiceModeValue">Desligado</strong></div>
+      <div><span>TURN</span><strong id="networkTurnValue">Verificando</strong></div>
+      <div><span>Rota WebRTC</span><strong id="networkRtcRouteValue">—</strong></div>
       <div class="network-diagnostics-wide"><span>WebRTC</span><strong id="networkRtcValue">Sem amostra WebRTC</strong></div>
     </div>
     <p id="networkAdvice" class="network-advice">Aguardando algumas sondas para avaliar a qualidade.</p>
@@ -550,7 +552,7 @@
     <div class="rules-extras">
       <h3>💬 Recursos da mesa</h3>
       <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
-      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.50 usa AudioWorklet no relay do observador quando o navegador oferece suporte, mantendo fallback compatível, diagnóstico de conexão e suporte a TURN quando configurado. O áudio não é gravado nem salvo no PostgreSQL ou no ranking.</p>
+      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.51 tenta WebRTC/Opus também com observadores, usa TURN automaticamente quando configurado e mantém o relay leve pelo servidor apenas como fallback seletivo. O diagnóstico mostra se a rota real está em P2P, TURN ou fallback. O áudio não é gravado nem salvo no PostgreSQL ou no ranking.</p>
       <p><strong>Minha Música:</strong> a V40.48 permite escolher um arquivo de áudio do próprio celular ou computador pelo botão 🎵. A música toca somente naquele aparelho, não é enviada ao servidor e não é compartilhada com os outros jogadores. Quando há microfone/voz ativa, a música local pausa para priorizar a conversa e volta depois, se estava tocando.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
       <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Nos intervalos da partida, a cadeira também permanece reservada por esse prazo. Se o jogador não voltar, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>. Ao reconectar, o jogador retoma automaticamente seu próprio lugar.</p>
@@ -598,6 +600,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.50"></script>
+  <script src="app.js?v=40.51"></script>
 </body>
 </html>

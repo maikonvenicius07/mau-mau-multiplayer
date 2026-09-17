@@ -25,21 +25,21 @@ let localMusicObjectUrl='',localMusicUserWantsPlay=false,localMusicPausedForVoic
 // V40.33 — microfone ao vivo WebRTC estabilizado. O áudio continua P2P; Socket.IO carrega somente a sinalização.
 // A conexão agora mantém fila de ICE, recuperação automática, áudio otimizado para voz e TURN opcional.
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null,liveMicWanted=false;
-let liveVoiceConfigLoaded=false,liveVoiceConfigPromise=null;
+let liveVoiceConfigLoaded=false,liveVoiceConfigPromise=null,liveVoiceTurnConfigured=false,liveVoiceTurnAuthMode='none';
 let liveVoiceRtcConfig={
   iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}],
   iceCandidatePoolSize:4,bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'
 };
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTimers=new Map(),liveMicRetryCounts=new Map(),liveMicRecoveringPeers=new Set();
-// V40.49 — rota de compatibilidade para conversa que envolve OBSERVADOR.
-// Voz logarítmica de 8 bits/16 kHz + gate de silêncio + envio VOLATILE reduz
-// drasticamente filas e tráfego sem misturar áudio antigo com eventos da partida.
-// Jogador ↔ jogador continua usando WebRTC/Opus P2P.
+// V40.51 — jogadores E observadores tentam primeiro WebRTC/Opus. O relay leve
+// pelo Socket.IO fica apenas como fallback seletivo para peers que não conectarem.
+const LIVE_VOICE_RTC_MAX_PEERS=6,LIVE_VOICE_CONNECT_TIMEOUT_MS=4500;
+const liveVoiceRelayFallbackPeers=new Set(),liveVoiceConnectTimers=new Map();
 const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
 const LIVE_VOICE_RELAY_CODEC='mulaw8';
 const LIVE_VOICE_RELAY_VAD_THRESHOLD=.0045;
-const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.50';
+const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.51';
 let liveVoiceRelaySpeechHangover=0;
 let liveVoiceRelayCapture=null,liveVoiceRelayCaptureStarting=false,liveVoiceRelayWorkletPromise=null,liveVoiceRelayWarned=false;
 const liveVoiceRelayPlaybackNext=new Map();
@@ -47,7 +47,7 @@ const liveVoiceRelayPlaybackNext=new Map();
 // entre sondas, falhas recentes, transporte Socket.IO e estatísticas WebRTC.
 const NETWORK_PROBE_INTERVAL_MS=5000,NETWORK_PROBE_TIMEOUT_MS=3500;
 let networkProbeTimer=null,networkRtcStatsTimer=null,networkReconnectCount=0;
-const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,lastUpdatedAt:0};
+const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,rtcRoute:'—',lastUpdatedAt:0};
 const liveMicPositionStorage='maumauLiveMicPositionV1';
 const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
 let liveMicPositionRole=null;
@@ -362,7 +362,9 @@ function networkJitter(values){
 function networkVoiceMode(){
   const active=liveMicOn||liveVoiceActivePlayerIds.size>0;
   if(!active)return'Desligado';
-  if(isSpectatorState()||Number(state?.spectatorCount||0)>0)return'Misto / Relay do observador';
+  const fallback=liveVoiceRelayFallbackPeers.size;
+  if(fallback)return`WebRTC/Opus + fallback (${fallback})`;
+  if(networkDiagnostics.rtcRoute==='TURN')return'WebRTC / TURN / Opus';
   return'WebRTC / Opus';
 }
 function networkQuality(){
@@ -393,6 +395,8 @@ function updateNetworkDiagnosticsUI(){
   set('#networkTransportValue',String(networkDiagnostics.transport||'-').toUpperCase());
   set('#networkReconnectValue',String(networkReconnectCount));
   set('#networkVoiceModeValue',networkDiagnostics.voiceMode);
+  set('#networkTurnValue',liveVoiceTurnConfigured?(liveVoiceTurnAuthMode==='ephemeral'?'Configurado • credencial temporária':'Configurado'):'Não configurado');
+  set('#networkRtcRouteValue',networkDiagnostics.rtcRoute||'—');
   const rtcParts=[];
   if(Number.isFinite(networkDiagnostics.rtcRtt))rtcParts.push(`RTT ${formatDiagMs(networkDiagnostics.rtcRtt)}`);
   if(Number.isFinite(networkDiagnostics.rtcJitter))rtcParts.push(`jitter ${formatDiagMs(networkDiagnostics.rtcJitter)}`);
@@ -426,14 +430,26 @@ function runNetworkProbe(){
 }
 async function sampleLiveVoiceRtcStats(){
   const pcs=[...new Set([...liveMicOutboundPeers.values(),...liveMicInboundPeers.values()])].filter(pc=>pc&&pc.connectionState!=='closed');
-  if(!pcs.length){networkDiagnostics.rtcRtt=null;networkDiagnostics.rtcJitter=null;networkDiagnostics.rtcLoss=null;updateNetworkDiagnosticsUI();return;}
-  const rtts=[],jitters=[],losses=[];
+  if(!pcs.length){networkDiagnostics.rtcRtt=null;networkDiagnostics.rtcJitter=null;networkDiagnostics.rtcLoss=null;networkDiagnostics.rtcRoute='—';updateNetworkDiagnosticsUI();return;}
+  const rtts=[],jitters=[],losses=[],routes=[];
   for(const pc of pcs){
     try{
-      const report=await pc.getStats();let lost=0,received=0;
+      const report=await pc.getStats();let lost=0,received=0;const stats=new Map();report.forEach(stat=>stats.set(stat.id,stat));
       report.forEach(stat=>{
         const kind=String(stat.kind||stat.mediaType||'');
-        if(stat.type==='candidate-pair'&&stat.state==='succeeded'&&Number.isFinite(stat.currentRoundTripTime))rtts.push(stat.currentRoundTripTime*1000);
+        if(stat.type==='candidate-pair'&&stat.state==='succeeded'){
+          if(Number.isFinite(stat.currentRoundTripTime))rtts.push(stat.currentRoundTripTime*1000);
+          if(stat.nominated||stat.selected){
+            const local=stats.get(stat.localCandidateId),remote=stats.get(stat.remoteCandidateId);
+            if(local?.candidateType==='relay'||remote?.candidateType==='relay')routes.push('TURN');
+            else if(local||remote)routes.push('P2P');
+          }
+        }
+        if(stat.type==='transport'&&stat.selectedCandidatePairId){
+          const pair=stats.get(stat.selectedCandidatePairId),local=pair&&stats.get(pair.localCandidateId),remote=pair&&stats.get(pair.remoteCandidateId);
+          if(local?.candidateType==='relay'||remote?.candidateType==='relay')routes.push('TURN');
+          else if(pair&&(local||remote))routes.push('P2P');
+        }
         if(['inbound-rtp','remote-inbound-rtp'].includes(stat.type)&&(!kind||kind==='audio')){
           if(Number.isFinite(stat.jitter))jitters.push(stat.jitter*1000);
           if(Number.isFinite(stat.fractionLost))losses.push(Math.max(0,stat.fractionLost*100));
@@ -448,8 +464,10 @@ async function sampleLiveVoiceRtcStats(){
   networkDiagnostics.rtcRtt=rtts.length?networkAverage(rtts):null;
   networkDiagnostics.rtcJitter=jitters.length?networkAverage(jitters):null;
   networkDiagnostics.rtcLoss=losses.length?Math.max(...losses):null;
+  const uniqueRoutes=[...new Set(routes)];networkDiagnostics.rtcRoute=uniqueRoutes.length>1?'MISTA':(uniqueRoutes[0]||'—');
   updateNetworkDiagnosticsUI();
 }
+
 function startNetworkDiagnostics(){
   if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);
   runNetworkProbe();sampleLiveVoiceRtcStats();
@@ -1138,6 +1156,7 @@ async function loadLiveVoiceRtcConfig(){
         if(response.ok){
           const data=await response.json();
           const iceServers=Array.isArray(data?.iceServers)&&data.iceServers.length?data.iceServers:LIVE_VOICE_DEFAULT_ICE;
+          liveVoiceTurnConfigured=!!data?.turnConfigured;liveVoiceTurnAuthMode=String(data?.turnAuthMode||'none');
           liveVoiceRtcConfig={iceServers,iceCandidatePoolSize:4,bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'};
         }
       }finally{clearTimeout(timer)}
@@ -1199,7 +1218,7 @@ function scheduleOutboundLiveVoiceRecovery(socketId,reason='network'){
   const timer=setTimeout(()=>{
     liveMicRetryTimers.delete(socketId);liveMicRecoveringPeers.delete(socketId);
     if(!liveMicOn||!socket.connected)return updateLiveMicUI();
-    closeOutboundLivePeer(socketId,{keepPeer:true,keepRetryCount:true});
+    closeOutboundLivePeer(socketId,{keepPeer:true,keepRetryCount:true,keepFallback:true});
     createOutboundLivePeer(peer,{recovery:true}).catch(()=>{});updateLiveMicUI();
   },liveVoiceRecoveryDelay(attempt));
   liveMicRetryTimers.set(socketId,timer);
@@ -1227,15 +1246,17 @@ function removeLiveRemoteAudio(key){
 function closeInboundLivePeer(key){
   const pc=liveMicInboundPeers.get(key);if(pc)closeLivePeer(pc);liveMicInboundPeers.delete(key);removeLiveRemoteAudio(key);clearLiveVoiceCandidateQueues(`in:${key}:`);
 }
-function closeOutboundLivePeer(targetSocketId,{keepPeer=false,keepRetryCount=false}={}){
-  const pc=liveMicOutboundPeers.get(targetSocketId);if(pc)closeLivePeer(pc);liveMicOutboundPeers.delete(targetSocketId);clearLiveVoiceCandidateQueues(`out:${targetSocketId}:`);cancelOutboundLiveVoiceRecovery(targetSocketId);
+function closeOutboundLivePeer(targetSocketId,{keepPeer=false,keepRetryCount=false,keepFallback=false}={}){
+  const pc=liveMicOutboundPeers.get(targetSocketId);if(pc)closeLivePeer(pc);liveMicOutboundPeers.delete(targetSocketId);clearLiveVoiceCandidateQueues(`out:${targetSocketId}:`);cancelOutboundLiveVoiceRecovery(targetSocketId);clearLiveVoiceConnectTimer(targetSocketId);
+  if(!keepFallback)liveVoiceRelayFallbackPeers.delete(targetSocketId);
   if(!keepPeer)liveMicPeerInfo.delete(targetSocketId);if(!keepRetryCount)liveMicRetryCounts.delete(targetSocketId);
+  syncLiveVoiceRelayCapture();
 }
 function closeAllLiveVoiceConnections(){
-  for(const id of [...liveMicOutboundPeers.keys()])closeOutboundLivePeer(id);
+  for(const id of [...new Set([...liveMicOutboundPeers.keys(),...liveMicPeerInfo.keys()])])closeOutboundLivePeer(id);
   for(const key of [...liveMicInboundPeers.keys()])closeInboundLivePeer(key);
-  for(const timer of liveMicRetryTimers.values())clearTimeout(timer);
-  liveMicRetryTimers.clear();liveMicRetryCounts.clear();liveMicRecoveringPeers.clear();liveMicPeerInfo.clear();clearLiveVoiceCandidateQueues();
+  for(const timer of liveMicRetryTimers.values())clearTimeout(timer);for(const timer of liveVoiceConnectTimers.values())clearTimeout(timer);
+  liveMicRetryTimers.clear();liveMicRetryCounts.clear();liveMicRecoveringPeers.clear();liveVoiceConnectTimers.clear();liveVoiceRelayFallbackPeers.clear();liveMicPeerInfo.clear();clearLiveVoiceCandidateQueues();
 }
 function attachLiveRemoteAudio(key,stream,fromName='Jogador'){
   removeLiveRemoteAudio(key);
@@ -1249,19 +1270,34 @@ function signalLiveVoice(targetSocketId,kind,data={},sessionId=liveMicSessionId)
   if(!socket.connected||!targetSocketId||!sessionId)return;
   socket.emit('liveVoiceSignal',{targetSocketId,kind,sessionId,...data});
 }
+function clearLiveVoiceConnectTimer(socketId){const t=liveVoiceConnectTimers.get(socketId);if(t)clearTimeout(t);liveVoiceConnectTimers.delete(socketId)}
+function liveVoiceRelayTargets(){return [...liveVoiceRelayFallbackPeers].filter(id=>id&&id!==socket.id).slice(0,12)}
+function setLiveVoiceRelayFallback(socketId,on){
+  if(!socketId||socketId===socket.id)return;
+  if(on)liveVoiceRelayFallbackPeers.add(socketId);else liveVoiceRelayFallbackPeers.delete(socketId);
+  syncLiveVoiceRelayCapture();updateNetworkDiagnosticsUI();
+}
+function scheduleLiveVoiceConnectTimeout(socketId){
+  clearLiveVoiceConnectTimer(socketId);
+  const t=setTimeout(()=>{
+    liveVoiceConnectTimers.delete(socketId);const pc=liveMicOutboundPeers.get(socketId);const status=pc?.connectionState||pc?.iceConnectionState||'';
+    if(!['connected','completed'].includes(status))setLiveVoiceRelayFallback(socketId,true);
+  },LIVE_VOICE_CONNECT_TIMEOUT_MS);
+  liveVoiceConnectTimers.set(socketId,t);
+}
 function bindOutboundLivePeerHealth(pc,peer){
   const socketId=peer.socketId;
   const assess=()=>{
     const status=pc.connectionState||pc.iceConnectionState||'';
-    if(['connected','completed'].includes(status)){cancelOutboundLiveVoiceRecovery(socketId);liveMicRetryCounts.set(socketId,0);updateLiveMicUI();return;}
-    if(status==='failed')scheduleOutboundLiveVoiceRecovery(socketId,'failed');
-    else if(status==='disconnected')scheduleOutboundLiveVoiceRecovery(socketId,'disconnected');
+    if(['connected','completed'].includes(status)){
+      clearLiveVoiceConnectTimer(socketId);setLiveVoiceRelayFallback(socketId,false);cancelOutboundLiveVoiceRecovery(socketId);liveMicRetryCounts.set(socketId,0);updateLiveMicUI();return;
+    }
+    if(status==='failed'){setLiveVoiceRelayFallback(socketId,true);scheduleOutboundLiveVoiceRecovery(socketId,'failed');}
+    else if(status==='disconnected'){setLiveVoiceRelayFallback(socketId,true);scheduleOutboundLiveVoiceRecovery(socketId,'disconnected');}
   };
   pc.onconnectionstatechange=assess;pc.oniceconnectionstatechange=assess;
 }
-function liveVoiceRelayRequired(){
-  return !!liveMicOn && (isSpectatorState() || Number(state?.spectatorCount||0)>0);
-}
+function liveVoiceRelayRequired(){return !!liveMicOn&&liveVoiceRelayFallbackPeers.size>0}
 function muLaw8EncodeSample(value){
   const v=Math.max(-1,Math.min(1,Number(value)||0)),sign=v<0?-1:1,mag=Math.abs(v),mu=255;
   const compressed=sign*Math.log1p(mu*mag)/Math.log1p(mu);
@@ -1310,7 +1346,7 @@ function startLiveVoiceRelayScriptFallback(ac){
     if(encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD)liveVoiceRelaySpeechHangover=4;
     else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
     else return;
-    socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
+    socket.volatile.emit('liveVoiceRelayPcm',{targetSocketIds:liveVoiceRelayTargets(),sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
   };
   liveVoiceRelayCapture={kind:'script',ac,source,processor,sink};return true;
 }
@@ -1328,7 +1364,7 @@ async function startLiveVoiceRelayCapture(){
       processor.port.onmessage=e=>{
         if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
         const pcm=e.data?.pcm;if(e.data?.type!=='voice-frame'||!(pcm instanceof ArrayBuffer)||!pcm.byteLength)return;
-        socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm});
+        socket.volatile.emit('liveVoiceRelayPcm',{targetSocketIds:liveVoiceRelayTargets(),sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm});
       };
       liveVoiceRelayCapture={kind:'worklet',ac,source,processor,sink};
     }else{
@@ -1348,8 +1384,14 @@ function liveVoiceRelayBytes(value){
   if(value?.type==='Buffer'&&Array.isArray(value.data))return new Uint8Array(value.data);
   return null;
 }
+function healthyInboundLiveVoiceFrom(socketId){
+  const prefix=`${String(socketId||'')}:`;for(const [key,pc] of liveMicInboundPeers)if(key.startsWith(prefix)&&['connected','completed'].includes(pc?.connectionState||pc?.iceConnectionState||''))return true;
+  return false;
+}
 function playLiveVoiceRelayPcm(payload){
   try{
+    // Quando WebRTC já recuperou, descarta quadros residuais do fallback para não duplicar voz.
+    if(healthyInboundLiveVoiceFrom(payload?.fromSocketId))return;
     const bytes=liveVoiceRelayBytes(payload?.pcm);if(!bytes||bytes.byteLength<2)return;
     const sampleRate=Math.max(8000,Math.min(24000,Number(payload?.sampleRate)||LIVE_VOICE_RELAY_SAMPLE_RATE));
     const codec=String(payload?.codec||'pcm16');
@@ -1375,14 +1417,15 @@ function playLiveVoiceRelayPcm(payload){
   }catch{}
 }
 async function createOutboundLivePeer(peer,{recovery=false}={}){
-  // V40.36: qualquer caminho que envolva observador usa relay no servidor.
-  if(isSpectatorState()||peer?.role==='SPECTATOR')return;
   if(!liveMicOn||!liveMicStream||!peer?.socketId||peer.socketId===socket.id)return;
   liveMicPeerInfo.set(peer.socketId,{socketId:peer.socketId,participantId:peer.participantId||peer.playerId,playerId:peer.playerId,role:peer.role||'PLAYER',name:peer.name||'Participante'});
   if(liveMicOutboundPeers.has(peer.socketId))return;
+  // Protege o upload do celular quando uma sala pública acumula muitos observadores.
+  // Jogadores chegam primeiro na lista do servidor; peers excedentes recebem o relay leve.
+  if(liveMicOutboundPeers.size>=LIVE_VOICE_RTC_MAX_PEERS){setLiveVoiceRelayFallback(peer.socketId,true);return;}
   const sessionId=liveMicSessionId;if(!sessionId)return;
   await loadLiveVoiceRtcConfig();
-  const pc=newLiveVoicePeer();liveMicOutboundPeers.set(peer.socketId,pc);bindOutboundLivePeerHealth(pc,peer);
+  const pc=newLiveVoicePeer();liveMicOutboundPeers.set(peer.socketId,pc);bindOutboundLivePeerHealth(pc,peer);scheduleLiveVoiceConnectTimeout(peer.socketId);
   for(const track of liveMicStream.getAudioTracks()){const sender=pc.addTrack(track,liveMicStream);tuneLiveVoiceSender(pc,sender)}
   let canSendIce=false;const queuedIce=[];
   pc.onicecandidate=e=>{if(!e.candidate)return;const c=e.candidate.toJSON?e.candidate.toJSON():e.candidate;if(canSendIce)signalLiveVoice(peer.socketId,'candidate',{candidate:c},sessionId);else queuedIce.push(c)};
@@ -1392,8 +1435,11 @@ async function createOutboundLivePeer(peer,{recovery=false}={}){
     signalLiveVoice(peer.socketId,'offer',{sdp:{type:pc.localDescription.type,sdp:pc.localDescription.sdp}},sessionId);
     canSendIce=true;for(const c of queuedIce)signalLiveVoice(peer.socketId,'candidate',{candidate:c},sessionId);
     if(recovery)updateLiveMicUI();
-  }catch{closeOutboundLivePeer(peer.socketId,{keepPeer:true,keepRetryCount:true});scheduleOutboundLiveVoiceRecovery(peer.socketId,'failed')}
+  }catch{
+    setLiveVoiceRelayFallback(peer.socketId,true);closeOutboundLivePeer(peer.socketId,{keepPeer:true,keepRetryCount:true,keepFallback:true});scheduleOutboundLiveVoiceRecovery(peer.socketId,'failed');
+  }
 }
+
 async function acceptInboundLiveOffer(msg){
   const from=String(msg?.fromSocketId||''),sessionId=String(msg?.sessionId||'');if(!from||!sessionId||!msg?.sdp)return;
   const key=`${from}:${sessionId}`;closeInboundLivePeer(key);await loadLiveVoiceRtcConfig();
@@ -1449,7 +1495,8 @@ async function startLiveMic(){
 function stopLiveMic({notify=true,showToast=false,reason='🎙️ Microfone ao vivo desligado.',keepWanted=false}={}){
   if(!keepWanted)liveMicWanted=false;
   if(notify&&socket.connected&&liveMicOn)socket.emit('liveVoiceLeave');
-  for(const id of [...liveMicOutboundPeers.keys()])closeOutboundLivePeer(id);
+  for(const id of [...new Set([...liveMicOutboundPeers.keys(),...liveMicPeerInfo.keys()])])closeOutboundLivePeer(id);
+  liveVoiceRelayFallbackPeers.clear();for(const t of liveVoiceConnectTimers.values())clearTimeout(t);liveVoiceConnectTimers.clear();
   stopLiveVoiceRelayCapture();liveVoiceRelayPlaybackNext.clear();
   try{liveMicStream?.getTracks?.().forEach(t=>{t.onended=null;t.stop()})}catch{}
   liveMicStream=null;liveMicOn=false;liveMicStarting=false;liveMicSessionId=null;
@@ -2105,6 +2152,11 @@ socket.on('liveVoicePeers',payload=>{
   for(const peer of (Array.isArray(payload?.peers)?payload.peers:[]))createOutboundLivePeer(peer);
 });
 socket.on('liveVoicePeerAvailable',peer=>{if(liveMicOn)createOutboundLivePeer(peer)});
+socket.on('liveVoicePeerUnavailable',info=>{
+  const socketId=String(info?.socketId||'');if(!socketId)return;
+  closeOutboundLivePeer(socketId);
+  for(const key of [...liveMicInboundPeers.keys()])if(key.startsWith(`${socketId}:`))closeInboundLivePeer(key);
+});
 socket.on('liveVoiceSignal',handleLiveVoiceSignal);
 socket.on('liveVoiceSenderStopped',info=>{
   const socketId=String(info?.socketId||'');

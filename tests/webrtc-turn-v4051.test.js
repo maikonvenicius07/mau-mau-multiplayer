@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs');
+const path=require('path');
+const assert=(cond,msg)=>{if(!cond)throw new Error(msg)};
+const root=path.join(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
+const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
+
+assert(pkg.version==='40.51.0','package.json deve identificar V40.51');
+assert(app.includes('LIVE_VOICE_RTC_MAX_PEERS=6'),'limite protetor de peers WebRTC ausente');
+assert(app.includes('LIVE_VOICE_CONNECT_TIMEOUT_MS=4500'),'timeout para fallback de WebRTC ausente');
+assert(app.includes('scheduleLiveVoiceConnectTimeout'),'fallback não é ativado após timeout de conexão');
+assert(app.includes('setLiveVoiceRelayFallback(socketId,true)'),'falha de WebRTC não ativa fallback seletivo');
+assert(app.includes('setLiveVoiceRelayFallback(socketId,false)'),'recuperação de WebRTC não remove fallback');
+assert(app.includes("networkDiagnostics.rtcRoute=uniqueRoutes.length>1?'MISTA'"),'diagnóstico não detecta rota P2P/TURN');
+assert(html.includes('id="networkTurnValue"')&&html.includes('id="networkRtcRouteValue"'),'painel não mostra TURN/rota WebRTC');
+assert(server.includes('VOICE_TURN_SECRET'),'TURN REST/coturn temporário ausente');
+assert(server.includes("createHmac('sha1',VOICE_TURN_SECRET)"),'credencial temporária TURN não é assinada');
+assert(server.includes('turnAuthMode:voiceTurnAuthMode()'),'endpoint não informa modo de autenticação TURN');
+assert(env.includes('VOICE_TURN_SECRET=')&&env.includes('VOICE_TURN_TTL_SECONDS=3600'),'exemplo de configuração TURN temporária ausente');
+assert(html.includes('app.js?v=40.51')&&html.includes('styles.css?v=40.51'),'cache-busting V40.51 ausente');
+console.log('✓ V40.51: WebRTC/Opus para observadores, TURN temporário e fallback seletivo conferidos.');

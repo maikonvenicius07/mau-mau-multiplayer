@@ -1,3 +1,9 @@
+## V40.51 — WebRTC/TURN robusto para jogadores e observadores
+
+A V40.51 muda a arquitetura da voz sem alterar nenhuma regra do Mau-Mau. Jogadores e observadores passam a tentar **WebRTC/Opus primeiro**. Quando uma rota direta não funciona, o navegador pode usar **TURN** automaticamente se o servidor estiver configurado; se mesmo assim um peer não conectar, entra apenas para esse destinatário o relay leve μ-law/Socket.IO da V40.49/V40.50. O fallback é seletivo e `volatile`, evitando colocar voz atrasada na fila da partida.
+
+Para proteger a internet móvel em salas públicas, cada microfone mantém no máximo 6 peers WebRTC de saída; participantes excedentes usam o fallback leve. O painel de diagnóstico agora informa se o TURN está configurado e se a rota WebRTC observada é P2P, TURN ou mista. TURN estático continua suportado, e servidores coturn compatíveis podem usar `VOICE_TURN_SECRET` para credenciais temporárias.
+
 ## V40.50 — Diagnóstico de conexão + AudioWorklet
 
 A V40.50 melhora o relay de voz do observador sem alterar as regras do jogo. Quando suportado pelo navegador, a captura/compactação μ-law roda em `AudioWorklet`, fora da thread principal; há fallback para navegadores antigos. O indicador de conexão da mesa agora abre um painel de diagnóstico com RTT até o servidor, jitter das sondas, falhas recentes, transporte Socket.IO, reconexões e estatísticas WebRTC disponíveis.

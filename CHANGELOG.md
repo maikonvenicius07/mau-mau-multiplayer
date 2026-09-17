@@ -1,3 +1,15 @@
+## V40.51 — WebRTC/TURN robusto para observadores
+
+- WebRTC/Opus passa a ser a rota principal também para observadores.
+- TURN é usado automaticamente pelo ICE quando configurado no Render/servidor.
+- Suporte opcional a credenciais temporárias TURN REST/coturn via `VOICE_TURN_SECRET`.
+- Relay μ-law/Socket.IO permanece somente como fallback seletivo por destinatário.
+- Fallback é ativado após timeout/falha de ICE e removido quando o WebRTC recupera.
+- Quadros residuais do fallback são ignorados quando a rota WebRTC já está saudável.
+- Limite de 6 peers WebRTC de saída por microfone protege upload em salas com muitos observadores.
+- Diagnóstico mostra configuração TURN e rota P2P/TURN/MISTA.
+- Regras, turnos, reconexão de cadeira, ranking e Minha Música não foram alterados.
+
 ## V40.50 — Diagnóstico de conexão + AudioWorklet
 
 - Relay do microfone do observador passa a usar **AudioWorklet** quando disponível, retirando captura/processamento da thread principal; navegadores antigos mantêm fallback compatível.

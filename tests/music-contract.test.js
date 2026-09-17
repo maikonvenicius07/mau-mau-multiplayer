@@ -7,7 +7,7 @@ const pkg=require(path.join(root,'package.json'));
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-assert.strictEqual(pkg.version,'40.50.0');
+assert.strictEqual(pkg.version,'40.51.0');
 assert(!html.includes('id="musicBtn"')&&!html.includes('id="musicBtnLanding"'),'botão de música interna antiga ainda aparece');
 assert(!html.includes('id="musicPanel"'),'painel de música interna ainda aparece');
 assert(!app.includes('const musicCatalog='),'catálogo de trilhas internas ainda existe');
@@ -18,4 +18,4 @@ assert(html.includes('id="soundBtn"'),'controle de efeitos sonoros foi removido 
 assert(app.includes("localStorage.setItem('maumauSound'"),'preferência de efeitos sonoros não foi preservada');
 assert(app.includes('function beginMusicSpeechDuck(){'),'integração da música local com voz falada ausente');
 assert(app.includes('function refreshQuickAudioMusicDuck(){syncLocalMusicVoiceState()}'),'integração da música local com microfone/voz ausente');
-console.log('✓ V40.50: sem música interna; Minha Música local + efeitos/voz preservados.');
+console.log('✓ V40.51: sem música interna; Minha Música local + efeitos/voz preservados.');
