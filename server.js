@@ -8,6 +8,7 @@ const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
 const AvatarWire = require('./avatar-wire');
+const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 
 const app = express();
@@ -65,6 +66,14 @@ const MATCHMAKING_WAIT_MS = 15 * 1000;
 const MATCHMAKING_MAX_PLAYERS = 5;
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
+// V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
+const roomSnapshotStore = new RoomSnapshotStore();
+const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
+function removeRoom(code){
+  const existed=rooms.delete(code);
+  if(existed)roomSnapshotStore.delete(code).catch(e=>console.error('[rooms] falha ao excluir snapshot',code,e?.message||e));
+  return existed;
+}
 
 const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
 const AUTH_SESSION_SECRET = String(process.env.AUTH_SESSION_SECRET || '').trim() || crypto.randomBytes(32).toString('hex');
@@ -213,7 +222,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
     else if(/\.html?$/i.test(filePath)) res.setHeader('Cache-Control','no-cache');
   }
 }));
-app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind}));
+app.get('/health', (_, res) => res.json({ok:true, rooms:rooms.size, ranking:rankingStore.kind, roomSnapshots:roomSnapshotStore.kind}));
 
 app.get('/api/ranking', async (req,res)=>{
   try {
@@ -314,6 +323,7 @@ function emitRoom(room) {
   refreshInviteReadiness();
   const presenceSignature=`${room.status}:${room.round}:${room.players.map(p=>`${p.id}:${p.isBot?'b':'h'}`).join(',')}`;
   if(room._presenceSignature!==presenceSignature){room._presenceSignature=presenceSignature;setTimeout(broadcastPresence,0);}
+  roomSnapshotStore.queueSave(room);
 }
 
 function reconnectTimerKey(roomCode, playerId) { return `${roomCode}:${playerId}`; }
@@ -916,7 +926,7 @@ function formMatchmakingGroup() {
   }catch(e){
     if(room){
       for(const x of group){try{x.socket.leave(code)}catch{};x.socket.data.roomCode=null;x.socket.data.playerId=null;}
-      closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);rooms.delete(code);
+      closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);removeRoom(code);
     }
     for(const x of group){
       if(presenceFor(x.entry.playerKey)?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey)){
@@ -1011,7 +1021,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   const leaving=room.players[idx];cancelReconnectTimer(code,leaving.id);invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
   const wasPlaying=room.status==='playing';room.players.splice(idx,1);
   if(!room.players.length||room.players.every(p=>p.isBot)){
-    if(room.botTimer)clearTimeout(room.botTimer);clearReconnectTimersForRoom(code);closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);rooms.delete(code);invalidateInvitesForRoom(code);
+    if(room.botTimer)clearTimeout(room.botTimer);clearReconnectTimersForRoom(code);closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);removeRoom(code);invalidateInvitesForRoom(code);
   }else{
     if(wasPlaying)cancelCurrentRoundAfterLeave(room,leaving.name);else Engine.appendLog(room,`${leaving.name} saiu da sala.`,'system');
     if(room.players.length===1&&room.status==='between-rounds'&&room.round===0)room.status='lobby';
@@ -1551,7 +1561,7 @@ io.on('connection', socket => {
         clearReconnectTimersForRoom(code);
         closeSpectatorsForRoom(room);
         clearSpectatorReconnectTimersForRoom(code);
-        rooms.delete(code);
+        removeRoom(code);
         invalidateInvitesForRoom(code);
       } else {
         if (wasPlaying) cancelCurrentRoundAfterLeave(room, leaving.name);
@@ -1926,7 +1936,7 @@ io.on('connection', socket => {
           clearReconnectTimersForRoom(code);
           closeSpectatorsForRoom(currentRoom);
           clearSpectatorReconnectTimersForRoom(code);
-          rooms.delete(code);
+          removeRoom(code);
           invalidateInvitesForRoom(code);
           broadcastPresence();
           return;
@@ -1953,10 +1963,70 @@ setInterval(()=>{
       clearReconnectTimersForRoom(code);
       closeSpectatorsForRoom(room);
       clearSpectatorReconnectTimersForRoom(code);
-      rooms.delete(code);
+      removeRoom(code);
       invalidateInvitesForRoom(code);
     }
   }
 }, 30*60*1000).unref();
 
-server.listen(PORT,()=>console.log(`Mau-Mau online em http://localhost:${PORT}`));
+// V40.53 — restaura salas ativas antes de aceitar novas conexões. Como os socketIds
+// antigos não sobrevivem ao processo, os humanos recebem a mesma janela de 60 s para
+// o joinRoom automático do navegador recuperar a vaga pelo token/Conta Google.
+function scheduleRestoredPlayerGrace(room,player){
+  if(!room||!player||player.isBot||player.connected)return;
+  const matchActive=room.status==='playing'||(room.status==='between-rounds'&&room.round>0);
+  if(matchActive){scheduleReconnectTakeover(room,player);return;}
+  cancelReconnectTimer(room.code,player.id);
+  const key=reconnectTimerKey(room.code,player.id);
+  const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
+  const timer=setTimeout(()=>{
+    reconnectTimers.delete(key);
+    const liveRoom=rooms.get(room.code);if(!liveRoom||!['lobby','between-rounds'].includes(liveRoom.status))return;
+    const stale=liveRoom.players.find(p=>p.id===player.id);
+    if(!stale||stale.connected||stale.isBot)return;
+    const leavingName=stale.name;
+    liveRoom.players=liveRoom.players.filter(p=>p.id!==stale.id);
+    if(!liveRoom.players.length||liveRoom.players.every(p=>p.isBot)){
+      clearReconnectTimersForRoom(liveRoom.code);closeSpectatorsForRoom(liveRoom);clearSpectatorReconnectTimersForRoom(liveRoom.code);removeRoom(liveRoom.code);invalidateInvitesForRoom(liveRoom.code);broadcastPresence();return;
+    }
+    ensureHost(liveRoom);Engine.appendLog(liveRoom,`${leavingName} foi removido após o prazo de reconexão do servidor.`,'system');emitRoom(liveRoom);broadcastPresence();
+  },delay);
+  timer.unref?.();reconnectTimers.set(key,timer);
+}
+
+async function restorePersistedRooms(){
+  const ready=await roomSnapshotsReady;if(!ready)return 0;
+  let restored=0;
+  try{
+    const snapshots=await roomSnapshotStore.loadActive();
+    for(const snapshot of snapshots){
+      const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:RECONNECT_GRACE_MS});
+      if(!room||rooms.has(room.code))continue;
+      ensureSocial(room);rooms.set(room.code,room);restored++;
+      Engine.appendLog(room,'♻️ A sala foi restaurada após reinício do servidor. Reconecte para retomar seu lugar.','system');
+      for(const p of room.players)scheduleRestoredPlayerGrace(room,p);
+      roomSnapshotStore.queueSave(room);
+    }
+  }catch(e){console.error('[rooms] falha ao restaurar snapshots:',e?.message||e);}
+  if(restored)console.log(`[rooms] ${restored} sala(s) restaurada(s) após reinício.`);
+  return restored;
+}
+
+let shuttingDown=false;
+async function gracefulShutdown(signal){
+  if(shuttingDown)return;shuttingDown=true;
+  console.log(`[server] ${signal}: salvando ${rooms.size} sala(s) antes de encerrar...`);
+  const force=setTimeout(()=>process.exit(1),8000);force.unref?.();
+  try{await roomSnapshotsReady;await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
+  catch(e){console.error('[rooms] erro no snapshot final:',e?.message||e);}
+  try{io.close();}catch{}
+  server.close(async()=>{try{await roomSnapshotStore.close();}catch{};clearTimeout(force);process.exit(0);});
+}
+process.once('SIGTERM',()=>gracefulShutdown('SIGTERM'));
+process.once('SIGINT',()=>gracefulShutdown('SIGINT'));
+
+async function startServer(){
+  await restorePersistedRooms();
+  server.listen(PORT,()=>console.log(`Mau-Mau online em http://localhost:${PORT}`));
+}
+startServer().catch(e=>{console.error('[server] falha ao iniciar:',e);process.exit(1);});

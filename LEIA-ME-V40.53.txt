@@ -1,0 +1,38 @@
+MAU-MAU CANDEIAS — V40.53 PROTEÇÃO CONTRA REINÍCIO DO SERVIDOR
+
+Objetivo
+- Preservar partidas ativas quando o processo do Render reiniciar ou ocorrer novo deploy.
+- Salvar um snapshot leve e serializável da sala no PostgreSQL.
+- Restaurar a sala antes de aceitar novas conexões.
+- Dar aos jogadores 60 segundos para o navegador reconectar automaticamente à vaga.
+
+Importante
+- Para sobreviver a um restart real do Render, DATABASE_URL precisa apontar para um PostgreSQL persistente.
+- AUTH_SESSION_SECRET também deve ser fixo no Render. Se ele mudar a cada reinício, a sessão Google anterior perde validade.
+- Sem DATABASE_URL, existe fallback JSON apenas para desenvolvimento/local; disco efêmero não garante recuperação em restart do Render.
+- Observadores, convites, presença online e sockets continuam efêmeros por segurança e simplicidade. A PARTIDA e as vagas dos jogadores são preservadas.
+
+O snapshot inclui
+- regras e rodada;
+- mãos/baralho/descarte;
+- turno e direção;
+- pontuações;
+- tokens de reconexão/identidade da vaga;
+- avatares necessários à sala;
+- histórico essencial da partida.
+
+O snapshot NÃO inclui
+- socketId antigo;
+- timers Node.js;
+- conexões WebRTC;
+- observadores ativos;
+- convites temporários.
+
+Ao reiniciar
+1. servidor lê os snapshots válidos;
+2. restaura a partida exatamente no ponto salvo;
+3. jogadores humanos aparecem temporariamente desconectados;
+4. o frontend reconecta com token/Conta Google;
+5. quem não retornar no prazo segue a regra existente de AUTO temporário.
+
+Nenhuma regra do Mau-Mau foi alterada.

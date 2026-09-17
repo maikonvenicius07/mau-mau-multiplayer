@@ -416,3 +416,8 @@ A regra de áudio continua: **qualquer jogador ou observador que ligar o microfo
 
 Os avatares originais da V40.45 foram preservados em um ZIP de backup separado para restauração rápida caso se prefira a qualidade anterior.
 
+
+
+## V40.53 — recuperação de partidas após restart
+
+Com `DATABASE_URL` configurada, salas ativas são salvas em snapshots no PostgreSQL e restauradas após reinício/deploy. O servidor remove dados efêmeros (socketId, WebRTC, observadores e timers) e oferece 60 segundos para cada jogador humano reconectar automaticamente à própria vaga. Configure também um `AUTH_SESSION_SECRET` fixo no Render para que a sessão de autenticação continue válida entre reinícios.

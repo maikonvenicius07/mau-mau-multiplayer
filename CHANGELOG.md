@@ -1,3 +1,13 @@
+## V40.53 — Proteção contra reinício do servidor
+
+- Snapshots das salas ativas em PostgreSQL (fallback JSON local).
+- Restauração das partidas antes de o servidor aceitar conexões.
+- socketIds, WebRTC, observadores e timers não são persistidos.
+- Jogadores humanos recebem nova janela de 60 s para reconectar à vaga após restart.
+- Salvamento final em SIGTERM/SIGINT para deploy/manutenção do Render.
+- Snapshot removido quando a sala é removida normalmente.
+- Regras e motor do jogo preservados.
+
 ## V40.52 — Estado e avatares leves
 
 - Figurinhas personalizadas deixam de ser repetidas em cada evento `state`.
