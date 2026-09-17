@@ -981,3 +981,26 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .local-music-audio{display:block;width:100%;height:40px;margin:10px 0;background:#0a1711;border-radius:10px}.local-music-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.local-music-actions button{min-height:42px;border-radius:11px;border:1px solid #3e6551;font-size:10px;font-weight:900}.local-music-actions #localMusicRemove{background:#281b19;color:#edc9c1;border-color:#66423b}.local-music-actions .primary{background:#d7aa50;color:#251a08;border-color:#e6c06e}
 .local-music-privacy{margin:12px 0 0;color:#789588;font-size:9px;line-height:1.45;text-align:center}
 @media(max-width:700px){.local-music-modal{width:calc(100vw - 14px);padding:18px 12px}.local-music-head h2{font-size:22px}.local-music-file-btn{min-height:50px}.local-music-actions button{min-height:46px}}
+
+/* =========================================================
+   V40.50 — DIAGNÓSTICO DE CONEXÃO + AUDIOWORKLET
+   ========================================================= */
+.connection-chip{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;line-height:1}
+.connection-chip.quality-good.online{border-color:#357a56;color:#83e5ad}
+.connection-chip.quality-warn.online{border-color:#a47b2c;color:#ffd987;background:#2c2412}
+.connection-chip.quality-bad.online{border-color:#9b4249;color:#ffadb4;background:#301619}
+.connection-chip.quality-pending.online{border-color:#52725f;color:#bed7ca}
+.network-diagnostics-modal{width:min(650px,94vw);background:#0b1b14;color:#eef8f2;border:1px solid #4e755f;border-radius:22px;padding:24px;box-shadow:0 24px 80px #000a}
+.network-diagnostics-modal::backdrop{background:#020a0790;backdrop-filter:blur(5px)}
+.network-diagnostics-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-right:34px}
+.network-diagnostics-head h2{margin:3px 0 5px;font-size:27px}.network-diagnostics-head p{margin:0;color:#a9beb2;font-size:12px;line-height:1.45}
+.network-quality-badge{flex:0 0 auto;border:1px solid #526d5f;border-radius:999px;padding:8px 12px;font-weight:950;font-size:10px;letter-spacing:.06em;background:#13271e;color:#bdd1c6;text-transform:uppercase}
+.network-quality-badge.good{border-color:#3d8a60;color:#96efbb;background:#102d1e}.network-quality-badge.warn{border-color:#b48a37;color:#ffdc8b;background:#322811}.network-quality-badge.bad{border-color:#a74b52;color:#ffadb4;background:#37191c}.network-quality-badge.pending{border-color:#567264;color:#c2d7cd}
+.network-diagnostics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:18px 0 12px}
+.network-diagnostics-grid>div{min-width:0;padding:11px 12px;border:1px solid #2d4d3c;border-radius:13px;background:#08150f;display:flex;flex-direction:column;gap:4px}
+.network-diagnostics-grid span{font-size:8px;color:#86a394;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.network-diagnostics-grid strong{font-size:13px;overflow-wrap:anywhere;color:#e8f3ed}
+.network-diagnostics-wide{grid-column:span 3}
+.network-advice{margin:10px 0;padding:11px 12px;border-left:3px solid #4c7c65;background:#0e2419;border-radius:8px;color:#c5d9ce;font-size:11px;line-height:1.45}
+.network-diagnostics-actions{display:flex;justify-content:flex-end;margin-top:12px}.network-diagnostics-actions button{border:1px solid #4c745f;background:#173426;color:#def1e7;border-radius:11px;padding:9px 13px;font-weight:900;cursor:pointer}
+.network-diagnostics-note{margin:12px 0 0;color:#759384;font-size:9px;line-height:1.4}
+@media(max-width:700px){.network-diagnostics-modal{padding:18px 12px}.network-diagnostics-head{display:block;padding-right:28px}.network-quality-badge{display:inline-block;margin-top:10px}.network-diagnostics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.network-diagnostics-wide{grid-column:span 2}.network-diagnostics-grid strong{font-size:12px}}

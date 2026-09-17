@@ -1,3 +1,11 @@
+## V40.50 — Diagnóstico de conexão + AudioWorklet
+
+- Relay do microfone do observador passa a usar **AudioWorklet** quando disponível, retirando captura/processamento da thread principal; navegadores antigos mantêm fallback compatível.
+- Frames de relay são processados em blocos curtos com VAD e continuam sendo enviados como eventos `volatile`, sem disputar a fila confiável da partida.
+- Novo painel **📶 Diagnóstico de conexão** com ping ao servidor, jitter das sondas, falhas recentes, transporte Socket.IO, reconexões, rota da voz e métricas WebRTC quando disponíveis.
+- Adicionada sonda leve `networkProbe`, sem estado da partida ou dados pessoais.
+- Nenhuma regra do Mau-Mau foi alterada.
+
 
 ## V40.49 — Estabilidade de rede e voz do observador
 - Relay do observador comprimido e com supressão de silêncio.

@@ -1,3 +1,7 @@
+## V40.50 — Diagnóstico de conexão + AudioWorklet
+
+A V40.50 melhora o relay de voz do observador sem alterar as regras do jogo. Quando suportado pelo navegador, a captura/compactação μ-law roda em `AudioWorklet`, fora da thread principal; há fallback para navegadores antigos. O indicador de conexão da mesa agora abre um painel de diagnóstico com RTT até o servidor, jitter das sondas, falhas recentes, transporte Socket.IO, reconexões e estatísticas WebRTC disponíveis.
+
 ## V40.49 — Estabilidade de rede e voz
 
 A V40.49 reduz o tráfego do microfone do observador e reforça a reconexão móvel sem alterar as regras do jogo.

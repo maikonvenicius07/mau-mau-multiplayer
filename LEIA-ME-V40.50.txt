@@ -1,0 +1,18 @@
+MAU-MAU CANDEIAS — V40.50
+DIAGNÓSTICO DE CONEXÃO + AUDIOWORKLET
+
+COMO ATUALIZAR
+1. Copie/substitua no GitHub todos os arquivos e pastas deste pacote, mantendo os mesmos caminhos.
+2. Não é necessário excluir nenhum arquivo nesta atualização.
+3. Aguarde o deploy do Render.
+4. No celular, feche a aba antiga e abra novamente para garantir o carregamento do app.js?v=40.50.
+
+PRINCIPAIS MUDANÇAS
+- AudioWorklet para captura/compactação do relay do observador quando suportado.
+- Fallback compatível permanece para navegadores antigos.
+- Painel de diagnóstico ao tocar/clicar no indicador de conexão.
+- Ping, jitter, falhas recentes de sonda, transporte Socket.IO, reconexões e estatísticas WebRTC.
+- Nenhuma regra do Mau-Mau foi alterada.
+
+TESTES
+- 66/66 testes aprovados no projeto final.

@@ -1,12 +1,12 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.49.0",
-  "description": "Mau-Mau Candeias V40.49: estabilidade de conexão e voz do observador; regras V40.43 e Minha Música local preservadas.",
+  "version": "40.50.0",
+  "description": "Mau-Mau Candeias V40.50: AudioWorklet no relay do observador e diagnóstico de conexão; regras V40.43 e Minha Música local preservadas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "node --check server.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && npm test"
+    "verify": "node --check server.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test"
   },
   "engines": {
     "node": ">=18"

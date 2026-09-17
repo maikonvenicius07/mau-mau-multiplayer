@@ -4,11 +4,11 @@ const fs=require('fs');
 const path=require('path');
 const root=path.join(__dirname,'..');
 const musicDir=path.join(root,'public','assets','music');
-assert(!fs.existsSync(musicDir),'public/assets/music ainda existe; a V40.49 deve continuar sem trilhas internas');
+assert(!fs.existsSync(musicDir),'public/assets/music ainda existe; a V40.50 deve continuar sem trilhas internas');
 const publicDir=path.join(root,'public');
 function bytes(dir){return fs.readdirSync(dir,{withFileTypes:true}).reduce((n,e)=>n+(e.isDirectory()?bytes(path.join(dir,e.name)):fs.statSync(path.join(dir,e.name)).size),0)}
 const total=bytes(publicDir);
-assert(total<2500000,`public ainda está pesado demais para V40.49: ${total} bytes`);
+assert(total<2500000,`public ainda está pesado demais para V40.50: ${total} bytes`);
 const html=fs.readFileSync(path.join(publicDir,'index.html'),'utf8');
-assert(html.includes('app.js?v=40.49')&&html.includes('styles.css?v=40.49'),'cache-busting V40.49 ausente');
-console.log(`✓ V40.49: sem assets de música interna; public=${total} bytes.`);
+assert(html.includes('app.js?v=40.50')&&html.includes('styles.css?v=40.50'),'cache-busting V40.50 ausente');
+console.log(`✓ V40.50: sem assets de música interna; public=${total} bytes.`);

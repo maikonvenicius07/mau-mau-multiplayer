@@ -1137,6 +1137,12 @@ io.on('connection', socket => {
     socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
   });
 
+  // V40.50 — sonda mínima de RTT. Não transporta estado da partida nem dados pessoais;
+  // serve apenas para o diagnóstico local de qualidade da conexão.
+  socket.on('networkProbe', (payload, ack) => {
+    if(typeof ack==='function') ack({serverAt:Date.now(),clientAt:Number(payload?.clientAt||0)});
+  });
+
 
   socket.on('liveVoiceReady', () => {
     try { notifyExistingLiveVoiceSendersAbout(socket); } catch(e) { err(socket,e); }

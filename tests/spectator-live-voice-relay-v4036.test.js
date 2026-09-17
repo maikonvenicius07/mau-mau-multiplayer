@@ -21,4 +21,4 @@ assert(server.includes('Player → somente observadores'),'relay de jogador deve
 assert(server.includes('pcm.length>16000'),'relay não limita tamanho dos pacotes');
 assert(app.includes("LIVE_VOICE_RELAY_CODEC='mulaw8'"),'relay leve mulaw8 ausente');
 assert(server.includes('liveVoiceRelayAllowed'),'relay não possui limite de taxa');
-console.log('✓ V40.49: voz envolvendo observador usa relay leve/volatile pelo servidor, sem depender de P2P/TURN.');
+console.log('✓ V40.50: voz envolvendo observador usa relay leve/volatile pelo servidor, sem depender de P2P/TURN.');

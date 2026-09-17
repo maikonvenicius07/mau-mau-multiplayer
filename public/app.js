@@ -39,9 +39,15 @@ const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTim
 const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
 const LIVE_VOICE_RELAY_CODEC='mulaw8';
 const LIVE_VOICE_RELAY_VAD_THRESHOLD=.0045;
+const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.50';
 let liveVoiceRelaySpeechHangover=0;
-let liveVoiceRelayCapture=null,liveVoiceRelayWarned=false;
+let liveVoiceRelayCapture=null,liveVoiceRelayCaptureStarting=false,liveVoiceRelayWorkletPromise=null,liveVoiceRelayWarned=false;
 const liveVoiceRelayPlaybackNext=new Map();
+// V40.50 — diagnóstico leve de conexão. Mede RTT até o servidor, variação
+// entre sondas, falhas recentes, transporte Socket.IO e estatísticas WebRTC.
+const NETWORK_PROBE_INTERVAL_MS=5000,NETWORK_PROBE_TIMEOUT_MS=3500;
+let networkProbeTimer=null,networkRtcStatsTimer=null,networkReconnectCount=0;
+const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,lastUpdatedAt:0};
 const liveMicPositionStorage='maumauLiveMicPositionV1';
 const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
 let liveMicPositionRole=null;
@@ -342,9 +348,117 @@ function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))
 function clearSession(){localStorage.removeItem(sessionKey)}
 function setConnection(status){
   const chip=$('#connectionChip'); if(!chip) return;
+  chip.dataset.connectionStatus=status;
   chip.className=`connection-chip ${status}`;
   chip.textContent=status==='online'?'● Online':status==='offline'?'● Sem conexão':'● Conectando';
+  updateNetworkDiagnosticsUI();
 }
+function networkAverage(values){return values.length?values.reduce((a,b)=>a+b,0)/values.length:null}
+function networkJitter(values){
+  if(values.length<2)return null;
+  const diffs=[];for(let i=1;i<values.length;i++)diffs.push(Math.abs(values[i]-values[i-1]));
+  return networkAverage(diffs);
+}
+function networkVoiceMode(){
+  const active=liveMicOn||liveVoiceActivePlayerIds.size>0;
+  if(!active)return'Desligado';
+  if(isSpectatorState()||Number(state?.spectatorCount||0)>0)return'Misto / Relay do observador';
+  return'WebRTC / Opus';
+}
+function networkQuality(){
+  if(!socket.connected)return{key:'bad',label:'Sem conexão'};
+  const rtt=networkDiagnostics.lastRtt,jitter=networkDiagnostics.jitter,loss=networkDiagnostics.probeLoss,rtcLoss=networkDiagnostics.rtcLoss,rtcJitter=networkDiagnostics.rtcJitter;
+  if(rtt==null)return{key:'pending',label:'Medindo'};
+  if(loss>=25||rtt>450||(jitter??0)>150||(rtcLoss??0)>15||(rtcJitter??0)>120)return{key:'bad',label:'Ruim'};
+  if(loss>=8||rtt>220||(jitter??0)>80||(rtcLoss??0)>5||(rtcJitter??0)>70)return{key:'warn',label:'Oscilando'};
+  return{key:'good',label:'Boa'};
+}
+function formatDiagMs(value){return Number.isFinite(value)?`${Math.round(value)} ms`:'—'}
+function formatDiagPct(value){return Number.isFinite(value)?`${value.toFixed(value>=10?0:1)}%`:'—'}
+function updateNetworkDiagnosticsUI(){
+  networkDiagnostics.transport=socket.io?.engine?.transport?.name||networkDiagnostics.transport||'-';
+  networkDiagnostics.voiceMode=networkVoiceMode();
+  const quality=networkQuality(),chip=$('#connectionChip');
+  if(chip){
+    chip.classList.remove('quality-good','quality-warn','quality-bad','quality-pending');
+    chip.classList.add(`quality-${quality.key}`);
+    chip.title=`Conexão ${quality.label}${Number.isFinite(networkDiagnostics.lastRtt)?` • ${Math.round(networkDiagnostics.lastRtt)} ms`:''}. Clique para diagnosticar.`;
+    chip.setAttribute('aria-label',chip.title);
+  }
+  const set=(id,value)=>{const el=$(id);if(el)el.textContent=value};
+  set('#networkQualityValue',quality.label);
+  set('#networkPingValue',formatDiagMs(networkDiagnostics.lastRtt));
+  set('#networkJitterValue',formatDiagMs(networkDiagnostics.jitter));
+  set('#networkLossValue',formatDiagPct(networkDiagnostics.probeLoss));
+  set('#networkTransportValue',String(networkDiagnostics.transport||'-').toUpperCase());
+  set('#networkReconnectValue',String(networkReconnectCount));
+  set('#networkVoiceModeValue',networkDiagnostics.voiceMode);
+  const rtcParts=[];
+  if(Number.isFinite(networkDiagnostics.rtcRtt))rtcParts.push(`RTT ${formatDiagMs(networkDiagnostics.rtcRtt)}`);
+  if(Number.isFinite(networkDiagnostics.rtcJitter))rtcParts.push(`jitter ${formatDiagMs(networkDiagnostics.rtcJitter)}`);
+  if(Number.isFinite(networkDiagnostics.rtcLoss))rtcParts.push(`perda ${formatDiagPct(networkDiagnostics.rtcLoss)}`);
+  set('#networkRtcValue',rtcParts.length?rtcParts.join(' • '):'Sem amostra WebRTC');
+  const badge=$('#networkQualityBadge');if(badge){badge.className=`network-quality-badge ${quality.key}`;badge.textContent=quality.label;}
+  const advice=$('#networkAdvice');if(advice){
+    advice.textContent=quality.key==='good'?'A conexão está saudável para a partida.'
+      :quality.key==='warn'?'Há oscilação. Evite trocar de rede durante a rodada e mantenha o navegador em primeiro plano.'
+      :quality.key==='bad'?(socket.connected?'A conexão está instável. Voz e reconexão podem sofrer cortes; teste outra rede quando possível.':'O jogo está tentando reconectar automaticamente.')
+      :'Aguardando algumas sondas para avaliar a qualidade.';
+  }
+}
+function recordNetworkProbe(ok,rtt=null){
+  networkDiagnostics.probes.push(ok?1:0);if(networkDiagnostics.probes.length>20)networkDiagnostics.probes.shift();
+  const total=networkDiagnostics.probes.length,success=networkDiagnostics.probes.reduce((a,b)=>a+b,0);
+  networkDiagnostics.probeLoss=total?((total-success)/total)*100:0;
+  if(ok&&Number.isFinite(rtt)){
+    networkDiagnostics.lastRtt=rtt;networkDiagnostics.rtts.push(rtt);if(networkDiagnostics.rtts.length>12)networkDiagnostics.rtts.shift();
+    networkDiagnostics.jitter=networkJitter(networkDiagnostics.rtts);
+  }
+  networkDiagnostics.lastUpdatedAt=Date.now();updateNetworkDiagnosticsUI();
+}
+function runNetworkProbe(){
+  if(!socket.connected){updateNetworkDiagnosticsUI();return;}
+  const started=performance.now();
+  socket.timeout(NETWORK_PROBE_TIMEOUT_MS).emit('networkProbe',{clientAt:Date.now()},err=>{
+    if(err)return recordNetworkProbe(false);
+    recordNetworkProbe(true,Math.max(0,performance.now()-started));
+  });
+}
+async function sampleLiveVoiceRtcStats(){
+  const pcs=[...new Set([...liveMicOutboundPeers.values(),...liveMicInboundPeers.values()])].filter(pc=>pc&&pc.connectionState!=='closed');
+  if(!pcs.length){networkDiagnostics.rtcRtt=null;networkDiagnostics.rtcJitter=null;networkDiagnostics.rtcLoss=null;updateNetworkDiagnosticsUI();return;}
+  const rtts=[],jitters=[],losses=[];
+  for(const pc of pcs){
+    try{
+      const report=await pc.getStats();let lost=0,received=0;
+      report.forEach(stat=>{
+        const kind=String(stat.kind||stat.mediaType||'');
+        if(stat.type==='candidate-pair'&&stat.state==='succeeded'&&Number.isFinite(stat.currentRoundTripTime))rtts.push(stat.currentRoundTripTime*1000);
+        if(['inbound-rtp','remote-inbound-rtp'].includes(stat.type)&&(!kind||kind==='audio')){
+          if(Number.isFinite(stat.jitter))jitters.push(stat.jitter*1000);
+          if(Number.isFinite(stat.fractionLost))losses.push(Math.max(0,stat.fractionLost*100));
+          if(Number.isFinite(stat.packetsLost))lost+=Math.max(0,stat.packetsLost);
+          if(Number.isFinite(stat.packetsReceived))received+=Math.max(0,stat.packetsReceived);
+          if(Number.isFinite(stat.roundTripTime))rtts.push(stat.roundTripTime*1000);
+        }
+      });
+      if(lost+received>0)losses.push((lost/(lost+received))*100);
+    }catch{}
+  }
+  networkDiagnostics.rtcRtt=rtts.length?networkAverage(rtts):null;
+  networkDiagnostics.rtcJitter=jitters.length?networkAverage(jitters):null;
+  networkDiagnostics.rtcLoss=losses.length?Math.max(...losses):null;
+  updateNetworkDiagnosticsUI();
+}
+function startNetworkDiagnostics(){
+  if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);
+  runNetworkProbe();sampleLiveVoiceRtcStats();
+  networkProbeTimer=setInterval(runNetworkProbe,NETWORK_PROBE_INTERVAL_MS);
+  networkRtcStatsTimer=setInterval(sampleLiveVoiceRtcStats,NETWORK_PROBE_INTERVAL_MS);
+}
+function stopNetworkDiagnostics(){if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);networkProbeTimer=null;networkRtcStatsTimer=null;updateNetworkDiagnosticsUI()}
+function openNetworkDiagnostics(){updateNetworkDiagnosticsUI();const d=$('#networkDiagnosticsDialog');if(d&&!d.open)d.showModal()}
+function closeNetworkDiagnostics(){const d=$('#networkDiagnosticsDialog');if(d?.open)d.close()}
 
 function vibrationSupported(){return typeof navigator.vibrate==='function'}
 function updateVibrationUI(){
@@ -1171,35 +1285,62 @@ function muLaw8FromFloatDownsample(input,inputRate,targetRate=LIVE_VOICE_RELAY_S
   return{data:out,rms:Math.sqrt(energy/Math.max(1,outLength))};
 }
 function stopLiveVoiceRelayCapture(){
-  const rec=liveVoiceRelayCapture;if(!rec)return;
-  try{rec.processor.onaudioprocess=null;rec.source.disconnect();rec.processor.disconnect();rec.sink.disconnect()}catch{}
-  liveVoiceRelayCapture=null;liveVoiceRelaySpeechHangover=0;
-}
-function startLiveVoiceRelayCapture(){
-  if(liveVoiceRelayCapture||!liveVoiceRelayRequired()||!liveMicStream||!socket.connected)return;
-  const ac=audioCtx();if(!ac)return;
-  const createProcessor=ac.createScriptProcessor||ac.createJavaScriptNode;
-  if(!createProcessor)return;
+  const rec=liveVoiceRelayCapture;liveVoiceRelayCapture=null;liveVoiceRelaySpeechHangover=0;
+  if(!rec)return;
   try{
-    const source=ac.createMediaStreamSource(liveMicStream);
-    const processor=createProcessor.call(ac,4096,1,1);
-    const sink=ac.createGain();sink.gain.value=0;
-    source.connect(processor);processor.connect(sink);sink.connect(ac.destination);
-    processor.onaudioprocess=e=>{
-      if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
-      const input=e.inputBuffer?.getChannelData?.(0);if(!input?.length)return;
-      const encoded=muLaw8FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);
-      if(!encoded.data.length)return;
-      if(encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD)liveVoiceRelaySpeechHangover=4;
-      else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
-      else return; // silêncio: não ocupa a conexão da partida
-      socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
-    };
-    liveVoiceRelayCapture={ac,source,processor,sink};
-  }catch{stopLiveVoiceRelayCapture()}
+    if(rec.kind==='script'&&rec.processor)rec.processor.onaudioprocess=null;
+    if(rec.kind==='worklet'&&rec.processor?.port)rec.processor.port.onmessage=null;
+    rec.source?.disconnect?.();rec.processor?.disconnect?.();rec.sink?.disconnect?.();
+  }catch{}
+}
+async function ensureLiveVoiceRelayWorklet(ac){
+  if(!ac?.audioWorklet||!window.AudioWorkletNode)return false;
+  if(liveVoiceRelayWorkletPromise)return liveVoiceRelayWorkletPromise;
+  liveVoiceRelayWorkletPromise=ac.audioWorklet.addModule(LIVE_VOICE_RELAY_WORKLET_URL).then(()=>true).catch(()=>false);
+  return liveVoiceRelayWorkletPromise;
+}
+function startLiveVoiceRelayScriptFallback(ac){
+  const createProcessor=ac.createScriptProcessor||ac.createJavaScriptNode;if(!createProcessor)return false;
+  const source=ac.createMediaStreamSource(liveMicStream),processor=createProcessor.call(ac,4096,1,1),sink=ac.createGain();sink.gain.value=0;
+  source.connect(processor);processor.connect(sink);sink.connect(ac.destination);
+  processor.onaudioprocess=e=>{
+    if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
+    const input=e.inputBuffer?.getChannelData?.(0);if(!input?.length)return;
+    const encoded=muLaw8FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);if(!encoded.data.length)return;
+    if(encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD)liveVoiceRelaySpeechHangover=4;
+    else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
+    else return;
+    socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
+  };
+  liveVoiceRelayCapture={kind:'script',ac,source,processor,sink};return true;
+}
+async function startLiveVoiceRelayCapture(){
+  if(liveVoiceRelayCapture||liveVoiceRelayCaptureStarting||!liveVoiceRelayRequired()||!liveMicStream||!socket.connected)return;
+  const ac=audioCtx();if(!ac)return;liveVoiceRelayCaptureStarting=true;
+  try{
+    const workletReady=await ensureLiveVoiceRelayWorklet(ac);
+    if(!liveVoiceRelayRequired()||!liveMicStream||!liveMicOn||!socket.connected)return;
+    if(workletReady){
+      const source=ac.createMediaStreamSource(liveMicStream);
+      const processor=new AudioWorkletNode(ac,'mau-mau-voice-relay-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{targetRate:LIVE_VOICE_RELAY_SAMPLE_RATE,frameSize:640,vadThreshold:LIVE_VOICE_RELAY_VAD_THRESHOLD,hangoverFrames:4}});
+      const sink=ac.createGain();sink.gain.value=0;
+      source.connect(processor);processor.connect(sink);sink.connect(ac.destination);
+      processor.port.onmessage=e=>{
+        if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
+        const pcm=e.data?.pcm;if(e.data?.type!=='voice-frame'||!(pcm instanceof ArrayBuffer)||!pcm.byteLength)return;
+        socket.volatile.emit('liveVoiceRelayPcm',{sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm});
+      };
+      liveVoiceRelayCapture={kind:'worklet',ac,source,processor,sink};
+    }else{
+      startLiveVoiceRelayScriptFallback(ac);
+    }
+  }catch{
+    try{startLiveVoiceRelayScriptFallback(ac)}catch{stopLiveVoiceRelayCapture()}
+  }finally{liveVoiceRelayCaptureStarting=false;updateNetworkDiagnosticsUI()}
 }
 function syncLiveVoiceRelayCapture(){
   if(liveVoiceRelayRequired())startLiveVoiceRelayCapture();else stopLiveVoiceRelayCapture();
+  updateNetworkDiagnosticsUI();
 }
 function liveVoiceRelayBytes(value){
   if(value instanceof ArrayBuffer)return new Uint8Array(value);
@@ -1713,6 +1854,10 @@ $('#passTurnBtn').onclick=()=>{
 const rules=$('#rulesDialog');
 $('#rulesOpen').onclick=$('#rulesOpen2').onclick=()=>rules.showModal();
 $('#rulesClose').onclick=()=>rules.close();
+if($('#connectionChip'))$('#connectionChip').onclick=openNetworkDiagnostics;
+if($('#networkDiagnosticsClose'))$('#networkDiagnosticsClose').onclick=closeNetworkDiagnostics;
+if($('#networkDiagnosticsRefresh'))$('#networkDiagnosticsRefresh').onclick=()=>{runNetworkProbe();sampleLiveVoiceRtcStats();};
+$('#networkDiagnosticsDialog')?.addEventListener('click',e=>{if(e.target===$('#networkDiagnosticsDialog'))closeNetworkDiagnostics()});
 $('#roundReviewClose').onclick=closeRoundReview;
 $('#roundReviewDone').onclick=closeRoundReview;
 $('#roundReviewReplay').onclick=requestPlayAgain;
@@ -2002,7 +2147,7 @@ socket.on('reconnectionEvent',event=>{
 });
 socket.on('sessionReplaced',()=>{resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
 socket.on('connect',()=>{
-  setConnection('online');
+  setConnection('online');startNetworkDiagnostics();
   syncPresenceProfile();
   requestPublicRooms();
   const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
@@ -2019,12 +2164,13 @@ socket.on('connect',()=>{
     else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
   } else if(urlRoom) $('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
-  setConnection('offline');
+  setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente com Google.');renderGoogleSignIn();}
 });
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
+socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();updateNetworkDiagnosticsUI();});
 
 function returnToLanding(message=''){
   resetLiveVoice({notify:false});closeSpectatorOffer();
