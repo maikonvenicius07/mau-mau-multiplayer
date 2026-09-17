@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.57
+
+1. Substitua/adicone no GitHub somente os arquivos deste pacote, mantendo a mesma estrutura de pastas.
+2. Não há arquivos para excluir nesta versão.
+3. Aguarde o Render concluir o deploy e ficar Live.
+4. Teste a Reconexão Inteligente: desconecte um jogador, espere mais de 60 s até aparecer AUTO e depois reabra o jogo com a mesma Conta Google.
+5. O retorno deve acontecer automaticamente para a mesma cadeira, sem digitar o código da sala.
+
+Nenhuma nova variável de ambiente é necessária no Render.

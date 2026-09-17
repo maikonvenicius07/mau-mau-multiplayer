@@ -1,0 +1,19 @@
+MAU-MAU CANDEIAS — V40.57 RECONEXÃO INTELIGENTE PERMANENTE
+
+OBJETIVO
+Permitir que o jogador humano retome automaticamente sua cadeira mesmo depois dos 60 segundos, quando a Máquina já estiver controlando temporariamente a vaga.
+
+IDENTIDADE
+1. O mesmo navegador usa primeiro o token persistente da vaga salvo em localStorage.
+2. Se o código/token local não existir, o servidor procura uma vaga recuperável usando exclusivamente a playerKey da Conta Google autenticada pela sessão HttpOnly assinada.
+3. Nome e avatar não servem como identificação.
+4. Outro aparelho pode recuperar a vaga somente depois de autenticar a mesma Conta Google e se a cadeira estiver desconectada/AUTO.
+
+TRANSFERÊNCIA SEGURA
+- A Máquina nunca vira dona da cadeira: autoControlled é temporário.
+- Ao retornar, o timer automático pendente é cancelado.
+- Se uma jogada automática já estiver em execução, ela termina primeiro; o humano recebe o estado e a mão atuais.
+- Um timer antigo que dispare depois aborta porque a cadeira já não está em autoControlled.
+- playerId, posição, avatar, pontuação, direção e ordem física dos assentos são preservados.
+
+A reserva termina normalmente quando a partida deixa de ser uma partida ativa/é encerrada.

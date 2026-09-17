@@ -1,3 +1,9 @@
+## V40.57 — Reconexão Inteligente Permanente
+
+A V40.57 fecha a principal lacuna da reconexão longa. A cadeira humana continua reservada durante toda a partida mesmo depois que a Máquina assume temporariamente. O mesmo navegador continua priorizando o token persistente salvo em `localStorage`; se o código/token local não estiver disponível, o servidor pode localizar automaticamente a vaga pela `playerKey` da Conta Google autenticada em cookie HttpOnly. Nome e avatar nunca são usados como prova de identidade. Em outro aparelho, o retorno automático só acontece depois de autenticar a mesma Conta Google e somente se a vaga estiver desconectada/AUTO.
+
+A transferência de controle é segura: o timer automático pendente é cancelado antes da retomada; se uma jogada da Máquina já tiver começado no event loop, ela termina primeiro e o jogador recebe a mão atual resultante. Timers antigos também verificam `autoControlled` antes de agir, impedindo bot e humano de jogarem simultaneamente. Nenhuma regra de turnos, cartas, direção ou posição visual foi alterada.
+
 ## V40.56 — Deploy Seguro e Reproduzível
 
 A V40.56 fortalece o processo de publicação sem alterar regras, áudio, rede ou interface do Mau-Mau. O projeto passa a fixar Node.js 22.22.0 em `package.json` e `.node-version`; o Render executa `npm run verify` durante o build e só publica se toda a suíte passar; e o GitHub Actions executa a mesma verificação em pushes e pull requests. O `.npmrc` também força versões exatas para novas dependências adicionadas futuramente.

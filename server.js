@@ -799,6 +799,80 @@ function activePlayerRoomForKey(playerKey, exceptCode=null) {
 function playerHasActiveRoom(playerKey, exceptCode=null) {
   return !!activePlayerRoomForKey(playerKey,exceptCode);
 }
+
+// V40.57 — Reconexão Inteligente Permanente.
+// A procura da vaga usa SOMENTE a identidade autenticada da Conta Google (playerKey
+// da sessão HttpOnly). Nome, avatar e qualquer playerKey enviado pelo cliente não
+// participam da decisão. A vaga em AUTO continua sendo uma vaga humana reservada.
+function recoverablePlayerSeatForKey(playerKey) {
+  const key=String(playerKey||'');
+  if(!key)return null;
+  let best=null;
+  for(const room of rooms.values()){
+    if(!room||room.status==='finished')continue;
+    const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
+    if(!player)continue;
+    const socketAlive=!!(player.socketId&&io.sockets.sockets.get(player.socketId));
+    // Não tomamos automaticamente uma cadeira que ainda possui uma conexão viva.
+    // Se o socket antigo já morreu, o novo aparelho pode recuperar a vaga mesmo
+    // durante os 3 s de debounce da microqueda.
+    if(player.connected&&socketAlive)continue;
+    const score=(room.status==='playing'?100:room.status==='between-rounds'?80:40)
+      +(Number(room.round||0)>0?20:0)+(player.autoControlled?10:0);
+    if(!best||score>best.score)best={room,player,score};
+  }
+  return best;
+}
+
+function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) {
+  if(!socket||!room||!player||player.isBot)throw new Error('Vaga de reconexão inválida.');
+  const authKey=String(socket.data.auth?.playerKey||'');
+  if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra Conta Google.');
+  const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
+  if(player.connected&&liveSocket&&player.socketId!==socket.id){
+    throw new Error('Sua vaga já está conectada em outro dispositivo.');
+  }
+
+  const wasDisconnected=!player.connected;
+  const wasAutoControlled=!!player.autoControlled;
+  cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
+  cancelReconnectTimer(room.code,player.id);
+
+  // Regra de transferência segura: o Node processa cada evento de forma sequencial.
+  // Se o timer da Máquina ainda não começou, ele é cancelado aqui. Se já começou,
+  // a jogada automática termina primeiro; só depois este evento recupera a vaga e
+  // entrega ao humano a mão ATUAL. Um timer antigo que dispare depois também aborta
+  // porque scheduleBotTurn verifica isAutomatedPlayer() antes de agir.
+  if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+  if(player.socketId&&player.socketId!==socket.id){
+    io.to(player.socketId).emit('sessionReplaced');
+  }
+
+  const resumed=Engine.reconnectPlayer(room,player.token,socket.id);
+  if(!resumed)throw new Error('Não foi possível recuperar sua vaga.');
+
+  removeFromMatchmaking(authKey,{reason:'Busca encerrada porque sua partida foi retomada.',notify:true});
+  socket.data.roomCode=room.code;
+  socket.data.playerId=resumed.id;
+  socket.data.spectatorId=null;
+  socket.data.role=ROLE_PLAYER;
+  socket.join(room.code);
+  updatePresenceFromSocket(socket,{name:resumed.name,avatar:resumed.avatar});
+
+  if(wasDisconnected||wasAutoControlled){
+    Engine.appendLog(room,wasAutoControlled
+      ? `🟢 ${resumed.name} voltou e retomou seu lugar da Máquina.`
+      : `🟢 ${resumed.name} voltou automaticamente para sua vaga.`, 'system');
+    socket.emit('reconnectionEvent',{kind:wasAutoControlled?'returned-from-auto':'returned',playerId:resumed.id,name:resumed.name});
+    io.to(room.code).except(socket.id).emit('reconnectionEvent',{kind:'returned',playerId:resumed.id,name:resumed.name});
+  }
+
+  socket.emit('joined',{code:room.code,playerId:resumed.id,token:resumed.token,role:ROLE_PLAYER,source});
+  emitChatHistory(socket,room);
+  emitRoom(room);
+  broadcastPresence();
+  return resumed;
+}
 function requireNoOtherActivePlayerRoom(socket, exceptCode=null) {
   const other=activePlayerRoomForKey(socket.data.auth?.playerKey,exceptCode);
   if(other)throw new Error(`Você já possui uma vaga ativa na sala ${other.code}. Saia dela antes de entrar em outra mesa.`);
@@ -1208,6 +1282,30 @@ io.on('connection', socket => {
 
   socket.on('presenceProfile', payload => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
+  });
+
+  // V40.57 — se o navegador perdeu o código/token local (ou é outro aparelho),
+  // a Conta Google autenticada ainda consegue localizar a vaga humana reservada.
+  // O cliente não informa roomCode/playerKey: o servidor descobre a cadeira pela
+  // identidade assinada da sessão e só permite recuperar vaga desconectada/AUTO.
+  socket.on('resumeActiveSeat', () => {
+    try{
+      if(socket.data.role===ROLE_PLAYER&&socket.data.roomCode){
+        socket.emit('resumeActiveSeatResult',{ok:true,alreadyJoined:true,code:socket.data.roomCode});
+        return;
+      }
+      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode){
+        socket.emit('resumeActiveSeatResult',{ok:false,reason:'spectating'});
+        return;
+      }
+      const seat=recoverablePlayerSeatForKey(socket.data.auth?.playerKey);
+      if(!seat){socket.emit('resumeActiveSeatResult',{ok:false,reason:'none'});return;}
+      const fromAuto=!!seat.player.autoControlled;
+      const resumed=resumeReservedPlayerSeat(socket,seat.room,seat.player,{source:'auto-resume'});
+      socket.emit('resumeActiveSeatResult',{ok:true,code:seat.room.code,playerId:resumed.id,fromAuto});
+    }catch(e){
+      socket.emit('resumeActiveSeatResult',{ok:false,reason:'error',message:e?.message||'Não foi possível retomar a partida.'});
+    }
   });
 
   socket.on('requestPublicRooms', () => {

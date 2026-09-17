@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.56.0",
-  "description": "Mau-Mau Candeias V40.56: deploy seguro com Node fixado, verificação automática no Render e CI no GitHub.",
+  "version": "40.57.0",
+  "description": "Mau-Mau Candeias V40.57: Reconexão Inteligente Permanente com retomada automática da vaga humana mesmo após o AUTO temporário.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

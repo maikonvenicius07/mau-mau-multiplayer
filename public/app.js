@@ -57,6 +57,7 @@ let liveMicPositionRole=null;
 const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1', floatingQuickPositionStorage='maumauFloatingQuickPositionV1';
 const sessionKey='maumauSessionV1';
+let savedSessionResumePending=false,accountSeatResumePending=false;
 const customAvatarStoragePrefix='maumauCustomAvatarV1:';
 const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
@@ -2159,6 +2160,7 @@ function updateReconnectCountdown(){
 setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
+  savedSessionResumePending=false;accountSeatResumePending=false;
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   const resumeLiveMic=!!liveMicWanted;
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
@@ -2178,6 +2180,7 @@ socket.on('joined',data=>{
   if(resumeLiveMic)setTimeout(()=>startLiveMic(),350);
   updateLiveMicUI();
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
+  else if(data?.source==='auto-resume')toast('🟢 Partida encontrada. Você voltou automaticamente para sua vaga.');
 });
 socket.on('publicRoomsSnapshot',snapshot=>renderPublicRoomsSnapshot(snapshot||{}));
 socket.on('spectatorOffer',info=>{openSpectatorOffer(info||{});playGameSound('chat')});
@@ -2324,7 +2327,16 @@ socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
-socket.on('gameError',e=>{passPending=false;const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}$$('[data-watch-room]').forEach(btn=>{btn.disabled=false;btn.textContent='👁️ ASSISTIR'});requestPublicRooms();playGameSound('error');toast(e.message);render();});
+socket.on('gameError',e=>{
+  passPending=false;
+  const wasSavedResume=savedSessionResumePending;savedSessionResumePending=false;
+  const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}
+  $$('[data-watch-room]').forEach(btn=>{btn.disabled=false;btn.textContent='👁️ ASSISTIR'});requestPublicRooms();
+  // Se um código/token antigo deixou de funcionar, ainda tentamos localizar a vaga
+  // pela Conta Google antes de obrigar o jogador a digitar qualquer código.
+  if(wasSavedResume&&socket.connected){clearSession();accountSeatResumePending=true;socket.emit('resumeActiveSeat');return;}
+  playGameSound('error');toast(e.message);render();
+});
 socket.on('leftRoom',data=>{
   clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
@@ -2336,6 +2348,12 @@ socket.on('reconnectionEvent',event=>{
   else if(event?.kind==='returned-from-auto') toast('🟢 Conexão restabelecida. Você retomou seu lugar.');
   else if(event?.kind==='returned') toast(`🟢 ${event.name||'Jogador'} voltou à mesa.`);
 });
+socket.on('resumeActiveSeatResult',info=>{
+  accountSeatResumePending=false;
+  if(info?.ok)return;
+  // 'none' é o caso normal de quem não tem partida para recuperar; sem alerta.
+  if(info?.reason==='error'&&info?.message)toast(info.message);
+});
 socket.on('sessionReplaced',()=>{resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
 socket.on('connect',()=>{
   setConnection('online');startNetworkDiagnostics();
@@ -2345,16 +2363,32 @@ socket.on('connect',()=>{
   renderLinkInviteBanner(urlRoom);
   const sess=saved();
 
-  // Um link de convite para outra sala tem prioridade sobre uma sessão antiga.
-  if(urlRoom && (!sess?.code || sess.code !== urlRoom)){
+  // Mantemos o comportamento do convite por link: quando o link aponta para
+  // outra sala, ele continua preenchido na tela. Antes de qualquer entrada manual,
+  // porém, o servidor pode recuperar uma cadeira humana que ainda pertença à conta.
+  if(urlRoom&&(!sess?.code||sess.code!==urlRoom)){
     $('#roomInput').value=urlRoom;
+    accountSeatResumePending=true;socket.emit('resumeActiveSeat');
     return;
   }
+
+  // 1) O token persistente do navegador continua sendo a primeira opção e
+  // recupera exatamente a mesma cadeira. A playerKey da sessão Google é validada
+  // novamente no servidor, portanto um token copiado por outra conta não funciona.
   if(sess?.code&&sess?.token){
     $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
+    savedSessionResumePending=true;
     if(sess.role==='SPECTATOR')socket.emit('joinSpectator',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
     else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
-  } else if(urlRoom) $('#roomInput').value=urlRoom;
+    return;
+  }
+
+  // 2) Sem código/token local (inclusive em outro aparelho), pedimos ao servidor
+  // para localizar uma vaga desconectada/AUTO pertencente à Conta Google atual.
+  // Se não houver vaga, o usuário segue normalmente para convite/código de sala.
+  accountSeatResumePending=true;
+  socket.emit('resumeActiveSeat');
+  if(urlRoom)$('#roomInput').value=urlRoom;
 });
 socket.on('disconnect',(reason)=>{stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{

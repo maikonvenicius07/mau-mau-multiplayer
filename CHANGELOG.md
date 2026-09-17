@@ -1,3 +1,12 @@
+## V40.57 — Reconexão Inteligente Permanente
+
+- Vaga humana permanece reservada durante toda a partida mesmo após os 60 s e entrada em AUTO temporário.
+- Token local continua sendo a primeira forma de retomar exatamente a mesma cadeira.
+- Sem código/token local, a mesma Conta Google pode localizar e recuperar automaticamente sua vaga desconectada/AUTO, inclusive em outro aparelho.
+- Nome do jogador nunca é aceito como identidade de reconexão.
+- Transferência bot → humano cancela timer automático pendente e sempre entrega a mão/estado atuais, sem desfazer jogadas feitas pelo AUTO.
+- Nova bateria de testes cobre retorno antes/depois de 60 s, múltiplas jogadas do AUTO, 2–5 jogadores, múltiplas quedas, dois desconectados, observadores e refresh.
+
 ## V40.56 — Deploy Seguro e Reproduzível
 
 - Node.js fixado em 22.22.0 via `package.json` e `.node-version`.
