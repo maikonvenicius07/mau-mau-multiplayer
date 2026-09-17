@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.58.1
+
+Esta é uma correção de empacotamento/deploy da V40.58.
+
+Se você AINDA NÃO instalou a V40.57.1/V40.58, prefira o ZIP de PROJETO COMPLETO.
+Ele já contém a reconexão permanente, as correções da auditoria da V40.57.1,
+a segurança/monitoramento da V40.58 e esta correção V40.58.1.
+
+Se o seu GitHub já estiver exatamente na V40.58, use o ZIP de ARQUIVOS PARA
+SUBSTITUIR/ADICIONAR, preservando a estrutura das pastas e incluindo arquivos
+ocultos como .node-version, .npmrc e .github/workflows/verify.yml.
+
+Nenhuma nova variável é obrigatória para o uso normal no próprio domínio do Render.
+Mantenha AUTH_SESSION_SECRET fixo no Render quando usar login Google.

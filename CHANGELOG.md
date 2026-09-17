@@ -1,3 +1,9 @@
+## V40.58.1 — Correção de Empacotamento e Deploy
+- Restaurados `.node-version`, `.npmrc` e `.github/workflows/verify.yml` que ficaram fora do ZIP da V40.58.
+- `.env.example` voltou a documentar snapshots, TURN temporário e as opções `MAUMAU_ALLOWED_ORIGINS`/logs da V40.58.
+- Cache-busting e versão do pacote atualizados para 40.58.1.
+- Nenhuma regra, turno, reconexão, observador, ranking, áudio ou WebRTC foi alterado.
+
 ## V40.58 — Segurança e Monitoramento
 - Remove CORS global (`origin: *`) do Socket.IO.
 - Autoriza automaticamente a mesma origem do jogo e permite origens externas somente por `MAUMAU_ALLOWED_ORIGINS`.

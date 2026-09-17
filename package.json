@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.58.0",
-  "description": "Mau-Mau Candeias V40.58: segurança de origem, cabeçalhos HTTP e monitoramento operacional sem dados privados.",
+  "version": "40.58.1",
+  "description": "Mau-Mau Candeias V40.58.1: correção de empacotamento/deploy da V40.58, com arquivos ocultos restaurados e configuração documentada.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

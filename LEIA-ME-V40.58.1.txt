@@ -1,0 +1,32 @@
+MAU-MAU CANDEIAS — V40.58.1
+CORREÇÃO DE EMPACOTAMENTO E DEPLOY
+
+Objetivo
+Esta versão corrige o pacote da V40.58 sem alterar as regras, a interface ou a
+lógica da partida.
+
+Correções
+1. Restaura .node-version com Node.js 22.22.0.
+2. Restaura .npmrc com save-exact=true, audit=false e fund=false.
+3. Restaura .github/workflows/verify.yml para verificar pushes e pull requests.
+4. Completa .env.example com:
+   - ROOM_SNAPSHOT_TTL_MS=28800000
+   - VOICE_TURN_SECRET=
+   - VOICE_TURN_TTL_SECONDS=3600
+   - MAUMAU_ALLOWED_ORIGINS=
+   - MAUMAU_HTTP_LOGS=0
+   - MAUMAU_CONNECTION_DEBUG=0
+   - MAUMAU_TURN_DEBUG=0
+5. Atualiza a identificação/cache-busting para V40.58.1.
+
+O que NÃO mudou
+- Ás, Dama, Queima, Dupla e Ação Rápida.
+- Regra especial da Dama com 2 jogadores.
+- Reconexão Inteligente Permanente e bot temporário.
+- Modo Observador e privacidade das cartas.
+- Ranking, convites, avatares, áudio, WebRTC/TURN e Minha Música.
+- Segurança e monitoramento introduzidos na V40.58.
+
+Render
+O build continua executando npm install --no-audit --no-fund && npm run verify.
+O deploy só deve avançar quando a suíte completa estiver aprovada.

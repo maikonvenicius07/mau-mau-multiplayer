@@ -1,0 +1,4 @@
+MAU-MAU CANDEIAS — V40.58.1
+Validação realizada antes do empacotamento: npm run verify
+Resultado: 76/76 testes aprovados.
+Correção de empacotamento/deploy; regras do jogo preservadas.

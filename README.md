@@ -1,3 +1,11 @@
+## V40.58.1 — Correção de Empacotamento e Deploy
+
+A V40.58.1 corrige o pacote da V40.58 sem alterar a lógica do jogo. Foram restaurados `.node-version`, `.npmrc` e `.github/workflows/verify.yml`, e o `.env.example` voltou a documentar snapshots, TURN temporário e as opções de segurança/monitoramento da V40.58. A identificação/cache-busting foi atualizada para 40.58.1.
+
+As regras do Mau-Mau, Reconexão Inteligente Permanente, Modo Observador, ranking, áudio/WebRTC/TURN e a segurança da V40.58 permanecem inalterados.
+
+---
+
 ## V40.58 — Segurança e Monitoramento
 
 A V40.58 reforça o servidor sem alterar as regras do jogo: remove o CORS global do Socket.IO, valida a origem do handshake no servidor, adiciona cabeçalhos HTTP de segurança, cria correlação por `X-Request-Id` e amplia os endpoints `/health` e `/ready`. Os logs opcionais trabalham com uma lista restrita de campos e não registram cartas, mãos, cookies, corpo das requisições, tokens ou credenciais.
