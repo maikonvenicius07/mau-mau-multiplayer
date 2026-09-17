@@ -8,6 +8,7 @@ const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
 const AvatarWire = require('./avatar-wire');
+const RoomLifecycle = require('./room-lifecycle');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 
@@ -489,7 +490,7 @@ function clearReconnectTimersForRoom(roomCode) {
   }
 }
 function roomWaitingForReconnect(room) {
-  return !!(room && room.status==='playing' && room.players.some(p=>!p.isBot&&!p.connected&&!p.autoControlled));
+  return !!(room && room.status==='playing' && room.players.some(p=>!p.isBot&&!p.connected&&!p.autoControlled&&p.reconnectEligible));
 }
 function requireRoundNotPaused(room) {
   if(roomWaitingForReconnect(room)) throw new Error('Partida pausada: aguardando a reconexão de um jogador.');
@@ -538,7 +539,7 @@ function recoverAutomatedTurn(room, player) {
 
 function scheduleReconnectTakeover(room, player) {
   const matchActive=room && (room.status==='playing' || (room.status==='between-rounds' && room.round>0));
-  if(!matchActive || !player || player.isBot || player.connected) return;
+  if(!matchActive || !RoomLifecycle.canAutoReconnect(player)) return;
   cancelReconnectTimer(room.code,player.id);
   const key=reconnectTimerKey(room.code,player.id);
   const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
@@ -547,9 +548,7 @@ function scheduleReconnectTakeover(room, player) {
     const liveRoom=rooms.get(room.code);
     if(!liveRoom || liveRoom!==room || !(liveRoom.status==='playing' || (liveRoom.status==='between-rounds' && liveRoom.round>0))) return;
     const stale=liveRoom.players.find(p=>p.id===player.id);
-    if(!stale || stale.connected || stale.isBot || stale.autoControlled) return;
-    stale.autoControlled=true;
-    stale.reconnectDeadlineAt=null;
+    if(!stale || stale.autoControlled || !RoomLifecycle.markAutoTakeover(stale)) return;
     Engine.appendLog(liveRoom, `🤖 ${stale.name} não retornou em 60 segundos. A Máquina assumiu temporariamente suas jogadas.`, 'system');
     io.to(liveRoom.code).emit('reconnectionEvent',{kind:'auto',playerId:stale.id,name:stale.name});
     emitRoom(liveRoom);
@@ -667,29 +666,57 @@ function addBotToRoom(room) {
   return bot;
 }
 
-function handoffActiveSeatToAuto(room, player) {
-  const matchActive=!!(room && player && !player.isBot && (room.status==='playing' || (room.status==='between-rounds' && Number(room.round||0)>0)));
-  if(!matchActive) return false;
-
-  // V40.58.2 — sair voluntariamente de uma partida ativa NÃO remove a cadeira,
-  // NÃO apaga a mão e NÃO reinicia a rodada. A vaga humana fica reservada para
-  // a Conta Google original e a Máquina assume imediatamente até o retorno.
-  cancelReconnectTimer(room.code,player.id);
+// V40.59 — ciclo de vida explícito da vaga humana.
+// Desconexão involuntária preserva a identidade para reconexão; saída voluntária
+// ou entrada em outra sala encerra definitivamente essa reserva.
+function deleteRoomIfNoHumanMembers(room) {
+  if(!room || RoomLifecycle.hasHumanMembers(room)) return false;
   if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
-  player.connected=false;
-  player.socketId=null;
-  player.disconnectedAt=Date.now();
-  player.autoControlled=true;
-  // V40.58.4 — esta marca distingue SAÍDA VOLUNTÁRIA de simples queda de internet.
-  // Ela libera a Conta Google para trocar de mesa sem depender de um socket antigo
-  // ainda aparecer como conectado por alguns instantes. Enquanto o usuário não
-  // escolher outra mesa, a mesma cadeira continua recuperável pela própria conta.
-  player.voluntaryLeftAt=Date.now();
-  player.reconnectDeadlineAt=null;
-  Engine.appendLog(room, `🤖 ${player.name} saiu da sala. A Máquina assumiu temporariamente sua vaga até ele voltar.`, 'system');
-  io.to(room.code).emit('reconnectionEvent',{kind:'auto',playerId:player.id,name:player.name,voluntary:true});
+  clearReconnectTimersForRoom(room.code);
+  closeSpectatorsForRoom(room);
+  clearSpectatorReconnectTimersForRoom(room.code);
+  invalidateInvitesForRoom(room.code);
+  removeRoom(room.code);
   return true;
 }
+
+function convertHumanSeatToPermanentBot(room, player, reason='saiu da sala') {
+  if(!room||!player||player.isBot)return false;
+  const oldName=player.name;
+  const botInfo=nextBotInfo(room);
+  cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
+  cancelReconnectTimer(room.code,player.id);
+  invalidateInvitesFromPlayerInRoom(player.playerKey,room.code);
+  if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+  RoomLifecycle.convertHumanSeatToPermanentBot(player,botInfo,{now:Date.now(),token:crypto.randomUUID()});
+  Engine.appendLog(room,`🤖 ${oldName} ${reason}. ${player.name} assumiu a cadeira como Máquina da mesa.`,'system');
+  return true;
+}
+
+function abandonHumanSeat(room, player, {reason='saiu voluntariamente da sala',socket=null}={}) {
+  if(!room||!player||player.isBot)return {changed:false,deleted:false};
+  const oldSocketId=player.socketId;
+  const oldName=player.name;
+  cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
+  cancelReconnectTimer(room.code,player.id);
+  invalidateInvitesFromPlayerInRoom(player.playerKey,room.code);
+  if(oldSocketId && (!socket || oldSocketId!==socket.id)) retireReplacedSocket(oldSocketId,{roomCode:room.code});
+
+  const activeMatch=RoomLifecycle.isActiveMatch(room);
+  if(activeMatch){
+    convertHumanSeatToPermanentBot(room,player,reason);
+  }else{
+    RoomLifecycle.removeHumanSeat(room,player.id);
+    if(Array.isArray(room.replayReadyPlayerIds))room.replayReadyPlayerIds=room.replayReadyPlayerIds.filter(id=>id!==player.id);
+    Engine.appendLog(room,`${oldName} ${reason}.`,'system');
+  }
+
+  if(deleteRoomIfNoHumanMembers(room))return {changed:true,deleted:true};
+  ensureHost(room);
+  emitRoom(room);
+  return {changed:true,deleted:false};
+}
+
 function withRoom(socket, fn) {
   try {
     const room = rooms.get(socket.data.roomCode);
@@ -963,10 +990,10 @@ function playerHasActiveRoom(playerKey, exceptCode=null) {
   return !!activePlayerRoomForKey(playerKey,exceptCode);
 }
 
-// V40.57 — Reconexão Inteligente Permanente.
-// A procura da vaga usa SOMENTE a identidade autenticada da Conta Google (playerKey
-// da sessão HttpOnly). Nome, avatar e qualquer playerKey enviado pelo cliente não
-// participam da decisão. A vaga em AUTO continua sendo uma vaga humana reservada.
+// V40.59 — Reconexão automática condicionada a queda involuntária.
+// A procura usa SOMENTE a Conta Google autenticada e exige reconnectEligible=true.
+// SAIR, entrar em outra sala ou converter a cadeira para Máquina definitiva remove
+// essa elegibilidade; nome/avatar/token antigo nunca recriam uma reserva cancelada.
 function recoverablePlayerSeatForKey(playerKey) {
   const key=String(playerKey||'');
   if(!key)return null;
@@ -976,10 +1003,16 @@ function recoverablePlayerSeatForKey(playerKey) {
     const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
     if(!player)continue;
     const socketAlive=!!(player.socketId&&io.sockets.sockets.get(player.socketId));
-    // Não tomamos automaticamente uma cadeira que ainda possui uma conexão viva.
-    // Se o socket antigo já morreu, o novo aparelho pode recuperar a vaga mesmo
-    // durante os 3 s de debounce da microqueda.
+    // V40.59: somente uma reserva criada por desconexão involuntária pode gerar
+    // retomada automática. A única exceção é a microjanela de refresh: se o socket
+    // antigo já morreu antes do debounce registrar a queda, promovemos essa queda
+    // observada pelo servidor a uma reserva involuntária válida.
     if(player.connected&&socketAlive)continue;
+    if(!RoomLifecycle.canAutoReconnect(player)){
+      if(player.connected&&!socketAlive){
+        RoomLifecycle.markInvoluntaryDisconnect(player,{now:Date.now(),graceMs:RECONNECT_GRACE_MS});
+      }else continue;
+    }
     const score=(room.status==='playing'?100:room.status==='between-rounds'?80:40)
       +(Number(room.round||0)>0?20:0)+(player.autoControlled?10:0);
     if(!best||score>best.score)best={room,player,score};
@@ -991,10 +1024,16 @@ function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) 
   if(!socket||!room||!player||player.isBot)throw new Error('Vaga de reconexão inválida.');
   const authKey=String(socket.data.auth?.playerKey||'');
   if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra Conta Google.');
+  if(!player.reconnectEligible)throw new Error('Esta vaga não possui uma reserva válida de reconexão automática.');
   const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
   if(player.connected&&liveSocket&&player.socketId!==socket.id){
     throw new Error('Sua vaga já está conectada em outro dispositivo.');
   }
+
+  // Defesa para dados legados: se versões antigas deixaram a mesma Conta Google
+  // vinculada a mais de uma sala, ao retomar uma reserva válida mantemos somente
+  // esta sala. As demais vagas humanas são abandonadas definitivamente.
+  abandonOtherPlayerMembershipsForSwitch(socket,room.code,'teve a reserva substituída pela sala retomada');
 
   const wasDisconnected=!player.connected;
   const wasAutoControlled=!!player.autoControlled;
@@ -1042,93 +1081,36 @@ function requireNoOtherActivePlayerRoom(socket, exceptCode=null) {
   if(other)throw new Error(`Você já possui uma vaga ativa na sala ${other.code}. Saia dela antes de entrar em outra mesa.`);
 }
 
-// V40.58.3 — uma cadeira desconectada/AUTO não pode prender a Conta Google para
-// sempre a uma sala antiga. Quando o próprio usuário escolhe criar/entrar/assistir
-// outra sala, a reserva antiga é encerrada. Se a partida antiga já começou, a mesma
-// cadeira (mesmas cartas, pontuação e posição) vira uma Máquina permanente, para a
-// mesa continuar sem reiniciar. Uma cadeira que ainda está realmente conectada nunca
-// é tomada por esta rotina.
-function releaseDisconnectedReservedSeatsForSwitch(socket, exceptCode=null) {
+// V40.59 — entrar em outra sala é abandono explícito da sala anterior.
+// A mesma Conta Google não pode manter uma vaga/reserva antiga enquanto participa
+// de outra mesa. Em rodada já iniciada, a cadeira antiga vira uma Máquina normal,
+// sem playerKey/token humano; fora da rodada, a vaga é removida.
+function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason='entrou em outra sala') {
   const key=String(socket.data.auth?.playerKey||'');
   if(!key)return false;
   let changed=false;
+  const currentCode=String(socket.data.roomCode||'');
+
   for(const room of [...rooms.values()]){
     if(!room||room.code===exceptCode||room.status==='finished')continue;
     const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
     if(!player)continue;
-    const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
-    const voluntaryLeft=Number(player.voluntaryLeftAt||0)>0;
-    // Uma saída voluntária é definitiva para fins de troca de mesa, mesmo se um
-    // socket antigo ainda estiver visível durante uma corrida de eventos. Só
-    // bloqueamos a troca quando a cadeira está realmente conectada E não houve Sair.
-    if(player.connected&&liveSocket&&!voluntaryLeft)continue;
-    if(voluntaryLeft&&liveSocket&&player.socketId!==socket.id){
-      retireReplacedSocket(player.socketId,{roomCode:room.code});
-    }
-
-    cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
-    cancelReconnectTimer(room.code,player.id);
-    if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
-    invalidateInvitesFromPlayerInRoom(key,room.code);
-
-    const matchActive=room.status==='playing'||(room.status==='between-rounds'&&Number(room.round||0)>0);
-    if(matchActive){
-      const oldName=player.name;
-      const botInfo=nextBotInfo(room);
-      // Mantemos id/mão/placar/posição para não alterar a partida em andamento.
-      player.isBot=true;
-      player.connected=true;
-      player.socketId=null;
-      player.autoControlled=false;
-      player.disconnectedAt=null;
-      player.reconnectDeadlineAt=null;
-      player.voluntaryLeftAt=null;
-      player.playerKey=null;
-      player.token=crypto.randomUUID();
-      player.host=false;
-      player.name=botInfo.name;
-      player.avatar=botInfo.avatar;
-      Engine.appendLog(room,`🤖 ${oldName} entrou em outra sala. ${player.name} assumiu definitivamente a vaga sem reiniciar a partida.`,'system');
-      if(room.players.every(p=>p.isBot)){
-        clearReconnectTimersForRoom(room.code);
-        closeSpectatorsForRoom(room);
-        clearSpectatorReconnectTimersForRoom(room.code);
-        removeRoom(room.code);
-        invalidateInvitesForRoom(room.code);
-      }else{
-        ensureHost(room);
-        emitRoom(room);
-      }
-    }else{
-      const oldName=player.name;
-      room.players=room.players.filter(p=>p.id!==player.id);
-      if(Array.isArray(room.replayReadyPlayerIds))room.replayReadyPlayerIds=room.replayReadyPlayerIds.filter(id=>id!==player.id);
-      if(!room.players.length||room.players.every(p=>p.isBot)){
-        clearReconnectTimersForRoom(room.code);
-        closeSpectatorsForRoom(room);
-        clearSpectatorReconnectTimersForRoom(room.code);
-        removeRoom(room.code);
-        invalidateInvitesForRoom(room.code);
-      }else{
-        Engine.appendLog(room,`${oldName} saiu definitivamente da sala para entrar em outra mesa.`,'system');
-        ensureHost(room);
-        emitRoom(room);
-      }
-    }
+    abandonHumanSeat(room,player,{reason,socket});
     changed=true;
+  }
+
+  if(currentCode&&currentCode!==exceptCode){
+    socket.leave(currentCode);
+    socket.data.roomCode=null;
+    socket.data.playerId=null;
+    socket.data.spectatorId=null;
+    socket.data.role=null;
   }
   if(changed)broadcastPresence();
   return changed;
 }
-// V40.58.5 — clicar em ENTRAR NA SALA a partir de um link é uma escolha
-// explícita de troca. Diferente de um código digitado manualmente, esse gesto pode
-// aposentar uma sessão antiga da mesma Conta Google que ainda esteja viva em outra
-// aba/aparelho. A mesa anterior continua normalmente: em partida ativa, a cadeira
-// vira Máquina preservando mão/placar/posição; fora de partida, a vaga é removida.
-function prepareForLinkRoomSwitch(socket, exceptCode=null) {
-  const key=String(socket.data.auth?.playerKey||'');
-  if(!key)return;
 
+function prepareForRoomSwitch(socket, exceptCode=null) {
   const currentCode=String(socket.data.roomCode||'');
   if(socket.data.role===ROLE_SPECTATOR&&currentCode&&currentCode!==exceptCode){
     const currentRoom=rooms.get(currentCode);
@@ -1143,30 +1125,10 @@ function prepareForLinkRoomSwitch(socket, exceptCode=null) {
     socket.data.spectatorId=null;
     socket.data.role=null;
   }
-
-  const previousSocketRoom=String(socket.data.roomCode||'');
-  for(const room of rooms.values()){
-    if(!room||room.code===exceptCode||room.status==='finished')continue;
-    const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
-    if(!player)continue;
-    player.voluntaryLeftAt=Date.now();
-  }
-  releaseDisconnectedReservedSeatsForSwitch(socket,exceptCode);
-
-  if(previousSocketRoom&&previousSocketRoom!==exceptCode){
-    socket.leave(previousSocketRoom);
-    socket.data.roomCode=null;
-    socket.data.playerId=null;
-    socket.data.spectatorId=null;
-    socket.data.role=null;
-  }
-
+  abandonOtherPlayerMembershipsForSwitch(socket,exceptCode,'entrou em outra sala');
   requireNoOtherActivePlayerRoom(socket,exceptCode);
 }
-function prepareForRoomSwitch(socket, exceptCode=null) {
-  releaseDisconnectedReservedSeatsForSwitch(socket,exceptCode);
-  requireNoOtherActivePlayerRoom(socket,exceptCode);
-}
+
 function playerHasAcceptedInvite(playerKey) {
   return [...invitations.values()].some(inv=>inv.toKey===playerKey&&['accepted-waiting','ready'].includes(inv.status)&&inv.expiresAt>Date.now());
 }
@@ -1415,9 +1377,9 @@ function createRoomForSocket(socket,profileData={}) {
 }
 function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
+  if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   prepareForRoomSwitch(socket,room.code);
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
-  if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
   if(p){
     cancelReconnectTimer(room.code,p.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
@@ -1450,8 +1412,6 @@ function refreshInviteReadiness(){
     const dest=rooms.get(inv.targetRoomCode);
     if(!dest||!senderStillInDestination(inv,dest)){expireInvite(inv,'A sala do convite não está mais disponível.','unavailable');continue;}
     if(!roomAllowsInviteEventually(dest,inv.toKey)){expireInvite(inv,'A sala não pode mais receber novos jogadores.','unavailable');continue;}
-    const sourceMulti=activeMultiplayerRoomForKey(inv.toKey,dest.code);
-    if(sourceMulti){inv.waitingReason='finish-current';continue;}
     if(!roomJoinableNow(dest,inv.toKey)){inv.waitingReason='destination-round';continue;}
     if(inv.status!=='ready'){
       inv.status='ready';inv.waitingReason=null;inv.updatedAt=Date.now();
@@ -1578,6 +1538,27 @@ io.on('connection', socket => {
 
   socket.on('presenceProfile', payload => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
+  });
+
+  // V40.59 — uma saída voluntária clicada enquanto o aparelho estava offline
+  // é confirmada antes de qualquer auto-reconexão. O token/código são usados apenas
+  // para localizar a cadeira existente; nunca recriam uma sala ou uma vaga apagada.
+  socket.on('abandonReservedSeat', (payload,ack) => {
+    const done=(data={})=>{try{if(typeof ack==='function')ack({ok:true,...data})}catch{}};
+    try{
+      const code=String(payload?.code||'').trim().toUpperCase();
+      const token=String(payload?.token||'').trim();
+      const room=rooms.get(code);
+      if(!room){done({removed:false,reason:'room-missing'});return;}
+      const key=String(socket.data.auth?.playerKey||'');
+      const player=room.players.find(p=>!p.isBot&&p.playerKey===key&&(!token||p.token===token));
+      if(!player){done({removed:false,reason:'seat-missing'});return;}
+      abandonHumanSeat(room,player,{reason:'confirmou a saída voluntária após recuperar a conexão'});
+      done({removed:true,roomCode:code});
+      broadcastPresence();
+    }catch(e){
+      try{if(typeof ack==='function')ack({ok:false,message:e?.message||'Não foi possível confirmar a saída.'})}catch{}
+    }
   });
 
   // V40.57 — se o navegador perdeu o código/token local (ou é outro aparelho),
@@ -1761,7 +1742,7 @@ io.on('connection', socket => {
       const current=currentSocketRoom(socket);
       if(current&&current.room.status!=='finished')throw new Error('Saia da sala atual antes de buscar jogadores.');
       // Procurar uma nova partida também é uma escolha explícita de troca.
-      releaseDisconnectedReservedSeatsForSwitch(socket);
+      abandonOtherPlayerMembershipsForSwitch(socket,null,'iniciou uma nova busca de partida');
       if(playerHasActiveRoom(key))throw new Error('Você já possui uma vaga ativa em outra mesa.');
       if(playerHasAcceptedInvite(key))throw new Error('Você possui um convite aceito com vaga reservada. Entre nele ou cancele a reserva antes de buscar.');
       if(matchmakingQueue.has(key)){
@@ -1821,75 +1802,100 @@ io.on('connection', socket => {
   socket.on('joinRoom', payload => {
     try {
       const code=String(payload?.code||'').trim().toUpperCase();
-      const linkSwitch=payload?.switchIntent==='link';
-      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode&&!linkSwitch){
-        if(socket.data.roomCode===code)throw new Error('Você já está assistindo a esta sala como observador.');
-        throw new Error('Saia do Modo Observador antes de entrar em outra sala.');
-      }
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
-      if(linkSwitch)prepareForLinkRoomSwitch(socket,code);
-      else prepareForRoomSwitch(socket,code);
       ensureSocial(room);
-      let p = null;
-      if (payload?.token) {
-        const existing = room.players.find(x => x.token === payload.token);
-        if (existing?.playerKey && existing.playerKey !== socket.data.auth.playerKey) {
+
+      let p=null;
+      let switchPrepared=false;
+      const prepareSuccessfulEntry=()=>{
+        if(switchPrepared)return;
+        prepareForRoomSwitch(socket,code);
+        switchPrepared=true;
+      };
+
+      // 1) Token persistente do mesmo navegador: serve para refresh/queda involuntária.
+      // Uma saída voluntária troca/remove esse token da cadeira, então um token antigo
+      // jamais recria a reserva cancelada.
+      if(payload?.token){
+        const existing=room.players.find(x=>!x.isBot&&x.token===payload.token);
+        if(existing?.playerKey&&existing.playerKey!==socket.data.auth.playerKey){
           throw new Error('Esta vaga pertence a outra Conta Google.');
         }
-        if (existing?.socketId && existing.socketId !== socket.id) {
-          retireReplacedSocket(existing.socketId,{roomCode:room.code});
-        }
-        const wasDisconnected=!!(existing && !existing.connected);
-        const wasAutoControlled=!!existing?.autoControlled;
         if(existing){
+          prepareSuccessfulEntry();
+          if(existing.socketId&&existing.socketId!==socket.id)retireReplacedSocket(existing.socketId,{roomCode:room.code});
+          const wasDisconnected=!existing.connected;
+          const wasAutoControlled=!!existing.autoControlled;
           cancelDisconnectDebounce(ROLE_PLAYER,room.code,existing.id);
           cancelReconnectTimer(room.code,existing.id);
-          // Pode haver uma jogada automática já agendada para esta vaga.
-          if(room.botTimer){ clearTimeout(room.botTimer); room.botTimer=null; }
-        }
-        p = Engine.reconnectPlayer(room,payload.token,socket.id);
-        if(p)p.voluntaryLeftAt=null;
-        if(p && wasDisconnected){
-          Engine.appendLog(room, wasAutoControlled
-            ? `🟢 ${p.name} voltou e retomou seu lugar da Máquina.`
-            : `🟢 ${p.name} voltou à mesa dentro do prazo de reconexão.`, 'system');
-          socket.emit('reconnectionEvent',{kind:wasAutoControlled?'returned-from-auto':'returned',playerId:p.id,name:p.name});
-          io.to(room.code).except(socket.id).emit('reconnectionEvent',{kind:'returned',playerId:p.id,name:p.name});
+          if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+          p=Engine.reconnectPlayer(room,existing.token,socket.id);
+          if(p){p.voluntaryLeftAt=null;p.reconnectEligible=false;}
+          if(p&&wasDisconnected){
+            Engine.appendLog(room,wasAutoControlled
+              ? `🟢 ${p.name} voltou e retomou seu lugar da Máquina.`
+              : `🟢 ${p.name} voltou à mesa dentro do prazo de reconexão.`,'system');
+            socket.emit('reconnectionEvent',{kind:wasAutoControlled?'returned-from-auto':'returned',playerId:p.id,name:p.name});
+            io.to(room.code).except(socket.id).emit('reconnectionEvent',{kind:'returned',playerId:p.id,name:p.name});
+          }
         }
       }
+
+      // 2) Mesma Conta Google, sem token local: só pode recuperar automaticamente
+      // uma cadeira desconectada que ainda possua reserva involuntária válida.
       if(!p){
         const byKey=room.players.find(x=>!x.isBot&&x.playerKey===socket.data.auth.playerKey);
         if(byKey){
+          const liveSocket=byKey.socketId?io.sockets.sockets.get(byKey.socketId):null;
+          if(byKey.connected&&liveSocket&&byKey.socketId!==socket.id){
+            throw new Error('Sua vaga nesta sala já está conectada em outro dispositivo.');
+          }
+          if(!byKey.reconnectEligible&&byKey.socketId!==socket.id){
+            throw new Error('Sua reserva automática para esta sala não é mais válida. Entre novamente como novo jogador quando a sala permitir.');
+          }
+          prepareSuccessfulEntry();
           cancelDisconnectDebounce(ROLE_PLAYER,room.code,byKey.id);
-          cancelReconnectTimer(room.code,byKey.id);if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+          cancelReconnectTimer(room.code,byKey.id);
+          if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
           if(byKey.socketId&&byKey.socketId!==socket.id)retireReplacedSocket(byKey.socketId,{roomCode:room.code});
           p=Engine.reconnectPlayer(room,byKey.token,socket.id);
-          if(p)p.voluntaryLeftAt=null;
+          if(p){p.voluntaryLeftAt=null;p.reconnectEligible=false;}
         }
       }
+
+      // Um token salvo no navegador é somente prova de uma tentativa de RETOMADA,
+      // não uma autorização para criar uma vaga nova. Se a cadeira já foi liberada
+      // por SAIR/troca de sala, o token fica obsoleto e deve ser descartado.
+      if(!p&&payload?.resumeIntent==='saved-session'){
+        throw new Error('A reserva de reconexão desta sessão não é mais válida.');
+      }
+
+      // 3) Entrada normal por código/link depois de saída voluntária ou troca de sala.
+      // Durante uma rodada, a pessoa pode apenas observar; entre rodadas, pode entrar
+      // como novo jogador enquanto a regra de entrada tardia ainda permitir.
       if(!p){
-        const matchStarted=Number(room.round||0)>0&&room.status!=='lobby';
-        // V40.31: para entrada manual por código, qualquer partida já iniciada oferece
-        // Modo Observador. Reconexões de jogadores foram resolvidas acima e convites
-        // reservados continuam usando joinSocketIntoRoom entre rodadas.
-        if(matchStarted&&room.status!=='finished'){
+        const lateJoinClosed=room.status==='between-rounds'&&Number(room.round||0)>=Number(room.rules?.allowLateJoinUntilRound||0);
+        if(room.status==='playing'||lateJoinClosed){
           socket.emit('spectatorOffer',{code:room.code,round:room.round,rounds:room.rules.rounds,playerCount:room.players.length,status:room.status});
           return;
         }
+        if(room.status==='finished')throw new Error('A partida desta sala já terminou.');
         if(!roomHasInviteCapacity(room,socket.data.auth.playerKey)){
           throw new Error('A sala está completa ou possui vaga reservada por convite.');
         }
-        p = Engine.addPlayer(room,{socketId:socket.id, token:payload?.token, name:payload?.name || socket.data.auth.name, avatar:payload?.avatar, playerKey:socket.data.auth.playerKey});
+        prepareSuccessfulEntry();
+        p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:payload?.name||socket.data.auth.name,avatar:payload?.avatar,playerKey:socket.data.auth.playerKey});
       }
+
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você entrou em uma sala.',notify:true});
       const acceptedManualInvite=[...invitations.values()].find(i=>i.toKey===socket.data.auth.playerKey&&i.targetRoomCode===code&&['accepted-waiting','ready'].includes(i.status));
       releaseReservation(room,socket.data.auth.playerKey);
-      socket.data.roomCode=code; socket.data.playerId=p.id; socket.data.spectatorId=null; socket.data.role=ROLE_PLAYER;
+      socket.data.roomCode=code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;
       socket.join(code);
       updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
       socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER});
-      emitChatHistory(socket, room);
+      emitChatHistory(socket,room);
       emitRoom(room);
       broadcastPresence();
       if(acceptedManualInvite)completeInvite(acceptedManualInvite,'✅ Você entrou na mesa reservada.');
@@ -1899,8 +1905,6 @@ io.on('connection', socket => {
   socket.on('joinSpectator', payload => {
     try{
       const code=String(payload?.code||'').trim().toUpperCase();
-      if(socket.data.role===ROLE_PLAYER&&socket.data.roomCode)throw new Error('Saia da sua vaga de jogador antes de entrar como observador.');
-      if(socket.data.role===ROLE_SPECTATOR&&socket.data.roomCode&&socket.data.roomCode!==code)throw new Error('Saia do Modo Observador atual antes de assistir outra sala.');
       const room=rooms.get(code);
       if(!room)throw new Error('Sala não encontrada.');ensureSocial(room);
       if(Number(room.round||0)<=0||room.status==='lobby')throw new Error('O Modo Observador fica disponível depois que a partida começar.');
@@ -1989,51 +1993,18 @@ io.on('connection', socket => {
       }
 
       const leaving = room.players[idx];
-      invalidateInvitesFromPlayerInRoom(leaving.playerKey,code);
-
-      // Em uma partida que já começou, "Sair" significa entregar temporariamente
-      // a cadeira à Máquina. A identidade, mão, pontuação e posição permanecem intactas.
-      if(handoffActiveSeatToAuto(room,leaving)){
-        socket.leave(code);
-        socket.data.roomCode=null;
-        socket.data.playerId=null;
-        socket.data.spectatorId=null;
-        socket.data.role=null;
-        socket.emit('leftRoom',{keepSeat:true,message:'Você saiu da mesa. A Máquina assumiu sua vaga e a partida continuará até você voltar.'});
-        confirmLeave({keepSeat:true,roomCode:code});
-        emitRoom(room);
-        broadcastPresence();
-        return;
-      }
-
-      // Antes da partida começar (ou depois que ela terminou), sair continua sendo
-      // uma remoção definitiva normal da sala.
-      cancelReconnectTimer(code,leaving.id);
-      const wasFinished = room.status === 'finished';
-      room.players.splice(idx, 1);
-      if(Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=room.replayReadyPlayerIds.filter(id=>id!==leaving.id);
-
-      if (!room.players.length || room.players.every(p => p.isBot)) {
-        if (room.botTimer) clearTimeout(room.botTimer);
-        clearReconnectTimersForRoom(code);
-        closeSpectatorsForRoom(room);
-        clearSpectatorReconnectTimersForRoom(code);
-        removeRoom(code);
-        invalidateInvitesForRoom(code);
-      } else {
-        Engine.appendLog(room, `${leaving.name} saiu da sala.`, 'system');
-        ensureHost(room);
-        if(wasFinished) maybeStartReplay(room);
-        emitRoom(room);
-      }
+      // V40.59 — SAIR é abandono definitivo, nunca uma reconexão automática.
+      // Se a rodada já começou, a cadeira vira uma Máquina comum para não quebrar
+      // a mesa dos demais; a identidade/token humano são removidos imediatamente.
+      abandonHumanSeat(room,leaving,{reason:'saiu voluntariamente da sala',socket});
 
       socket.leave(code);
       socket.data.roomCode = null;
       socket.data.playerId = null;
       socket.data.spectatorId = null;
       socket.data.role = null;
-      socket.emit('leftRoom');
-      confirmLeave({keepSeat:false});
+      socket.emit('leftRoom',{keepSeat:false,message:'Você saiu da sala. Para voltar depois, use novamente o código da sala, se ela ainda existir.'});
+      confirmLeave({keepSeat:false,roomCode:code});
       broadcastPresence();
     } catch(e) {
       try{if(typeof ack==='function')ack({ok:false,message:e?.message||'Não foi possível sair da sala.'})}catch{}
@@ -2159,27 +2130,14 @@ io.on('connection', socket => {
       if(!reserveInviteSeat(invite))throw new Error('A sala ficou sem vagas antes da sua resposta.');
       removeFromMatchmaking(invite.toKey,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
 
-      const current=currentSocketRoom(socket),source=current?.room;
-      // Aceitar outro convite é uma escolha explícita. Uma cadeira antiga já
-      // desconectada/AUTO vira Máquina e deixa de bloquear a nova sala.
-      releaseDisconnectedReservedSeatsForSwitch(socket,dest.code);
-      const activeMulti=activeMultiplayerRoomForKey(invite.toKey,dest.code);
-      if(activeMulti){
-        setInviteWaiting(invite,'finish-current','Sua vaga está reservada. Termine sua partida atual para entrar.');
-        return;
-      }
-
-      const sourceIsBot=!!(source&&source.code!==dest.code&&source.round>0&&source.status!=='finished'&&source.players.filter(p=>!p.isBot).length===1&&source.players.some(p=>p.isBot));
+      // V40.59 — aceitar o convite não mantém duas vagas. Se a sala destino já
+      // pode receber o jogador, a entrada acontece agora e a sala anterior é
+      // abandonada de forma definitiva pelo joinSocketIntoRoom. Se ainda não pode,
+      // a reserva do convite aguarda; a sala antiga só é abandonada no ingresso real.
       if(roomJoinableNow(dest,invite.toKey)){
-        if(source&&source.code!==dest.code)detachSocketFromRoom(socket);
-        joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');return;
-      }
-
-      // Contra a máquina, aceitar encerra imediatamente a atividade e não registra resultado.
-      if(sourceIsBot){
-        detachSocketFromRoom(socket,{emitLeft:true,message:'🤖 Partida contra a máquina encerrada sem resultado. Aguardando a sala do convite ficar disponível.'});
-      }else if(source&&source.code!==dest.code&&source.round===0){
-        detachSocketFromRoom(socket,{emitLeft:true,message:'✅ Convite aceito. Aguardando a sala ficar disponível.'});
+        joinSocketIntoRoom(socket,dest,{inviteId:invite.id});
+        completeInvite(invite,'✅ Você entrou na nova mesa.');
+        return;
       }
       setInviteWaiting(invite,'destination-round','Convite aceito. Aguardando o intervalo da rodada da nova sala.');
     }catch(e){err(socket,e);}
@@ -2193,10 +2151,7 @@ io.on('connection', socket => {
       if(invite.expiresAt<=Date.now())throw new Error('A reserva deste convite expirou.');
       const dest=rooms.get(invite.targetRoomCode);
       if(!dest||!senderStillInDestination(invite,dest))throw new Error('A sala do convite não está mais disponível.');
-      releaseDisconnectedReservedSeatsForSwitch(socket,dest.code);
-      if(activeMultiplayerRoomForKey(invite.toKey,dest.code))throw new Error('Conclua primeiro sua partida multiplayer atual.');
       if(!roomJoinableNow(dest,invite.toKey))throw new Error('Aguarde o intervalo da rodada da nova sala.');
-      const current=currentSocketRoom(socket);if(current?.room?.code!==dest.code&&current)detachSocketFromRoom(socket);
       joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');
     }catch(e){err(socket,e);}
   });
@@ -2358,15 +2313,11 @@ io.on('connection', socket => {
       const p=liveRoom.players.find(x=>x.id===playerId);
       // Se outra aba/socket já reconectou, não alteramos a vaga.
       if(!p||p.socketId!==socket.id)return;
-      p.connected=false;
-      p.socketId=null;
-      p.disconnectedAt=Date.now();
+      RoomLifecycle.markInvoluntaryDisconnect(p,{now:Date.now(),graceMs:RECONNECT_GRACE_MS});
 
       if(liveRoom.botTimer){ clearTimeout(liveRoom.botTimer); liveRoom.botTimer=null; }
-      const matchActive=liveRoom.status==='playing' || (liveRoom.status==='between-rounds' && liveRoom.round>0);
+      const matchActive=RoomLifecycle.isActiveMatch(liveRoom);
       if(matchActive){
-        p.autoControlled=false;
-        p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
         Engine.appendLog(liveRoom, `🔴 ${p.name} perdeu a conexão. 60 segundos para retornar.`, 'system');
         io.to(liveRoom.code).emit('reconnectionEvent',{kind:'lost',playerId:p.id,name:p.name,deadlineAt:p.reconnectDeadlineAt});
         scheduleReconnectTakeover(liveRoom,p);
@@ -2375,8 +2326,6 @@ io.on('connection', socket => {
         return;
       }
 
-      p.autoControlled=false;
-      p.reconnectDeadlineAt=Date.now()+RECONNECT_GRACE_MS;
       emitRoom(liveRoom);
       broadcastPresence();
 
@@ -2462,7 +2411,11 @@ async function restorePersistedRooms(){
     const snapshots=await roomSnapshotStore.loadActive();
     for(const snapshot of snapshots){
       const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:RECONNECT_GRACE_MS});
-      if(!room||rooms.has(room.code))continue;
+      if(!room){
+        if(snapshot?.code)roomSnapshotStore.delete(snapshot.code).catch(e=>console.error('[rooms] falha ao remover snapshot inválido',snapshot.code,e?.message||e));
+        continue;
+      }
+      if(rooms.has(room.code))continue;
       ensureSocial(room);rooms.set(room.code,room);restored++;
       Engine.appendLog(room,'♻️ A sala foi restaurada após reinício do servidor. Reconecte para retomar seu lugar.','system');
       for(const p of room.players)scheduleRestoredPlayerGrace(room,p);

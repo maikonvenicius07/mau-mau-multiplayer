@@ -1,3 +1,19 @@
+## V40.59 — Reconexão Estrita e Ciclo de Vida das Salas
+
+A V40.59 redefine de forma explícita o pertencimento de um jogador à sala. **Reconexão automática passa a existir somente após desconexão involuntária**. Queda de internet, fechamento acidental, segundo plano, refresh ou interrupção temporária mantêm a vaga humana reservada; após 60 segundos, a Máquina pode controlar temporariamente a mesma cadeira, mas o jogador original continua apto a retornar automaticamente.
+
+**Sair da sala e entrar efetivamente em outra sala são abandonos voluntários.** Nesses casos a reserva automática é cancelada, a identidade Google e o token humano deixam de pertencer à cadeira antiga e o jogador só poderá voltar depois por uma entrada normal usando o código da sala, se ela ainda existir e puder recebê-lo. Em uma rodada ativa com outros humanos, a cadeira antiga pode virar uma Máquina comum para não quebrar a partida; essa Máquina não representa mais o usuário e não concede reconexão.
+
+Uma Conta Google não pode manter vínculos humanos em duas salas. Ao ingressar numa nova sala, o servidor remove/converte qualquer vínculo humano anterior. Quando o último jogador humano abandona definitivamente uma sala, a sala é removida da memória, observadores e timers são encerrados e o snapshot temporário é excluído. Máquinas sozinhas nunca mantêm uma sala abandonada.
+
+Dados antigos do navegador não recriam salas: código/token salvo só inicia uma tentativa de retomada; o servidor exige que a sala exista, que a cadeira ainda pertença à mesma Conta Google e que `reconnectEligible` continue válido. Se a sala ou a reserva não existir, a sessão local é descartada e o usuário permanece na tela inicial.
+
+A atualização adiciona `room-lifecycle.js` para centralizar as transições de queda involuntária, AUTO temporário, abandono voluntário, conversão em Máquina comum e detecção de sala sem humanos. Também migra snapshots legados das V40.58.2–V40.58.5 para impedir que antigas saídas voluntárias sejam restauradas como reservas válidas.
+
+**Validação:** 82/82 testes aprovados. Há um teste dedicado aos 14 cenários obrigatórios de reconexão, saída, troca e exclusão de sala, além de toda a suíte histórica de cartas, turnos, Dama em 2 jogadores, observador, chat, ranking, áudio/WebRTC e deploy.
+
+---
+
 ## V40.58.5 — Convite por Link com Troca Explícita
 
 - O botão **ENTRAR NA SALA** de um convite por link agora usa um fluxo próprio, separado da entrada por código digitado.

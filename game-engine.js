@@ -155,6 +155,8 @@ function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}
     autoControlled: false,
     disconnectedAt: null,
     reconnectDeadlineAt: null,
+    // V40.59 — reconexão automática só existe após desconexão involuntária.
+    reconnectEligible: false,
     isBot,
     host: false,
     finishedRound: false,
@@ -234,6 +236,7 @@ function reconnectPlayer(room, token, socketId) {
   p.autoControlled = false;
   p.disconnectedAt = null;
   p.reconnectDeadlineAt = null;
+  p.reconnectEligible = false;
   return p;
 }
 
@@ -283,6 +286,7 @@ function resetMatch(room) {
     p.autoControlled = false;
     p.disconnectedAt = null;
     p.reconnectDeadlineAt = null;
+    p.reconnectEligible = false;
   });
 
   log(room, '🔁 Nova partida iniciada na mesma sala. Placar zerado.', 'system');

@@ -15,7 +15,7 @@ assert(server.includes('socialActorForSocket'),'chat/reações não reconhecem o
 assert(server.includes('scheduleSpectatorRemoval'),'reconexão do observador não está preservada');
 assert(engine.includes('function roomSpectatorState'),'estado seguro do observador ausente');
 assert(server.includes("Saia do Modo Observador antes de criar outra sala."),'observador deve sair antes de assumir outro papel no mesmo socket');
-assert(server.includes("if(matchStarted&&room.status!=='finished')"),'entrada manual em partida já iniciada deve oferecer Modo Observador');
+assert(server.includes("if(room.status==='playing'||lateJoinClosed)"),'entrada manual em partida já iniciada deve oferecer Modo Observador');
 assert(engine.includes('function spectatorPublicLog'),'filtro de log derivado da mão ausente');
 assert(engine.includes("viewerRole: 'SPECTATOR'"),'estado do observador não identifica SPECTATOR');
 assert(engine.includes('hand: []'),'estado do observador precisa ter mão vazia local');

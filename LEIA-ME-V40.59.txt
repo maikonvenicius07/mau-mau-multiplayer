@@ -1,0 +1,18 @@
+V40.59 — RECONEXÃO ESTRITA E CICLO DE VIDA DAS SALAS
+
+REGRA DEFINITIVA
+1. Caiu a internet / fechou sem querer / refresh / segundo plano: reserva válida para auto-reconexão.
+2. Passaram 60 segundos: Máquina temporária pode jogar, mas a reserva humana continua.
+3. Clicou SAIR: abandono definitivo; sem auto-reconexão.
+4. Entrou em outra sala: abandono definitivo da sala anterior.
+5. Para voltar após abandono: informar o código novamente e obedecer às regras normais de entrada.
+6. Uma Conta Google não pode manter vaga/reserva humana em duas salas.
+7. Último humano abandonou: excluir sala, timers, observadores e snapshot temporário.
+8. Máquina sozinha não mantém sala.
+9. Token/código antigo nunca recria sala inexistente.
+
+OBSERVAÇÃO SOBRE PARTIDA EM ANDAMENTO
+Se um jogador abandona voluntariamente enquanto outros humanos continuam jogando, a cadeira antiga pode virar uma Máquina comum apenas para preservar a rodada. A Máquina recebe nova identidade interna, perde playerKey/token humano e não dá direito de reconexão automática.
+
+TESTES
+82/82 aprovados, incluindo os 14 cenários obrigatórios solicitados.

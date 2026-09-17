@@ -9,7 +9,7 @@ const pkg=require(path.join(root,'package.json'));
 assert.ok(/^40\./.test(pkg.version));
 assert(/RECONNECT_GRACE_MS\s*=\s*60\s*\*\s*1000/.test(server),'janela de 60 s ausente');
 assert(server.includes('scheduleReconnectTakeover'),'takeover temporário ausente');
-assert(server.includes('stale.autoControlled=true'),'vaga não entra em AUTO');
+assert(server.includes('RoomLifecycle.markAutoTakeover(stale)'),'vaga desconectada não entra em AUTO temporário preservando a reserva');
 assert(server.includes('wasAutoControlled'),'retomada do humano ausente');
 assert(server.includes('roomWaitingForReconnect'),'pausa real do servidor ausente');
 assert(server.includes('requireRoundNotPaused(room)'),'ações não estão protegidas durante pausa');

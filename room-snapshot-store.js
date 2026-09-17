@@ -71,18 +71,45 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   if (!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
   for (const p of room.players) {
     p.socketId = null;
+    // Migração V40.59: versões 40.58.2-40.58.5 marcavam uma saída voluntária
+    // mantendo a cadeira humana em AUTO. Ao restaurar esses snapshots antigos,
+    // essa identidade NÃO pode recuperar a vaga automaticamente.
+    if (!p.isBot && Number(p.voluntaryLeftAt || 0) > 0) {
+      p.isBot = true;
+      p.connected = true;
+      p.autoControlled = false;
+      p.disconnectedAt = null;
+      p.reconnectDeadlineAt = null;
+      p.reconnectEligible = false;
+      p.playerKey = null;
+      p.token = `legacy-bot-${p.id}`;
+      p.host = false;
+      p.name = 'Máquina';
+      p.avatar = 'preta';
+      continue;
+    }
     if (p.isBot) {
       p.connected = true;
       p.disconnectedAt = null;
       p.reconnectDeadlineAt = null;
+      p.reconnectEligible = false;
       continue;
     }
-    // Um restart invalida todos os socketIds. A vaga humana é preservada e recebe
-    // uma nova janela de 60 s para o navegador fazer o joinRoom automático com token.
+    // Um restart/deploy é uma interrupção involuntária: humanos que ainda pertencem
+    // à sala recebem uma nova janela de 60 s e preservam a reserva após o AUTO.
     p.connected = false;
     p.autoControlled = false;
     p.disconnectedAt = now;
     p.reconnectDeadlineAt = now + reconnectGraceMs;
+    p.reconnectEligible = true;
+    p.voluntaryLeftAt = null;
+  }
+  // Uma sala restaurada composta somente por máquinas já não possui proprietário
+  // humano e não deve voltar à memória apenas por causa de snapshot antigo.
+  if (!room.players.some(p => !p.isBot)) return null;
+  if (!room.players.some(p => !p.isBot && p.host)) {
+    const firstHuman = room.players.find(p => !p.isBot);
+    if (firstHuman) firstHuman.host = true;
   }
   return room;
 }

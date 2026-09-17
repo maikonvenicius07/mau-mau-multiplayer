@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V40.59
+RECONEXÃO ESTRITA E CICLO DE VIDA DAS SALAS
+
+Base: V40.58.5.
+
+PRINCIPAL MUDANÇA
+- Reconexão automática: somente após desconexão involuntária.
+- SAIR: cancela a reserva automática.
+- Entrar em outra sala: cancela a reserva da sala anterior.
+- Para voltar após abandono voluntário: usar novamente o código da sala.
+- Último humano abandonou definitivamente: excluir a sala e o snapshot.
+- Bot/Máquina sozinho nunca mantém sala abandonada.
+- Token/localStorage antigo não recria sala excluída.
+
+ATUALIZAÇÃO
+Se o GitHub já está exatamente na V40.58.5, use o ZIP "Arquivos_para_Substituir" preservando os caminhos das pastas.
+Caso haja dúvida sobre a base instalada, use o "Projeto_Completo".
+
+Depois do commit, aguarde o GitHub Actions e o Render executarem npm run verify.
+Resultado esperado desta versão: 82/82 testes aprovados.

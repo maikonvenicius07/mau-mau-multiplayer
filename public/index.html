@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.58.5" />
+  <link rel="stylesheet" href="styles.css?v=40.59.0" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -568,13 +568,13 @@
       <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.51/V40.52 tenta WebRTC/Opus também com observadores, usa TURN automaticamente quando configurado e mantém o relay leve pelo servidor apenas como fallback seletivo. O diagnóstico mostra se a rota real está em P2P, TURN ou fallback. O áudio não é gravado nem salvo no PostgreSQL ou no ranking.</p>
       <p><strong>Minha Música:</strong> a V40.48 permite escolher um arquivo de áudio do próprio celular ou computador pelo botão 🎵. A música toca somente naquele aparelho, não é enviada ao servidor e não é compartilhada com os outros jogadores. Quando há microfone/voz ativa, a música local pausa para priorizar a conversa e volta depois, se estava tocando.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
-      <p><strong>Reconexão Inteligente:</strong> se alguém perder a conexão durante uma rodada, a mesa é pausada por até <strong>60 segundos</strong>. Depois desse prazo, a Máquina assume temporariamente <strong>a mesma mão, posição e pontuação</strong>, mas a cadeira continua pertencendo ao jogador original até o fim da partida. Ao voltar — inclusive depois de vários minutos — o jogador autenticado retoma automaticamente a própria vaga e recebe a <strong>mão atual</strong>, já considerando as jogadas feitas pela Máquina, sem precisar digitar novamente o código da sala.</p>
+      <p><strong>Reconexão Inteligente:</strong> a reconexão automática existe somente após uma <strong>desconexão involuntária</strong>, como queda de internet, atualização da página ou fechamento acidental. A mesa aguarda até <strong>60 segundos</strong>; depois, a Máquina pode assumir temporariamente a mesma mão, posição e pontuação. Enquanto o jogador não escolher sair nem entrar em outra sala, a reserva continua válida e ele pode retomar automaticamente a mão atual. <strong>Sair da sala</strong> ou <strong>entrar em outra sala</strong> cancela essa reserva; para voltar depois, será necessário usar novamente o código da sala.</p>
       <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
-      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. Todos podem receber convites. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>; recusar não altera a atividade atual. Se aceitar enquanto joga contra a máquina, essa partida é encerrada sem resultado. Se aceitar durante uma partida multiplayer já iniciada, a partida atual não é interrompida: a entrada na nova mesa fica aguardando o término, com reserva temporária da vaga quando possível.</p>
+      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>. Recusar não altera a sala atual. Quando a entrada em outra sala realmente acontece, qualquer reserva de reconexão da sala anterior é cancelada; se a rodada antiga ainda estiver em andamento, a cadeira pode continuar como uma Máquina normal para não interromper os demais jogadores. Se a sala do convite estiver no meio de uma rodada, a entrada aguarda um momento em que a nova mesa possa receber o jogador.</p>
       <p><strong>Jogar de Novo:</strong> ao terminar uma partida entre pessoas, cada jogador conectado pode confirmar <strong>JOGAR DE NOVO</strong>. Quando todos confirmam e há pelo menos 2 jogadores, começa automaticamente outra partida de 5 rodadas na mesma sala, com placar zerado. O resultado anterior permanece registrado separadamente no ranking.</p>
     </div>
 
-    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; uma desconexão durante a rodada pausa a partida por até 60 segundos e, depois, a Máquina assume temporariamente a vaga; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
+    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; queda involuntária mantém a reserva de reconexão e, após 60 segundos, a Máquina pode assumir temporariamente; saída voluntária ou entrada em outra sala cancela a reserva; quando não resta nenhum jogador humano pertencente à sala, ela é excluída; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
   </dialog>
 
 
@@ -613,6 +613,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.58.5"></script>
+  <script src="app.js?v=40.59.0"></script>
 </body>
 </html>

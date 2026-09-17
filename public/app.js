@@ -58,6 +58,7 @@ let liveMicPositionRole=null;
 const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1', floatingQuickPositionStorage='maumauFloatingQuickPositionV1';
 const sessionKey='maumauSessionV1';
+const pendingVoluntaryLeaveKey='maumauPendingVoluntaryLeaveV1';
 let savedSessionResumePending=false,accountSeatResumePending=false;
 const customAvatarStoragePrefix='maumauCustomAvatarV1:';
 const CUSTOM_AVATAR_MAX_DIMENSION=192;
@@ -403,6 +404,9 @@ async function logoutGoogle(){
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
 function clearSession(){localStorage.removeItem(sessionKey)}
+function pendingVoluntaryLeave(){try{return JSON.parse(localStorage.getItem(pendingVoluntaryLeaveKey)||'null')}catch{return null}}
+function savePendingVoluntaryLeave(data){try{localStorage.setItem(pendingVoluntaryLeaveKey,JSON.stringify(data||{}))}catch{}}
+function clearPendingVoluntaryLeave(){try{localStorage.removeItem(pendingVoluntaryLeaveKey)}catch{}}
 function setConnection(status){
   const chip=$('#connectionChip'); if(!chip) return;
   chip.dataset.connectionStatus=status;
@@ -1210,12 +1214,17 @@ $('#leaveBtn').onclick=()=>{
   const message=spectator
     ? 'Deseja sair do Modo Observador? A partida continuará normalmente para os jogadores.'
     : activeMatch
-      ? 'Deseja sair da mesa? A Máquina assumirá sua vaga e a partida continuará normalmente. Quando você voltar com a mesma Conta Google, recuperará seu lugar, suas cartas e sua pontuação.'
+      ? 'Deseja sair definitivamente desta sala? A partida poderá continuar com uma Máquina no seu lugar, mas sua reserva de reconexão será cancelada. Para voltar depois, será necessário usar novamente o código da sala.'
       : 'Deseja sair desta sala?';
   if(!window.confirm(message)) return;
   if(!socket.connected){
+    // V40.59 — o clique em SAIR continua sendo voluntário mesmo se a rede caiu
+    // exatamente nesse momento. Guardamos a intenção e a confirmamos no servidor
+    // assim que o Socket.IO voltar, antes de qualquer tentativa de auto-reconexão.
+    const sess=saved();
+    savePendingVoluntaryLeave({code:String(state?.code||sess?.code||'').toUpperCase(),token:sess?.token||'',at:Date.now()});
     clearSession();
-    returnToLanding('Você saiu da sala.');
+    returnToLanding('Saída registrada. Assim que a conexão voltar, sua reserva será cancelada no servidor.');
     return;
   }
   if(liveMicOn)stopLiveMic({notify:true,showToast:false});
@@ -2363,9 +2372,9 @@ socket.on('gameError',e=>{
 socket.on('leftRoom',data=>{
   leaveRoomPending=false;
   const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
-  // Quando a cadeira ficou em AUTO, preservamos código/token local. Assim, ao
-  // reabrir o jogo, a mesma Conta Google volta automaticamente para a vaga.
-  if(!data?.keepSeat)clearSession();
+  // V40.59 — leftRoom é uma saída voluntária confirmada: nunca preserva token
+  // de reconexão automática. Para voltar, o usuário deverá informar o código.
+  clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
   syncPresenceProfile();
 });
@@ -2388,6 +2397,19 @@ socket.on('connect',()=>{
   requestPublicRooms();
   const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
   renderLinkInviteBanner(urlRoom);
+
+  // V40.59 — SAIR clicado offline tem prioridade absoluta sobre auto-resume.
+  // Enquanto o servidor não confirmar o abandono, não tentamos recuperar a cadeira.
+  const pendingLeave=pendingVoluntaryLeave();
+  if(pendingLeave?.code){
+    socket.timeout(5000).emit('abandonReservedSeat',{code:pendingLeave.code,token:pendingLeave.token||''},(timeoutErr,response)=>{
+      if(timeoutErr||!response?.ok)return;
+      clearPendingVoluntaryLeave();
+      clearSession();
+      toast('✅ Saída confirmada no servidor. A reconexão automática dessa sala foi cancelada.');
+    });
+    return;
+  }
   const sess=saved();
 
   // Mantemos o comportamento do convite por link: quando o link aponta para
@@ -2409,7 +2431,7 @@ socket.on('connect',()=>{
     $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
     savedSessionResumePending=true;
     if(sess.role==='SPECTATOR')socket.emit('joinSpectator',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
-    else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
+    else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar,resumeIntent:'saved-session'});
     return;
   }
 

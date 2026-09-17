@@ -18,8 +18,10 @@ assert(server.includes("socket.on('respondInvite'"),'aceitar/recusar convite aus
 assert(server.includes("socket.on('claimInvite'"),'retomada de convite reservado ausente');
 assert(server.includes("i.fromKey===fromKey&&i.toKey===toKey"),'bloqueio de convite duplicado ausente');
 assert(server.includes('nowInvite-socket.data.lastInviteAt<900'),'anti-spam de convites ausente');
-assert(server.includes("activeMultiplayerRoomForKey(invite.toKey,dest.code)"),'partida multiplayer atual não é preservada');
-assert(server.includes("Partida contra a máquina encerrada sem resultado"),'aceite durante bot não trata encerramento sem resultado');
+assert(server.includes('if(roomJoinableNow(dest,invite.toKey)){'),'convite deve trocar de sala apenas quando o destino puder receber o jogador');
+assert(server.includes('joinSocketIntoRoom(socket,dest,{inviteId:invite.id});'),'entrada efetiva do convite deve usar o fluxo seguro de troca de sala');
+assert(server.includes('prepareForRoomSwitch(socket,room.code);'),'ingresso por convite deve cancelar pertencimento anterior somente no momento da entrada');
+assert(server.includes("setInviteWaiting(invite,'destination-round'"),'convite aceito durante rodada deve aguardar sem abandonar prematuramente a sala atual');
 assert(server.includes("room.inviteReservations instanceof Map"),'reserva de vaga no servidor ausente');
 assert(html.includes('id="onlinePlayersOpen"'),'botão Jogadores Online na tela inicial ausente');
 assert(html.includes('id="onlinePlayersOpen2"'),'acesso Jogadores Online dentro da mesa ausente');

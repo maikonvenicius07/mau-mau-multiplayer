@@ -1,0 +1,21 @@
+VALIDAÇÃO V40.59 — 82/82 TESTES APROVADOS
+
+Cenários obrigatórios cobertos em tests/reconnection-room-lifecycle-v4059.test.js:
+01. queda e volta antes de 60 segundos;
+02. queda e volta depois de 60 segundos;
+03. Máquina temporária assume e jogador retorna;
+04. fechamento acidental e retorno;
+05. atualização da página;
+06. saída voluntária;
+07. desconexão seguida de entrada em outra sala;
+08. tentativa de retorno à sala anterior após abandono;
+09. todos os humanos saem voluntariamente;
+10. exclusão da sala e snapshot;
+11. bot sozinho não mantém sala abandonada;
+12. token/dados antigos de sala excluída não recriam sala;
+13. dois jogadores desconectam ao mesmo tempo;
+14. nova sala enquanto existe reserva antiga.
+
+Também passam todos os testes históricos de cartas, turnos, Dama com 2 jogadores, Queima, Dupla, Ação Rápida, observador sem cartas, chat por sala, ranking, convites, áudio/WebRTC/TURN, snapshots e deploy.
+
+Comando de validação: npm run verify
