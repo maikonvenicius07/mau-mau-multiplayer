@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.53.0",
-  "description": "Mau-Mau Candeias V40.53: proteção contra reinício do servidor com snapshots de salas ativas no PostgreSQL; V40.52 e regras preservadas.",
+  "version": "40.54.0",
+  "description": "Mau-Mau Candeias V40.54: convite por link aprimorado e jogadores recentes integrados ao histórico; estabilidade e regras preservadas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

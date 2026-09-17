@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.53" />
+  <link rel="stylesheet" href="styles.css?v=40.54" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -55,6 +55,11 @@
         </button>
         <span id="publicRoomsCountLanding" hidden>0</span>
         <span id="liveSpectatorsCount" hidden>0</span>
+      </section>
+
+      <section id="linkInviteBanner" class="link-invite-banner hidden" aria-live="polite">
+        <div class="link-invite-copy"><small>🔗 CONVITE POR LINK</small><strong>Sala <span id="linkInviteCode">------</span></strong><span>Você recebeu um convite direto. Entre normalmente; se a partida já tiver começado, o jogo poderá oferecer o Modo Observador.</span></div>
+        <div class="link-invite-actions"><button id="linkInviteJoin" type="button" class="primary">🎮 ENTRAR NA SALA</button><button id="linkInviteCopy" type="button">🔗 COPIAR LINK</button></div>
       </section>
 
       <div class="setup-grid avatar-setup">
@@ -166,7 +171,7 @@
   <section id="game" class="screen hidden">
     <header class="topbar">
       <div class="brand-small"><span>M</span><div class="brand-small-text"><strong>MAU-MAU</strong><small>CANDEIAS</small></div></div>
-      <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Copiar convite">🔗</button></div>
+      <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Compartilhar convite da sala" aria-label="Compartilhar convite da sala">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <button id="connectionChip" class="connection-chip connecting" type="button" title="Abrir diagnóstico da conexão" aria-label="Abrir diagnóstico da conexão">● Conectando</button>
       <button id="leaveBtn" class="leave-btn" title="Sair da sala">🚪 Sair</button>
@@ -431,8 +436,13 @@
     <div class="online-status-legend">
       <span>🟢 Disponível</span><span>🔎 Procurando</span><span>🤖 Contra máquina</span><span>🎮 Com pessoas</span><span>🟠 Reconectando</span>
     </div>
+    <div class="players-directory-tabs" role="tablist" aria-label="Lista de jogadores">
+      <button id="onlinePlayersTab" class="active" type="button" role="tab" aria-selected="true">🟢 ONLINE</button>
+      <button id="recentPlayersTab" type="button" role="tab" aria-selected="false">🕘 RECENTES</button>
+    </div>
     <div id="onlinePlayersList" class="online-players-list"><div class="online-empty">Carregando jogadores...</div></div>
-    <div class="online-dialog-note">Convites expiram em 30 segundos. Se alguém aceitar durante uma partida multiplayer, a partida atual continua normalmente e a nova vaga fica reservada temporariamente quando possível.</div>
+    <div id="recentPlayersList" class="online-players-list hidden"><div class="online-empty">Carregando jogadores recentes...</div></div>
+    <div class="online-dialog-note">Em <strong>Recentes</strong> aparecem pessoas com quem você concluiu partidas. Se estiverem online, você pode convidá-las novamente. Convites expiram em 30 segundos.</div>
   </dialog>
 
   <dialog id="roundReviewDialog" class="modal round-review-modal">
@@ -603,6 +613,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.53"></script>
+  <script src="app.js?v=40.54"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-V40.53 — NENHUMA EXCLUSÃO NECESSÁRIA
+V40.54 — NENHUMA EXCLUSÃO NECESSÁRIA
 
 Nesta atualização não é preciso apagar nenhum arquivo do projeto.
 

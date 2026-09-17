@@ -1,3 +1,9 @@
+## V40.54 — Convite por link + jogadores recentes
+
+A V40.54 adiciona duas funções sociais leves sem alterar o motor do jogo. O botão 🔗 da sala usa a folha de compartilhamento nativa em celulares compatíveis e mantém cópia para a área de transferência como fallback. Quem abre um link com `?room=CODIGO` vê um cartão claro de convite e pode entrar diretamente; se a partida já tiver começado, continua valendo o fluxo existente que oferece o Modo Observador.
+
+A janela **Jogadores Online** passa a ter a aba **Recentes**, alimentada pelo histórico de partidas concluídas já usado pelo ranking. Ela mostra com quem o usuário jogou por último, quantas partidas foram disputadas juntos e, se a pessoa estiver online, permite enviar o convite normal de 30 segundos. Não é criada uma nova rede social nem são armazenadas conversas.
+
 ## V40.52 — Estado e avatares leves
 
 A V40.52 reduz o tráfego repetitivo da partida sem mudar a aparência. Figurinhas personalizadas continuam armazenadas no estado interno da sala, mas os eventos `state` enviados a jogadores e observadores carregam apenas uma referência curta baseada no conteúdo. A imagem correspondente é enviada separadamente uma vez por socket e mantida em cache de sessão no navegador. Se o cache estiver vazio após uma reconexão, o cliente solicita somente as referências ausentes.

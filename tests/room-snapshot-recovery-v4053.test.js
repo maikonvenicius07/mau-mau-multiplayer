@@ -6,7 +6,7 @@ const Engine=require('../game-engine');
 const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.53.0');
+assert.strictEqual(pkg.version,'40.54.0');
 const room=Engine.createRoom('ABCD',{socketId:'sock-host',token:'tok-host',name:'Host',avatar:'macaco',playerKey:'g_host'});
 Engine.addPlayer(room,{socketId:'sock-2',token:'tok-2',name:'Dois',avatar:'data:image/webp;base64,AAAA',playerKey:'g_2'});
 room.status='playing';room.round=2;room.currentPlayer=1;room.players[0].hand=[{id:'c1',rank:'5',suit:'clubs',copy:1}];room.players[1].hand=[{id:'c2',rank:'A',suit:'spades',copy:1}];
@@ -31,4 +31,4 @@ const server=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
 assert(server.includes("process.once('SIGTERM'")&&server.includes('flushAll(rooms)'),'shutdown gracioso/snapshot final ausente');
 assert(server.includes('restorePersistedRooms')&&server.includes('roomSnapshotStore.loadActive'),'restauração no boot ausente');
 assert(server.includes('roomSnapshotStore.queueSave(room)'),'persistência após atualização de sala ausente');
-console.log('✓ V40.53: snapshot/restauração de sala, janela de reconexão e SIGTERM conferidos.');
+console.log('✓ V40.54: snapshot/restauração de sala, janela de reconexão e SIGTERM conferidos.');

@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 const pkg=require(path.join(root,'package.json'));
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
-assert.strictEqual(pkg.version,'40.53.0');
+assert.strictEqual(pkg.version,'40.54.0');
 assert(app.includes('const CUSTOM_AVATAR_MAX_DIMENSION=192'),'figurinha personalizada leve da V40.46 foi perdida');
 assert(app.includes('const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000'),'limite leve da figurinha foi perdido');
 assert(app.includes('function migrateStoredCustomAvatar()'),'migração de figurinha antiga foi perdida');
@@ -17,4 +17,4 @@ const avatarBytes=avatarFiles.reduce((n,f)=>n+fs.statSync(path.join(avatarDir,f)
 assert(avatarBytes<350000,`avatares voltaram a ficar pesados: ${avatarBytes} bytes`);
 const engine=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
 assert(engine.includes('if (ativos.length === 2)'),'regra especial da Dama com 2 jogadores foi alterada');
-console.log(`✓ V40.53: performance mobile preservada; avatares=${avatarBytes} bytes.`);
+console.log(`✓ V40.54: performance mobile preservada; avatares=${avatarBytes} bytes.`);

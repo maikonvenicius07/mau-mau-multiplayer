@@ -64,6 +64,7 @@ const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000;
 let googleUser=null;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
+let recentPlayers=[],playersDirectoryTab='online';
 const inviteCards=new Map();
 // V40.2 — estado da busca automática recebido do servidor.
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
@@ -315,7 +316,7 @@ function authStatus(message='',kind=''){
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
 function showAuthGate(message='Entre com sua Conta Google para continuar.'){
-  googleUser=null;onlinePlayers=[];onlineCount=0;inviteCards.clear();
+  googleUser=null;onlinePlayers=[];onlineCount=0;recentPlayers=[];inviteCards.clear();
   matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};matchmakingDialogDismissed=false;
   renderOnlinePresence();renderInviteInbox();renderMatchmaking();
   if(socket.connected) socket.disconnect();
@@ -930,7 +931,39 @@ function renderOnlinePresence(){
   }).join('');
   box.querySelectorAll('[data-invite-key]').forEach(btn=>btn.onclick=()=>sendOnlineInvite(btn.dataset.inviteKey,btn));
 }
-function openOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(!dlg)return;renderOnlinePresence();if(!dlg.open)dlg.showModal();}
+function recentTimeLabel(value){
+  const ms=Date.parse(value||'');if(!Number.isFinite(ms))return 'Partida recente';
+  const diff=Math.max(0,Date.now()-ms),min=Math.floor(diff/60000),hour=Math.floor(diff/3600000),day=Math.floor(diff/86400000);
+  if(min<1)return 'agora';if(min<60)return `há ${min} min`;if(hour<24)return `há ${hour} h`;if(day<7)return `há ${day} d`;
+  try{return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit'}).format(new Date(ms))}catch{return 'Partida recente'}
+}
+function renderRecentPlayers(){
+  const box=$('#recentPlayersList');if(!box)return;
+  const liveByKey=new Map((onlinePlayers||[]).map(p=>[p.playerKey,p]));
+  if(!recentPlayers.length){box.innerHTML='<div class="online-empty">Seus jogadores recentes aparecerão aqui depois que você concluir partidas com outras pessoas.</div>';return;}
+  box.innerHTML=recentPlayers.map(p=>{
+    const live=liveByKey.get(p.playerKey),connected=!!(live?.connected??p.connected),inviteable=connected&&!!(live?.inviteable??p.inviteable);
+    const status=live?.status||p.status||'offline',statusEmoji=live?.statusEmoji||p.statusEmoji||(connected?'🟢':'⚫'),statusLabel=live?.statusLabel||p.statusLabel||(connected?'Disponível':'Offline');
+    const games=Math.max(1,Number(p.gamesTogether||1));
+    return `<div class="online-player-row" data-recent-key="${esc(p.playerKey||'')}">
+      <div class="online-player-avatar">${avatarHTML(live?.avatar||p.avatar||'macaco','md')}</div>
+      <div class="online-player-info"><div class="online-player-name">${esc(live?.name||p.name||'Jogador')}</div><div class="online-player-status ${esc(status)} ${connected?'':'recent-offline'}">${esc(statusEmoji)} ${esc(statusLabel)}</div><div class="recent-player-meta"><span>🕘 ${esc(recentTimeLabel(p.lastPlayedAt))}</span><span>🃏 ${games} partida${games===1?'':'s'} junto${games===1?'':'s'}</span></div></div>
+      <button class="online-invite-btn recent-invite-btn" type="button" data-recent-invite-key="${esc(p.playerKey||'')}" ${inviteable?'':'disabled'}>${inviteable?'CONVIDAR':'OFFLINE'}</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-recent-invite-key]').forEach(btn=>btn.onclick=()=>sendOnlineInvite(btn.dataset.recentInviteKey,btn));
+}
+function requestRecentPlayers(){if(socket.connected)socket.emit('requestRecentPlayers')}
+function setPlayersDirectoryTab(tab='online'){
+  playersDirectoryTab=tab==='recent'?'recent':'online';
+  $('#onlinePlayersList')?.classList.toggle('hidden',playersDirectoryTab!=='online');
+  $('#recentPlayersList')?.classList.toggle('hidden',playersDirectoryTab!=='recent');
+  const on=$('#onlinePlayersTab'),recent=$('#recentPlayersTab');
+  on?.classList.toggle('active',playersDirectoryTab==='online');recent?.classList.toggle('active',playersDirectoryTab==='recent');
+  on?.setAttribute('aria-selected',playersDirectoryTab==='online'?'true':'false');recent?.setAttribute('aria-selected',playersDirectoryTab==='recent'?'true':'false');
+  if(playersDirectoryTab==='recent'){renderRecentPlayers();requestRecentPlayers()}else renderOnlinePresence();
+}
+function openOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(!dlg)return;renderOnlinePresence();requestRecentPlayers();setPlayersDirectoryTab(playersDirectoryTab);if(!dlg.open)dlg.showModal();}
 function closeOnlinePlayers(){const dlg=$('#onlinePlayersDialog');if(dlg?.open)dlg.close();}
 
 function matchmakingSeconds(){
@@ -999,7 +1032,7 @@ function sendOnlineInvite(targetPlayerKey,button){
   if(!googleUser)return showAuthGate('Entre com Google para convidar jogadores.');
   if(!socket.connected)return toast('Sem conexão com o servidor.');
   if(!targetPlayerKey||targetPlayerKey===permanentPlayerKey())return;
-  if(button){button.disabled=true;button.textContent='ENVIANDO...';setTimeout(()=>renderOnlinePresence(),900)}
+  if(button){button.disabled=true;button.textContent='ENVIANDO...';setTimeout(()=>{renderOnlinePresence();renderRecentPlayers()},900)}
   socket.emit('sendInvite',{targetPlayerKey,profile:profile()});
 }
 function inviteSeconds(expiresAt){return Math.max(0,Math.ceil((Number(expiresAt||0)-Date.now())/1000))}
@@ -1034,6 +1067,8 @@ setInterval(()=>{
 $('#onlinePlayersOpen').onclick=openOnlinePlayers;
 $('#onlinePlayersOpen2').onclick=openOnlinePlayers;
 $('#onlinePlayersClose').onclick=closeOnlinePlayers;
+$('#onlinePlayersTab')?.addEventListener('click',()=>setPlayersDirectoryTab('online'));
+$('#recentPlayersTab')?.addEventListener('click',()=>setPlayersDirectoryTab('recent'));
 $('#matchmakingStart').onclick=startMatchmaking;
 $('#matchmakingClose').onclick=closeMatchmaking;
 $('#matchmakingCancel').onclick=cancelMatchmaking;
@@ -1134,7 +1169,33 @@ $('#spectatorJoinBtn')?.addEventListener('click',joinAsSpectator);
 $('#spectatorCancelBtn')?.addEventListener('click',closeSpectatorOffer);
 $('#spectatorOfferClose')?.addEventListener('click',closeSpectatorOffer);
 $('#spectatorOfferDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeSpectatorOffer()});
-$('#copyInvite').onclick=async()=>{const url=new URL(location.href);url.searchParams.set('room',state.code);await navigator.clipboard.writeText(url.toString());toast('Link da sala copiado.');};
+function roomInviteUrl(code){
+  const clean=String(code||'').trim().toUpperCase();
+  const url=new URL(location.href);url.search='';url.hash='';url.searchParams.set('room',clean);return url.toString();
+}
+async function copyRoomInvite(code){
+  const url=roomInviteUrl(code);try{await navigator.clipboard.writeText(url);toast('🔗 Link da sala copiado.');return true}catch{toast('Não foi possível copiar o link neste navegador.');return false}
+}
+async function shareRoomInvite(code){
+  const clean=String(code||'').trim().toUpperCase();if(!clean)return;
+  const url=roomInviteUrl(clean);
+  if(navigator.share){
+    try{await navigator.share({title:'Mau-Mau Candeias',text:`🃏 Entre na minha sala ${clean} no Mau-Mau Candeias.`,url});return}catch(e){if(e?.name==='AbortError')return}
+  }
+  await copyRoomInvite(clean);
+}
+function renderLinkInviteBanner(explicitCode=''){
+  const fromUrl=(new URLSearchParams(location.search).get('room')||'').trim().toUpperCase();
+  const code=String(explicitCode||fromUrl).trim().toUpperCase();
+  const valid=/^[A-Z2-9]{6}$/.test(code),banner=$('#linkInviteBanner');
+  if(!banner)return;
+  banner.classList.toggle('hidden',!valid);if(!valid)return;
+  if($('#linkInviteCode'))$('#linkInviteCode').textContent=code;
+  if($('#roomInput'))$('#roomInput').value=code;
+}
+$('#linkInviteJoin')?.addEventListener('click',()=>{const code=$('#linkInviteCode')?.textContent?.trim()||'';if($('#roomInput'))$('#roomInput').value=code;$('#joinBtn')?.click()});
+$('#linkInviteCopy')?.addEventListener('click',()=>copyRoomInvite($('#linkInviteCode')?.textContent||''));
+$('#copyInvite').onclick=()=>shareRoomInvite(state?.code);
 $('#leaveBtn').onclick=()=>{
   if(!state) return;
   const spectator=isSpectatorState();
@@ -2158,7 +2219,11 @@ socket.on('state',s=>{
   if(shouldCueMyTurn(prev,s)) triggerYourTurnCue();
 });
 socket.on('presenceSnapshot',payload=>{
-  onlineCount=Number(payload?.onlineCount||0);onlinePlayers=Array.isArray(payload?.players)?payload.players:[];renderOnlinePresence();
+  onlineCount=Number(payload?.onlineCount||0);onlinePlayers=Array.isArray(payload?.players)?payload.players:[];renderOnlinePresence();renderRecentPlayers();
+});
+socket.on('recentPlayersSnapshot',payload=>{
+  recentPlayers=Array.isArray(payload?.players)?payload.players:[];renderRecentPlayers();
+  if(payload?.error&&playersDirectoryTab==='recent')toast(payload.error);
 });
 socket.on('matchmakingState',payload=>{
   matchmaking={
@@ -2277,6 +2342,7 @@ socket.on('connect',()=>{
   syncPresenceProfile();
   requestPublicRooms();
   const urlRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
+  renderLinkInviteBanner(urlRoom);
   const sess=saved();
 
   // Um link de convite para outra sala tem prioridade sobre uma sessão antiga.
@@ -2311,6 +2377,7 @@ function returnToLanding(message=''){
   $('#game').classList.add('hidden');
   $('#landing').classList.remove('hidden');
   $('#roomInput').value='';
+  renderLinkInviteBanner('');
   syncPresenceProfile();
   if(message) toast(message);
 }

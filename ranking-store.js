@@ -130,6 +130,30 @@ class JsonBackend {
     const ranked=denseRankByWins(rows);
     return ranked.find(r=>r.playerKey===playerKey)||null;
   }
+  async getRecentPlayers({playerKey,limit=12}={}) {
+    if(!playerKey)return [];
+    const recent=new Map();
+    const matches=[...this.data.matches].sort((a,b)=>Date.parse(b.finishedAt||0)-Date.parse(a.finishedAt||0));
+    for(const match of matches){
+      const results=Array.isArray(match.results)?match.results:[];
+      if(!results.some(r=>r.playerKey===playerKey))continue;
+      const at=String(match.finishedAt||new Date(0).toISOString());
+      for(const r of results){
+        if(!r?.playerKey||r.playerKey===playerKey)continue;
+        const prior=recent.get(r.playerKey);
+        recent.set(r.playerKey,{
+          playerKey:r.playerKey,
+          name:prior?.name||r.name||'Jogador',
+          avatar:prior?.avatar||r.avatar||'macaco',
+          lastPlayedAt:(!prior||Date.parse(at)>Date.parse(prior.lastPlayedAt||0))?at:prior.lastPlayedAt,
+          gamesTogether:Number(prior?.gamesTogether||0)+1,
+        });
+      }
+    }
+    return [...recent.values()]
+      .sort((a,b)=>Date.parse(b.lastPlayedAt||0)-Date.parse(a.lastPlayedAt||0)||String(a.name).localeCompare(String(b.name),'pt-BR'))
+      .slice(0,Math.max(1,Math.min(30,Number(limit)||12)));
+  }
 }
 
 class PostgresBackend {
@@ -288,6 +312,22 @@ class PostgresBackend {
     );
     return rows[0]||null;
   }
+  async getRecentPlayers({playerKey,limit=12}={}) {
+    if(!playerKey)return [];
+    const safeLimit=Math.max(1,Math.min(30,Number(limit)||12));
+    const {rows}=await this.pool.query(`
+      SELECT opp.player_key AS "playerKey", p.name, p.avatar,
+             MAX(m.finished_at) AS "lastPlayedAt", COUNT(*)::int AS "gamesTogether"
+      FROM mm_match_results mine
+      JOIN mm_match_results opp ON opp.match_id=mine.match_id AND opp.player_key<>mine.player_key
+      JOIN mm_matches m ON m.match_id=mine.match_id
+      JOIN mm_players p ON p.player_key=opp.player_key
+      WHERE mine.player_key=$1
+      GROUP BY opp.player_key,p.name,p.avatar
+      ORDER BY MAX(m.finished_at) DESC, p.name ASC
+      LIMIT $2`,[playerKey,safeLimit]);
+    return rows;
+  }
 }
 
 class RankingStore {
@@ -299,6 +339,7 @@ class RankingStore {
   async recordMatch(match){ return this.backend.recordMatch(match); }
   async getLeaderboard(opts){ return this.backend.getLeaderboard(opts); }
   async getPlayerStats(opts){ return this.backend.getPlayerStats(opts); }
+  async getRecentPlayers(opts){ return this.backend.getRecentPlayers(opts); }
 }
 
 function buildMatchRecord(room) {

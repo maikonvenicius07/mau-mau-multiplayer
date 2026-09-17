@@ -1204,6 +1204,33 @@ io.on('connection', socket => {
     socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
   });
 
+  // V40.54 — jogadores recentes vêm do histórico real de partidas concluídas.
+  // A lista guarda somente identidade pública da mesa (nome/avatar curto) e data da partida;
+  // presença/convite continuam efêmeros e são calculados no momento da consulta.
+  socket.on('requestRecentPlayers', async () => {
+    try{
+      if(!(await rankingReady))throw new Error('Histórico de partidas indisponível.');
+      const rows=await rankingStore.getRecentPlayers({playerKey:socket.data.auth.playerKey,limit:12});
+      const players=rows.map(row=>{
+        const status=presenceStatusForKey(row.playerKey),rec=presenceFor(row.playerKey);
+        const connected=!!rec?.sockets?.size;
+        return {
+          playerKey:String(row.playerKey||''),
+          name:cleanPresenceName(rec?.name||row.name||'Jogador'),
+          avatar:cleanAvatar(rec?.avatar||row.avatar||'macaco'),
+          lastPlayedAt:row.lastPlayedAt||null,
+          gamesTogether:Number(row.gamesTogether||0),
+          connected,inviteable:connected,
+          status:status.code,statusEmoji:status.emoji,statusLabel:status.label,
+        };
+      });
+      socket.emit('recentPlayersSnapshot',{players,at:Date.now()});
+    }catch(e){
+      console.error('[recentes] consulta falhou:',e?.message||e);
+      socket.emit('recentPlayersSnapshot',{players:[],at:Date.now(),error:'Não foi possível carregar jogadores recentes agora.'});
+    }
+  });
+
   // V40.52 — recuperação sob demanda de figurinha personalizada.
   // O cliente só pode pedir referências que pertençam à sala em que está conectado.
   socket.on('requestAvatarAssets', payload => {

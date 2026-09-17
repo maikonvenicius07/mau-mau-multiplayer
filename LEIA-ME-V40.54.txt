@@ -1,0 +1,11 @@
+MAU-MAU CANDEIAS — V40.54
+CONVITE POR LINK + JOGADORES RECENTES
+
+1. O botão 🔗 da sala compartilha o link pelo recurso nativo do celular quando disponível.
+2. Em navegadores sem compartilhamento nativo, o link é copiado.
+3. Quem abre um link de sala vê um cartão de convite na tela inicial.
+4. A janela JOGADORES ONLINE agora possui a aba RECENTES.
+5. RECENTES usa somente partidas concluídas registradas no histórico/ranking.
+6. Jogadores recentes online podem receber o mesmo convite normal já existente.
+7. Nenhuma regra do Mau-Mau foi alterada.
+8. V40.50/V40.51 (áudio e WebRTC), V40.52 (avatares leves) e V40.53 (snapshots) permanecem preservadas.

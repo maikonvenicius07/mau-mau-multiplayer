@@ -1,3 +1,13 @@
+## V40.54 — Convite por link + jogadores recentes
+
+- O botão 🔗 da sala usa o compartilhamento nativo do celular quando disponível; em outros navegadores copia o link.
+- Links `?room=CODIGO` ganham um cartão de convite na tela inicial com entrada direta na sala.
+- Se a partida do link já estiver em andamento, permanece o fluxo seguro que oferece Modo Observador.
+- A janela Jogadores Online ganhou as abas **ONLINE** e **RECENTES**.
+- Jogadores recentes vêm do histórico real de partidas concluídas e mostram última partida e quantidade de partidas juntos.
+- Um jogador recente que estiver online pode ser convidado novamente usando o sistema de convite já existente.
+- Nenhuma regra, turno, áudio, WebRTC/TURN, reconexão, avatar leve ou snapshot de sala foi alterado.
+
 ## V40.53 — Proteção contra reinício do servidor
 
 - Snapshots das salas ativas em PostgreSQL (fallback JSON local).
