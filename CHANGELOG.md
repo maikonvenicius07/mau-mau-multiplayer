@@ -1,3 +1,11 @@
+## V40.56 — Deploy Seguro e Reproduzível
+
+- Node.js fixado em 22.22.0 via `package.json` e `.node-version`.
+- Render passa a executar a suíte completa antes de publicar.
+- GitHub Actions verifica automaticamente pushes e pull requests.
+- `.npmrc` passa a salvar futuras dependências com versão exata.
+- Nenhuma alteração nas regras do Mau-Mau, voz, reconexão ou persistência.
+
 ## V40.55 — Estabilidade Final
 
 - Ativa `connectionStateRecovery` do Socket.IO por 60 s, sem substituir a reconexão inteligente existente.

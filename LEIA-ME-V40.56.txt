@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — V40.56 DEPLOY SEGURO
+
+Objetivo: tornar cada deploy mais previsível sem alterar o jogo.
+
+1. Node.js fixado: 22.22.0.
+2. Render: instala dependências e executa npm run verify antes de publicar.
+3. GitHub Actions: executa a mesma verificação a cada push/pull request.
+4. Novas dependências serão salvas com versão exata.
+5. Regras, áudio, WebRTC, observador, snapshots e ranking não foram alterados.
+
+IMPORTANTE SOBRE PACKAGE-LOCK:
+O ambiente usado para gerar esta versão não possui acesso ao npm Registry. Por segurança, não foi criado um lockfile manual/incompleto. Um package-lock só deve ser adotado depois de ser gerado por npm e validado com npm ci + npm run verify.

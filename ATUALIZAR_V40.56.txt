@@ -1,0 +1,8 @@
+MAU-MAU CANDEIAS — V40.56
+
+Substitua/adicione os arquivos deste pacote preservando a estrutura de pastas.
+Não há arquivos para excluir nesta versão.
+
+A V40.56 não altera regras nem áudio. Ela fixa Node 22.22.0, executa os testes no build do Render e adiciona verificação automática no GitHub.
+
+Observação: não há package-lock.json nesta versão porque ele não pôde ser gerado e validado contra o npm Registry no ambiente de construção. O Render continua usando npm install + npm run verify.

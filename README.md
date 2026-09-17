@@ -1,3 +1,9 @@
+## V40.56 — Deploy Seguro e Reproduzível
+
+A V40.56 fortalece o processo de publicação sem alterar regras, áudio, rede ou interface do Mau-Mau. O projeto passa a fixar Node.js 22.22.0 em `package.json` e `.node-version`; o Render executa `npm run verify` durante o build e só publica se toda a suíte passar; e o GitHub Actions executa a mesma verificação em pushes e pull requests. O `.npmrc` também força versões exatas para novas dependências adicionadas futuramente.
+
+Observação: como o ambiente de geração desta versão não possui acesso ao npm Registry, não foi incluído um `package-lock.json` não validado. O projeto continua usando versões diretas exatas e a verificação automática bloqueia deploys quebrados. Quando o lockfile puder ser gerado e validado com acesso ao Registry, o build poderá migrar de `npm install` para `npm ci`.
+
 ## V40.55 — Estabilidade Final
 
 A V40.55 consolida a camada de rede e persistência sem alterar as regras do Mau-Mau. O Socket.IO passa a usar recuperação nativa de estado por até 60 segundos em microquedas, mantendo a Reconexão Inteligente de 60 s como segunda camada. O Áudio Rápido continua com 15 segundos/48 kbps, mas o limite máximo cai de 700 KB para 250 KB e o limite global de pacote do Socket.IO é reduzido para 400 KB. Nos snapshots, figurinhas Base64 são substituídas por referências de hash no JSON da partida e persistidas em tabela separada, sendo regravadas somente quando o conjunto de avatares muda.

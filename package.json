@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.55.0",
-  "description": "Mau-Mau Candeias V40.55: estabilidade final com Connection State Recovery, Áudio Rápido mais leve e snapshots sem Base64 repetida.",
+  "version": "40.56.0",
+  "description": "Mau-Mau Candeias V40.56: deploy seguro com Node fixado, verificação automática no Render e CI no GitHub.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,7 @@
     "verify": "node --check server.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.22.0"
   },
   "dependencies": {
     "express": "4.21.2",
