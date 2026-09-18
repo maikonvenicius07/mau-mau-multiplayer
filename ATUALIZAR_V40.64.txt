@@ -1,0 +1,11 @@
+ATUALIZAÇÃO PARA V40.64 — SEGURANÇA DE AVATAR E ENTRADAS
+
+Base esperada: V40.63 corrigida e aprovada no Render.
+
+1. Substitua/adicone os arquivos do pacote "Arquivos_para_Substituir" mantendo as pastas.
+2. Faça commit no GitHub.
+3. Aguarde o Render executar npm run verify.
+4. O log deve informar 88 testes aprovados.
+5. Depois confirme "Build successful" e "Your service is live".
+
+A V40.64 não muda regras de turno, reconexão, ranking, chat por sala, observador, áudio ou matchmaking.

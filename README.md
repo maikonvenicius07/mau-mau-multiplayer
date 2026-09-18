@@ -1,3 +1,21 @@
+## V40.64 — Segurança de avatar e entradas
+
+A V40.64 reforça a validação no servidor contra clientes modificados sem alterar as regras ou a interface do jogo. Foi criado o módulo compartilhado `input-safety.js`, utilizado pelo servidor, motor e restauração de snapshots.
+
+- nomes ficam limitados a 24 caracteres, sem controles e sem conversão acidental de objetos;
+- chat fica limitado a 180 caracteres;
+- avatares personalizados aceitam apenas PNG/JPG/WEBP e respeitam o limite do servidor;
+- um avatar abusivo de 300 mil caracteres é descartado antes de entrar no estado;
+- `game-engine.js` aplica a mesma validação como segunda camada;
+- snapshots antigos também são higienizados ao restaurar;
+- códigos de sala, tokens, convites, IDs de carta e enums recebem limites explícitos;
+- listas de referências de avatar e peers de voz são limitadas antes de serem percorridas;
+- o limite global do Socket.IO permanece em 400 KB, preservando Áudio Rápido e figurinha personalizada.
+
+**Validação da montagem:** 87 testes sem dependência externa passaram, incluindo o novo teste V40.64. A suíte agora contém 88 testes; o teste Socket.IO real será novamente confirmado no Render após `npm install`.
+
+---
+
 ## V40.63 — Testes reais de Socket.IO
 
 A V40.63 adiciona uma camada de **testes de integração com conexões Socket.IO reais**, complementando os testes unitários e de contrato já existentes. O objetivo é reproduzir o tipo de problema que pode aparecer somente quando servidor e clientes realmente conectam, desconectam e trocam eventos pela rede.

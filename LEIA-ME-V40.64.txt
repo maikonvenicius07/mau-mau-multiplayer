@@ -1,0 +1,19 @@
+MAU-MAU CANDEIAS — V40.64
+SEGURANÇA DE AVATAR E ENTRADAS
+
+Objetivo:
+Reforçar no servidor a validação de dados enviados por clientes modificados, sem alterar regras do jogo, layout ou fluxos normais.
+
+Principais proteções:
+- avatar/figurinha: somente string; PNG/JPG/WEBP em data URL; limite compatível de 180.000 caracteres; payload abusivo cai para avatar padrão;
+- nome: remoção de controles, espaços normalizados e máximo de 24 caracteres;
+- chat: somente texto, controles removidos e máximo de 180 caracteres;
+- objetos/arrays não são convertidos acidentalmente para "[object Object]";
+- códigos de sala devem ter exatamente 6 caracteres válidos;
+- tokens, IDs de convite, IDs de carta e enums são limitados antes de chegar ao motor;
+- listas de referências de avatar e peers de voz são cortadas antes do processamento;
+- o game-engine repete a sanitização de nome/avatar como defesa em profundidade;
+- snapshots antigos são higienizados na restauração;
+- maxHttpBufferSize do Socket.IO permanece em 400.000 bytes, compatível com Áudio Rápido e figurinha personalizada.
+
+Nenhuma regra do Mau-Mau foi alterada.

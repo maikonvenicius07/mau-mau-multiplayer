@@ -1,0 +1,12 @@
+VALIDAÇÃO V40.64 — SEGURANÇA DE AVATAR E ENTRADAS
+
+Validação realizada na montagem:
+- input-safety.js: node --check aprovado.
+- server.js/game-engine.js/room-snapshot-store.js: node --check aprovados.
+- 87 testes que não dependem da instalação externa do socket.io-client: aprovados.
+- novo input-safety-v4064.test.js: aprovado.
+- teste de avatar abusivo com 300.000 caracteres: rejeitado e estado permaneceu pequeno.
+- nome/chat gigantes e caracteres de controle: limitados/saneados.
+- snapshot legado com perfil abusivo: saneado na restauração.
+
+A suíte possui 88 testes no total. O teste Socket.IO real da V40.63 requer as dependências npm instaladas e deve ser confirmado pelo npm run verify do GitHub/Render, como na versão anterior.

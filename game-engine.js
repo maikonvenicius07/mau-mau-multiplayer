@@ -1,6 +1,7 @@
 'use strict';
 
 const RankingMode = require('./ranking-mode');
+const InputSafety = require('./input-safety');
 
 const crypto = require('crypto');
 
@@ -144,8 +145,8 @@ function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}
     id: id('p'),
     socketId: socketId || null,
     token: token || id('t'),
-    name: String(name || 'Jogador').slice(0,24),
-    avatar: avatar || '🂡',
+    name: InputSafety.cleanPresenceName(name),
+    avatar: InputSafety.cleanAvatar(avatar,'🂡'),
     playerKey: isBot ? null : (String(playerKey || '').trim().slice(0,80) || null),
     hand: [],
     score: 0,

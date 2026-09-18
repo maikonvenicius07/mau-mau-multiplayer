@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const AvatarWire = require('./avatar-wire');
 const RankingMode = require('./ranking-mode');
+const InputSafety = require('./input-safety');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;
@@ -70,11 +71,21 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
     room.rankingModeAtStart=RankingMode.inferLegacyMode(room);
   }
   if (!Array.isArray(room.chat)) room.chat=[];
+  room.chat=room.chat.slice(-60).map(message=>({
+    ...message,
+    id:InputSafety.cleanOpaqueId(message?.id,96)||`chat-restored-${now}`,
+    name:message?.system?'Mesa':InputSafety.cleanPresenceName(message?.name),
+    avatar:InputSafety.cleanAvatar(message?.avatar,message?.system?'👁️':'macaco'),
+    text:InputSafety.cleanChatText(message?.text),
+  })).filter(message=>message.system||message.text);
   if (!Array.isArray(room.log)) room.log=[];
   if (!Array.isArray(room.turnAudit)) room.turnAudit=[];
   if (!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
   for (const p of room.players) {
     p.socketId = null;
+    p.name=InputSafety.cleanPresenceName(p.name,p.isBot?'Máquina':'Jogador');
+    p.avatar=InputSafety.cleanAvatar(p.avatar,p.isBot?'preta':'macaco');
+    if(p.token)p.token=InputSafety.cleanOpaqueId(p.token,160)||`restored-${p.id}`;
     if (!p.isBot && Number(p.voluntaryLeftAt || 0) > 0) {
       p.isBot = true;
       p.connected = true;

@@ -9,6 +9,7 @@ const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
 const AvatarWire = require('./avatar-wire');
 const RoomLifecycle = require('./room-lifecycle');
+const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 
@@ -469,7 +470,7 @@ function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
   if (!(socket.data.avatarAssetRefsSent instanceof Set)) socket.data.avatarAssetRefsSent=new Set();
   const sent=socket.data.avatarAssetRefsSent;
   const requested=Array.isArray(requestedRefs)
-    ? new Set(requestedRefs.map(String).filter(ref=>AvatarWire.isCustomAvatarRef(ref)).slice(0,16))
+    ? new Set(InputSafety.firstSafeStrings(requestedRefs,{maxItems:16,maxLength:64,filter:AvatarWire.isCustomAvatarRef}))
     : null;
   for (const [ref,dataUrl] of assets) {
     const explicitlyRequested=!!(requested&&requested.has(ref));
@@ -936,23 +937,15 @@ function closeSpectatorsForRoom(room,message='A mesa foi encerrada.'){
   }
   room.spectators=[];
 }
-function cleanChatText(value) {
-  return String(value ?? '')
-    .replace(/[\u0000-\u001F\u007F]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 180);
-}
+function cleanChatText(value) { return InputSafety.cleanChatText(value); }
 function emitChatHistory(socket, room) {
   ensureSocial(room);
   socket.emit('chatHistory', room.chat.slice(-60));
 }
 
 // ========================= V40.1 — JOGADORES ONLINE + CONVITES =========================
-function cleanPresenceName(value) {
-  return String(value || 'Jogador').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,24) || 'Jogador';
-}
-function cleanAvatar(value) { const raw=String(value || 'macaco').trim(); if(/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/i.test(raw) && raw.length<=180000) return raw; return raw.slice(0,24) || 'macaco'; }
+function cleanPresenceName(value) { return InputSafety.cleanPresenceName(value); }
+function cleanAvatar(value) { return InputSafety.cleanAvatar(value); }
 function presenceFor(playerKey) { return onlinePresence.get(String(playerKey||'')) || null; }
 function registerPresenceSocket(socket) {
   const key=socket.data.auth?.playerKey; if(!key)return;
@@ -1514,7 +1507,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
 }
 async function createRoomForSocket(socket,profileData={}) {
   const code=roomCode();
-  const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
+  const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:cleanPresenceName(profileData?.name||socket.data.auth.name),avatar:cleanAvatar(profileData?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
   ensureSocial(room);
   // V40.60: criar/preparar a sala primeiro; somente uma criação bem-sucedida
   // confirma a troca e cancela uma eventual reserva de reconexão anterior.
@@ -1697,8 +1690,8 @@ io.on('connection', socket => {
   socket.on('abandonReservedSeat', async (payload,ack) => {
     const done=(data={})=>{try{if(typeof ack==='function')ack({ok:true,...data})}catch{}};
     try{
-      const code=String(payload?.code||'').trim().toUpperCase();
-      const token=String(payload?.token||'').trim();
+      const code=InputSafety.cleanRoomCode(payload?.code);
+      const token=InputSafety.cleanOpaqueId(payload?.token,160);
       const room=rooms.get(code);
       if(!room){done({removed:false,reason:'room-missing'});return;}
       const key=String(socket.data.auth?.playerKey||'');
@@ -1862,7 +1855,7 @@ io.on('connection', socket => {
       // V40.51 — o relay virou fallback SELETIVO. O remetente informa somente os
       // peers cujo WebRTC/Opus ainda não conectou ou caiu. Cada alvo é validado
       // novamente no servidor para impedir relay para sockets fora da própria sala.
-      const requestedTargets=Array.isArray(payload?.targetSocketIds)?[...new Set(payload.targetSocketIds.map(x=>String(x||'').slice(0,120)).filter(Boolean))].slice(0,12):[];
+      const requestedTargets=[...new Set(InputSafety.firstSafeStrings(payload?.targetSocketIds,{maxItems:12,maxLength:120}))];
       if(requestedTargets.length){
         for(const targetSocketId of requestedTargets){
           if(targetSocketId===socket.id)continue;
@@ -1924,9 +1917,9 @@ io.on('connection', socket => {
       const code = roomCode();
       const room = Engine.createRoom(code, {
         socketId:socket.id,
-        token:payload?.token,
-        name:payload?.name || socket.data.auth.name,
-        avatar:payload?.avatar,
+        token:InputSafety.cleanOpaqueId(payload?.token,160)||undefined,
+        name:cleanPresenceName(payload?.name || socket.data.auth.name),
+        avatar:cleanAvatar(payload?.avatar),
         playerKey:socket.data.auth.playerKey,
       });
       room.isPublic = payload?.publicRoom !== false;
@@ -1957,7 +1950,7 @@ io.on('connection', socket => {
 
   socket.on('joinRoom', async payload => {
     try {
-      const code=String(payload?.code||'').trim().toUpperCase();
+      const code=InputSafety.cleanRoomCode(payload?.code);
       const room=rooms.get(code);
       if(!room) throw new Error('Sala não encontrada.');
       ensureSocial(room);
@@ -1973,8 +1966,9 @@ io.on('connection', socket => {
       // 1) Token persistente do mesmo navegador: serve para refresh/queda involuntária.
       // Uma saída voluntária troca/remove esse token da cadeira, então um token antigo
       // jamais recria a reserva cancelada.
-      if(payload?.token){
-        const existing=room.players.find(x=>!x.isBot&&x.token===payload.token);
+      const requestedToken=InputSafety.cleanOpaqueId(payload?.token,160);
+      if(requestedToken){
+        const existing=room.players.find(x=>!x.isBot&&x.token===requestedToken);
         if(existing?.playerKey&&existing.playerKey!==socket.data.auth.playerKey){
           throw new Error('Esta vaga pertence a outra Conta Google.');
         }
@@ -2041,7 +2035,7 @@ io.on('connection', socket => {
           throw new Error('A sala está completa ou possui vaga reservada por convite.');
         }
         await prepareSuccessfulEntry();
-        p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:payload?.name||socket.data.auth.name,avatar:payload?.avatar,playerKey:socket.data.auth.playerKey});
+        p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:cleanPresenceName(payload?.name||socket.data.auth.name),avatar:cleanAvatar(payload?.avatar),playerKey:socket.data.auth.playerKey});
       }
 
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você entrou em uma sala.',notify:true});
@@ -2060,7 +2054,7 @@ io.on('connection', socket => {
 
   socket.on('joinSpectator', async payload => {
     try{
-      const code=String(payload?.code||'').trim().toUpperCase();
+      const code=InputSafety.cleanRoomCode(payload?.code);
       const room=rooms.get(code);
       if(!room)throw new Error('Sala não encontrada.');ensureSocial(room);
       if(Number(room.round||0)<=0||room.status==='lobby')throw new Error('O Modo Observador fica disponível depois que a partida começar.');
@@ -2068,7 +2062,7 @@ io.on('connection', socket => {
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
       await prepareForRoomSwitch(socket,code);
-      const token=String(payload?.token||'').trim().slice(0,160)||crypto.randomUUID();
+      const token=InputSafety.cleanOpaqueId(payload?.token,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
       let firstJoin=false;
       if(spectator){
@@ -2197,20 +2191,20 @@ io.on('connection', socket => {
     broadcastPresence();
   }));
 
-  socket.on('declare', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.declare(room,p.id,payload?.type); }));
+  socket.on('declare', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.declare(room,p.id,InputSafety.cleanEnumToken(payload?.type,24)); }));
   socket.on('playCard', payload => withRoom(socket,(room,p)=> {
     // V29: após comprar, o jogador pode jogar qualquer carta válida da mão.
     requireRoundNotPaused(room);
-    Engine.playCard(room,p.id,payload.cardId,payload.chosenSuit);
+    Engine.playCard(room,p.id,InputSafety.cleanCardId(payload?.cardId),InputSafety.cleanEnumToken(payload?.chosenSuit,16)||null);
   }));
   socket.on('playDoubleCard', payload => withRoom(socket,(room,p)=> {
     requireRoundNotPaused(room);
-    Engine.playDoubleCard(room,p.id,payload?.firstCardId,payload?.secondCardId,payload?.chosenSuit);
+    Engine.playDoubleCard(room,p.id,InputSafety.cleanCardId(payload?.firstCardId),InputSafety.cleanCardId(payload?.secondCardId),InputSafety.cleanEnumToken(payload?.chosenSuit,16)||null);
   }));
-  socket.on('burnMatch', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,payload.cardId); }));
-  socket.on('quickAction', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.quickAction(room,p.id,payload.cardId); }));
+  socket.on('burnMatch', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,InputSafety.cleanCardId(payload?.cardId)); }));
+  socket.on('quickAction', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.quickAction(room,p.id,InputSafety.cleanCardId(payload?.cardId)); }));
   // Compatibilidade temporária com clientes V10/V9.
-  socket.on('burnPair', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,payload.cardId); }));
+  socket.on('burnPair', payload => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.burnMatch(room,p.id,InputSafety.cleanCardId(payload?.cardId)); }));
   socket.on('endBurn', () => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.endBurnContinuation(room,p.id); }));
   socket.on('draw', () => withRoom(socket,(room,p)=> { requireRoundNotPaused(room); Engine.drawAction(room,p.id); }));
   socket.on('passTurn', () => withRoom(socket,(room,p)=> {
@@ -2241,7 +2235,7 @@ io.on('connection', socket => {
       const nowInvite=Date.now();
       if(socket.data.lastInviteAt&&nowInvite-socket.data.lastInviteAt<900)throw new Error('Aguarde um instante antes de enviar outro convite.');
       socket.data.lastInviteAt=nowInvite;
-      const fromKey=socket.data.auth.playerKey,toKey=String(payload?.targetPlayerKey||'').trim();
+      const fromKey=socket.data.auth.playerKey,toKey=InputSafety.cleanOpaqueId(payload?.targetPlayerKey,160);
       if(!toKey||toKey===fromKey)throw new Error('Escolha outro jogador para convidar.');
       const targetPresence=presenceFor(toKey);
       if(!targetPresence?.sockets?.size)throw new Error('Esse jogador não está disponível online agora.');
@@ -2270,7 +2264,7 @@ io.on('connection', socket => {
   socket.on('respondInvite', async payload => {
     try{
       if(socket.data.role===ROLE_SPECTATOR&&payload?.accept)throw new Error('Saia do Modo Observador antes de aceitar um convite para jogar.');
-      const invite=invitations.get(String(payload?.inviteId||''));
+      const invite=invitations.get(InputSafety.cleanOpaqueId(payload?.inviteId,96));
       if(!invite||invite.toKey!==socket.data.auth.playerKey)throw new Error('Convite não encontrado.');
       if(invite.status!=='pending'||invite.expiresAt<=Date.now())throw new Error('Este convite já expirou ou foi respondido.');
       clearInviteTimer(invite.id);
@@ -2302,7 +2296,7 @@ io.on('connection', socket => {
   socket.on('claimInvite', async payload => {
     try{
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de ocupar uma vaga de jogador.');
-      const invite=invitations.get(String(payload?.inviteId||''));
+      const invite=invitations.get(InputSafety.cleanOpaqueId(payload?.inviteId,96));
       if(!invite||invite.toKey!==socket.data.auth.playerKey||!['accepted-waiting','ready'].includes(invite.status))throw new Error('Convite reservado não encontrado.');
       if(invite.expiresAt<=Date.now())throw new Error('A reserva deste convite expirou.');
       const dest=rooms.get(invite.targetRoomCode);
@@ -2314,7 +2308,7 @@ io.on('connection', socket => {
 
   socket.on('cancelAcceptedInvite', payload => {
     try{
-      const invite=invitations.get(String(payload?.inviteId||''));
+      const invite=invitations.get(InputSafety.cleanOpaqueId(payload?.inviteId,96));
       if(!invite||invite.toKey!==socket.data.auth.playerKey||!['accepted-waiting','ready'].includes(invite.status))return;
       expireInvite(invite,'O jogador cancelou a reserva do convite.','cancelled');
     }catch(e){err(socket,e);}
@@ -2404,7 +2398,7 @@ io.on('connection', socket => {
       if (!room) throw new Error('Sala não encontrada.');
       const actor = socialActorForSocket(room,socket);
       if (!actor) throw new Error('Participante não disponível para enviar efeito.');
-      const effect = String(payload?.effect || '');
+      const effect = InputSafety.cleanEnumToken(payload?.effect,32);
       if (!SOCIAL_EFFECTS.has(effect)) throw new Error('Efeito sonoro inválido.');
 
       const now = Date.now();
@@ -2424,8 +2418,8 @@ io.on('connection', socket => {
 
   socket.on('updateProfile', payload => withRoom(socket,(room,p)=>{
     if(room.status==='playing') throw new Error('Altere nome/avatar somente fora de uma rodada.');
-    if(payload?.name) p.name=String(payload.name).slice(0,24);
-    if(payload?.avatar) p.avatar=String(payload.avatar).slice(0,24);
+    if(payload?.name) p.name=cleanPresenceName(payload.name);
+    if(payload?.avatar) p.avatar=cleanAvatar(payload.avatar);
     updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
     broadcastPresence();
   }));

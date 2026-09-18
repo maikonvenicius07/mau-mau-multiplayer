@@ -9,7 +9,7 @@ const nodeVersion=fs.readFileSync(path.join(root,'.node-version'),'utf8').trim()
 const workflow=fs.readFileSync(path.join(root,'.github','workflows','verify.yml'),'utf8');
 const npmrc=fs.readFileSync(path.join(root,'.npmrc'),'utf8');
 
-assert.strictEqual(pkg.version,'40.63');
+assert.strictEqual(pkg.version,'40.64');
 assert.strictEqual(pkg.engines.node,'22.22.0','Node precisa permanecer fixado para deploy reproduzível');
 assert.strictEqual(nodeVersion,'22.22.0','.node-version divergente do package.json');
 assert(render.includes('npm install --no-audit --no-fund && npm run verify'),'Render deve testar antes de publicar');
