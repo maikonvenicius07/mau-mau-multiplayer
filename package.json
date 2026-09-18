@@ -1,12 +1,13 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.62",
-  "description": "Mau-Mau Candeias V40.62: categoria do ranking congelada no início da partida, evitando que saída humana e substituição por Máquina alterem OFICIAL para TREINO.",
+  "version": "40.63",
+  "description": "Mau-Mau Candeias V40.63: testes reais de integração Socket.IO para reconexão, AUTO, saída voluntária, troca de sala e convites, sem alterar as regras de jogo.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test"
+    "verify": "node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
+    "test:socket": "node tests/socketio-integration-v4063.test.js"
   },
   "engines": {
     "node": "22.22.0"
@@ -15,7 +16,8 @@
     "express": "4.21.2",
     "socket.io": "4.8.1",
     "pg": "8.13.1",
-    "google-auth-library": "11.0.2"
+    "google-auth-library": "11.0.2",
+    "socket.io-client": "4.8.1"
   },
   "private": true
 }

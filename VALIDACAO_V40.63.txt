@@ -1,0 +1,28 @@
+VALIDAÇÃO — V40.63
+
+Estrutura esperada:
+- package.json = 40.63
+- socket.io = 4.8.1
+- socket.io-client = 4.8.1
+- tests/socketio-integration-v4063.test.js presente
+- npm run test:socket disponível
+
+Cenários do novo teste real:
+[ ] criar/entrar em sala
+[ ] iniciar rodada
+[ ] queda involuntária
+[ ] refresh antes do prazo
+[ ] AUTO após o prazo
+[ ] retorno depois do AUTO
+[ ] SAIR cancela auto-reconexão
+[ ] troca de sala cancela reserva antiga
+[ ] convite interno real
+[ ] duas quedas simultâneas
+
+Validação feita no ambiente de montagem:
+- 86/86 testes históricos: APROVADOS
+- node --check server.js: APROVADO
+- node --check tests/socketio-integration-v4063.test.js: APROVADO
+- execução do novo teste Socket.IO: PENDENTE DE AMBIENTE COM npm install concluído
+
+Motivo: o ambiente de montagem não conseguiu acessar registry.npmjs.org (EAI_AGAIN), portanto as dependências externas não puderam ser instaladas localmente. O GitHub/Render deverá executar o novo teste no npm run verify após a instalação das dependências.

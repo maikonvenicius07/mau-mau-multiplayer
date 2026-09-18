@@ -13,7 +13,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const snapshots=fs.readFileSync(path.join(root,'room-snapshot-store.js'),'utf8');
 const engineSource=fs.readFileSync(path.join(root,'game-engine.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.62','package.json deve identificar V40.61');
+assert.strictEqual(pkg.version,'40.63','package.json deve identificar V40.61');
 assert(engineSource.includes('membershipStartedAt: Date.now()'),'cada nova associação humana deve possuir um marco próprio');
 assert(snapshots.includes('mm_room_lifecycle_tombstones'),'PostgreSQL deve possuir ledger/tombstones de ciclo de vida');
 assert(snapshots.includes("kind VARCHAR(24) NOT NULL"),'tombstones devem distinguir abandono e exclusão');

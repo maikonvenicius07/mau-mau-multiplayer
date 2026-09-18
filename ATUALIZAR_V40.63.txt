@@ -1,0 +1,15 @@
+ATUALIZAÇÃO PARA V40.63 — TESTES REAIS DE SOCKET.IO
+
+Base esperada: V40.62.
+
+1. Substitua/adicone os arquivos do pacote "Arquivos_para_Substituir" mantendo as mesmas pastas.
+2. Confirme que package.json está na versão 40.63.
+3. O package.json agora inclui socket.io-client 4.8.1.
+4. No deploy, o comando já existente do Render executará:
+   npm install --no-audit --no-fund && npm run verify
+5. O npm install precisa concluir normalmente para que o novo teste de integração seja executado.
+
+Teste isolado opcional:
+   npm run test:socket
+
+A V40.63 não altera Dama, Ás, Queima, Carta Dupla, Ação Rápida, ranking, chat ou regras de reconexão de produção.

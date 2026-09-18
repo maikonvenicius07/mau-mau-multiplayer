@@ -1,3 +1,28 @@
+## V40.63 — Testes reais de Socket.IO
+
+A V40.63 adiciona uma camada de **testes de integração com conexões Socket.IO reais**, complementando os testes unitários e de contrato já existentes. O objetivo é reproduzir o tipo de problema que pode aparecer somente quando servidor e clientes realmente conectam, desconectam e trocam eventos pela rede.
+
+O novo teste sobe uma instância real do servidor em uma porta local temporária, cria sessões autenticadas de teste e conecta clientes usando `socket.io-client` 4.8.1. Ele valida, pelo fluxo real de eventos:
+
+- criação e entrada em sala por Socket.IO;
+- início de rodada com jogadores conectados;
+- queda involuntária e registro da reserva;
+- refresh/reentrada antes do prazo pela mesma cadeira e mesma mão;
+- expiração do prazo de reconexão e entrada da cadeira em AUTO;
+- retorno após AUTO pela mesma Conta Google, recuperando a cadeira atual;
+- botão **SAIR** cancelando a reconexão automática;
+- entrada efetiva em outra sala cancelando a reserva anterior;
+- convite interno enviado, aceito e concluído por sockets reais;
+- duas quedas simultâneas com reservas independentes.
+
+A regra oficial continua sendo **60 segundos em produção**. Para que o teste não precise esperar um minuto inteiro, o servidor aceita relógios acelerados somente quando `NODE_ENV=test` e variáveis específicas de teste estão definidas. Em produção esses valores são ignorados e permanecem `DISCONNECT_DEBOUNCE_MS = 3000` e `RECONNECT_GRACE_MS = 60 * 1000`.
+
+Foi adicionada a dependência fixa `socket.io-client` 4.8.1 para que o próprio `npm run verify` do Render/GitHub consiga executar o cliente de integração real. Também foi adicionado o comando `npm run test:socket` para rodar apenas essa prova.
+
+**Validação local desta montagem:** os 86 testes históricos passaram novamente e todos os arquivos alterados passaram em `node --check`. A execução do novo teste Socket.IO depende das dependências npm instaladas; no ambiente de montagem não houve acesso ao registro npm, portanto a prova integrada deverá ser executada pelo `npm run verify` no GitHub/Render após `npm install`.
+
+---
+
 ## V40.62 — Ranking OFICIAL x TREINO congelado no início
 
 A V40.62 corrige a classificação do ranking para que uma partida não mude de categoria por acontecimentos posteriores ao seu início. A modalidade é definida no começo da **primeira rodada** e fica congelada até o fim daquela partida.

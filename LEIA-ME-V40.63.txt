@@ -1,0 +1,24 @@
+MAU-MAU CANDEIAS — V40.63
+TESTES REAIS DE SOCKET.IO
+
+OBJETIVO
+Adicionar testes de integração que usam servidor e clientes Socket.IO reais, sem alterar as regras do Mau-Mau.
+
+O QUE PASSA A SER TESTADO
+1. Criar e entrar em sala por conexão real.
+2. Queda involuntária e reserva de reconexão.
+3. Refresh antes de 60 segundos, preservando cadeira e mão.
+4. AUTO após o prazo e retorno posterior do jogador.
+5. SAIR voluntário impedindo auto-reconexão.
+6. Entrada em outra sala cancelando a reserva antiga.
+7. Convite interno real entre dois sockets.
+8. Duas quedas simultâneas com reservas independentes.
+
+IMPORTANTE
+A produção continua usando 60 segundos. O relógio acelerado existe somente com NODE_ENV=test e serve exclusivamente para a suíte automatizada.
+
+NOVO COMANDO
+npm run test:socket
+
+DEPENDÊNCIA NOVA
+socket.io-client 4.8.1

@@ -109,6 +109,19 @@ const SOLO_ROOM_EXPIRY_MS = 5 * 60 * 1000;
 const disconnectDebounceTimers = new Map();
 const DISCONNECT_DEBOUNCE_MS = 3000;
 const RECONNECT_GRACE_MS = 60 * 1000;
+// V40.63 — os valores oficiais acima continuam imutáveis em produção.
+// A suíte de integração pode acelerar apenas o relógio interno quando NODE_ENV=test,
+// permitindo testar Socket.IO real (queda -> AUTO -> retorno) sem esperar 60 s.
+function runtimeDisconnectDebounceMs(){
+  if(String(process.env.NODE_ENV||'')!=='test')return DISCONNECT_DEBOUNCE_MS;
+  const requested=Number(process.env.MAUMAU_TEST_DISCONNECT_DEBOUNCE_MS||0);
+  return requested>0?Math.max(10,Math.min(DISCONNECT_DEBOUNCE_MS,requested)):DISCONNECT_DEBOUNCE_MS;
+}
+function runtimeReconnectGraceMs(){
+  if(String(process.env.NODE_ENV||'')!=='test')return RECONNECT_GRACE_MS;
+  const requested=Number(process.env.MAUMAU_TEST_RECONNECT_GRACE_MS||0);
+  return requested>0?Math.max(80,Math.min(RECONNECT_GRACE_MS,requested)):RECONNECT_GRACE_MS;
+}
 const CONNECTION_DEBUG = String(process.env.MAUMAU_CONNECTION_DEBUG || '') === '1';
 function connectionDebug(...args){ if(CONNECTION_DEBUG) console.log('[connection]', ...args); }
 function disconnectDebounceKey(role,roomCode,participantId){return `${role}:${roomCode}:${participantId}`;}
@@ -119,7 +132,7 @@ function cancelDisconnectDebounce(role,roomCode,participantId){
 function scheduleDisconnectDebounce(role,roomCode,participantId,fn){
   cancelDisconnectDebounce(role,roomCode,participantId);
   const key=disconnectDebounceKey(role,roomCode,participantId);
-  const timer=setTimeout(async ()=>{disconnectDebounceTimers.delete(key);fn();},DISCONNECT_DEBOUNCE_MS);
+  const timer=setTimeout(async ()=>{disconnectDebounceTimers.delete(key);fn();},runtimeDisconnectDebounceMs());
   timer.unref?.();disconnectDebounceTimers.set(key,timer);
 }
 
@@ -912,7 +925,7 @@ function scheduleSpectatorRemoval(room,spectator){
     ensureSpectators(liveRoom);const stale=liveRoom.spectators.find(s=>s.id===spectator.id);
     if(!stale||stale.connected)return;
     removeSpectator(liveRoom,stale,{announce:true});emitRoom(liveRoom);
-  },RECONNECT_GRACE_MS);
+  },runtimeReconnectGraceMs());
   if(typeof timer.unref==='function')timer.unref();spectatorReconnectTimers.set(key,timer);
 }
 function closeSpectatorsForRoom(room,message='A mesa foi encerrada.'){
@@ -1130,7 +1143,7 @@ function recoverablePlayerSeatForKey(playerKey) {
     if(player.connected&&socketAlive)continue;
     if(!RoomLifecycle.canAutoReconnect(player)){
       if(player.connected&&!socketAlive){
-        RoomLifecycle.markInvoluntaryDisconnect(player,{now:Date.now(),graceMs:RECONNECT_GRACE_MS});
+        RoomLifecycle.markInvoluntaryDisconnect(player,{now:Date.now(),graceMs:runtimeReconnectGraceMs()});
       }else continue;
     }
     const score=(room.status==='playing'?100:room.status==='between-rounds'?80:40)
@@ -2456,7 +2469,7 @@ io.on('connection', socket => {
       const p=liveRoom.players.find(x=>x.id===playerId);
       // Se outra aba/socket já reconectou, não alteramos a vaga.
       if(!p||p.socketId!==socket.id)return;
-      RoomLifecycle.markInvoluntaryDisconnect(p,{now:Date.now(),graceMs:RECONNECT_GRACE_MS});
+      RoomLifecycle.markInvoluntaryDisconnect(p,{now:Date.now(),graceMs:runtimeReconnectGraceMs()});
 
       if(liveRoom.botTimer){ clearTimeout(liveRoom.botTimer); liveRoom.botTimer=null; }
       const matchActive=RoomLifecycle.isActiveMatch(liveRoom);
@@ -2496,7 +2509,7 @@ io.on('connection', socket => {
         Engine.appendLog(currentRoom, `${leavingName} foi removido após 60 segundos desconectado.`, 'system');
         emitRoom(currentRoom);
         broadcastPresence();
-      }, RECONNECT_GRACE_MS);
+      }, runtimeReconnectGraceMs());
       if(typeof timer.unref==='function') timer.unref();
       reconnectTimers.set(reconnectTimerKey(code,playerId),timer);
     });
@@ -2554,7 +2567,7 @@ async function restorePersistedRooms(){
   try{
     const snapshots=await roomSnapshotStore.loadActive();
     for(const snapshot of snapshots){
-      const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:RECONNECT_GRACE_MS});
+      const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:runtimeReconnectGraceMs()});
       if(!room){
         if(snapshot?.code)roomSnapshotStore.delete(snapshot.code).catch(e=>console.error('[rooms] falha ao remover snapshot inválido',snapshot.code,e?.message||e));
         continue;
