@@ -87,7 +87,7 @@ function botInfo(n=1){return {name:n===1?'Máquina':`Máquina ${n}`,avatar:'pret
 // 10. Sala sem humanos é realmente removida e o snapshot temporário também.
 {
   assert(server.includes('function deleteRoomIfNoHumanMembers(room)'),'helper de exclusão de sala vazia ausente');
-  assert(server.includes('removeRoom(room.code);'),'sala sem humanos deve sair do Map principal');
+  assert(server.includes("removeRoom(room.code,'A sala foi encerrada porque não restou nenhum jogador humano.');"),'sala sem humanos deve sair do Map principal pela limpeza centralizada');
   assert(server.includes('roomSnapshotStore.delete(code)'),'removeRoom deve excluir snapshot persistido');
 }
 

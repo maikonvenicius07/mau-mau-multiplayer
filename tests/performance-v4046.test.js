@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 const pkg=require(path.join(root,'package.json'));
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
-assert.strictEqual(pkg.version,'40.67');
+assert.strictEqual(pkg.version,'40.68');
 assert(app.includes('const CUSTOM_AVATAR_MAX_DIMENSION=192'),'figurinha personalizada leve da V40.46 foi perdida');
 assert(app.includes('const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000'),'limite leve da figurinha foi perdido');
 assert(app.includes('function migrateStoredCustomAvatar()'),'migração de figurinha antiga foi perdida');

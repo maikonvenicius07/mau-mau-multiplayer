@@ -12,7 +12,7 @@ const {RankingStore}=require('../ranking-store');
   const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
   const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
   const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-  assert.strictEqual(pkg.version,'40.67');
+  assert.strictEqual(pkg.version,'40.68');
 
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-v4054-'));
   const store=new RankingStore({databaseUrl:'',filePath:path.join(dir,'ranking.json')});
@@ -40,7 +40,7 @@ const {RankingStore}=require('../ranking-store');
   assert(app.includes('navigator.share')&&app.includes('roomInviteUrl'),'compartilhamento nativo/fallback de link ausente');
   assert(app.includes("socket.emit('requestRecentPlayers')")&&app.includes("socket.on('recentPlayersSnapshot'"),'cliente de recentes incompleto');
   assert(css.includes('.link-invite-banner')&&css.includes('.players-directory-tabs'),'estilos V40.54 ausentes');
-  assert(html.includes('app.js?v=40.67')&&html.includes('styles.css?v=40.67'),'cache-busting V40.54 ausente');
+  assert(html.includes('app.js?v=40.68')&&html.includes('styles.css?v=40.68'),'cache-busting V40.54 ausente');
   fs.rmSync(dir,{recursive:true,force:true});
   console.log('✓ V40.54: convite por link e jogadores recentes conferidos.');
 })().catch(err=>{console.error(err);process.exit(1)});

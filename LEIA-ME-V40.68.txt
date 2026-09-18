@@ -1,0 +1,6 @@
+V40.68 — Limpeza e Limite de Salas
+
+Limite padrão: 50 salas simultâneas (MAX_ROOMS=50).
+Auditoria: 60 segundos.
+A limpeza remove timers, observadores, convites, referências efêmeras e snapshot relacionado.
+O /health mostra somente contadores agregados; não expõe conteúdo privado da partida.

@@ -1,3 +1,13 @@
+# V40.68 — Limpeza e Limite de Salas
+
+- Limite padrão de 50 salas simultâneas, configurável por `MAX_ROOMS`.
+- Reserva de capacidade para impedir ultrapassagem por criações concorrentes.
+- Partidas existentes nunca são interrompidas por atingir o limite.
+- Limpeza centralizada dos recursos efêmeros de uma sala excluída.
+- Auditoria a cada 60 s de salas sem jogadores humanos.
+- Diagnóstico agregado de salas/capacidade no `/health`.
+- Nenhuma dependência npm nova.
+
 # V40.67 — Tempo de Vida da Reconexão
 
 - Criada política central para os três prazos de recuperação.

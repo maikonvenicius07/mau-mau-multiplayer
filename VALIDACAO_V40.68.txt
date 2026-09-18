@@ -1,0 +1,8 @@
+VALIDAÇÃO V40.68
+- MAX_ROOMS padrão 50
+- criação concorrente respeita limite
+- troca que elimina sala solo pode reutilizar capacidade
+- salas com humanos são preservadas
+- salas apenas com bots são auditadas/limpas
+- /health expõe diagnóstico agregado
+- regras anteriores preservadas

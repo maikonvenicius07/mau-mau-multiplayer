@@ -8,8 +8,8 @@ const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.67');
-assert(html.includes('app.js?v=40.67')&&html.includes('styles.css?v=40.67'),'cache-busting V40.58.4 ausente');
+assert.strictEqual(pkg.version,'40.68');
+assert(html.includes('app.js?v=40.68')&&html.includes('styles.css?v=40.68'),'cache-busting V40.58.4 ausente');
 
 // Arquivos/configuração recuperados da V40.56/V40.54.1.
 for(const rel of ['.node-version','.npmrc','.github/workflows/verify.yml']){

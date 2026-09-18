@@ -1,3 +1,9 @@
+## V40.68 — Limpeza e Limite de Salas
+
+A V40.68 reforça a estabilidade do servidor sem alterar as regras do Mau-Mau. O servidor passa a limitar a criação a **50 salas simultâneas** por padrão (`MAX_ROOMS=50`), sem encerrar partidas que já estejam em andamento. Quando o limite é atingido, somente novas salas ficam temporariamente bloqueadas.
+
+A exclusão de sala agora centraliza a limpeza de timers de reconexão/AUTO, sala solo, debounce de desconexão, observadores, convites, referências de voz, chat/logs e snapshot. Uma auditoria periódica remove salas inconsistentes sem nenhum jogador humano. O `/health` também informa capacidade e métricas agregadas das salas, sem expor cartas, nomes ou tokens.
+
 ## V40.67 — Tempo de Vida da Reconexão
 
 A V40.67 formaliza os três relógios de recuperação do jogo em uma política única (`retention-policy.js`), sem alterar as regras das cartas ou a interface.

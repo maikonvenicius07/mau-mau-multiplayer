@@ -1,0 +1,8 @@
+V40.68 — LIMPEZA E LIMITE DE SALAS
+
+1. Substitua/adicone os arquivos do pacote.
+2. NÃO apague o package-lock.json já existente no GitHub.
+3. Aguarde o Render executar npm ci + npm run verify.
+4. Confirme 92 testes aprovados, Build successful e Your service is live.
+
+Regra: máximo padrão de 50 salas simultâneas. Salas existentes não são derrubadas; somente nova criação é bloqueada até liberar vaga.

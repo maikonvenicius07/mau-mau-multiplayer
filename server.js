@@ -14,6 +14,7 @@ const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-stor
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
+const RoomGovernance = require('./room-governance');
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +98,9 @@ const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+const MAX_ROOMS = RoomGovernance.maxRooms(process.env);
+let pendingRoomCreations = 0;
+const ROOM_AUDIT_INTERVAL_MS = 60 * 1000;
 const ROLE_PLAYER = 'PLAYER';
 const ROLE_SPECTATOR = 'SPECTATOR';
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
@@ -138,6 +142,13 @@ function scheduleDisconnectDebounce(role,roomCode,participantId,fn){
   const timer=setTimeout(async ()=>{disconnectDebounceTimers.delete(key);fn();},runtimeDisconnectDebounceMs());
   timer.unref?.();disconnectDebounceTimers.set(key,timer);
 }
+function clearDisconnectDebouncesForRoom(roomCode){
+  const playerPrefix=`${ROLE_PLAYER}:${roomCode}:`;
+  const spectatorPrefix=`${ROLE_SPECTATOR}:${roomCode}:`;
+  for(const [key,timer] of disconnectDebounceTimers){
+    if(key.startsWith(playerPrefix)||key.startsWith(spectatorPrefix)){clearTimeout(timer);disconnectDebounceTimers.delete(key);}
+  }
+}
 
 // V40.1 — presença online e convites são efêmeros e vivem somente na memória.
 // A identidade é a playerKey derivada da Conta Google, nunca o socketId.
@@ -154,6 +165,30 @@ let matchmakingTimer = null;
 let matchmakingDeadlineAt = null;
 const MATCHMAKING_WAIT_MS = 15 * 1000;
 const MATCHMAKING_MAX_PLAYERS = 5;
+
+// V40.68 — limite preventivo de salas. Partidas existentes nunca são derrubadas
+// por capacidade; o limite bloqueia somente a criação de uma NOVA sala.
+function reclaimableRoomCodesForSwitch(playerKeys=[], exceptCode=null) {
+  const keys=new Set((playerKeys||[]).map(x=>String(x||'')).filter(Boolean));
+  const reclaimable=new Set();
+  if(!keys.size)return reclaimable;
+  for(const room of rooms.values()){
+    if(!room||room.code===exceptCode)continue;
+    const humans=(room.players||[]).filter(p=>!p.isBot);
+    if(humans.length && humans.every(p=>p.playerKey&&keys.has(String(p.playerKey)))) reclaimable.add(room.code);
+  }
+  return reclaimable;
+}
+function reserveRoomCreationSlot(playerKeys=[]) {
+  const reclaimable=reclaimableRoomCodesForSwitch(playerKeys);
+  if(RoomGovernance.atCapacity(rooms.size,MAX_ROOMS,pendingRoomCreations,reclaimable.size)){
+    throw new Error(`Servidor com muitas partidas no momento (${rooms.size}/${MAX_ROOMS} salas). Tente novamente em alguns minutos.`);
+  }
+  pendingRoomCreations++;
+  let released=false;
+  return ()=>{if(!released){released=true;pendingRoomCreations=Math.max(0,pendingRoomCreations-1);}};
+}
+function roomDiagnostics(){return RoomGovernance.summarizeRooms(rooms.values(),MAX_ROOMS,pendingRoomCreations);}
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
@@ -167,14 +202,49 @@ async function requireRoomPersistenceReady(){
   const ready=await roomSnapshotsReady;
   if(!ready)throw new Error('Persistência das salas indisponível. Tente novamente em instantes.');
 }
-async function removeRoomDurably(code,eventAt=Date.now()){
+function cleanupRoomResources(room,message='A mesa foi encerrada.'){
+  if(!room)return false;
+  const code=room.code;
   cancelSoloRoomExpiry(code,{clearState:false});
+  if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
+  clearReconnectTimersForRoom(code);
+  clearSpectatorReconnectTimersForRoom(code);
+  clearDisconnectDebouncesForRoom(code);
+  closeSpectatorsForRoom(room,message);
+  purgeInvitesForRoom(code,message);
+  if(room.inviteReservations instanceof Map)room.inviteReservations.clear();
+  const humanKeys=(room.players||[]).filter(p=>p&&!p.isBot&&p.playerKey).map(p=>String(p.playerKey));
+  for(const key of humanKeys){
+    matchmakingQueue.delete(key);
+    setSearchingFlag(key,false);
+  }
+  for(const sock of io.sockets.sockets.values()){
+    if(sock.data?.roomCode!==code)continue;
+    try{notifyLiveVoicePeerUnavailable(sock);clearLiveVoiceSender(sock);liveVoiceRelayRate.delete(sock.id);}catch{}
+    try{sock.leave(code);}catch{}
+    sock.data.roomCode=null;sock.data.playerId=null;sock.data.spectatorId=null;sock.data.role=null;sock.data.liveVoiceOn=false;
+    try{sock.emit('leftRoom',{message});}catch{}
+  }
+  // Liberamos referências grandes imediatamente, mesmo se algum closure ainda
+  // mantiver o objeto antigo por alguns instantes.
+  for(const player of room.players||[]){if(Array.isArray(player?.hand))player.hand.length=0;}
+  for(const key of ['players','chat','log','turnAudit','deck','discard','replayReadyPlayerIds']){
+    if(Array.isArray(room[key]))room[key].length=0;
+  }
+  if(Array.isArray(room.spectators))room.spectators.length=0;
+  room.roundReview=null;
+  return true;
+}
+async function removeRoomDurably(code,eventAt=Date.now(),message='A mesa foi encerrada.'){
+  const room=rooms.get(code);
   await requireRoomPersistenceReady();
   await roomSnapshotStore.markRoomDeleted(code,eventAt);
+  if(room)cleanupRoomResources(room,message);
   return rooms.delete(code);
 }
-function removeRoom(code){
-  cancelSoloRoomExpiry(code,{clearState:false});
+function removeRoom(code,message='A mesa foi encerrada.'){
+  const room=rooms.get(code);
+  if(room)cleanupRoomResources(room,message);
   const existed=rooms.delete(code);
   if(existed)roomSnapshotStore.delete(code).catch(e=>console.error('[rooms] falha ao excluir snapshot',code,e?.message||e));
   return existed;
@@ -384,12 +454,15 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.get('/health', (_, res) => {
   res.setHeader('Cache-Control','no-store');
+  const roomStats=roomDiagnostics();
   res.json({
     ok:true,
     status:'live',
     version:APP_VERSION,
     uptimeSeconds:Math.floor((Date.now()-SERVICE_STARTED_AT)/1000),
-    rooms:rooms.size,
+    rooms:roomStats.total,
+    roomCapacity:{limit:roomStats.limit,available:roomStats.availableSlots,atCapacity:roomStats.atCapacity,pendingCreations:roomStats.pendingCreations},
+    roomStats,
     sockets:io.engine?.clientsCount || 0,
     ranking:rankingStore.kind,
     roomSnapshots:roomSnapshotStore.kind,
@@ -774,12 +847,7 @@ function addBotToRoom(room) {
 // ou entrada em outra sala encerra definitivamente essa reserva.
 function deleteRoomIfNoHumanMembers(room) {
   if(!room || RoomLifecycle.hasHumanMembers(room)) return false;
-  if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
-  clearReconnectTimersForRoom(room.code);
-  closeSpectatorsForRoom(room);
-  clearSpectatorReconnectTimersForRoom(room.code);
-  invalidateInvitesForRoom(room.code);
-  removeRoom(room.code);
+  removeRoom(room.code,'A sala foi encerrada porque não restou nenhum jogador humano.');
   return true;
 }
 
@@ -1352,6 +1420,14 @@ async function formMatchmakingGroup() {
   }
 
   const group=live.slice(0,MATCHMAKING_MAX_PLAYERS);
+  let releaseRoomSlot=null;
+  try{
+    releaseRoomSlot=reserveRoomCreationSlot(group.map(x=>x.entry.playerKey));
+  }catch(e){
+    for(const x of group)emitToPlayerKey(x.entry.playerKey,'matchmakingError',{message:e?.message||'Servidor com muitas partidas no momento.'});
+    scheduleMatchmakingCountdown();
+    return;
+  }
   for(const x of group){matchmakingQueue.delete(x.entry.playerKey);setSearchingFlag(x.entry.playerKey,false);}
   const code=roomCode();
   let room=null;
@@ -1418,6 +1494,8 @@ async function formMatchmakingGroup() {
         emitToPlayerKey(x.entry.playerKey,'matchmakingError',{message:e?.message||'Não foi possível formar a partida agora.'});
       }
     }
+  }finally{
+    if(releaseRoomSlot)releaseRoomSlot();
   }
   evaluateMatchmakingQueue();
 }
@@ -1448,6 +1526,16 @@ function roomAllowsInviteEventually(room,playerKey=null) {
 function roomJoinableNow(room,playerKey=null) {
   if(!roomAllowsInviteEventually(room,playerKey))return false;
   return room.status==='lobby'||room.status==='between-rounds';
+}
+function purgeInvitesForRoom(code,message='A sala do convite não está mais disponível.') {
+  for(const inv of [...invitations.values()]){
+    if(inv.targetRoomCode!==code)continue;
+    clearInviteTimer(inv.id);
+    inv.status='unavailable';inv.updatedAt=Date.now();
+    emitToPlayerKey(inv.toKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
+    emitToPlayerKey(inv.fromKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
+    invitations.delete(inv.id);
+  }
 }
 function invalidateInvitesForRoom(code,message='A sala do convite não está mais disponível.') {
   for(const inv of [...invitations.values()]){
@@ -1515,14 +1603,21 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   broadcastPresence();
 }
 async function createRoomForSocket(socket,profileData={}) {
+  const releaseRoomSlot=reserveRoomCreationSlot([socket.data.auth?.playerKey]);
   const code=roomCode();
-  const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:cleanPresenceName(profileData?.name||socket.data.auth.name),avatar:cleanAvatar(profileData?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
-  ensureSocial(room);
-  // V40.60: criar/preparar a sala primeiro; somente uma criação bem-sucedida
-  // confirma a troca e cancela uma eventual reserva de reconexão anterior.
-  await prepareForRoomSwitch(socket,code);
-  removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
-  rooms.set(code,room);const p=room.players[0];
+  let room=null;
+  try{
+    room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:cleanPresenceName(profileData?.name||socket.data.auth.name),avatar:cleanAvatar(profileData?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
+    ensureSocial(room);
+    // V40.60: criar/preparar a sala primeiro; somente uma criação bem-sucedida
+    // confirma a troca e cancela uma eventual reserva de reconexão anterior.
+    await prepareForRoomSwitch(socket,code);
+    removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
+    rooms.set(code,room);
+  }finally{
+    releaseRoomSlot();
+  }
+  const p=room.players[0];
   socket.data.roomCode=code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
   updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
   socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
@@ -1921,8 +2016,10 @@ io.on('connection', socket => {
   });
 
   socket.on('createRoom', async payload => {
+    let releaseRoomSlot=null;
     try {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
+      releaseRoomSlot=reserveRoomCreationSlot([socket.data.auth?.playerKey]);
       const code = roomCode();
       const room = Engine.createRoom(code, {
         socketId:socket.id,
@@ -1948,6 +2045,7 @@ io.on('connection', socket => {
       emitRoom(room);
       broadcastPresence();
     } catch(e){err(socket,e);}
+    finally{if(releaseRoomSlot)releaseRoomSlot();}
   });
 
   socket.on('setRoomPublic', payload => withRoom(socket,(room,p)=>{
@@ -2519,6 +2617,25 @@ io.on('connection', socket => {
   });
 });
 
+let roomAuditRunning=false;
+async function auditRoomLifecycle(){
+  if(roomAuditRunning)return 0;
+  roomAuditRunning=true;
+  let cleaned=0;
+  try{
+    for(const [code,room] of [...rooms]){
+      if(!RoomGovernance.shouldCleanupRoom(room))continue;
+      try{
+        await removeRoomDurably(code,Date.now(),'A sala foi encerrada automaticamente porque não restou nenhum jogador humano.');
+        cleaned++;
+      }catch(e){console.error('[rooms] auditoria não conseguiu excluir sala inconsistente',code,e?.message||e);}
+    }
+  }finally{roomAuditRunning=false;}
+  if(cleaned){console.warn(`[rooms] auditoria V40.68 removeu ${cleaned} sala(s) sem jogadores humanos.`);broadcastPresence();}
+  return cleaned;
+}
+setInterval(()=>{void auditRoomLifecycle();},ROOM_AUDIT_INTERVAL_MS).unref();
+
 setInterval(()=>{
   const now=Date.now();
   for(const [code,room] of rooms){
@@ -2576,6 +2693,11 @@ async function restorePersistedRooms(){
         continue;
       }
       if(rooms.has(room.code))continue;
+      if(RoomGovernance.shouldCleanupRoom(room)){
+        try{await roomSnapshotStore.markRoomDeleted(room.code,Date.now());}
+        catch(e){console.error('[rooms] falha ao descartar snapshot sem humanos',room.code,e?.message||e);}
+        continue;
+      }
       ensureSocial(room);rooms.set(room.code,room);restored++;
       Engine.appendLog(room,'♻️ A sala foi restaurada após reinício do servidor. Reconecte para retomar seu lugar.','system');
       for(const p of room.players)scheduleRestoredPlayerGrace(room,p);

@@ -12,7 +12,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const server = fs.readFileSync(path.join(root,'server.js'),'utf8');
 const envExample = fs.readFileSync(path.join(root,'.env.example'),'utf8');
 
-assert.strictEqual(pkg.version,'40.67','package.json deve identificar V40.67');
+assert.strictEqual(pkg.version,'40.68','package.json deve identificar V40.67');
 assert.strictEqual(Retention.RECONNECT_GRACE_MS,60*1000,'AUTO deve continuar aguardando 60 segundos');
 assert.strictEqual(Retention.SOLO_ROOM_EXPIRY_MS,5*60*1000,'sala solo deve continuar expirando em 5 minutos');
 assert.strictEqual(Retention.MULTIPLAYER_SNAPSHOT_TTL_MS,8*60*60*1000,'snapshot multiplayer deve durar exatamente 8 horas');
