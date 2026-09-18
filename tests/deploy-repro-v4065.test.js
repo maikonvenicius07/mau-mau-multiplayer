@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..');
 const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
 const pkg = JSON.parse(read('package.json'));
 
-assert.strictEqual(pkg.version, '40.65', 'package.json deve identificar V40.65');
+assert.ok(/^40\.(?:6[5-9]|[7-9]\d)(?:\.|$)/.test(pkg.version), 'projeto deve permanecer em V40.65 ou superior');
 assert.strictEqual(pkg.engines && pkg.engines.node, '22.22.0', 'Node deve permanecer fixado em 22.22.0');
 assert.ok(pkg.scripts && pkg.scripts['lock:generate'], 'script lock:generate deve existir');
 assert.ok(pkg.scripts && pkg.scripts['verify:lock'], 'script verify:lock deve existir');

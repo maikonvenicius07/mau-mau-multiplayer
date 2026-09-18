@@ -1,0 +1,5 @@
+V40.66 — ARQUIVOS PARA SUBSTITUIR
+
+Substitua/adicone os arquivos deste pacote mantendo o package-lock.json que já existe na raiz do seu GitHub.
+Nenhuma dependência npm foi adicionada ou alterada, portanto não é necessário gerar outro lockfile.
+Após o commit, o Render deve usar /ready como health check e o log deve continuar mostrando PostgreSQL para ranking e snapshots.

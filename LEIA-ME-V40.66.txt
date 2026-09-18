@@ -1,0 +1,11 @@
+MAU-MAU CANDEIAS — V40.66 HEALTH CHECK E BANCO
+
+Objetivo: separar liveness de readiness e impedir que o Render aceite como saudável um processo sem persistência PostgreSQL funcional.
+
+- /health continua respondendo se o processo Node está vivo.
+- /ready agora testa ativamente ranking e snapshots com SELECT 1.
+- Render usa healthCheckPath: /ready.
+- Em produção/Render, JSON local não é considerado pronto: DATABASE_URL é obrigatório por padrão.
+- Em desenvolvimento local, JSON continua permitido.
+- MAUMAU_REQUIRE_DATABASE=0 pode desligar a exigência explicitamente fora do fluxo normal.
+- Nenhuma regra do Mau-Mau, interface, reconexão, ranking ou áudio foi alterada.

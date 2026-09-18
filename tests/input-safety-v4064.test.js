@@ -8,7 +8,7 @@ const Engine=require('../game-engine');
 const {restoreRoomSnapshot,SNAPSHOT_VERSION}=require('../room-snapshot-store');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.65','package.json deve identificar V40.64');
+assert.strictEqual(pkg.version,'40.66','package.json deve identificar V40.64');
 
 const hugeAvatar='data:image/webp;base64,'+'A'.repeat(300000);
 const validAvatar='data:image/webp;base64,'+'A'.repeat(8000);

@@ -12,6 +12,7 @@ const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
+const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 
 const app = express();
 const server = http.createServer(app);
@@ -157,6 +158,10 @@ const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armaze
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
 const roomSnapshotStore = new RoomSnapshotStore();
 const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
+const DATABASE_REQUIRED = databaseRequired(process.env);
+if(DATABASE_REQUIRED && !String(process.env.DATABASE_URL||'').trim()){
+  console.error('[ready] CRÍTICO: DATABASE_URL ausente em ambiente de produção. Ranking e snapshots não podem usar JSON local.');
+}
 async function requireRoomPersistenceReady(){
   const ready=await roomSnapshotsReady;
   if(!ready)throw new Error('Persistência das salas indisponível. Tente novamente em instantes.');
@@ -398,9 +403,12 @@ app.get('/health', (_, res) => {
 });
 app.get('/ready', async (_,res)=>{
   res.setHeader('Cache-Control','no-store');
-  const [rankingOk,snapshotOk]=await Promise.all([rankingReady,roomSnapshotsReady]);
-  const ok=!!(rankingOk&&snapshotOk);
-  res.status(ok?200:503).json({ok,status:ok?'ready':'degraded',version:APP_VERSION,ranking:rankingStore.kind,roomSnapshots:roomSnapshotStore.kind});
+  const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,roomSnapshotsReady,env:process.env,timeoutMs:2000});
+  res.status(report.ok?200:503).json({
+    ok:report.ok,status:report.status,version:APP_VERSION,databaseRequired:report.databaseRequired,reason:report.reason,
+    ranking:{kind:report.ranking.kind,ok:report.ranking.ok,reason:report.ranking.reason},
+    roomSnapshots:{kind:report.roomSnapshots.kind,ok:report.roomSnapshots.ok,reason:report.roomSnapshots.reason},
+  });
 });
 
 app.get('/api/ranking', async (req,res)=>{

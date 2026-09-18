@@ -190,6 +190,7 @@ class JsonSnapshotBackend {
     if(changed)this.persist();
     return out;
   }
+  async healthCheck(){ return true; }
   async close(){}
 }
 
@@ -310,6 +311,10 @@ class PostgresSnapshotBackend {
     }
     return rows.map(r=>({snapshot:r.snapshot,avatarAssets:assetsByRoom.get(r.room_code)||{}}));
   }
+  async healthCheck(){
+    const {rows}=await this.pool.query('SELECT 1 AS ok');
+    return Number(rows?.[0]?.ok)===1;
+  }
   async close(){ await this.pool.end(); }
 }
 
@@ -355,6 +360,7 @@ class RoomSnapshotStore {
       this.abandonedPlayers.get(code).set(key,{playerId:String(row.playerId||''),eventAt:Number(row.eventAt||0)});
     }
   }
+  async healthCheck(){ return this.backend.healthCheck(); }
   isRoomDeleted(code){return this.deletedRooms.has(String(code||''));}
   playerAbandonTombstone(code,playerKey){return this.abandonedPlayers.get(String(code||''))?.get(String(playerKey||''))||null;}
   snapshotParts(room){

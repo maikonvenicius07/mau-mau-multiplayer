@@ -1,3 +1,13 @@
+## V40.66 — Health Check e Banco
+
+A V40.66 separa **liveness** de **readiness**. `/health` informa apenas se o processo Node está vivo; `/ready` só retorna 200 quando ranking e snapshots foram inicializados e respondem ativamente. No Render/produção, o serviço só fica pronto com PostgreSQL — o fallback JSON continua disponível apenas para desenvolvimento local.
+
+- Render passa a verificar `/ready`.
+- Ranking e snapshots executam `SELECT 1` no PostgreSQL durante o probe.
+- Falha/timeout do banco retorna 503 sem expor credenciais.
+- `DATABASE_URL` ausente no Render impede estado ready e gera log crítico.
+- Nenhuma regra do jogo ou dependência npm foi alterada.
+
 ## V40.65 — Deploy reproduzível
 
 A V40.65 não altera nenhuma regra do jogo. Ela torna a instalação de dependências determinística usando `package-lock.json` + `npm ci`. Como o ambiente de montagem não possui acesso ao registry npm, o lockfile é gerado de forma segura no próprio GitHub usando Node 22.22.0, validado com `npm ci` e com a suíte completa antes de ser commitado automaticamente.

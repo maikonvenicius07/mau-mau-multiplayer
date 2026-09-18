@@ -10,7 +10,7 @@ const { spawn } = require('child_process');
 const { io: clientIo } = require('socket.io-client');
 const pkg = require('../package.json');
 
-assert.strictEqual(pkg.version, '40.65', 'package.json deve identificar V40.63');
+assert.strictEqual(pkg.version, '40.66', 'package.json deve identificar V40.63');
 assert.strictEqual(pkg.dependencies['socket.io-client'], '4.8.1', 'cliente Socket.IO real deve estar fixado na mesma linha do servidor');
 
 const AUTH_SECRET = 'v4063-integration-secret-fixed-for-tests-only';

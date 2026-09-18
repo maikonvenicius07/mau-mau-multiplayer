@@ -1,0 +1,10 @@
+VALIDAÇÃO V40.66 — HEALTH CHECK E BANCO
+
+- /health preservado como liveness do processo.
+- /ready executa probe ativo dos dois storages.
+- PostgreSQL responde a SELECT 1 para ranking e snapshots.
+- Render/produção exige backend postgres e rejeita fallback JSON como ready.
+- healthCheckPath do Render alterado para /ready.
+- timeout evita readiness pendurado indefinidamente.
+- nenhuma dependência npm alterada; package-lock existente permanece válido para a árvore de dependências.
+- 89 testes sem Socket.IO externo aprovados neste ambiente; suíte completa no Render deve totalizar 90 testes.

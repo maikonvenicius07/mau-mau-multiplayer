@@ -1,3 +1,12 @@
+# V40.66 — Health Check e Banco
+
+- `/ready` agora faz verificação ativa do PostgreSQL para ranking e snapshots.
+- Render usa `/ready` como `healthCheckPath`.
+- Produção/Render não é considerada pronta com fallback JSON local.
+- `/health` permanece como liveness leve, sem depender do banco.
+- Probe protegido por timeout de 2 segundos e resposta sem dados sensíveis.
+- Nenhuma dependência npm ou regra do Mau-Mau foi alterada.
+
 # V40.65 — Deploy reproduzível
 
 - Adicionado bootstrap seguro para geração de `package-lock.json` no GitHub com Node 22.22.0.

@@ -10,7 +10,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const workletPath=path.join(root,'public','voice-relay-worklet.js');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.65','package.json deve identificar V40.50');
+assert(pkg.version==='40.66','package.json deve identificar V40.50');
 assert(fs.existsSync(workletPath),'AudioWorklet do relay não foi incluído');
 const worklet=fs.readFileSync(workletPath,'utf8');
 assert(worklet.includes("registerProcessor('mau-mau-voice-relay-capture'"),'processor AudioWorklet de captura ausente');
@@ -23,6 +23,6 @@ assert(server.includes("socket.on('networkProbe'"),'sonda de RTT ausente no serv
 assert(app.includes("socket.timeout(NETWORK_PROBE_TIMEOUT_MS).emit('networkProbe'"),'cliente não mede RTT com timeout');
 assert(app.includes('sampleLiveVoiceRtcStats')&&app.includes('pc.getStats()'),'diagnóstico WebRTC ausente');
 assert(html.includes('id="networkDiagnosticsDialog"')&&html.includes('id="networkPingValue"'),'painel de diagnóstico ausente');
-assert(html.includes('app.js?v=40.65')&&html.includes('styles.css?v=40.65'),'cache-busting V40.54 ausente');
+assert(html.includes('app.js?v=40.66')&&html.includes('styles.css?v=40.66'),'cache-busting V40.54 ausente');
 assert(css.includes('.network-diagnostics-modal')&&css.includes('.quality-warn'),'estilos do diagnóstico ausentes');
 console.log('✓ V40.54: AudioWorklet + diagnóstico de conexão e WebRTC conferidos.');

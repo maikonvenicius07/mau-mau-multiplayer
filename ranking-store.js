@@ -81,6 +81,7 @@ class JsonBackend {
     fs.writeFileSync(tmp, JSON.stringify(this.data,null,2));
     fs.renameSync(tmp, this.filePath);
   }
+  async healthCheck() { return true; }
   async recordMatch(match) {
     if (this.data.matches.some(m => m.matchId === match.matchId)) return false;
     this.data.matches.push({...match,seasonId:CURRENT_SEASON_ID});
@@ -240,6 +241,10 @@ class PostgresBackend {
       throw e;
     } finally { client.release(); }
   }
+  async healthCheck() {
+    const {rows}=await this.pool.query('SELECT 1 AS ok');
+    return Number(rows?.[0]?.ok)===1;
+  }
   async recordMatch(match) {
     const client = await this.pool.connect();
     try {
@@ -338,6 +343,7 @@ class RankingStore {
     this.backend = databaseUrl ? new PostgresBackend(databaseUrl) : new JsonBackend(filePath);
   }
   async init(){ return this.backend.init(); }
+  async healthCheck(){ return this.backend.healthCheck(); }
   async recordMatch(match){ return this.backend.recordMatch(match); }
   async getLeaderboard(opts){ return this.backend.getLeaderboard(opts); }
   async getPlayerStats(opts){ return this.backend.getPlayerStats(opts); }

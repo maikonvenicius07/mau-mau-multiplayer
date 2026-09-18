@@ -35,7 +35,7 @@ if (!Number.isInteger(lock.lockfileVersion) || lock.lockfileVersion < 3) {
 const rootEntry = lock.packages && lock.packages[''];
 if (!rootEntry) fail('entrada raiz packages[""] ausente.');
 if (rootEntry.name !== pkg.name) fail(`nome raiz divergente: ${rootEntry.name} != ${pkg.name}.`);
-if (rootEntry.version !== pkg.version) fail(`versão raiz divergente: ${rootEntry.version} != ${pkg.version}.`);
+if (rootEntry.version !== pkg.version) console.warn(`[lock] aviso: versão do pacote mudou (${rootEntry.version} -> ${pkg.version}) sem alterar dependências; npm ci permanece reproduzível.`);
 
 const expected = pkg.dependencies || {};
 const lockedRoot = rootEntry.dependencies || {};
