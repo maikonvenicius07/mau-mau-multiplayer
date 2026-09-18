@@ -20,6 +20,14 @@ function canAutoReconnect(player) {
   return !!(player && !player.isBot && player.playerKey && player.reconnectEligible && !player.connected);
 }
 
+// V40.60 — uma reserva de reconexão involuntária não bloqueia o jogador
+// de entrar na fila. A reserva só é cancelada se o matchmaking realmente
+// formar uma nova sala para essa Conta Google.
+function blocksMatchmaking(player) {
+  if(!player || player.isBot) return false;
+  return !canAutoReconnect(player);
+}
+
 function markAutoTakeover(player) {
   if(!canAutoReconnect(player)) return false;
   player.autoControlled=true;
@@ -67,6 +75,7 @@ module.exports={
   isActiveMatch,
   markInvoluntaryDisconnect,
   canAutoReconnect,
+  blocksMatchmaking,
   markAutoTakeover,
   clearReconnectReservation,
   convertHumanSeatToPermanentBot,

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.59.0",
-  "description": "Mau-Mau Candeias V40.59: reconexão automática somente após desconexão involuntária, abandono definitivo ao sair/trocar de sala e exclusão de salas sem jogadores humanos.",
+  "version": "40.60.0",
+  "description": "Mau-Mau Candeias V40.60: matchmaking preserva reservas de reconexão até a entrada real em nova sala; cancelar busca não abandona a mesa anterior.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,3 +1,17 @@
+## V40.60 — Matchmaking sem Abandono Prematuro
+
+A V40.60 corrige a diferença entre **procurar uma nova partida** e **entrar efetivamente em outra sala**. Iniciar a busca automática não cancela mais uma reserva válida de reconexão criada por queda involuntária. Se a busca for cancelada, expirar ou falhar antes de formar uma nova mesa, a reserva anterior continua intacta.
+
+Quando o matchmaking realmente consegue criar a nova sala com sucesso, o servidor faz uma segunda validação para confirmar que nenhum participante retomou outra mesa enquanto aguardava. Somente depois dessa confirmação a reserva antiga é encerrada e a Conta Google passa a pertencer exclusivamente à nova sala.
+
+A mesma proteção foi aplicada à criação manual de sala e à criação de mesa iniciada pelo fluxo de convite: primeiro a nova sala precisa ser criada com sucesso; só então uma reserva anterior é cancelada. Entrada por código/link, Modo Observador e convite interno continuam validando o destino antes de confirmar qualquer troca.
+
+**Regra central:** entrar na fila ≠ entrar em outra sala. Cancelar a busca preserva a reconexão anterior; formar/entrar em uma nova sala cancela a reserva antiga conforme a V40.59.
+
+**Validação:** 83/83 testes aprovados, incluindo teste dedicado ao matchmaking com reserva involuntária.
+
+---
+
 ## V40.59 — Reconexão Estrita e Ciclo de Vida das Salas
 
 A V40.59 redefine de forma explícita o pertencimento de um jogador à sala. **Reconexão automática passa a existir somente após desconexão involuntária**. Queda de internet, fechamento acidental, segundo plano, refresh ou interrupção temporária mantêm a vaga humana reservada; após 60 segundos, a Máquina pode controlar temporariamente a mesma cadeira, mas o jogador original continua apto a retornar automaticamente.

@@ -12,7 +12,14 @@ assert(server.includes('abandonHumanSeat(room,player,{reason,socket});'),'troca 
 assert(server.includes('RoomLifecycle.convertHumanSeatToPermanentBot'),'cadeira de partida ativa deve virar Máquina sem identidade humana');
 assert(server.includes('player.playerKey=null;')||fs.readFileSync(path.join(root,'room-lifecycle.js'),'utf8').includes('player.playerKey=null;'),'Máquina antiga não pode continuar vinculada à Conta Google');
 assert(server.includes('prepareForRoomSwitch(socket,code);'),'entrada bem-sucedida em outra sala deve preparar troca segura');
-assert(server.includes("abandonOtherPlayerMembershipsForSwitch(socket,null,'iniciou uma nova busca de partida')"),'nova busca de partida deve cancelar vínculo antigo');
+const startAt=server.indexOf("socket.on('startMatchmaking'");
+const cancelAt=server.indexOf("socket.on('cancelMatchmaking'",startAt);
+const startBlock=server.slice(startAt,cancelAt);
+assert(!startBlock.includes("abandonOtherPlayerMembershipsForSwitch("),'V40.60: apenas iniciar a busca não pode cancelar vínculo antigo');
+const formAt=server.indexOf('function formMatchmakingGroup()');
+const formEnd=server.indexOf('function ensureInviteReservations',formAt);
+const formBlock=server.slice(formAt,formEnd);
+assert(formBlock.includes("abandonOtherPlayerMembershipsForSwitch(x.socket,code,'entrou em nova sala pelo matchmaking')"),'V40.60: vínculo antigo deve ser cancelado quando a nova sala de matchmaking for realmente formada');
 assert(server.includes('deleteRoomIfNoHumanMembers(room)'),'troca que retire o último humano deve excluir a sala antiga');
 assert(app.includes('um link de convite para OUTRA sala tem prioridade'),'link de outra sala deve impedir auto-resume da sala antiga antes da escolha do usuário');
-console.log('✓ V40.59: entrar em outra sala cancela qualquer vaga/reserva humana anterior e impede pertencimento simultâneo a duas salas.');
+console.log('✓ V40.60: entrar de fato em outra sala cancela vínculo anterior; apenas iniciar/cancelar matchmaking preserva a reserva.');

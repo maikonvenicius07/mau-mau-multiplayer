@@ -1,0 +1,9 @@
+V40.60 — MATCHMAKING SEM ABANDONO PREMATURO
+
+Esta versão mantém a lógica da V40.59 e corrige um ponto específico: buscar jogadores não equivale a entrar em outra sala.
+
+Uma reserva criada por queda involuntária continua válida durante a busca automática. Se a busca for cancelada ou falhar antes de formar nova sala, o jogador ainda pode retornar automaticamente à sala antiga.
+
+Quando uma nova mesa é efetivamente formada, a reserva anterior é encerrada e a identidade humana passa a existir somente na nova sala.
+
+Regras do Mau-Mau, Dama com 2 jogadores, observador, chat por sala, áudio/WebRTC, ranking e reconexão de 60 segundos não foram alterados.

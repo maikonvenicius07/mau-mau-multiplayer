@@ -8,7 +8,7 @@ const pkg=require(path.join(root,'package.json'));
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-assert.strictEqual(pkg.version,'40.59.0');
+assert.strictEqual(pkg.version,'40.60.0');
 assert(html.includes('id="localMusicOpen"')&&html.includes('id="localMusicOpen2"'),'atalhos Minha Música ausentes');
 assert(html.includes('id="localMusicDialog"')&&html.includes('id="localMusicFile"'),'seletor de música local ausente');
 assert(/id="localMusicFile"[^>]+type="file"[^>]+accept="audio\//.test(html),'input não restringe seleção a áudio');

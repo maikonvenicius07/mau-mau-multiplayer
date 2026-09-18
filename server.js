@@ -990,6 +990,24 @@ function playerHasActiveRoom(playerKey, exceptCode=null) {
   return !!activePlayerRoomForKey(playerKey,exceptCode);
 }
 
+// V40.60 — entrar NA FILA não equivale a entrar em outra sala.
+// Uma cadeira desconectada com reserva involuntária válida pode coexistir
+// temporariamente com a busca. Ela só é abandonada quando uma nova mesa
+// é realmente formada e o jogador entra nela.
+function matchmakingBlockingRoomForKey(playerKey) {
+  const key=String(playerKey||'');
+  if(!key)return null;
+  for(const room of rooms.values()){
+    if(!room||room.status==='finished')continue;
+    const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
+    if(player&&RoomLifecycle.blocksMatchmaking(player))return room;
+  }
+  return null;
+}
+function playerHasMatchmakingBlockingRoom(playerKey) {
+  return !!matchmakingBlockingRoomForKey(playerKey);
+}
+
 // V40.59 — Reconexão automática condicionada a queda involuntária.
 // A procura usa SOMENTE a Conta Google autenticada e exige reconnectEligible=true.
 // SAIR, entrar em outra sala ou converter a cadeira para Máquina definitiva remove
@@ -1159,7 +1177,7 @@ function pruneMatchmakingQueue() {
   let changed=false;
   for(const [key] of [...matchmakingQueue]){
     const rec=presenceFor(key);
-    if(!rec?.sockets?.size||playerHasActiveRoom(key)){
+    if(!rec?.sockets?.size||playerHasMatchmakingBlockingRoom(key)){
       matchmakingQueue.delete(key);setSearchingFlag(key,false);changed=true;
     }
   }
@@ -1206,7 +1224,7 @@ function formMatchmakingGroup() {
     entry,
     socket:firstSocketForKey(entry.playerKey),
     rec:presenceFor(entry.playerKey),
-  })).filter(x=>x.socket&&x.rec?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey));
+  })).filter(x=>x.socket&&x.rec?.sockets?.size&&!playerHasMatchmakingBlockingRoom(x.entry.playerKey));
 
   if(live.length<2){
     for(const x of candidates){
@@ -1227,7 +1245,7 @@ function formMatchmakingGroup() {
       name:cleanPresenceName(host.rec.name),avatar:cleanAvatar(host.rec.avatar),
       playerKey:host.entry.playerKey,
     });
-    rooms.set(code,room);ensureSocial(room);
+    ensureSocial(room);
     const seatByKey=new Map([[host.entry.playerKey,room.players[0]]]);
 
     for(const x of group.slice(1)){
@@ -1242,6 +1260,22 @@ function formMatchmakingGroup() {
     const matchPlayers=group.map(x=>matchmakingPlayerPublic(x.entry.playerKey));
     const names=matchPlayers.map(x=>x.name);
     Engine.appendLog(room,`🔎 Busca automática encontrou ${group.length} jogadores. Partida iniciada.`, 'system');
+    // A rodada também é preparada enquanto a sala ainda é temporária. Se qualquer
+    // regra impedir a inicialização, as reservas antigas continuam intocadas.
+    Engine.startRound(room);
+
+    // Até aqui a nova sala existiu apenas em memória local desta função.
+    // Portanto, qualquer falha na criação NÃO cancela reservas antigas.
+    // Confirmamos novamente que nenhum jogador retomou/ocupou uma mesa ativa
+    // enquanto aguardava na fila e somente então fazemos a troca definitiva.
+    for(const x of group){
+      const blocker=matchmakingBlockingRoomForKey(x.entry.playerKey);
+      if(blocker)throw new Error(`A Conta Google de ${cleanPresenceName(x.rec.name)} voltou a ficar ativa na sala ${blocker.code}.`);
+    }
+    for(const x of group){
+      abandonOtherPlayerMembershipsForSwitch(x.socket,code,'entrou em nova sala pelo matchmaking');
+    }
+    rooms.set(code,room);
 
     for(const x of group){
       const p=seatByKey.get(x.entry.playerKey);
@@ -1253,7 +1287,6 @@ function formMatchmakingGroup() {
       emitChatHistory(x.socket,room);
     }
 
-    Engine.startRound(room);
     emitRoom(room);
     broadcastPresence();
   }catch(e){
@@ -1262,7 +1295,7 @@ function formMatchmakingGroup() {
       closeSpectatorsForRoom(room);clearSpectatorReconnectTimersForRoom(code);removeRoom(code);
     }
     for(const x of group){
-      if(presenceFor(x.entry.playerKey)?.sockets?.size&&!playerHasActiveRoom(x.entry.playerKey)){
+      if(presenceFor(x.entry.playerKey)?.sockets?.size&&!playerHasMatchmakingBlockingRoom(x.entry.playerKey)){
         matchmakingQueue.set(x.entry.playerKey,{playerKey:x.entry.playerKey,joinedAt:x.entry.joinedAt||Date.now()});
         setSearchingFlag(x.entry.playerKey,true);
         emitToPlayerKey(x.entry.playerKey,'matchmakingError',{message:e?.message||'Não foi possível formar a partida agora.'});
@@ -1365,11 +1398,14 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   broadcastPresence();
 }
 function createRoomForSocket(socket,profileData={}) {
-  prepareForRoomSwitch(socket);
-  removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
   const code=roomCode();
   const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
-  rooms.set(code,room);ensureSocial(room);const p=room.players[0];
+  ensureSocial(room);
+  // V40.60: criar/preparar a sala primeiro; somente uma criação bem-sucedida
+  // confirma a troca e cancela uma eventual reserva de reconexão anterior.
+  prepareForRoomSwitch(socket,code);
+  removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
+  rooms.set(code,room);const p=room.players[0];
   socket.data.roomCode=code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
   updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
   socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
@@ -1741,9 +1777,12 @@ io.on('connection', socket => {
       const key=socket.data.auth.playerKey;
       const current=currentSocketRoom(socket);
       if(current&&current.room.status!=='finished')throw new Error('Saia da sala atual antes de buscar jogadores.');
-      // Procurar uma nova partida também é uma escolha explícita de troca.
-      abandonOtherPlayerMembershipsForSwitch(socket,null,'iniciou uma nova busca de partida');
-      if(playerHasActiveRoom(key))throw new Error('Você já possui uma vaga ativa em outra mesa.');
+      // V40.60: BUSCAR não é abandono. Uma reserva involuntária desconectada
+      // continua válida durante a fila e também se a busca for cancelada.
+      // A reserva só será encerrada dentro de formMatchmakingGroup(), depois
+      // que a nova sala tiver sido criada com sucesso.
+      const blocker=matchmakingBlockingRoomForKey(key);
+      if(blocker)throw new Error(`Você já possui uma vaga ativa na sala ${blocker.code}. Saia dela antes de buscar jogadores.`);
       if(playerHasAcceptedInvite(key))throw new Error('Você possui um convite aceito com vaga reservada. Entre nele ou cancele a reserva antes de buscar.');
       if(matchmakingQueue.has(key)){
         socket.emit('matchmakingState',matchmakingPayloadFor(key));
@@ -1767,8 +1806,6 @@ io.on('connection', socket => {
   socket.on('createRoom', payload => {
     try {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
-      prepareForRoomSwitch(socket);
-      removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
       const code = roomCode();
       const room = Engine.createRoom(code, {
         socketId:socket.id,
@@ -1777,10 +1814,14 @@ io.on('connection', socket => {
         avatar:payload?.avatar,
         playerKey:socket.data.auth.playerKey,
       });
-      rooms.set(code,room);
       room.isPublic = payload?.publicRoom !== false;
       ensureSocial(room);
       if (payload?.withBot) addBotToRoom(room);
+      // V40.60: toda a nova sala é preparada primeiro. Somente depois que
+      // criação/configuração terminam com sucesso a reserva anterior é cancelada.
+      prepareForRoomSwitch(socket,code);
+      removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
+      rooms.set(code,room);
       const p=room.players[0];
       socket.data.roomCode=code; socket.data.playerId=p.id; socket.data.spectatorId=null; socket.data.role=ROLE_PLAYER;
       socket.join(code);

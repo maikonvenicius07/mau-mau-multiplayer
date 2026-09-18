@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.60
+
+OBJETIVO
+Corrigir o matchmaking para que apenas iniciar/cancelar uma busca NÃO cancele uma reserva válida de reconexão involuntária.
+
+REGRAS
+1. Entrar na fila não abandona a sala anterior.
+2. Cancelar a fila preserva a reserva anterior.
+3. Falha ao formar a nova mesa preserva a reserva anterior.
+4. Somente quando a nova sala é realmente criada e confirmada a reserva antiga é encerrada.
+5. Se o jogador retomar a sala antiga enquanto aguardava, ele sai da fila e a nova mesa não o captura.
+6. Criação manual e criação por convite também só cancelam a reserva anterior depois que a nova sala foi criada com sucesso.
+
+VALIDAÇÃO
+83/83 testes aprovados pelo comando npm run verify.

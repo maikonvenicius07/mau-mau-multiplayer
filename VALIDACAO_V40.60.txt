@@ -1,0 +1,12 @@
+VALIDAÇÃO V40.60 — 83/83 TESTES APROVADOS
+
+Cobertura nova:
+- reserva involuntária não bloqueia entrada na fila;
+- cancelar busca não altera reconnectEligible/playerKey;
+- vaga realmente conectada continua bloqueando matchmaking;
+- reserva antiga só é convertida após nova sala ser criada;
+- criação manual cria o novo estado antes de confirmar a troca;
+- contratos existentes de código, link e convite continuam validados pela suíte histórica.
+
+Comando de validação:
+npm run verify
