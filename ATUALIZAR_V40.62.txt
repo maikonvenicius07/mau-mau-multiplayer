@@ -1,0 +1,7 @@
+ATUALIZAÇÃO PARA V40.62
+
+Se você já está na V40.61.1, use o pacote:
+MAU-MAU_V40.62_Ranking_Oficial_Treino_Arquivos_para_Substituir.zip
+
+Substitua/adicone os arquivos mantendo a mesma estrutura de pastas e faça o deploy.
+O Render executará npm run verify antes de publicar.

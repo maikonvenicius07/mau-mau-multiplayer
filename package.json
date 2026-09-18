@@ -1,12 +1,12 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.61.1",
-  "description": "Mau-Mau Candeias V40.61.1: expiração de sala solo após 5 minutos de desconexão involuntária do único humano, com exclusão imediata em SAIR/troca.",
+  "version": "40.62",
+  "description": "Mau-Mau Candeias V40.62: categoria do ranking congelada no início da partida, evitando que saída humana e substituição por Máquina alterem OFICIAL para TREINO.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "node --check server.js && node --check room-lifecycle.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test"
+    "verify": "node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test"
   },
   "engines": {
     "node": "22.22.0"

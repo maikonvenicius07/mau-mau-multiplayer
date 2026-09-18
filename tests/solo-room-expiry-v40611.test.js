@@ -11,7 +11,7 @@ const pkg=require('../package.json');
 const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.61.1','package.json deve identificar V40.61.1');
+assert.strictEqual(pkg.version,'40.62','package.json deve identificar V40.62');
 assert(server.includes('const SOLO_ROOM_EXPIRY_MS = 5 * 60 * 1000;'),'prazo padrão da sala solo deve ser exatamente 5 minutos');
 assert(server.includes('refreshSoloRoomExpiry(room);'),'mudanças de estado devem reavaliar o prazo da sala solo');
 assert(server.includes("await removeRoomDurably(liveRoom.code,Date.now());"),'expiração deve excluir a sala com tombstone durável');
@@ -92,4 +92,4 @@ function soloRoom(code='S611'){
   assert.strictEqual(restored.soloDisconnectStartedAt,7000,'restart não pode reiniciar o relógio dos 5 minutos');
 }
 
-console.log('✓ V40.61.1: sala solo espera 5 min só em queda involuntária; retorno cancela e SAIR/troca excluem imediatamente.');
+console.log('✓ V40.62: sala solo espera 5 min só em queda involuntária; retorno cancela e SAIR/troca excluem imediatamente.');

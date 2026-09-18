@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const AvatarWire = require('./avatar-wire');
+const RankingMode = require('./ranking-mode');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;
@@ -62,6 +63,12 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   room.spectators = [];
   room._presenceSignature = null;
   room.rankingRecording = false;
+  // V40.62 — snapshots novos já carregam a categoria congelada. Para uma
+  // partida antiga restaurada durante a atualização, inferimos sem considerar
+  // como bot original uma cadeira humana convertida após abandono.
+  if (Number(room.round||0)>0 && !RankingMode.validMode(room.rankingModeAtStart)) {
+    room.rankingModeAtStart=RankingMode.inferLegacyMode(room);
+  }
   if (!Array.isArray(room.chat)) room.chat=[];
   if (!Array.isArray(room.log)) room.log=[];
   if (!Array.isArray(room.turnAudit)) room.turnAudit=[];

@@ -1,0 +1,13 @@
+MAU-MAU CANDEIAS — V40.62
+
+RANKING OFICIAL x TREINO
+
+1. A categoria é definida no início da primeira rodada da partida.
+2. Somente humanos no início = OFICIAL.
+3. Pelo menos uma Máquina no início = TREINO.
+4. AUTO temporário por queda não altera OFICIAL/TREINO.
+5. Saída humana e conversão da cadeira em Máquina não alteram a categoria já congelada.
+6. Snapshot/restart preserva a categoria.
+7. Revanche é nova partida e recalcula a categoria no novo início.
+
+Nenhuma regra de cartas, turnos, reconexão, chat, observador ou áudio foi modificada por esta versão.

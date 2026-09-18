@@ -10,5 +10,5 @@ function bytes(dir){return fs.readdirSync(dir,{withFileTypes:true}).reduce((n,e)
 const total=bytes(publicDir);
 assert(total<2500000,`public ainda está pesado demais para V40.54: ${total} bytes`);
 const html=fs.readFileSync(path.join(publicDir,'index.html'),'utf8');
-assert(html.includes('app.js?v=40.61.1')&&html.includes('styles.css?v=40.61.1'),'cache-busting V40.54 ausente');
+assert(html.includes('app.js?v=40.62')&&html.includes('styles.css?v=40.62'),'cache-busting V40.54 ausente');
 console.log(`✓ V40.54: sem assets de música interna; public=${total} bytes.`);

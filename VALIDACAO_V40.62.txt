@@ -1,0 +1,17 @@
+VALIDAÇÃO V40.62 — RANKING OFICIAL x TREINO
+
+- package.json: 40.62
+- cache-busting frontend: 40.62
+- npm run verify: APROVADO
+- testes: 86/86 aprovados
+
+Cenários específicos validados:
+1. partida iniciada só com humanos = OFICIAL;
+2. humano sai e vira Máquina = continua OFICIAL;
+3. AUTO temporário por queda = continua OFICIAL;
+4. partida iniciada com Máquina = TREINO;
+5. TREINO não vira OFICIAL durante a mesma partida;
+6. snapshot/restart preserva a categoria congelada;
+7. snapshot antigo com cadeira humana convertida é migrado como OFICIAL;
+8. snapshot antigo com Máquina original é migrado como TREINO;
+9. revanche limpa a categoria e recalcula no novo início.

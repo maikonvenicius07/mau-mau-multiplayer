@@ -1,3 +1,22 @@
+## V40.62 — Ranking OFICIAL x TREINO congelado no início
+
+A V40.62 corrige a classificação do ranking para que uma partida não mude de categoria por acontecimentos posteriores ao seu início. A modalidade é definida no começo da **primeira rodada** e fica congelada até o fim daquela partida.
+
+- Se a partida começa somente com cadeiras humanas, ela é **👥 OFICIAL**.
+- Se a partida começa com pelo menos uma Máquina, ela é **🤖 TREINO**.
+- Uma queda de internet com AUTO temporário não altera a categoria, pois a cadeira continua pertencendo ao humano.
+- Se um humano sair voluntariamente durante uma partida OFICIAL e sua cadeira virar Máquina para a mesa continuar, a partida permanece **OFICIAL**.
+- Uma partida que começou como TREINO não vira OFICIAL se uma Máquina deixar de fazer parte da composição posteriormente.
+- Revanche é uma nova partida: a categoria anterior é apagada e será calculada novamente no início da nova primeira rodada.
+
+O campo `rankingModeAtStart` também é salvo no snapshot. Em snapshots criados antes da V40.62, a restauração faz uma migração segura: uma cadeira convertida de humano para Máquina após abandono (`voluntaryLeftAt`) não é confundida com uma Máquina que já existia quando a partida começou.
+
+**Objetivo de integridade:** um jogador não consegue transformar uma partida OFICIAL em TREINO simplesmente saindo quando está perdendo, preservando o registro correto da vitória dos demais.
+
+**Validação:** 86/86 testes aprovados, incluindo teste dedicado à classificação congelada, AUTO temporário, saída humana, TREINO original, snapshot/restart, migração de snapshot antigo e revanche.
+
+---
+
 ## V40.61.1 — Expiração de Sala Solo
 
 A V40.61.1 acrescenta uma regra específica para partidas em que existe **somente 1 jogador humano contra uma ou mais Máquinas**. Se esse único humano perder a conexão de forma involuntária, a sala continua reservada por no máximo **5 minutos contados desde a queda**.

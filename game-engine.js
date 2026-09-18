@@ -1,5 +1,7 @@
 'use strict';
 
+const RankingMode = require('./ranking-mode');
+
 const crypto = require('crypto');
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -209,6 +211,9 @@ function createRoom(code, hostInfo) {
     // V40.4 — cada nova partida disputada na mesma sala recebe um serial próprio.
     // Isso permite registrar o ranking da partida anterior mesmo se o grupo já iniciou outra.
     matchSerial: 1,
+    // V40.62 — categoria do ranking congelada no início da primeira rodada.
+    // null no lobby porque máquinas ainda podem ser adicionadas/removidas antes de começar.
+    rankingModeAtStart: null,
     replayReadyPlayerIds: [],
     // V40.32 — salas só aparecem na Central de Partidas ao Vivo quando o anfitrião autoriza.
     isPublic: false,
@@ -272,6 +277,9 @@ function resetMatch(room) {
   room.finishedAt = null;
   room.rankingRecorded = false;
   room.rankingRecording = false;
+  // V40.62 — revanche é uma nova partida e recebe uma nova classificação
+  // quando a primeira rodada dessa nova partida começar.
+  room.rankingModeAtStart = null;
   room.replayReadyPlayerIds = [];
   room.log = [];
   room.turnAudit = [];
@@ -314,6 +322,13 @@ function startRound(room) {
   if (availableCount < 2) throw new Error('São necessários pelo menos 2 jogadores disponíveis.');
   if (room.players.some(p => !p.isBot && !p.connected && !p.autoControlled)) throw new Error('Há jogador dentro do prazo de reconexão. Aguarde o retorno ou a Máquina assumir temporariamente.');
   if (room.round >= room.rules.rounds) throw new Error('As 5 rodadas já foram concluídas.');
+
+  // V40.62 — OFICIAL/TREINO é decidido uma única vez, no início da partida.
+  // Saída posterior, AUTO temporário ou conversão de uma cadeira humana em
+  // Máquina não podem reclassificar retroativamente o ranking.
+  if (room.round === 0) RankingMode.freezeForMatchStart(room);
+  else if (!RankingMode.validMode(room.rankingModeAtStart)) room.rankingModeAtStart=RankingMode.inferLegacyMode(room);
+
   room.round += 1;
   room.status = 'playing';
   room.direction = -1;

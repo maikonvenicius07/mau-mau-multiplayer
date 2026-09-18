@@ -1,5 +1,7 @@
 'use strict';
 
+const RankingMode = require('./ranking-mode');
+
 const fs = require('fs');
 const path = require('path');
 
@@ -358,7 +360,7 @@ function buildMatchRecord(room) {
     // A revanche na mesma sala é outra partida e precisa de identificador próprio.
     matchId:`${room.code}-${room.createdAt}-${matchSerial}`,
     roomCode:room.code,
-    mode:room.players.some(p=>p.isBot)?'training':'official',
+    mode:RankingMode.resolveRoomMode(room),
     seasonId:CURRENT_SEASON_ID,
     rounds:room.rules?.rounds||5,
     startedAt:new Date(room.createdAt).toISOString(),
