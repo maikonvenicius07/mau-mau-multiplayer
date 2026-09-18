@@ -1,28 +1,16 @@
-VALIDAÇÃO — V40.63
+VALIDAÇÃO V40.63 — TESTES REAIS SOCKET.IO + CORREÇÃO DE ISOLAMENTO DO BUILD
 
-Estrutura esperada:
-- package.json = 40.63
-- socket.io = 4.8.1
-- socket.io-client = 4.8.1
-- tests/socketio-integration-v4063.test.js presente
-- npm run test:socket disponível
+Correção após diagnóstico do Render:
+- persistence-strong-v4061.test.js agora força databaseUrl='' e usa apenas JSON temporário.
+- tests/run-all.js remove DATABASE_URL do ambiente de TODOS os testes.
+- Nenhum teste do build pode ler/gravar/apagar snapshots ou ranking no PostgreSQL de produção.
+- O teste Socket.IO V40.63 já usa DATABASE_URL='' e arquivos temporários próprios.
 
-Cenários do novo teste real:
-[ ] criar/entrar em sala
-[ ] iniciar rodada
-[ ] queda involuntária
-[ ] refresh antes do prazo
-[ ] AUTO após o prazo
-[ ] retorno depois do AUTO
-[ ] SAIR cancela auto-reconexão
-[ ] troca de sala cancela reserva antiga
-[ ] convite interno real
-[ ] duas quedas simultâneas
+Validação local possível neste ambiente:
+- 86/86 testes históricos aprovados.
+- persistence-strong-v4061.test.js aprovado inclusive com DATABASE_URL externo definido.
+- sintaxe de tests/run-all.js e persistence-strong-v4061.test.js aprovada.
+- teste Socket.IO permanece incluído no npm run verify e depende de socket.io-client instalado pelo npm install do Render.
 
-Validação feita no ambiente de montagem:
-- 86/86 testes históricos: APROVADOS
-- node --check server.js: APROVADO
-- node --check tests/socketio-integration-v4063.test.js: APROVADO
-- execução do novo teste Socket.IO: PENDENTE DE AMBIENTE COM npm install concluído
-
-Motivo: o ambiente de montagem não conseguiu acessar registry.npmjs.org (EAI_AGAIN), portanto as dependências externas não puderam ser instaladas localmente. O GitHub/Render deverá executar o novo teste no npm run verify após a instalação das dependências.
+Resultado esperado no Render após instalar dependências:
+- npm run verify executa 87 testes sem acessar o PostgreSQL real durante a suíte.

@@ -18,9 +18,13 @@ console.log(`Executando ${files.length} testes...`);
 
 for (const file of files) {
   const fullPath = path.join(testsDir, file);
+  // Testes nunca devem herdar o PostgreSQL real do ambiente de deploy.
+  // Cada teste deve usar armazenamento temporário/local explicitamente.
+  const testEnv = { ...process.env, DATABASE_URL: '' };
   const result = spawnSync(process.execPath, [fullPath], {
     cwd: path.join(__dirname, '..'),
-    stdio: 'inherit'
+    stdio: 'inherit',
+    env: testEnv
   });
 
   if (result.error) {

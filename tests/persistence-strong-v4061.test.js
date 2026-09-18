@@ -38,7 +38,7 @@ function makeRoom(code='P61'){
 
   // Cenário A: snapshot antigo já estava salvo; a saída é confirmada no ledger,
   // mas o processo morre ANTES de o snapshot novo ser gravado.
-  const store1=new RoomSnapshotStore({filePath:file,ttlMs:60*60*1000,debounceMs:10});
+  const store1=new RoomSnapshotStore({databaseUrl:'',filePath:file,ttlMs:60*60*1000,debounceMs:10});
   await store1.init();
   const room=makeRoom('P6101');
   const old=room.players[0];
@@ -47,7 +47,7 @@ function makeRoom(code='P61'){
   await store1.markPlayerAbandoned(room.code,old.playerKey,old.id,eventAt);
   await store1.close();
 
-  const store2=new RoomSnapshotStore({filePath:file,ttlMs:60*60*1000,debounceMs:10});
+  const store2=new RoomSnapshotStore({databaseUrl:'',filePath:file,ttlMs:60*60*1000,debounceMs:10});
   await store2.init();
   const restored=await store2.loadActive();
   assert.strictEqual(restored.length,1,'a sala com outro humano deve continuar existindo');
@@ -64,7 +64,7 @@ function makeRoom(code='P61'){
   await store2.saveNow(fresh);
   await store2.close();
 
-  const store3=new RoomSnapshotStore({filePath:file,ttlMs:60*60*1000,debounceMs:10});
+  const store3=new RoomSnapshotStore({databaseUrl:'',filePath:file,ttlMs:60*60*1000,debounceMs:10});
   await store3.init();
   const afterRejoin=await store3.loadActive();
   assert.strictEqual(afterRejoin.length,1);
@@ -77,7 +77,7 @@ function makeRoom(code='P61'){
   await store3.saveNow(fresh); // simula callback atrasado de snapshot
   await store3.close();
 
-  const store4=new RoomSnapshotStore({filePath:file,ttlMs:60*60*1000,debounceMs:10});
+  const store4=new RoomSnapshotStore({databaseUrl:'',filePath:file,ttlMs:60*60*1000,debounceMs:10});
   await store4.init();
   assert.strictEqual(store4.isRoomDeleted('P6101'),true,'tombstone da sala deve sobreviver ao restart');
   const afterDelete=await store4.loadActive();
