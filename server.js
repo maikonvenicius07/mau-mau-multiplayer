@@ -115,7 +115,7 @@ function cancelDisconnectDebounce(role,roomCode,participantId){
 function scheduleDisconnectDebounce(role,roomCode,participantId,fn){
   cancelDisconnectDebounce(role,roomCode,participantId);
   const key=disconnectDebounceKey(role,roomCode,participantId);
-  const timer=setTimeout(()=>{disconnectDebounceTimers.delete(key);fn();},DISCONNECT_DEBOUNCE_MS);
+  const timer=setTimeout(async ()=>{disconnectDebounceTimers.delete(key);fn();},DISCONNECT_DEBOUNCE_MS);
   timer.unref?.();disconnectDebounceTimers.set(key,timer);
 }
 
@@ -139,6 +139,15 @@ const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armaze
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
 const roomSnapshotStore = new RoomSnapshotStore();
 const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
+async function requireRoomPersistenceReady(){
+  const ready=await roomSnapshotsReady;
+  if(!ready)throw new Error('Persistência das salas indisponível. Tente novamente em instantes.');
+}
+async function removeRoomDurably(code,eventAt=Date.now()){
+  await requireRoomPersistenceReady();
+  await roomSnapshotStore.markRoomDeleted(code,eventAt);
+  return rooms.delete(code);
+}
 function removeRoom(code){
   const existed=rooms.delete(code);
   if(existed)roomSnapshotStore.delete(code).catch(e=>console.error('[rooms] falha ao excluir snapshot',code,e?.message||e));
@@ -407,7 +416,7 @@ function roomCode() {
   let code='';
   do {
     code=''; for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
-  } while(rooms.has(code));
+  } while(rooms.has(code) || roomSnapshotStore.isRoomDeleted(code));
   return code;
 }
 
@@ -543,7 +552,7 @@ function scheduleReconnectTakeover(room, player) {
   cancelReconnectTimer(room.code,player.id);
   const key=reconnectTimerKey(room.code,player.id);
   const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
-  const timer=setTimeout(()=>{
+  const timer=setTimeout(async ()=>{
     reconnectTimers.delete(key);
     const liveRoom=rooms.get(room.code);
     if(!liveRoom || liveRoom!==room || !(liveRoom.status==='playing' || (liveRoom.status==='between-rounds' && liveRoom.round>0))) return;
@@ -715,6 +724,28 @@ function abandonHumanSeat(room, player, {reason='saiu voluntariamente da sala',s
   ensureHost(room);
   emitRoom(room);
   return {changed:true,deleted:false};
+}
+
+// V40.61 — persistência forte em duas fases. Primeiro gravamos um tombstone da
+// associação humana; só depois alteramos a cadeira em memória. Assim, mesmo que o
+// processo morra antes do snapshot atualizado, o snapshot antigo não devolve a vaga.
+async function abandonHumanSeatDurably(room,player,{reason='saiu voluntariamente da sala',socket=null}={}){
+  if(!room||!player||player.isBot)return {changed:false,deleted:false};
+  await requireRoomPersistenceReady();
+  const eventAt=Date.now();
+  const playerKey=String(player.playerKey||'');
+  if(playerKey)await roomSnapshotStore.markPlayerAbandoned(room.code,playerKey,player.id,eventAt);
+  const result=abandonHumanSeat(room,player,{reason,socket});
+  try{
+    if(result.deleted)await roomSnapshotStore.markRoomDeleted(room.code,eventAt);
+    else await roomSnapshotStore.saveNow(room);
+  }catch(e){
+    // O tombstone do jogador já foi confirmado antes da mutação. Portanto um
+    // snapshot anterior continua incapaz de recriar a associação humana, mesmo
+    // se esta gravação complementar falhar durante uma queda abrupta do servidor.
+    console.error('[rooms] persistência complementar após abandono falhou',room.code,e?.message||e);
+  }
+  return result;
 }
 
 function withRoom(socket, fn) {
@@ -1038,7 +1069,7 @@ function recoverablePlayerSeatForKey(playerKey) {
   return best;
 }
 
-function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) {
+async function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) {
   if(!socket||!room||!player||player.isBot)throw new Error('Vaga de reconexão inválida.');
   const authKey=String(socket.data.auth?.playerKey||'');
   if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra Conta Google.');
@@ -1051,7 +1082,7 @@ function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) 
   // Defesa para dados legados: se versões antigas deixaram a mesma Conta Google
   // vinculada a mais de uma sala, ao retomar uma reserva válida mantemos somente
   // esta sala. As demais vagas humanas são abandonadas definitivamente.
-  abandonOtherPlayerMembershipsForSwitch(socket,room.code,'teve a reserva substituída pela sala retomada');
+  await abandonOtherPlayerMembershipsForSwitch(socket,room.code,'teve a reserva substituída pela sala retomada');
 
   const wasDisconnected=!player.connected;
   const wasAutoControlled=!!player.autoControlled;
@@ -1103,7 +1134,7 @@ function requireNoOtherActivePlayerRoom(socket, exceptCode=null) {
 // A mesma Conta Google não pode manter uma vaga/reserva antiga enquanto participa
 // de outra mesa. Em rodada já iniciada, a cadeira antiga vira uma Máquina normal,
 // sem playerKey/token humano; fora da rodada, a vaga é removida.
-function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason='entrou em outra sala') {
+async function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason='entrou em outra sala') {
   const key=String(socket.data.auth?.playerKey||'');
   if(!key)return false;
   let changed=false;
@@ -1113,7 +1144,7 @@ function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason=
     if(!room||room.code===exceptCode||room.status==='finished')continue;
     const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
     if(!player)continue;
-    abandonHumanSeat(room,player,{reason,socket});
+    await abandonHumanSeatDurably(room,player,{reason,socket});
     changed=true;
   }
 
@@ -1128,7 +1159,7 @@ function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason=
   return changed;
 }
 
-function prepareForRoomSwitch(socket, exceptCode=null) {
+async function prepareForRoomSwitch(socket, exceptCode=null) {
   const currentCode=String(socket.data.roomCode||'');
   if(socket.data.role===ROLE_SPECTATOR&&currentCode&&currentCode!==exceptCode){
     const currentRoom=rooms.get(currentCode);
@@ -1143,7 +1174,7 @@ function prepareForRoomSwitch(socket, exceptCode=null) {
     socket.data.spectatorId=null;
     socket.data.role=null;
   }
-  abandonOtherPlayerMembershipsForSwitch(socket,exceptCode,'entrou em outra sala');
+  await abandonOtherPlayerMembershipsForSwitch(socket,exceptCode,'entrou em outra sala');
   requireNoOtherActivePlayerRoom(socket,exceptCode);
 }
 
@@ -1197,7 +1228,7 @@ function scheduleMatchmakingCountdown() {
   matchmakingDeadlineAt=Date.now()+MATCHMAKING_WAIT_MS;
   matchmakingTimer=setTimeout(()=>{
     matchmakingTimer=null;matchmakingDeadlineAt=null;
-    if(matchmakingQueue.size>=2)formMatchmakingGroup();
+    if(matchmakingQueue.size>=2)void formMatchmakingGroup().catch(e=>console.error('[matchmaking] falha ao formar grupo:',e));
     else evaluateMatchmakingQueue();
   },MATCHMAKING_WAIT_MS);
   if(typeof matchmakingTimer.unref==='function')matchmakingTimer.unref();
@@ -1206,7 +1237,7 @@ function evaluateMatchmakingQueue() {
   pruneMatchmakingQueue();
   if(matchmakingQueue.size>=MATCHMAKING_MAX_PLAYERS){
     clearMatchmakingTimer();
-    formMatchmakingGroup();
+    void formMatchmakingGroup().catch(e=>console.error('[matchmaking] falha ao formar grupo:',e));
     return;
   }
   if(matchmakingQueue.size>=2)scheduleMatchmakingCountdown();
@@ -1214,7 +1245,7 @@ function evaluateMatchmakingQueue() {
   emitMatchmakingState();
   broadcastPresence();
 }
-function formMatchmakingGroup() {
+async function formMatchmakingGroup() {
   pruneMatchmakingQueue();
   const candidates=matchmakingSortedEntries().slice(0,MATCHMAKING_MAX_PLAYERS);
   if(candidates.length<2){evaluateMatchmakingQueue();return;}
@@ -1273,7 +1304,7 @@ function formMatchmakingGroup() {
       if(blocker)throw new Error(`A Conta Google de ${cleanPresenceName(x.rec.name)} voltou a ficar ativa na sala ${blocker.code}.`);
     }
     for(const x of group){
-      abandonOtherPlayerMembershipsForSwitch(x.socket,code,'entrou em nova sala pelo matchmaking');
+      await abandonOtherPlayerMembershipsForSwitch(x.socket,code,'entrou em nova sala pelo matchmaking');
     }
     rooms.set(code,room);
 
@@ -1397,13 +1428,13 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   if(emitLeft)socket.emit('leftRoom',{message});
   broadcastPresence();
 }
-function createRoomForSocket(socket,profileData={}) {
+async function createRoomForSocket(socket,profileData={}) {
   const code=roomCode();
   const room=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),name:profileData.name||socket.data.auth.name,avatar:profileData.avatar||'macaco',playerKey:socket.data.auth.playerKey});
   ensureSocial(room);
   // V40.60: criar/preparar a sala primeiro; somente uma criação bem-sucedida
   // confirma a troca e cancela uma eventual reserva de reconexão anterior.
-  prepareForRoomSwitch(socket,code);
+  await prepareForRoomSwitch(socket,code);
   removeFromMatchmaking(socket.data.auth?.playerKey,{reason:'Busca encerrada porque você iniciou um convite.',notify:true});
   rooms.set(code,room);const p=room.players[0];
   socket.data.roomCode=code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
@@ -1411,10 +1442,10 @@ function createRoomForSocket(socket,profileData={}) {
   socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
   return room;
 }
-function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
+async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
-  prepareForRoomSwitch(socket,room.code);
+  await prepareForRoomSwitch(socket,room.code);
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
   if(p){
@@ -1579,7 +1610,7 @@ io.on('connection', socket => {
   // V40.59 — uma saída voluntária clicada enquanto o aparelho estava offline
   // é confirmada antes de qualquer auto-reconexão. O token/código são usados apenas
   // para localizar a cadeira existente; nunca recriam uma sala ou uma vaga apagada.
-  socket.on('abandonReservedSeat', (payload,ack) => {
+  socket.on('abandonReservedSeat', async (payload,ack) => {
     const done=(data={})=>{try{if(typeof ack==='function')ack({ok:true,...data})}catch{}};
     try{
       const code=String(payload?.code||'').trim().toUpperCase();
@@ -1589,7 +1620,7 @@ io.on('connection', socket => {
       const key=String(socket.data.auth?.playerKey||'');
       const player=room.players.find(p=>!p.isBot&&p.playerKey===key&&(!token||p.token===token));
       if(!player){done({removed:false,reason:'seat-missing'});return;}
-      abandonHumanSeat(room,player,{reason:'confirmou a saída voluntária após recuperar a conexão'});
+      await abandonHumanSeatDurably(room,player,{reason:'confirmou a saída voluntária após recuperar a conexão'});
       done({removed:true,roomCode:code});
       broadcastPresence();
     }catch(e){
@@ -1601,7 +1632,7 @@ io.on('connection', socket => {
   // a Conta Google autenticada ainda consegue localizar a vaga humana reservada.
   // O cliente não informa roomCode/playerKey: o servidor descobre a cadeira pela
   // identidade assinada da sessão e só permite recuperar vaga desconectada/AUTO.
-  socket.on('resumeActiveSeat', () => {
+  socket.on('resumeActiveSeat', async () => {
     try{
       if(socket.data.role===ROLE_PLAYER&&socket.data.roomCode){
         socket.emit('resumeActiveSeatResult',{ok:true,alreadyJoined:true,code:socket.data.roomCode});
@@ -1614,7 +1645,7 @@ io.on('connection', socket => {
       const seat=recoverablePlayerSeatForKey(socket.data.auth?.playerKey);
       if(!seat){socket.emit('resumeActiveSeatResult',{ok:false,reason:'none'});return;}
       const fromAuto=!!seat.player.autoControlled;
-      const resumed=resumeReservedPlayerSeat(socket,seat.room,seat.player,{source:'auto-resume'});
+      const resumed=await resumeReservedPlayerSeat(socket,seat.room,seat.player,{source:'auto-resume'});
       socket.emit('resumeActiveSeatResult',{ok:true,code:seat.room.code,playerId:resumed.id,fromAuto});
     }catch(e){
       socket.emit('resumeActiveSeatResult',{ok:false,reason:'error',message:e?.message||'Não foi possível retomar a partida.'});
@@ -1803,7 +1834,7 @@ io.on('connection', socket => {
     }catch(e){err(socket,e);}
   });
 
-  socket.on('createRoom', payload => {
+  socket.on('createRoom', async payload => {
     try {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
       const code = roomCode();
@@ -1819,7 +1850,7 @@ io.on('connection', socket => {
       if (payload?.withBot) addBotToRoom(room);
       // V40.60: toda a nova sala é preparada primeiro. Somente depois que
       // criação/configuração terminam com sucesso a reserva anterior é cancelada.
-      prepareForRoomSwitch(socket,code);
+      await prepareForRoomSwitch(socket,code);
       removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Busca encerrada porque você criou uma sala.',notify:true});
       rooms.set(code,room);
       const p=room.players[0];
@@ -1840,7 +1871,7 @@ io.on('connection', socket => {
     emitRoom(room);broadcastPresence();
   }));
 
-  socket.on('joinRoom', payload => {
+  socket.on('joinRoom', async payload => {
     try {
       const code=String(payload?.code||'').trim().toUpperCase();
       const room=rooms.get(code);
@@ -1849,9 +1880,9 @@ io.on('connection', socket => {
 
       let p=null;
       let switchPrepared=false;
-      const prepareSuccessfulEntry=()=>{
+      const prepareSuccessfulEntry=async()=>{
         if(switchPrepared)return;
-        prepareForRoomSwitch(socket,code);
+        await prepareForRoomSwitch(socket,code);
         switchPrepared=true;
       };
 
@@ -1864,7 +1895,7 @@ io.on('connection', socket => {
           throw new Error('Esta vaga pertence a outra Conta Google.');
         }
         if(existing){
-          prepareSuccessfulEntry();
+          await prepareSuccessfulEntry();
           if(existing.socketId&&existing.socketId!==socket.id)retireReplacedSocket(existing.socketId,{roomCode:room.code});
           const wasDisconnected=!existing.connected;
           const wasAutoControlled=!!existing.autoControlled;
@@ -1895,7 +1926,7 @@ io.on('connection', socket => {
           if(!byKey.reconnectEligible&&byKey.socketId!==socket.id){
             throw new Error('Sua reserva automática para esta sala não é mais válida. Entre novamente como novo jogador quando a sala permitir.');
           }
-          prepareSuccessfulEntry();
+          await prepareSuccessfulEntry();
           cancelDisconnectDebounce(ROLE_PLAYER,room.code,byKey.id);
           cancelReconnectTimer(room.code,byKey.id);
           if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
@@ -1925,7 +1956,7 @@ io.on('connection', socket => {
         if(!roomHasInviteCapacity(room,socket.data.auth.playerKey)){
           throw new Error('A sala está completa ou possui vaga reservada por convite.');
         }
-        prepareSuccessfulEntry();
+        await prepareSuccessfulEntry();
         p=Engine.addPlayer(room,{socketId:socket.id,token:crypto.randomUUID(),name:payload?.name||socket.data.auth.name,avatar:payload?.avatar,playerKey:socket.data.auth.playerKey});
       }
 
@@ -1943,7 +1974,7 @@ io.on('connection', socket => {
     } catch(e){err(socket,e);}
   });
 
-  socket.on('joinSpectator', payload => {
+  socket.on('joinSpectator', async payload => {
     try{
       const code=String(payload?.code||'').trim().toUpperCase();
       const room=rooms.get(code);
@@ -1952,7 +1983,7 @@ io.on('connection', socket => {
       const key=socket.data.auth.playerKey;
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
-      prepareForRoomSwitch(socket,code);
+      await prepareForRoomSwitch(socket,code);
       const token=String(payload?.token||'').trim().slice(0,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
       let firstJoin=false;
@@ -1998,7 +2029,7 @@ io.on('connection', socket => {
     broadcastPresence();
   }));
 
-  socket.on('leaveRoom', (ack) => {
+  socket.on('leaveRoom', async (ack) => {
     const confirmLeave=(payload={})=>{try{if(typeof ack==='function')ack({ok:true,...payload})}catch{}};
     try {
       notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
@@ -2037,7 +2068,7 @@ io.on('connection', socket => {
       // V40.59 — SAIR é abandono definitivo, nunca uma reconexão automática.
       // Se a rodada já começou, a cadeira vira uma Máquina comum para não quebrar
       // a mesa dos demais; a identidade/token humano são removidos imediatamente.
-      abandonHumanSeat(room,leaving,{reason:'saiu voluntariamente da sala',socket});
+      await abandonHumanSeatDurably(room,leaving,{reason:'saiu voluntariamente da sala',socket});
 
       socket.leave(code);
       socket.data.roomCode = null;
@@ -2119,7 +2150,7 @@ io.on('connection', socket => {
   }));
 
 
-  socket.on('sendInvite', payload => {
+  socket.on('sendInvite', async payload => {
     try{
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de convidar jogadores.');
       updatePresenceFromSocket(socket,payload?.profile||{});
@@ -2136,7 +2167,7 @@ io.on('connection', socket => {
       let current=currentSocketRoom(socket),room=current?.room;
       if(room?.players.some(p=>!p.isBot&&p.playerKey===toKey))throw new Error('Esse jogador já está na sua sala.');
       if(room?.status==='finished'){detachSocketFromRoom(socket);room=null;}
-      if(!room)room=createRoomForSocket(socket,payload?.profile||{});
+      if(!room)room=await createRoomForSocket(socket,payload?.profile||{});
       if(!roomAllowsInviteEventually(room,toKey))throw new Error(room.players.length>=5?'Sua mesa já está completa.':'Esta partida já passou do limite para entrada de novos jogadores.');
       const fromPlayer=room.players.find(p=>!p.isBot&&p.playerKey===fromKey);
       if(!fromPlayer)throw new Error('Não foi possível identificar sua vaga na sala.');
@@ -2152,7 +2183,7 @@ io.on('connection', socket => {
     }catch(e){err(socket,e);}
   });
 
-  socket.on('respondInvite', payload => {
+  socket.on('respondInvite', async payload => {
     try{
       if(socket.data.role===ROLE_SPECTATOR&&payload?.accept)throw new Error('Saia do Modo Observador antes de aceitar um convite para jogar.');
       const invite=invitations.get(String(payload?.inviteId||''));
@@ -2176,7 +2207,7 @@ io.on('connection', socket => {
       // abandonada de forma definitiva pelo joinSocketIntoRoom. Se ainda não pode,
       // a reserva do convite aguarda; a sala antiga só é abandonada no ingresso real.
       if(roomJoinableNow(dest,invite.toKey)){
-        joinSocketIntoRoom(socket,dest,{inviteId:invite.id});
+        await joinSocketIntoRoom(socket,dest,{inviteId:invite.id});
         completeInvite(invite,'✅ Você entrou na nova mesa.');
         return;
       }
@@ -2184,7 +2215,7 @@ io.on('connection', socket => {
     }catch(e){err(socket,e);}
   });
 
-  socket.on('claimInvite', payload => {
+  socket.on('claimInvite', async payload => {
     try{
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de ocupar uma vaga de jogador.');
       const invite=invitations.get(String(payload?.inviteId||''));
@@ -2193,7 +2224,7 @@ io.on('connection', socket => {
       const dest=rooms.get(invite.targetRoomCode);
       if(!dest||!senderStillInDestination(invite,dest))throw new Error('A sala do convite não está mais disponível.');
       if(!roomJoinableNow(dest,invite.toKey))throw new Error('Aguarde o intervalo da rodada da nova sala.');
-      joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');
+      await joinSocketIntoRoom(socket,dest,{inviteId:invite.id});completeInvite(invite,'✅ Você entrou na nova mesa.');
     }catch(e){err(socket,e);}
   });
 
@@ -2370,7 +2401,7 @@ io.on('connection', socket => {
       emitRoom(liveRoom);
       broadcastPresence();
 
-      const timer=setTimeout(() => {
+      const timer=setTimeout(async () => {
         reconnectTimers.delete(reconnectTimerKey(code,playerId));
         const currentRoom = rooms.get(code);
         if (!currentRoom || !['lobby','between-rounds'].includes(currentRoom.status)) return;
@@ -2384,7 +2415,7 @@ io.on('connection', socket => {
           clearReconnectTimersForRoom(code);
           closeSpectatorsForRoom(currentRoom);
           clearSpectatorReconnectTimersForRoom(code);
-          removeRoom(code);
+          try{await removeRoomDurably(code);}catch(e){console.error('[rooms] falha ao excluir sala após prazo de reconexão',code,e?.message||e);return;}
           invalidateInvitesForRoom(code);
           broadcastPresence();
           return;
@@ -2414,8 +2445,7 @@ setInterval(()=>{
       clearReconnectTimersForRoom(code);
       closeSpectatorsForRoom(room);
       clearSpectatorReconnectTimersForRoom(code);
-      removeRoom(code);
-      invalidateInvitesForRoom(code);
+      void removeRoomDurably(code).then(()=>invalidateInvitesForRoom(code)).catch(e=>console.error('[rooms] falha ao excluir sala inativa',code,e?.message||e));
     }
   }
 }, 30*60*1000).unref();
@@ -2430,7 +2460,7 @@ function scheduleRestoredPlayerGrace(room,player){
   cancelReconnectTimer(room.code,player.id);
   const key=reconnectTimerKey(room.code,player.id);
   const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
-  const timer=setTimeout(()=>{
+  const timer=setTimeout(async ()=>{
     reconnectTimers.delete(key);
     const liveRoom=rooms.get(room.code);if(!liveRoom||!['lobby','between-rounds'].includes(liveRoom.status))return;
     const stale=liveRoom.players.find(p=>p.id===player.id);
@@ -2438,7 +2468,9 @@ function scheduleRestoredPlayerGrace(room,player){
     const leavingName=stale.name;
     liveRoom.players=liveRoom.players.filter(p=>p.id!==stale.id);
     if(!liveRoom.players.length||liveRoom.players.every(p=>p.isBot)){
-      clearReconnectTimersForRoom(liveRoom.code);closeSpectatorsForRoom(liveRoom);clearSpectatorReconnectTimersForRoom(liveRoom.code);removeRoom(liveRoom.code);invalidateInvitesForRoom(liveRoom.code);broadcastPresence();return;
+      clearReconnectTimersForRoom(liveRoom.code);closeSpectatorsForRoom(liveRoom);clearSpectatorReconnectTimersForRoom(liveRoom.code);
+      try{await removeRoomDurably(liveRoom.code);}catch(e){console.error('[rooms] falha ao excluir sala restaurada expirada',liveRoom.code,e?.message||e);return;}
+      invalidateInvitesForRoom(liveRoom.code);broadcastPresence();return;
     }
     ensureHost(liveRoom);Engine.appendLog(liveRoom,`${leavingName} foi removido após o prazo de reconexão do servidor.`,'system');emitRoom(liveRoom);broadcastPresence();
   },delay);

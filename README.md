@@ -1,3 +1,19 @@
+## V40.61 — Persistência Forte de Saída e Exclusão
+
+A V40.61 reforça as transições que não podem ser revertidas por um restart brusco do servidor: **Sair**, **entrar efetivamente em outra sala** e **excluir uma sala**.
+
+Antes de alterar a cadeira humana em memória, o servidor grava um **tombstone durável** identificando exatamente aquela associação jogador/sala. Se o processo for interrompido antes de o snapshot atualizado ser salvo, o tombstone continua impedindo que um snapshot antigo devolva a Conta Google à cadeira abandonada. Em partida ativa, a cadeira antiga reaparece apenas como Máquina comum; fora de partida, a associação antiga é descartada.
+
+A exclusão de sala também recebe um tombstone próprio. O PostgreSQL grava o tombstone e remove o snapshot em transação; no armazenamento JSON, ambos são gravados na mesma atualização atômica do arquivo. Gravações atrasadas de snapshot não conseguem ressuscitar uma sala já marcada como excluída.
+
+Cada nova entrada humana possui uma associação própria. Isso permite que, depois de sair voluntariamente, o jogador volte posteriormente pelo **código da sala** como uma nova entrada legítima sem reativar a reserva anterior. Tombstones antigos apontam para a cadeira/associação antiga, não para a Conta Google para sempre.
+
+A V40.60 permanece preservada: apenas iniciar ou cancelar matchmaking não cancela uma reserva involuntária. A persistência forte só é acionada quando a saída/troca realmente é confirmada.
+
+**Validação:** 84/84 testes aprovados, incluindo simulação de crash com snapshot antigo, abandono persistido sem save posterior, nova entrada explícita pelo código e tentativa de gravação atrasada após exclusão da sala.
+
+---
+
 ## V40.60 — Matchmaking sem Abandono Prematuro
 
 A V40.60 corrige a diferença entre **procurar uma nova partida** e **entrar efetivamente em outra sala**. Iniciar a busca automática não cancela mais uma reserva válida de reconexão criada por queda involuntária. Se a busca for cancelada, expirar ou falhar antes de formar uma nova mesa, a reserva anterior continua intacta.

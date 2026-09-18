@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 
-assert(server.includes("abandonHumanSeat(room,leaving,{reason:'saiu voluntariamente da sala',socket});"),'SAIR deve abandonar definitivamente a vaga humana');
+assert(server.includes("await abandonHumanSeatDurably(room,leaving,{reason:'saiu voluntariamente da sala',socket});"),'SAIR deve abandonar definitivamente a vaga humana com confirmação durável');
 assert(server.includes('convertHumanSeatToPermanentBot(room,player,reason);'),'em rodada ativa, a cadeira deve virar Máquina comum para preservar a partida dos demais');
 assert(server.includes('RoomLifecycle.removeHumanSeat(room,player.id);'),'fora de rodada ativa, o humano deve ser removido da sala');
 assert(server.includes('if(deleteRoomIfNoHumanMembers(room))return {changed:true,deleted:true};'),'último humano que sai deve provocar exclusão da sala');

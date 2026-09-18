@@ -12,8 +12,8 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.60.0');
-assert(html.includes('app.js?v=40.60.0')&&html.includes('styles.css?v=40.60.0'),'cache-busting V40.59 ausente');
+assert.strictEqual(pkg.version,'40.61.0');
+assert(html.includes('app.js?v=40.61.0')&&html.includes('styles.css?v=40.61.0'),'cache-busting V40.59 ausente');
 
 function makeRoom(count=4,code='R57'){
   const room=Engine.createRoom(code,{socketId:'s1',token:'t1',name:'P1',avatar:'macaco',playerKey:'g_1'});
@@ -100,7 +100,7 @@ for(let count=2;count<=5;count++){
 }
 
 // Contrato atual: auto-resume só procura reserva criada por queda involuntária.
-assert(server.includes("socket.on('resumeActiveSeat', () =>"),'evento de retomada automática sem código ausente');
+assert(server.includes("socket.on('resumeActiveSeat', async () =>"),'evento de retomada automática sem código ausente');
 assert(server.includes('recoverablePlayerSeatForKey(socket.data.auth?.playerKey)'),'retomada deve usar playerKey autenticada no servidor');
 assert(server.includes('if(!player.reconnectEligible)throw new Error'),'retomada deve exigir reserva automática válida');
 assert(server.includes('RoomLifecycle.markInvoluntaryDisconnect'),'disconnect involuntário deve criar a reserva no servidor');

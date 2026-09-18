@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS — V40.61
+Persistência Forte de Saída e Exclusão
+
+O que muda:
+- SAIR voluntário grava primeiro um tombstone durável da associação humana.
+- Entrar efetivamente em outra sala grava tombstone da associação anterior antes de liberar a vaga.
+- Sala excluída recebe tombstone próprio e não pode ser restaurada por snapshot antigo.
+- Snapshot antigo de uma cadeira abandonada reaparece somente como Máquina em rodada ativa, nunca como reserva humana.
+- O jogador pode voltar depois pelo código da sala como NOVA associação.
+- Matchmaking da V40.60 permanece: apenas buscar/cancelar não cancela a reserva anterior.
+
+Nenhuma regra de cartas, Dama em 2 jogadores, Queima, Dupla, Ação Rápida, observador, chat, ranking ou áudio foi alterada.
+
+Validação: 84/84 testes aprovados.

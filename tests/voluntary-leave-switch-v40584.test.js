@@ -7,7 +7,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const life=fs.readFileSync(path.join(root,'room-lifecycle.js'),'utf8');
 
-assert(server.includes("socket.on('leaveRoom', (ack) =>"),'leaveRoom deve aceitar confirmação do servidor');
+assert(server.includes("socket.on('leaveRoom', async (ack) =>"),'leaveRoom deve aceitar confirmação do servidor');
 assert(server.includes("confirmLeave({keepSeat:false,roomCode:code});"),'servidor deve confirmar que a vaga não ficou reservada');
 assert(server.includes("socket.on('abandonReservedSeat'"),'SAIR clicado offline deve poder ser confirmado ao recuperar conexão');
 assert(life.includes('player.reconnectEligible=false;'),'abandono voluntário deve limpar elegibilidade de reconexão');

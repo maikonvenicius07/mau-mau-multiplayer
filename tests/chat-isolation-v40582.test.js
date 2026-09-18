@@ -21,4 +21,4 @@ assert(!Array.isArray(roomB.chat)||roomB.chat.length===0,'sala diferente deve co
 assert(app.includes('o chat é por SALA'),'cliente deve documentar isolamento por sala');
 assert(app.includes('chatMessages=[];unreadChat=0;'),'cliente deve limpar chat local ao receber joined antes do histórico da sala');
 assert(!server.includes("io.to(room.code).emit('chatHistory',[]);"),'revanche na mesma sala não deve apagar chat');
-console.log('✓ V40.60.0: chat persiste na mesma sala e é isolado entre salas diferentes.');
+console.log('✓ V40.61.0: chat persiste na mesma sala e é isolado entre salas diferentes.');

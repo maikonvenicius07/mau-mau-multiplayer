@@ -1,0 +1,9 @@
+ATUALIZAÇÃO PARA V40.61
+
+Se o projeto já está na V40.60, substitua/adicone somente os arquivos do pacote:
+MAU-MAU_V40.61_Persistencia_Forte_Arquivos_para_Substituir.zip
+
+Atenção: esta versão altera servidor, motor de associação do jogador, armazenamento de snapshots e testes. Não pule arquivos do pacote menor.
+
+Depois do commit, aguarde o GitHub Actions e o Render executarem npm run verify.
+Resultado esperado: 84/84 testes aprovados.

@@ -1,0 +1,14 @@
+VALIDAÇÃO V40.61
+
+- package.json: 40.61.0
+- cache-busting frontend: 40.61.0
+- tombstone de jogador: presente
+- tombstone de sala: presente
+- PostgreSQL: tabela mm_room_lifecycle_tombstones
+- JSON: lifecycle.rooms + lifecycle.players
+- SAIR aguarda tombstone antes de confirmar
+- troca de sala aguarda tombstone da associação anterior
+- exclusão de sala bloqueia snapshot atrasado
+- nova entrada pelo código usa nova associação e não é bloqueada pelo tombstone antigo
+- matchmaking V40.60 preservado
+- npm run verify: 84/84 testes aprovados

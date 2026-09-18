@@ -157,6 +157,10 @@ function makePlayer({socketId, token, name, avatar, playerKey=null, isBot=false}
     reconnectDeadlineAt: null,
     // V40.59 — reconexão automática só existe após desconexão involuntária.
     reconnectEligible: false,
+    // V40.61 — marco da associação atual desta Conta Google com a sala.
+    // Tombstones de abandono só invalidam associações anteriores a este instante,
+    // permitindo que o mesmo jogador volte depois pelo código como NOVA entrada.
+    membershipStartedAt: Date.now(),
     isBot,
     host: false,
     finishedRound: false,
