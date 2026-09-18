@@ -23,8 +23,16 @@ jobs:
         with:
           node-version: 22.22.0
 
-      - name: Instalar dependências
-        run: npm install --no-audit --no-fund
+      - name: Instalar dependências de forma reproduzível
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "package-lock.json encontrado: usando npm ci"
+            npm ci --no-audit --no-fund
+          else
+            echo "package-lock.json ainda não existe: bootstrap inicial com npm install"
+            npm install --no-audit --no-fund
+          fi
 
       - name: Verificar projeto
         run: npm run verify
