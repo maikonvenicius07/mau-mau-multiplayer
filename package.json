@@ -1,13 +1,15 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.64",
-  "description": "Mau-Mau Candeias V40.64: validação defensiva de avatar, nome, chat e campos de entrada no servidor, preservando regras e interface.",
+  "version": "40.65",
+  "description": "Mau-Mau Candeias V40.65: deploy reproduzível com package-lock gerado e validado no GitHub, npm ci no Render/CI e verificação automática do lockfile.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "node --check input-safety.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
-    "test:socket": "node tests/socketio-integration-v4063.test.js"
+    "verify": "npm run verify:lock && node --check input-safety.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
+    "test:socket": "node tests/socketio-integration-v4063.test.js",
+    "lock:generate": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
+    "verify:lock": "node scripts/check-lockfile.js"
   },
   "engines": {
     "node": "22.22.0"

@@ -1,3 +1,12 @@
+# V40.65 — Deploy reproduzível
+
+- Adicionado bootstrap seguro para geração de `package-lock.json` no GitHub com Node 22.22.0.
+- Render e GitHub Verify passam a preferir `npm ci` quando o lockfile existe.
+- O lockfile é validado antes da suíte (`scripts/check-lockfile.js`).
+- O workflow prova `npm ci` + suíte completa antes de tentar commitar o lockfile.
+- Se o push automático for bloqueado, o lock fica disponível como artefato `package-lock-v40.65`.
+- Nenhuma regra ou interface do jogo foi alterada.
+
 ## V40.64 — Segurança de avatar e entradas
 
 A V40.64 reforça a validação no servidor contra clientes modificados sem alterar as regras ou a interface do jogo. Foi criado o módulo compartilhado `input-safety.js`, utilizado pelo servidor, motor e restauração de snapshots.

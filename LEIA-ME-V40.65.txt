@@ -1,0 +1,11 @@
+V40.65 — Deploy reproduzível
+
+Esta versão não altera regras, interface, reconexão, ranking, áudio ou observador.
+Ela fixa o processo de instalação das dependências.
+
+Quando package-lock.json existe:
+- Render usa npm ci;
+- GitHub Verify usa npm ci;
+- o lockfile é validado antes dos testes.
+
+No primeiro push da V40.65, um workflow específico gera e valida package-lock.json automaticamente.

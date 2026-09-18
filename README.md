@@ -1,3 +1,15 @@
+## V40.65 — Deploy reproduzível
+
+A V40.65 não altera nenhuma regra do jogo. Ela torna a instalação de dependências determinística usando `package-lock.json` + `npm ci`. Como o ambiente de montagem não possui acesso ao registry npm, o lockfile é gerado de forma segura no próprio GitHub usando Node 22.22.0, validado com `npm ci` e com a suíte completa antes de ser commitado automaticamente.
+
+- Render prefere `npm ci` assim que o lockfile existe;
+- GitHub Verify usa o mesmo caminho;
+- o primeiro push possui fallback temporário para `npm install`, apenas enquanto o lock ainda está sendo criado;
+- `scripts/check-lockfile.js` confere versão do lock, versão do projeto e dependências diretas;
+- um artefato `package-lock-v40.65` é guardado como fallback caso o repositório bloqueie o push automático do bot.
+
+---
+
 ## V40.64 — Segurança de avatar e entradas
 
 A V40.64 reforça a validação no servidor contra clientes modificados sem alterar as regras ou a interface do jogo. Foi criado o módulo compartilhado `input-safety.js`, utilizado pelo servidor, motor e restauração de snapshots.

@@ -1,0 +1,17 @@
+MAU-MAU CANDEIAS — V40.65 — DEPLOY REPRODUZÍVEL
+
+OBJETIVO
+Congelar a árvore de dependências do projeto com package-lock.json e usar npm ci no GitHub/Render.
+
+COMO FUNCIONA O PRIMEIRO DEPLOY
+1. Substitua/adicone os arquivos deste pacote no GitHub.
+2. No primeiro push, se package-lock.json ainda não existir, o GitHub Actions "Gerar package-lock V40.65" cria o arquivo usando Node 22.22.0.
+3. O workflow valida o lockfile, executa npm ci e toda a suíte de testes.
+4. Em seguida tenta commitar automaticamente package-lock.json no mesmo branch.
+5. A partir desse commit, Render e GitHub usam npm ci.
+
+IMPORTANTE
+- O primeiro commit possui fallback para npm install para não derrubar o deploy enquanto o lock está sendo gerado.
+- Depois que package-lock.json aparecer no repositório, todos os deploys seguintes usam npm ci.
+- Se o GitHub bloquear o push automático, o workflow salva o arquivo como artefato "package-lock-v40.65" para download e upload manual.
+- Nenhuma regra do Mau-Mau foi alterada.

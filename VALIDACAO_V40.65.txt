@@ -1,0 +1,12 @@
+VALIDAÇÃO V40.65
+
+Verificações locais possíveis sem acesso ao registry npm:
+- sintaxe dos arquivos JS alterados;
+- teste de contrato V40.65;
+- todos os testes históricos que não exigem socket.io-client instalado localmente.
+
+Validação final no GitHub/Render:
+- workflow gera package-lock.json com Node 22.22.0;
+- npm ci instala exatamente o lock;
+- npm run verify executa a suíte completa;
+- package-lock.json é commitado no repositório.
