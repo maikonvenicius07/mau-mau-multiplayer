@@ -1,12 +1,12 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.66",
-  "description": "Mau-Mau Candeias V40.66: readiness ativo com PostgreSQL, health check /ready no Render e bloqueio de fallback JSON em produção.",
+  "version": "40.67",
+  "description": "Mau-Mau Candeias V40.67: política oficial de reconexão com 60 s para AUTO, 5 min para sala solo e 8 h para snapshot multiplayer.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
+    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check retention-policy.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
     "test:socket": "node tests/socketio-integration-v4063.test.js",
     "lock:generate": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
     "verify:lock": "node scripts/check-lockfile.js"

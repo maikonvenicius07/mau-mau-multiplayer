@@ -12,8 +12,8 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.66');
-assert(html.includes('app.js?v=40.66')&&html.includes('styles.css?v=40.66'),'cache-busting V40.59 ausente');
+assert.strictEqual(pkg.version,'40.67');
+assert(html.includes('app.js?v=40.67')&&html.includes('styles.css?v=40.67'),'cache-busting V40.59 ausente');
 
 function makeRoom(count=4,code='R57'){
   const room=Engine.createRoom(code,{socketId:'s1',token:'t1',name:'P1',avatar:'macaco',playerKey:'g_1'});

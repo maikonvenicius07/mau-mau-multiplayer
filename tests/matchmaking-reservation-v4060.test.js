@@ -9,7 +9,7 @@ const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.66','package.json deve identificar V40.60');
+assert.strictEqual(pkg.version,'40.67','package.json deve identificar V40.60');
 
 function makeRoom(code='MM60'){
   const room=Engine.createRoom(code,{socketId:'old-socket',token:'old-token',name:'Orlando',avatar:'macaco',playerKey:'google-orlando'});

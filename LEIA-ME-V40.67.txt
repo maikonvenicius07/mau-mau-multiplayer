@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS — V40.67
+
+Esta versão não altera regras das cartas nem interface. Ela centraliza a política de tempo da reconexão para impedir que os três prazos sejam confundidos ou alterados separadamente por acidente.
+
+60 s = espera antes do AUTO temporário.
+5 min = expiração da sala solo quando o único humano some involuntariamente.
+8 h = retenção do snapshot multiplayer para recuperação após restart.
+
+Os 8 h não mantêm uma sala que já foi abandonada voluntariamente: SAIR, troca efetiva de sala e exclusão definitiva continuam tendo prioridade e encerram a associação imediatamente.

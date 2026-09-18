@@ -7,7 +7,7 @@ const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 assert.ok(/^40\./.test(pkg.version));
-assert(/RECONNECT_GRACE_MS\s*=\s*60\s*\*\s*1000/.test(server),'janela de 60 s ausente');
+assert(server.includes('RetentionPolicy.RECONNECT_GRACE_MS')||/RECONNECT_GRACE_MS\s*=\s*60\s*\*\s*1000/.test(server),'janela de 60 s ausente');
 assert(server.includes('scheduleReconnectTakeover'),'takeover temporário ausente');
 assert(server.includes('RoomLifecycle.markAutoTakeover(stale)'),'vaga desconectada não entra em AUTO temporário preservando a reserva');
 assert(server.includes('wasAutoControlled'),'retomada do humano ausente');

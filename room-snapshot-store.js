@@ -5,9 +5,12 @@ const path = require('path');
 const AvatarWire = require('./avatar-wire');
 const RankingMode = require('./ranking-mode');
 const InputSafety = require('./input-safety');
+const RetentionPolicy = require('./retention-policy');
 
 const SNAPSHOT_VERSION = 1;
-const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;
+const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
+// ROOM_SNAPSHOT_TTL_MS continua suportado em desenvolvimento/testes pela política central;
+// em produção/Render a V40.67 fixa o prazo oficial em 8 horas.
 const DEFAULT_DEBOUNCE_MS = 250;
 const MIN_LIFECYCLE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -337,7 +340,7 @@ function convertStaleMembershipToBot(player){
 }
 
 class RoomSnapshotStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=Number(process.env.ROOM_SNAPSHOT_TTL_MS)||DEFAULT_TTL_MS,debounceMs=DEFAULT_DEBOUNCE_MS}={}){
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=RetentionPolicy.snapshotTtlMs(process.env),debounceMs=DEFAULT_DEBOUNCE_MS}={}){
     this.kind=databaseUrl?'postgres':'json';
     this.backend=databaseUrl?new PostgresSnapshotBackend(databaseUrl):new JsonSnapshotBackend(filePath);
     this.ttlMs=Math.max(5*60*1000,ttlMs);

@@ -9,7 +9,7 @@ const root=path.join(__dirname,'..');
 const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const pkg=JSON.parse(read('package.json'));
 
-assert.strictEqual(pkg.version,'40.66','package.json deve identificar V40.66');
+assert.strictEqual(pkg.version,'40.67','package.json deve identificar V40.67');
 assert.ok(pkg.scripts.verify.includes('node --check service-readiness.js'),'verify deve validar o módulo de readiness');
 assert.ok(read('render.yaml').includes('healthCheckPath: /ready'),'Render deve usar /ready, não apenas /health');
 assert.ok(read('server.js').includes("app.get('/health'"),'liveness /health deve continuar disponível');
@@ -42,5 +42,5 @@ function fakeStore(kind,result=true){
   });
   assert.strictEqual(r.ok,false,'falha real do PostgreSQL deve degradar readiness');
   assert.strictEqual(r.reason,'ranking-unavailable');
-  console.log('✓ V40.66: /ready prova PostgreSQL ativo, Render exige banco e /health continua apenas como liveness.');
+  console.log('✓ V40.67: /ready prova PostgreSQL ativo, Render exige banco e /health continua apenas como liveness.');
 })().catch(err=>{console.error(err);process.exit(1);});

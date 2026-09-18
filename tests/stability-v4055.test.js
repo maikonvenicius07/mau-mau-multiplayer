@@ -8,9 +8,9 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const snapshots=fs.readFileSync(path.join(root,'room-snapshot-store.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.66');
+assert.strictEqual(pkg.version,'40.67');
 assert(server.includes('connectionStateRecovery'),'Connection State Recovery do Socket.IO ausente');
-assert(server.includes('maxDisconnectionDuration: 60 * 1000'),'janela nativa de recuperação deve ser 60 s');
+assert(server.includes('maxDisconnectionDuration: RetentionPolicy.RECONNECT_GRACE_MS')||server.includes('maxDisconnectionDuration: 60 * 1000'),'janela nativa de recuperação deve ser 60 s');
 assert(server.includes('skipMiddlewares: false'),'autenticação deve ser revalidada na recuperação');
 assert(server.includes('if(!socket.recovered)'),'dados recuperados do socket estão sendo apagados');
 assert(/maxHttpBufferSize:\s*400000/.test(server),'limite global de pacote não foi reduzido para 400 KB');

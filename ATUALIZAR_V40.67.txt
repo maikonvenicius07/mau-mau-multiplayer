@@ -1,0 +1,11 @@
+V40.67 — TEMPO DE VIDA DA RECONEXÃO
+
+Substitua/adicone os arquivos deste pacote mantendo o package-lock.json que já existe na raiz do GitHub.
+Nenhuma dependência npm foi adicionada ou alterada.
+
+Regra oficial consolidada:
+- 60 segundos: antes do AUTO temporário assumir uma cadeira humana desconectada;
+- 5 minutos: sala solo (1 humano + robôs) sem retorno do único humano;
+- 8 horas: retenção do snapshot de sala multiplayer para sobreviver a reinícios do servidor.
+
+SAIR voluntariamente, entrar efetivamente em outra sala ou abandono definitivo continuam encerrando a reserva antes desses prazos.

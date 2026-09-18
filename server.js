@@ -13,6 +13,7 @@ const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 const { evaluateReadiness, databaseRequired } = require('./service-readiness');
+const RetentionPolicy = require('./retention-policy');
 
 const app = express();
 const server = http.createServer(app);
@@ -85,7 +86,7 @@ const io = new Server(server, {
   // e pode entregar pacotes perdidos após uma microqueda. Nossa reconexão de cadeira
   // continua sendo a segunda camada de proteção para quedas maiores.
   connectionStateRecovery: {
-    maxDisconnectionDuration: 60 * 1000,
+    maxDisconnectionDuration: RetentionPolicy.RECONNECT_GRACE_MS,
     skipMiddlewares: false,
   },
   // V40.49 — tolerância maior a pequenas oscilações de rede móvel sem deixar
@@ -104,13 +105,13 @@ const spectatorReconnectTimers = new Map();
 // V40.61.1 — se o único humano de uma partida contra máquinas cair sem sair,
 // a sala aguarda no máximo 5 minutos. SAIR/troca de sala continuam imediatos.
 const soloRoomExpiryTimers = new Map();
-const SOLO_ROOM_EXPIRY_MS = 5 * 60 * 1000;
+const SOLO_ROOM_EXPIRY_MS = RetentionPolicy.SOLO_ROOM_EXPIRY_MS;
 // V40.49 — microquedas de Wi‑Fi/4G de poucos segundos não congelam a mesa.
 // Se o mesmo jogador voltar rapidamente, o novo socket substitui o antigo antes
 // de a cadeira ser marcada como desconectada.
 const disconnectDebounceTimers = new Map();
 const DISCONNECT_DEBOUNCE_MS = 3000;
-const RECONNECT_GRACE_MS = 60 * 1000;
+const RECONNECT_GRACE_MS = RetentionPolicy.RECONNECT_GRACE_MS;
 // V40.63 — os valores oficiais acima continuam imutáveis em produção.
 // A suíte de integração pode acelerar apenas o relógio interno quando NODE_ENV=test,
 // permitindo testar Socket.IO real (queda -> AUTO -> retorno) sem esperar 60 s.

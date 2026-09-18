@@ -1,3 +1,13 @@
+# V40.67 — Tempo de Vida da Reconexão
+
+- Criada política central para os três prazos de recuperação.
+- AUTO temporário permanece em 60 segundos.
+- Sala solo permanece com expiração de 5 minutos.
+- Snapshot multiplayer passa a ter regra oficial explícita de 8 horas (28.800.000 ms).
+- Produção/Render mantém 8 h mesmo diante de configuração antiga divergente.
+- SAIR, troca de sala e abandono definitivo continuam cancelando a reserva imediatamente.
+- Nenhuma dependência npm foi alterada.
+
 # V40.66 — Health Check e Banco
 
 - `/ready` agora faz verificação ativa do PostgreSQL para ranking e snapshots.

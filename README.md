@@ -1,3 +1,16 @@
+## V40.67 — Tempo de Vida da Reconexão
+
+A V40.67 formaliza os três relógios de recuperação do jogo em uma política única (`retention-policy.js`), sem alterar as regras das cartas ou a interface.
+
+- **60 segundos:** janela antes do AUTO temporário assumir uma cadeira humana desconectada.
+- **5 minutos:** prazo máximo da sala solo (1 humano + robôs) quando o único humano desaparece involuntariamente.
+- **8 horas:** retenção oficial do snapshot de partidas multiplayer para permitir recuperação após reinícios do servidor.
+- **SAIR / entrar em outra sala / abandono definitivo:** continuam tendo prioridade e encerram a reserva imediatamente; os 8 h não ressuscitam vínculos abandonados.
+- No Render/produção, o TTL oficial fica fixado em 8 h para evitar mudança acidental por variável antiga; testes/desenvolvimento ainda podem usar TTL reduzido explicitamente.
+- Nenhuma dependência npm foi alterada; o `package-lock.json` existente continua válido.
+
+---
+
 ## V40.66 — Health Check e Banco
 
 A V40.66 separa **liveness** de **readiness**. `/health` informa apenas se o processo Node está vivo; `/ready` só retorna 200 quando ranking e snapshots foram inicializados e respondem ativamente. No Render/produção, o serviço só fica pronto com PostgreSQL — o fallback JSON continua disponível apenas para desenvolvimento local.

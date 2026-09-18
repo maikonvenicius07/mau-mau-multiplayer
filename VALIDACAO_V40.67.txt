@@ -1,0 +1,10 @@
+VALIDAÇÃO V40.67 — TEMPO DE VIDA DA RECONEXÃO
+
+- política central criada em retention-policy.js;
+- 60 s para AUTO preservados;
+- 5 min para sala solo preservados;
+- 8 h (28.800.000 ms) para snapshot multiplayer formalizadas;
+- em produção/Render o TTL oficial permanece 8 h mesmo se houver variável antiga divergente;
+- em desenvolvimento/testes ainda é possível usar TTL reduzido explicitamente;
+- saída voluntária/troca de sala continuam cancelando a reserva imediatamente;
+- nenhuma dependência npm alterada; package-lock existente permanece válido para a árvore de dependências.
