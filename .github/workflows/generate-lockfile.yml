@@ -1,0 +1,85 @@
+name: Gerar package-lock V40.65
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: package-lock-v4065-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar se o lockfile já existe
+        id: lock
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "package-lock.json já existe. Nenhuma geração necessária."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "package-lock.json ausente. Será gerado com Node 22.22.0."
+          fi
+
+      - name: Usar Node 22.22.0
+        if: steps.lock.outputs.needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+
+      - name: Gerar package-lock.json
+        if: steps.lock.outputs.needed == 'true'
+        run: npm run lock:generate
+
+      - name: Validar package-lock.json
+        if: steps.lock.outputs.needed == 'true'
+        env:
+          REQUIRE_PACKAGE_LOCK: '1'
+        run: npm run verify:lock
+
+      - name: Instalar exatamente pelo lockfile
+        if: steps.lock.outputs.needed == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Executar suíte completa
+        if: steps.lock.outputs.needed == 'true'
+        run: npm run verify
+
+      - name: Guardar lockfile como artefato de segurança
+        if: steps.lock.outputs.needed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock-v40.65
+          path: package-lock.json
+          retention-days: 14
+
+      - name: Commitar package-lock.json
+        if: steps.lock.outputs.needed == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração de lockfile para commitar."
+            exit 0
+          fi
+          git commit -m "chore: gerar package-lock V40.65"
+          if ! git push; then
+            echo "AVISO: o push automático foi bloqueado. O package-lock.json ficou disponível no artefato package-lock-v40.65."
+            exit 0
+          fi
