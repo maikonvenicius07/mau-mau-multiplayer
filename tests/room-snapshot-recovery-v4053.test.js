@@ -6,7 +6,7 @@ const Engine=require('../game-engine');
 const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.61.0');
+assert.strictEqual(pkg.version,'40.61.1');
 const room=Engine.createRoom('ABCD',{socketId:'sock-host',token:'tok-host',name:'Host',avatar:'macaco',playerKey:'g_host'});
 Engine.addPlayer(room,{socketId:'sock-2',token:'tok-2',name:'Dois',avatar:'data:image/webp;base64,AAAA',playerKey:'g_2'});
 room.status='playing';room.round=2;room.currentPlayer=1;room.players[0].hand=[{id:'c1',rank:'5',suit:'clubs',copy:1}];room.players[1].hand=[{id:'c2',rank:'A',suit:'spades',copy:1}];

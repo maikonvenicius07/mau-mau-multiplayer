@@ -1,0 +1,9 @@
+ATUALIZAÇÃO PARA V40.61.1
+
+Se o projeto já está na V40.61, use o pacote:
+MAU-MAU_V40.61.1_Expiracao_Sala_Solo_Arquivos_para_Substituir.zip
+
+Esta versão altera servidor, ciclo de vida da sala, cache-busting/documentação e testes.
+
+Depois do commit, aguarde GitHub Actions e Render executarem npm run verify.
+Resultado esperado: 85/85 testes aprovados.

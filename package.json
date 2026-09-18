@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.61.0",
-  "description": "Mau-Mau Candeias V40.61: persistência forte de saída/troca/exclusão com tombstones duráveis contra restauração de snapshots antigos.",
+  "version": "40.61.1",
+  "description": "Mau-Mau Candeias V40.61.1: expiração de sala solo após 5 minutos de desconexão involuntária do único humano, com exclusão imediata em SAIR/troca.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

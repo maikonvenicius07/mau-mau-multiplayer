@@ -8,8 +8,8 @@ const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.61.0');
-assert(html.includes('app.js?v=40.61.0')&&html.includes('styles.css?v=40.61.0'),'cache-busting V40.58 ausente');
+assert.strictEqual(pkg.version,'40.61.1');
+assert(html.includes('app.js?v=40.61.1')&&html.includes('styles.css?v=40.61.1'),'cache-busting V40.58 ausente');
 
 // CORS/handshake: não pode voltar ao curinga global.
 assert(!server.includes("cors: { origin: '*' }"),'Socket.IO não pode aceitar CORS global com *');

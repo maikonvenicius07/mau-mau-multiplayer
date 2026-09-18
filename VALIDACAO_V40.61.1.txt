@@ -1,0 +1,12 @@
+VALIDAÇÃO V40.61.1
+
+- package.json: 40.61.1
+- cache-busting frontend: 40.61.1
+- regra solo: 1 humano + robôs + queda involuntária = 5 minutos
+- AUTO temporário aos 60 s não reinicia prazo
+- retorno cancela timer
+- SAIR/troca de sala do único humano = exclusão imediata
+- exclusão usa tombstone durável
+- snapshot preserva soloDisconnectStartedAt após restart
+- regra não se aplica a partidas com 2+ humanos
+- npm run verify: 85/85 testes

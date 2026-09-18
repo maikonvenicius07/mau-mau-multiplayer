@@ -67,6 +67,21 @@ function removeHumanSeat(room,playerId) {
   return room.players.splice(idx,1)[0]||null;
 }
 
+
+
+// V40.61.1 — sala solo contra máquinas: se o único humano perder a conexão
+// involuntariamente, a sala pode permanecer reservada por uma janela curta.
+// SAIR/troca de sala não entram aqui, pois removem a associação humana antes.
+function soloDisconnectedHuman(room) {
+  if(!isActiveMatch(room) || !Array.isArray(room.players)) return null;
+  const humans=room.players.filter(p=>!p.isBot);
+  const bots=room.players.filter(p=>p.isBot);
+  if(humans.length!==1 || bots.length<1) return null;
+  const human=humans[0];
+  if(human.connected || !human.reconnectEligible || !human.playerKey) return null;
+  return human;
+}
+
 function hasHumanMembers(room) {
   return !!(room && Array.isArray(room.players) && room.players.some(p=>!p.isBot));
 }
@@ -80,5 +95,6 @@ module.exports={
   clearReconnectReservation,
   convertHumanSeatToPermanentBot,
   removeHumanSeat,
+  soloDisconnectedHuman,
   hasHumanMembers,
 };

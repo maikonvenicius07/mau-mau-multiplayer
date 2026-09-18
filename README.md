@@ -1,3 +1,21 @@
+## V40.61.1 — Expiração de Sala Solo
+
+A V40.61.1 acrescenta uma regra específica para partidas em que existe **somente 1 jogador humano contra uma ou mais Máquinas**. Se esse único humano perder a conexão de forma involuntária, a sala continua reservada por no máximo **5 minutos contados desde a queda**.
+
+Os primeiros 60 segundos continuam com a regra normal de reconexão. Depois disso, a Máquina pode assumir temporariamente a cadeira, mas o prazo total da sala solo continua sendo o mesmo: ele **não reinicia** aos 60 segundos. Se o jogador retornar antes de completar 5 minutos, o timer é cancelado e a partida continua da situação atual.
+
+Se completar 5 minutos sem retorno, o servidor encerra timers/observadores/convites, grava a exclusão durável da V40.61 e remove definitivamente a sala e seu snapshot. Um token antigo não pode recriá-la.
+
+**SAIR** e **entrar efetivamente em outra sala** continuam sendo abandono voluntário. Se era o único humano de uma sala com robôs, a sala antiga é excluída **imediatamente**, sem esperar os 5 minutos.
+
+O marco inicial do prazo (`soloDisconnectStartedAt`) é salvo no snapshot. Assim, se o Render reiniciar durante os 5 minutos, o relógio continua do ponto em que estava e não ganha uma nova janela inteira.
+
+A regra de 5 minutos é exclusiva de **1 humano + robôs**. Se houver dois ou mais humanos pertencentes à partida, permanece a lógica geral de reconexão já definida nas versões anteriores.
+
+**Validação:** 85/85 testes aprovados, incluindo teste dedicado a queda solo, AUTO após 60 s, retorno antes de 5 min, SAIR/troca imediatos, partida com múltiplos humanos e continuidade do prazo após snapshot/restart.
+
+---
+
 ## V40.61 — Persistência Forte de Saída e Exclusão
 
 A V40.61 reforça as transições que não podem ser revertidas por um restart brusco do servidor: **Sair**, **entrar efetivamente em outra sala** e **excluir uma sala**.
