@@ -8,7 +8,7 @@ const {buildMatchRecord}=require('../ranking-store');
 const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.68.1','package.json deve identificar V40.62');
+assert.strictEqual(pkg.version,'40.69','package.json deve identificar V40.62');
 
 function humanRoom(code='R62A'){
   const room=Engine.createRoom(code,{socketId:'h1',token:'t1',name:'Humano 1',avatar:'macaco',playerKey:'g1'});

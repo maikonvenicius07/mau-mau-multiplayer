@@ -1,12 +1,12 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.68.1",
-  "description": "Mau-Mau Candeias V40.68.1: salas ativas sem nenhum humano conectado expiram em 5 minutos e robôs nunca jogam sozinhos.",
+  "version": "40.69",
+  "description": "Mau-Mau Candeias V40.69: até 10 salas, até 5 observadores por sala, rate limit e códigos de sala com crypto.randomInt().",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check retention-policy.js && node --check room-governance.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
+    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check retention-policy.js && node --check room-governance.js && node --check abuse-guard.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
     "test:socket": "node tests/socketio-integration-v4063.test.js",
     "lock:generate": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
     "verify:lock": "node scripts/check-lockfile.js"

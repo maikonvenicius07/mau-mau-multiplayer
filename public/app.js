@@ -73,7 +73,7 @@ const inviteCards=new Map();
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
 let matchmakingDialogDismissed=false;
 let pendingSpectatorOffer=null;
-let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,rooms:[],at:0};
+let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,spectatorLimitPerRoom:5,rooms:[],at:0};
 let liveRoomsRefreshTimer=null;
 let rankingPeriod='day', rankingMode='official';
 let lastShownRoundReviewId=null;
@@ -1119,7 +1119,7 @@ function joinRoomByCode(rawCode,{fromLink=false}={}){
 $('#joinBtn').onclick=()=>joinRoomByCode($('#roomInput').value);
 $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
 function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
-  publicRoomsSnapshot={publicRoomCount:Number(snapshot?.publicRoomCount||0),watchableRoomCount:Number(snapshot?.watchableRoomCount||0),activeSpectatorCount:Number(snapshot?.activeSpectatorCount||0),rooms:Array.isArray(snapshot?.rooms)?snapshot.rooms:[],at:Number(snapshot?.at||Date.now())};
+  publicRoomsSnapshot={publicRoomCount:Number(snapshot?.publicRoomCount||0),watchableRoomCount:Number(snapshot?.watchableRoomCount||0),activeSpectatorCount:Number(snapshot?.activeSpectatorCount||0),spectatorLimitPerRoom:Number(snapshot?.spectatorLimitPerRoom||5),rooms:Array.isArray(snapshot?.rooms)?snapshot.rooms:[],at:Number(snapshot?.at||Date.now())};
   const landingPublic=$('#publicRoomsCountLanding'),landingRooms=$('#watchableRoomsCount'),landingSpectators=$('#liveSpectatorsCount');
   if(landingPublic)landingPublic.textContent=publicRoomsSnapshot.publicRoomCount;
   if(landingRooms)landingRooms.textContent=publicRoomsSnapshot.watchableRoomCount;
@@ -1132,7 +1132,7 @@ function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
   box.innerHTML=publicRoomsSnapshot.rooms.map(room=>{
     const between=room.status==='between-rounds';
     const botText=room.botCount?` • 🤖 ${room.botCount}`:'';
-    return `<article class="live-room-card"><div class="live-room-main"><div class="live-room-code"><small>SALA</small><strong>${esc(room.code)}</strong></div><div class="live-room-info"><strong>${esc(room.hostName||'Mesa')} ${between?'<span class="live-room-break">INTERVALO</span>':'<span class="live-room-now">AO VIVO</span>'}</strong><span>Rodada ${Number(room.round||0)}/${Number(room.rounds||5)} • 👥 ${Number(room.playerCount||0)}/5${botText} • 👁️ ${Number(room.spectatorCount||0)}</span></div></div><button class="live-room-watch-btn" data-watch-room="${esc(room.code)}" type="button">👁️ ASSISTIR</button></article>`;
+    return `<article class="live-room-card"><div class="live-room-main"><div class="live-room-code"><small>SALA</small><strong>${esc(room.code)}</strong></div><div class="live-room-info"><strong>${esc(room.hostName||'Mesa')} ${between?'<span class="live-room-break">INTERVALO</span>':'<span class="live-room-now">AO VIVO</span>'}</strong><span>Rodada ${Number(room.round||0)}/${Number(room.rounds||5)} • 👥 ${Number(room.playerCount||0)}/5${botText} • 👁️ ${Number(room.spectatorCount||0)}/${Number(room.spectatorLimit||publicRoomsSnapshot.spectatorLimitPerRoom||5)}</span></div></div><button class="live-room-watch-btn" data-watch-room="${esc(room.code)}" type="button">👁️ ASSISTIR</button></article>`;
   }).join('');
   box.querySelectorAll('[data-watch-room]').forEach(btn=>btn.onclick=()=>watchPublicRoom(btn.dataset.watchRoom,btn));
 }

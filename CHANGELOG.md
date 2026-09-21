@@ -1,3 +1,17 @@
+## V40.69 — Proteção do servidor e observadores
+
+A V40.69 reduz o limite padrão para **10 salas simultâneas** e limita cada partida a **5 observadores**. Partidas existentes e reconexões válidas nunca são derrubadas por atingir esses limites. Entradas concorrentes de observadores reservam capacidade para impedir ultrapassagem do máximo.
+
+Também foram adicionados limites de frequência por identidade autenticada para criação de salas, tentativas de entrada por código, Modo Observador e matchmaking. A retomada automática de uma sessão salva continua livre dessa barreira para não prejudicar reconexões legítimas.
+
+Os códigos de sala continuam com 6 caracteres legíveis, mas agora são gerados com `crypto.randomInt()` em vez de `Math.random()`. O `/health` informa somente a capacidade agregada de observadores. Nenhuma dependência npm foi adicionada.
+
+**Limites padrão:** `MAX_ROOMS=10` e `MAX_SPECTATORS_PER_ROOM=5`.
+
+**Validação:** a suíte passa a ter 94 testes, incluindo o teste Socket.IO real no GitHub/Render.
+
+---
+
 ## V40.68.1 — Expiração quando todos os humanos estão offline
 
 A V40.68.1 amplia a proteção de 5 minutos que antes existia apenas para sala solo. Agora, **qualquer partida ativa** em que não exista nenhum jogador humano conectado fica reservada por no máximo **5 minutos**, independentemente de possuir 1, 2, 3, 4 ou 5 cadeiras humanas.

@@ -1,0 +1,18 @@
+V40.69 — PROTEÇÃO DO SERVIDOR E OBSERVADORES
+
+1. Substitua/adicione os arquivos deste pacote mantendo as mesmas pastas.
+2. NÃO apague o package-lock.json existente no GitHub.
+3. No Render, use MAX_ROOMS=10 caso essa variável já exista com valor antigo.
+4. Opcionalmente defina MAX_SPECTATORS_PER_ROOM=5; sem variável, o padrão já é 5.
+5. Aguarde o Render executar npm ci + npm run verify.
+6. Confirme no log: "Suíte completa: 94 testes aprovados.", "Build successful" e "Your service is live".
+
+Regras novas:
+- máximo de 10 salas simultâneas;
+- máximo de 5 observadores por sala;
+- partidas e reconexões existentes nunca são derrubadas por atingir os limites;
+- o 11º pedido de nova sala é recusado;
+- o 6º novo observador é recusado;
+- reconexão de observador já reservado não perde a vaga;
+- criação/entrada/busca recebem proteção contra spam;
+- código de sala passa a usar crypto.randomInt().

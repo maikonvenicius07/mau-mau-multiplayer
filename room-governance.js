@@ -1,6 +1,6 @@
 'use strict';
 
-const DEFAULT_MAX_ROOMS = 50;
+const DEFAULT_MAX_ROOMS = 10;
 const MIN_MAX_ROOMS = 10;
 const MAX_MAX_ROOMS = 500;
 

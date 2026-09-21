@@ -15,6 +15,7 @@ const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_
 const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
 const RoomGovernance = require('./room-governance');
+const AbuseGuard = require('./abuse-guard');
 
 const app = express();
 const server = http.createServer(app);
@@ -99,7 +100,10 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
 const MAX_ROOMS = RoomGovernance.maxRooms(process.env);
+const MAX_SPECTATORS_PER_ROOM = AbuseGuard.maxSpectatorsPerRoom(process.env);
 let pendingRoomCreations = 0;
+const pendingSpectatorJoins = new Map();
+const abuseLimiter = new AbuseGuard.ActionRateLimiter();
 const ROOM_AUDIT_INTERVAL_MS = 60 * 1000;
 const ROLE_PLAYER = 'PLAYER';
 const ROLE_SPECTATOR = 'SPECTATOR';
@@ -190,6 +194,17 @@ function reserveRoomCreationSlot(playerKeys=[]) {
   return ()=>{if(!released){released=true;pendingRoomCreations=Math.max(0,pendingRoomCreations-1);}};
 }
 function roomDiagnostics(){return RoomGovernance.summarizeRooms(rooms.values(),MAX_ROOMS,pendingRoomCreations);}
+function abuseSubject(socket){return String(socket?.data?.auth?.playerKey||socket?.handshake?.address||socket?.id||'anonymous').slice(0,160);}
+function enforceActionRate(socket,action,message='Muitas tentativas em pouco tempo. Aguarde alguns segundos e tente novamente.') {
+  const result=abuseLimiter.consume(abuseSubject(socket),action);
+  if(!result.allowed){
+    const seconds=Math.max(1,Math.ceil(result.retryAfterMs/1000));
+    throw new Error(`${message} Tente novamente em ${seconds}s.`);
+  }
+  return result;
+}
+const abusePruneTimer=setInterval(()=>abuseLimiter.prune(),5*60*1000);
+abusePruneTimer.unref?.();
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
@@ -211,6 +226,7 @@ function cleanupRoomResources(room,message='A mesa foi encerrada.'){
   clearReconnectTimersForRoom(code);
   clearSpectatorReconnectTimersForRoom(code);
   clearDisconnectDebouncesForRoom(code);
+  pendingSpectatorJoins.delete(code);
   closeSpectatorsForRoom(room,message);
   purgeInvitesForRoom(code,message);
   if(room.inviteReservations instanceof Map)room.inviteReservations.clear();
@@ -463,6 +479,7 @@ app.get('/health', (_, res) => {
     uptimeSeconds:Math.floor((Date.now()-SERVICE_STARTED_AT)/1000),
     rooms:roomStats.total,
     roomCapacity:{limit:roomStats.limit,available:roomStats.availableSlots,atCapacity:roomStats.atCapacity,pendingCreations:roomStats.pendingCreations},
+    spectatorCapacity:{perRoom:MAX_SPECTATORS_PER_ROOM},
     roomStats,
     sockets:io.engine?.clientsCount || 0,
     ranking:rankingStore.kind,
@@ -518,7 +535,8 @@ function roomCode() {
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code='';
   do {
-    code=''; for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    code='';
+    for(let i=0;i<6;i++)code+=chars[crypto.randomInt(0,chars.length)];
   } while(rooms.has(code) || roomSnapshotStore.isRoomDeleted(code));
   return code;
 }
@@ -948,6 +966,20 @@ function ensureSpectators(room) {
   if (!Array.isArray(room.spectators)) room.spectators = [];
   return room.spectators;
 }
+function reserveSpectatorJoinSlot(room){
+  ensureSpectators(room);
+  const pending=Math.max(0,Number(pendingSpectatorJoins.get(room.code)||0));
+  if(AbuseGuard.spectatorAtCapacity(room,MAX_SPECTATORS_PER_ROOM,pending)){
+    throw new Error(`Esta sala atingiu o limite de ${MAX_SPECTATORS_PER_ROOM} observadores.`);
+  }
+  pendingSpectatorJoins.set(room.code,pending+1);
+  let released=false;
+  return ()=>{
+    if(released)return;released=true;
+    const current=Math.max(0,Number(pendingSpectatorJoins.get(room.code)||0)-1);
+    if(current)pendingSpectatorJoins.set(room.code,current);else pendingSpectatorJoins.delete(room.code);
+  };
+}
 function spectatorReconnectTimerKey(roomCode,spectatorId){return `${roomCode}:${spectatorId}`;}
 function cancelSpectatorReconnectTimer(roomCode,spectatorId){
   const key=spectatorReconnectTimerKey(roomCode,spectatorId),timer=spectatorReconnectTimers.get(key);
@@ -1123,6 +1155,7 @@ function publicRoomCard(room) {
     playerCount: room.players.length,
     connectedPlayerCount: room.players.filter(p=>p.connected||p.isBot||p.autoControlled).length,
     spectatorCount: room.spectators.filter(x=>x.connected).length,
+    spectatorLimit: MAX_SPECTATORS_PER_ROOM,
     hostName: cleanPresenceName(host?.name||'Mesa'),
     botCount: room.players.filter(p=>p.isBot).length,
     createdAt: Number(room.createdAt||Date.now()),
@@ -1138,6 +1171,7 @@ function buildPublicRoomsSnapshot() {
     publicRoomCount: publicRooms.length,
     watchableRoomCount: watchable.length,
     activeSpectatorCount: watchable.reduce((sum,room)=>sum+room.spectatorCount,0),
+    spectatorLimitPerRoom: MAX_SPECTATORS_PER_ROOM,
     rooms: watchable,
     at: Date.now(),
   };
@@ -1617,6 +1651,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   broadcastPresence();
 }
 async function createRoomForSocket(socket,profileData={}) {
+  enforceActionRate(socket,'createRoom','Muitas criações de sala em pouco tempo.');
   const releaseRoomSlot=reserveRoomCreationSlot([socket.data.auth?.playerKey]);
   const code=roomCode();
   let room=null;
@@ -2014,6 +2049,7 @@ io.on('connection', socket => {
         socket.emit('matchmakingState',matchmakingPayloadFor(key));
         return;
       }
+      enforceActionRate(socket,'startMatchmaking','Muitas tentativas de busca em pouco tempo.');
       const rec=presenceFor(key);if(!rec?.sockets?.size)throw new Error('Sua conexão ainda não está pronta.');
       rec.searching=true;
       matchmakingQueue.set(key,{playerKey:key,joinedAt:Date.now()});
@@ -2033,6 +2069,7 @@ io.on('connection', socket => {
     let releaseRoomSlot=null;
     try {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do Modo Observador antes de criar outra sala.');
+      enforceActionRate(socket,'createRoom','Muitas criações de sala em pouco tempo.');
       releaseRoomSlot=reserveRoomCreationSlot([socket.data.auth?.playerKey]);
       const code = roomCode();
       const room = Engine.createRoom(code, {
@@ -2073,6 +2110,9 @@ io.on('connection', socket => {
     try {
       const code=InputSafety.cleanRoomCode(payload?.code);
       const room=rooms.get(code);
+      const requestedToken=InputSafety.cleanOpaqueId(payload?.token,160);
+      const legitimateSavedResume=!!(payload?.resumeIntent==='saved-session'&&room&&requestedToken&&room.players.some(x=>!x.isBot&&x.token===requestedToken&&x.playerKey===socket.data.auth.playerKey));
+      if(!legitimateSavedResume)enforceActionRate(socket,'joinRoom','Muitas tentativas de entrada por código em pouco tempo.');
       if(!room) throw new Error('Sala não encontrada.');
       ensureSocial(room);
 
@@ -2087,7 +2127,6 @@ io.on('connection', socket => {
       // 1) Token persistente do mesmo navegador: serve para refresh/queda involuntária.
       // Uma saída voluntária troca/remove esse token da cadeira, então um token antigo
       // jamais recria a reserva cancelada.
-      const requestedToken=InputSafety.cleanOpaqueId(payload?.token,160);
       if(requestedToken){
         const existing=room.players.find(x=>!x.isBot&&x.token===requestedToken);
         if(existing?.playerKey&&existing.playerKey!==socket.data.auth.playerKey){
@@ -2174,6 +2213,7 @@ io.on('connection', socket => {
   });
 
   socket.on('joinSpectator', async payload => {
+    let releaseSpectatorSlot=null;
     try{
       const code=InputSafety.cleanRoomCode(payload?.code);
       const room=rooms.get(code);
@@ -2182,12 +2222,16 @@ io.on('connection', socket => {
       const key=socket.data.auth.playerKey;
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
-      await prepareForRoomSwitch(socket,code);
       const token=InputSafety.cleanOpaqueId(payload?.token,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
+      if(spectator&&spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
+      if(!spectator){
+        enforceActionRate(socket,'joinSpectator','Muitas tentativas de entrada como observador em pouco tempo.');
+        releaseSpectatorSlot=reserveSpectatorJoinSlot(room);
+      }
+      await prepareForRoomSwitch(socket,code);
       let firstJoin=false;
       if(spectator){
-        if(spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
         cancelDisconnectDebounce(ROLE_SPECTATOR,code,spectator.id);
         cancelSpectatorReconnectTimer(code,spectator.id);
         if(spectator.socketId&&spectator.socketId!==socket.id)retireReplacedSocket(spectator.socketId,{roomCode:room.code});
@@ -2207,6 +2251,7 @@ io.on('connection', socket => {
       if(firstJoin)appendSystemChat(room,`👁️ ${spectator.name} entrou como observador.`);
       emitRoom(room);broadcastPresence();
     }catch(e){err(socket,e);}
+    finally{if(releaseSpectatorSlot)releaseSpectatorSlot();}
   });
 
   socket.on('addBot', () => withRoom(socket,(room,p)=>{

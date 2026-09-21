@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V40.69
+
+Esta versão protege o crescimento do servidor sem mudar as regras das cartas.
+
+CAPACIDADE
+- 10 salas simultâneas.
+- 5 observadores por sala.
+- Ao atingir o limite, salas existentes continuam funcionando normalmente.
+
+PROTEÇÃO CONTRA ABUSO
+- criação repetitiva de salas é limitada;
+- tentativas repetitivas de entrada por código são limitadas;
+- tentativas repetitivas de observação e matchmaking são limitadas;
+- os limites são por identidade autenticada e expiram automaticamente.
+
+CÓDIGOS DE SALA
+A geração passa de Math.random() para crypto.randomInt(), mantendo os mesmos 6 caracteres legíveis.
+
+V40.68.1 PRESERVADA
+Se todos os humanos ficarem offline, robôs param e a sala expira após 5 minutos se ninguém retornar.

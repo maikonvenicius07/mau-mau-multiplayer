@@ -1,0 +1,20 @@
+VALIDAÇÃO V40.69
+
+- limite padrão de salas: 10
+- limite padrão de observadores por sala: 5
+- reconexões não são bloqueadas pelo limite de observadores
+- entradas simultâneas não conseguem ultrapassar 5 observadores
+- partidas existentes não são encerradas ao atingir 10 salas
+- criação excessiva de salas possui rate limit
+- tentativa excessiva de códigos possui rate limit
+- entrada excessiva como observador possui rate limit
+- matchmaking excessivo possui rate limit
+- retomada automática de sessão salva é isenta do rate limit de entrada por código
+- código de sala usa crypto.randomInt()
+- health expõe apenas métricas agregadas
+- regra V40.68.1 de 5 min sem humanos preservada
+- robôs continuam sem jogar quando não existe humano conectado
+- ranking OFICIAL/TREINO preservado
+- observador continua sem receber cartas privadas
+- nenhuma dependência npm nova
+- suíte completa esperada no Render: 94/94
