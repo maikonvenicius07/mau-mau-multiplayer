@@ -11,12 +11,12 @@ const pkg=require('../package.json');
 const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.68','package.json deve identificar V40.62');
-assert(server.includes('RetentionPolicy.SOLO_ROOM_EXPIRY_MS')||server.includes('const SOLO_ROOM_EXPIRY_MS = 5 * 60 * 1000;'),'prazo padrão da sala solo deve ser exatamente 5 minutos');
-assert(server.includes('refreshSoloRoomExpiry(room);'),'mudanças de estado devem reavaliar o prazo da sala solo');
-assert(server.includes("await removeRoomDurably(liveRoom.code,Date.now());"),'expiração deve excluir a sala com tombstone durável');
-assert(server.includes("closeSpectatorsForRoom(liveRoom,'A sala foi encerrada após 5 minutos sem o único jogador humano.');"),'expiração deve encerrar observadores/dados temporários');
-assert(server.includes('cancelSoloRoomExpiry(code,{clearState:false});'),'exclusão normal/durável deve cancelar timer solo pendente');
+assert.strictEqual(pkg.version,'40.68.1','package.json deve identificar V40.62');
+assert(server.includes('RetentionPolicy.ALL_HUMANS_OFFLINE_EXPIRY_MS'),'prazo de 5 minutos deve ser usado para sala ativa sem humanos conectados');
+assert(server.includes('refreshOfflineRoomExpiry(room);'),'mudanças de estado devem reavaliar o prazo de sala sem humanos conectados');
+assert(server.includes("await removeRoomDurably(liveRoom.code,Date.now(),'A sala foi encerrada após 5 minutos sem nenhum jogador humano conectado.');"),'expiração deve excluir a sala com tombstone durável');
+assert(server.includes("closeSpectatorsForRoom(liveRoom,'A sala foi encerrada após 5 minutos sem nenhum jogador humano conectado.');"),'expiração deve encerrar observadores/dados temporários');
+assert(server.includes('cancelOfflineRoomExpiry(code,{clearState:false});'),'exclusão normal/durável deve cancelar timer offline pendente');
 
 function soloRoom(code='S611'){
   const room=Engine.createRoom(code,{socketId:'h1',token:'t1',name:'Humano',avatar:'macaco',playerKey:'g1'});
@@ -92,4 +92,4 @@ function soloRoom(code='S611'){
   assert.strictEqual(restored.soloDisconnectStartedAt,7000,'restart não pode reiniciar o relógio dos 5 minutos');
 }
 
-console.log('✓ V40.62: sala solo espera 5 min só em queda involuntária; retorno cancela e SAIR/troca excluem imediatamente.');
+console.log('✓ V40.61.1 preservada: sala solo segue com 5 min; V40.68.1 amplia o mesmo prazo para qualquer sala ativa sem humanos conectados.');

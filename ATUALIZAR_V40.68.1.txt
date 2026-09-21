@@ -1,0 +1,12 @@
+V40.68.1 — EXPIRAÇÃO MULTIPLAYER OFFLINE EM 5 MINUTOS
+
+1. Substitua/adicone os arquivos deste pacote mantendo as mesmas pastas.
+2. NÃO apague o package-lock.json existente no GitHub.
+3. Não é necessário alterar variáveis no Render.
+4. Aguarde o Render executar npm ci + npm run verify.
+5. Confirme no log: "Suíte completa: 93 testes aprovados.", "Build successful" e "Your service is live".
+
+Regra central:
+- sem humano conectado = robôs/AUTO parados;
+- retorno de qualquer humano antes de 5 min = partida retomada;
+- 5 min completos sem qualquer humano = sala excluída.

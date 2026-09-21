@@ -1,12 +1,15 @@
 'use strict';
 
-// V40.67 — política oficial de retenção/reconexão.
-// Estes três relógios têm finalidades diferentes e não devem ser misturados:
-// 1) 60 s: cadeira humana aguarda antes do AUTO temporário;
-// 2) 5 min: sala solo (1 humano + robôs) expira se o único humano não voltar;
-// 3) 8 h: snapshot de sala multiplayer pode sobreviver a reinícios do servidor.
+// V40.68.1 — política oficial de retenção/reconexão.
+// Estes relógios têm finalidades diferentes:
+// 1) 60 s: uma cadeira humana aguarda antes do AUTO temporário;
+// 2) 5 min: qualquer partida ativa sem NENHUM humano conectado expira;
+// 3) 8 h: TTL técnico máximo do snapshot no armazenamento persistente.
+// A constante SOLO_ROOM_EXPIRY_MS é mantida como alias de compatibilidade
+// com testes/snapshots históricos da V40.61.1.
 const RECONNECT_GRACE_MS = 60 * 1000;
-const SOLO_ROOM_EXPIRY_MS = 5 * 60 * 1000;
+const ALL_HUMANS_OFFLINE_EXPIRY_MS = 5 * 60 * 1000;
+const SOLO_ROOM_EXPIRY_MS = ALL_HUMANS_OFFLINE_EXPIRY_MS;
 const MULTIPLAYER_SNAPSHOT_TTL_MS = 8 * 60 * 60 * 1000;
 
 function productionLike(env=process.env) {
@@ -25,6 +28,7 @@ function snapshotTtlMs(env=process.env) {
 
 module.exports={
   RECONNECT_GRACE_MS,
+  ALL_HUMANS_OFFLINE_EXPIRY_MS,
   SOLO_ROOM_EXPIRY_MS,
   MULTIPLAYER_SNAPSHOT_TTL_MS,
   productionLike,

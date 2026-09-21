@@ -1,3 +1,19 @@
+## V40.68.1 — Expiração quando todos os humanos estão offline
+
+A V40.68.1 amplia a proteção de 5 minutos que antes existia apenas para sala solo. Agora, **qualquer partida ativa** em que não exista nenhum jogador humano conectado fica reservada por no máximo **5 minutos**, independentemente de possuir 1, 2, 3, 4 ou 5 cadeiras humanas.
+
+- Se pelo menos **1 humano permanecer conectado**, a partida continua normalmente e os robôs/AUTO podem jogar.
+- Se **todos os humanos desconectarem**, os robôs e AUTO ficam completamente parados e começa o prazo de 5 minutos.
+- Se qualquer humano retornar dentro do prazo, o contador é cancelado e a partida continua do ponto em que estava.
+- Se ninguém retornar em 5 minutos, a sala, timers, reservas, observadores, convites e snapshot são removidos.
+- O relógio começa quando o **último humano conectado** cai e é persistido no snapshot; um restart do Render não concede novos 5 minutos.
+- A janela de 60 segundos antes do AUTO continua existindo por cadeira, mas AUTO não joga se não houver nenhum humano conectado.
+- O TTL técnico de 8 horas dos snapshots continua existindo como limite máximo de armazenamento, porém uma sala totalmente offline é encerrada antes, aos 5 minutos.
+
+**Validação local:** 92 testes sem dependência externa aprovados; a suíte completa passa a ter 93 testes, incluindo o teste Socket.IO real executado no GitHub/Render.
+
+---
+
 ## V40.68 — Limpeza e Limite de Salas
 
 A V40.68 reforça a estabilidade do servidor sem alterar as regras do Mau-Mau. O servidor passa a limitar a criação a **50 salas simultâneas** por padrão (`MAX_ROOMS=50`), sem encerrar partidas que já estejam em andamento. Quando o limite é atingido, somente novas salas ficam temporariamente bloqueadas.
@@ -102,6 +118,8 @@ O campo `rankingModeAtStart` também é salvo no snapshot. Em snapshots criados 
 ---
 
 ## V40.61.1 — Expiração de Sala Solo
+
+> **Atualização V40.68.1:** a regra de 5 minutos foi ampliada. Agora ela vale para qualquer partida ativa em que todos os humanos estejam desconectados, e não apenas para 1 humano + robôs.
 
 A V40.61.1 acrescenta uma regra específica para partidas em que existe **somente 1 jogador humano contra uma ou mais Máquinas**. Se esse único humano perder a conexão de forma involuntária, a sala continua reservada por no máximo **5 minutos contados desde a queda**.
 

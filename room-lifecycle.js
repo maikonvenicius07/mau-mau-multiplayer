@@ -69,6 +69,16 @@ function removeHumanSeat(room,playerId) {
 
 
 
+// V40.68.1 — uma partida ativa entra no prazo de 5 minutos somente quando
+// não existe nenhum humano conectado. Não importa se há 1, 2, 3, 4 ou 5
+// cadeiras humanas reservadas; basta um humano conectado para a sala continuar ativa.
+function allHumansDisconnected(room) {
+  if(!isActiveMatch(room) || !Array.isArray(room.players)) return false;
+  const humans=room.players.filter(p=>p && !p.isBot);
+  return humans.length>0 && humans.every(p=>!p.connected);
+}
+
+
 // V40.61.1 — sala solo contra máquinas: se o único humano perder a conexão
 // involuntariamente, a sala pode permanecer reservada por uma janela curta.
 // SAIR/troca de sala não entram aqui, pois removem a associação humana antes.
@@ -95,6 +105,7 @@ module.exports={
   clearReconnectReservation,
   convertHumanSeatToPermanentBot,
   removeHumanSeat,
+  allHumansDisconnected,
   soloDisconnectedHuman,
   hasHumanMembers,
 };

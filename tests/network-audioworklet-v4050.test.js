@@ -10,7 +10,7 @@ const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const workletPath=path.join(root,'public','voice-relay-worklet.js');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.68','package.json deve identificar V40.50');
+assert(pkg.version==='40.68.1','package.json deve identificar V40.50');
 assert(fs.existsSync(workletPath),'AudioWorklet do relay não foi incluído');
 const worklet=fs.readFileSync(workletPath,'utf8');
 assert(worklet.includes("registerProcessor('mau-mau-voice-relay-capture'"),'processor AudioWorklet de captura ausente');

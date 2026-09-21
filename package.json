@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.68",
-  "description": "Mau-Mau Candeias V40.68: limpeza centralizada de salas, auditoria de salas abandonadas, diagnóstico interno e limite preventivo de 50 salas simultâneas.",
+  "version": "40.68.1",
+  "description": "Mau-Mau Candeias V40.68.1: salas ativas sem nenhum humano conectado expiram em 5 minutos e robôs nunca jogam sozinhos.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

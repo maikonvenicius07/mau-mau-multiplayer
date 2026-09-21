@@ -1,0 +1,17 @@
+VALIDAÇÃO V40.68.1
+
+- prazo global de sala totalmente offline: 5 minutos
+- começa quando o último humano conectado cai
+- 1 humano conectado impede a expiração global
+- retorno de qualquer humano cancela o prazo
+- robôs/AUTO não jogam sem humano conectado
+- timer de robô revalida presença humana antes de executar a ação
+- snapshot preserva o marco dos 5 minutos após restart
+- sala expirada remove snapshot e libera capacidade
+- 60 s de reconexão/AUTO preservados
+- regra solo de 5 min preservada
+- limite de 50 salas preservado
+- ranking OFICIAL/TREINO preservado
+- observador/chat/áudio preservados
+- 92 testes locais sem dependência externa aprovados
+- suíte completa esperada no Render: 93/93

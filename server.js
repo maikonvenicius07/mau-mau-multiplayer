@@ -106,10 +106,11 @@ const ROLE_SPECTATOR = 'SPECTATOR';
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
 const reconnectTimers = new Map();
 const spectatorReconnectTimers = new Map();
-// V40.61.1 — se o único humano de uma partida contra máquinas cair sem sair,
-// a sala aguarda no máximo 5 minutos. SAIR/troca de sala continuam imediatos.
-const soloRoomExpiryTimers = new Map();
-const SOLO_ROOM_EXPIRY_MS = RetentionPolicy.SOLO_ROOM_EXPIRY_MS;
+// V40.68.1 — se uma partida ativa ficar sem NENHUM humano conectado,
+// a sala aguarda no máximo 5 minutos. Robôs/AUTO não jogam sozinhos.
+// SAIR/troca de sala continuam aplicando as regras de abandono definitivo.
+const offlineRoomExpiryTimers = new Map();
+const ALL_HUMANS_OFFLINE_EXPIRY_MS = RetentionPolicy.ALL_HUMANS_OFFLINE_EXPIRY_MS;
 // V40.49 — microquedas de Wi‑Fi/4G de poucos segundos não congelam a mesa.
 // Se o mesmo jogador voltar rapidamente, o novo socket substitui o antigo antes
 // de a cadeira ser marcada como desconectada.
@@ -205,7 +206,7 @@ async function requireRoomPersistenceReady(){
 function cleanupRoomResources(room,message='A mesa foi encerrada.'){
   if(!room)return false;
   const code=room.code;
-  cancelSoloRoomExpiry(code,{clearState:false});
+  cancelOfflineRoomExpiry(code,{clearState:false});
   if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
   clearReconnectTimersForRoom(code);
   clearSpectatorReconnectTimersForRoom(code);
@@ -565,9 +566,9 @@ function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
 
 function emitRoom(room) {
   maybeRecordFinished(room);
-  // V40.61.1 — atualiza/cancela o prazo da sala solo sempre que o estado muda.
-  // O marco é salvo no próprio snapshot, portanto restart não renova os 5 minutos.
-  refreshSoloRoomExpiry(room);
+  // V40.68.1 — toda partida ativa sem nenhum humano conectado recebe apenas
+  // 5 minutos de reserva. O marco é salvo no snapshot e não reinicia após deploy.
+  refreshOfflineRoomExpiry(room);
   for (const p of room.players) {
     if (!p.socketId) continue;
     const target=io.sockets.sockets.get(p.socketId);
@@ -604,67 +605,77 @@ function clearReconnectTimersForRoom(roomCode) {
   }
 }
 
-function cancelSoloRoomExpiry(roomCode,{clearState=true}={}) {
-  const entry=soloRoomExpiryTimers.get(roomCode);
+function cancelOfflineRoomExpiry(roomCode,{clearState=true}={}) {
+  const entry=offlineRoomExpiryTimers.get(roomCode);
   if(entry?.timer)clearTimeout(entry.timer);
-  soloRoomExpiryTimers.delete(roomCode);
+  offlineRoomExpiryTimers.delete(roomCode);
   if(clearState){
     const room=rooms.get(roomCode);
-    if(room)room.soloDisconnectStartedAt=null;
+    if(room){
+      room.allHumansOfflineStartedAt=null;
+      // Campo legado V40.61.1: limpo junto para não ressuscitar prazo antigo.
+      room.soloDisconnectStartedAt=null;
+    }
   }
 }
 
-function refreshSoloRoomExpiry(room) {
+function refreshOfflineRoomExpiry(room) {
   if(!room)return false;
-  const human=RoomLifecycle.soloDisconnectedHuman(room);
-  if(!human){
-    cancelSoloRoomExpiry(room.code,{clearState:true});
+  if(!RoomLifecycle.allHumansDisconnected(room)){
+    cancelOfflineRoomExpiry(room.code,{clearState:true});
     return false;
   }
 
-  const stored=Number(room.soloDisconnectStartedAt||0);
-  const disconnectedAt=Number(human.disconnectedAt||0);
-  const startedAt=stored>0?stored:(disconnectedAt>0?disconnectedAt:Date.now());
-  room.soloDisconnectStartedAt=startedAt;
-  const deadline=startedAt+SOLO_ROOM_EXPIRY_MS;
-  const current=soloRoomExpiryTimers.get(room.code);
-  if(current&&current.deadline===deadline&&current.playerId===human.id)return true;
+  const humans=(room.players||[]).filter(p=>p&&!p.isBot);
+  const legacyStartedAt=Number(room.soloDisconnectStartedAt||0);
+  const stored=Number(room.allHumansOfflineStartedAt||0);
+  const disconnectedTimes=humans.map(p=>Number(p.disconnectedAt||0)).filter(n=>n>0);
+  // A sala fica totalmente offline quando o ÚLTIMO humano desconecta.
+  const detectedStartedAt=disconnectedTimes.length?Math.max(...disconnectedTimes):Date.now();
+  const startedAt=stored>0?stored:(legacyStartedAt>0?legacyStartedAt:detectedStartedAt);
+  room.allHumansOfflineStartedAt=startedAt;
+  // Preservamos o campo legado apenas para sala solo, garantindo migração suave.
+  room.soloDisconnectStartedAt=humans.length===1?startedAt:null;
+
+  const deadline=startedAt+ALL_HUMANS_OFFLINE_EXPIRY_MS;
+  const current=offlineRoomExpiryTimers.get(room.code);
+  if(current&&current.deadline===deadline)return true;
   if(current?.timer)clearTimeout(current.timer);
 
   const timer=setTimeout(async()=>{
-    soloRoomExpiryTimers.delete(room.code);
+    offlineRoomExpiryTimers.delete(room.code);
     const liveRoom=rooms.get(room.code);
     if(!liveRoom)return;
-    const stale=RoomLifecycle.soloDisconnectedHuman(liveRoom);
-    if(!stale||stale.id!==human.id)return refreshSoloRoomExpiry(liveRoom);
-    const liveStartedAt=Number(liveRoom.soloDisconnectStartedAt||0);
-    if(liveStartedAt!==startedAt)return refreshSoloRoomExpiry(liveRoom);
-    if(Date.now()<deadline)return refreshSoloRoomExpiry(liveRoom);
+    if(!RoomLifecycle.allHumansDisconnected(liveRoom))return refreshOfflineRoomExpiry(liveRoom);
+    const liveStartedAt=Number(liveRoom.allHumansOfflineStartedAt||liveRoom.soloDisconnectStartedAt||0);
+    if(liveStartedAt!==startedAt)return refreshOfflineRoomExpiry(liveRoom);
+    if(Date.now()<deadline)return refreshOfflineRoomExpiry(liveRoom);
 
     if(liveRoom.botTimer){clearTimeout(liveRoom.botTimer);liveRoom.botTimer=null;}
     clearReconnectTimersForRoom(liveRoom.code);
-    closeSpectatorsForRoom(liveRoom,'A sala foi encerrada após 5 minutos sem o único jogador humano.');
+    closeSpectatorsForRoom(liveRoom,'A sala foi encerrada após 5 minutos sem nenhum jogador humano conectado.');
     clearSpectatorReconnectTimersForRoom(liveRoom.code);
     invalidateInvitesForRoom(liveRoom.code);
     try{
-      await removeRoomDurably(liveRoom.code,Date.now());
+      await removeRoomDurably(liveRoom.code,Date.now(),'A sala foi encerrada após 5 minutos sem nenhum jogador humano conectado.');
       broadcastPresence();
     }catch(e){
-      console.error('[rooms] falha ao excluir sala solo após 5 minutos',liveRoom.code,e?.message||e);
-      // Persistência indisponível: não apagamos apenas da memória. Tentamos de novo
-      // em 30 s preservando o mesmo marco original, sem renovar os 5 minutos.
+      console.error('[rooms] falha ao excluir sala sem humanos conectados após 5 minutos',liveRoom.code,e?.message||e);
+      // Persistência indisponível: preservamos o marco original e tentamos novamente
+      // em 30 s, sem conceder uma nova janela de 5 minutos.
       const retry=setTimeout(()=>{
-        soloRoomExpiryTimers.delete(liveRoom.code);
-        refreshSoloRoomExpiry(liveRoom);
+        offlineRoomExpiryTimers.delete(liveRoom.code);
+        refreshOfflineRoomExpiry(liveRoom);
       },30000);
       retry.unref?.();
-      soloRoomExpiryTimers.set(liveRoom.code,{timer:retry,deadline,playerId:human.id,startedAt});
+      offlineRoomExpiryTimers.set(liveRoom.code,{timer:retry,deadline,startedAt});
     }
   },Math.max(0,deadline-Date.now()));
   timer.unref?.();
-  soloRoomExpiryTimers.set(room.code,{timer,deadline,playerId:human.id,startedAt});
+  offlineRoomExpiryTimers.set(room.code,{timer,deadline,startedAt});
   return true;
 }
+
 function roomWaitingForReconnect(room) {
   return !!(room && room.status==='playing' && room.players.some(p=>!p.isBot&&!p.connected&&!p.autoControlled&&p.reconnectEligible));
 }
@@ -758,6 +769,9 @@ function scheduleBotTurn(room) {
     room.botTimer = null;
     const liveRoom = rooms.get(room.code);
     if (!liveRoom || liveRoom !== room || liveRoom.status !== 'playing') return;
+    // V40.68.1 — proteção dupla: mesmo que um timer antigo tenha escapado de uma
+    // microqueda, nenhuma Máquina/AUTO executa jogada sem humano conectado.
+    if (!liveRoom.players.some(p => !p.isBot && p.connected)) return;
     const liveBot = liveRoom.players.find(p => p.id === actingBot.id);
     if (!isAutomatedPlayer(liveBot) || liveBot.finishedRound) return;
 
@@ -2701,10 +2715,10 @@ async function restorePersistedRooms(){
       ensureSocial(room);rooms.set(room.code,room);restored++;
       Engine.appendLog(room,'♻️ A sala foi restaurada após reinício do servidor. Reconecte para retomar seu lugar.','system');
       for(const p of room.players)scheduleRestoredPlayerGrace(room,p);
-      // Se já era uma sala de 1 humano + máquinas abandonada por queda, o prazo
-      // continua do ponto em que estava; se a queda foi causada pelo restart,
-      // começa agora e nunca ultrapassa 5 minutos sem retorno do único humano.
-      refreshSoloRoomExpiry(room);
+      // V40.68.1 — se a sala restaurada estiver sem qualquer humano conectado,
+      // o prazo de 5 minutos continua do marco salvo; se o restart causou a queda,
+      // o relógio começa agora. Robôs permanecem parados enquanto ninguém retornar.
+      refreshOfflineRoomExpiry(room);
       roomSnapshotStore.queueSave(room);
     }
   }catch(e){console.error('[rooms] falha ao restaurar snapshots:',e?.message||e);}

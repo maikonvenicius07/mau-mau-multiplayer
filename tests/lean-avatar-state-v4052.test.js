@@ -11,7 +11,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.68','package.json deve identificar V40.54');
+assert(pkg.version==='40.68.1','package.json deve identificar V40.54');
 
 const custom=`data:image/webp;base64,${'A'.repeat(60000)}`;
 assert(AvatarWire.isCustomAvatarData(custom),'amostra custom deve ser reconhecida');

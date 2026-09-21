@@ -12,14 +12,15 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const server = fs.readFileSync(path.join(root,'server.js'),'utf8');
 const envExample = fs.readFileSync(path.join(root,'.env.example'),'utf8');
 
-assert.strictEqual(pkg.version,'40.68','package.json deve identificar V40.67');
+assert.strictEqual(pkg.version,'40.68.1','package.json deve identificar V40.67');
 assert.strictEqual(Retention.RECONNECT_GRACE_MS,60*1000,'AUTO deve continuar aguardando 60 segundos');
 assert.strictEqual(Retention.SOLO_ROOM_EXPIRY_MS,5*60*1000,'sala solo deve continuar expirando em 5 minutos');
+assert.strictEqual(Retention.ALL_HUMANS_OFFLINE_EXPIRY_MS,5*60*1000,'V40.68.1 deve expirar qualquer sala ativa totalmente offline em 5 minutos');
 assert.strictEqual(Retention.MULTIPLAYER_SNAPSHOT_TTL_MS,8*60*60*1000,'snapshot multiplayer deve durar exatamente 8 horas');
 assert.strictEqual(Retention.snapshotTtlMs({NODE_ENV:'production',ROOM_SNAPSHOT_TTL_MS:'3600000'}),8*60*60*1000,'produção deve manter 8 horas mesmo com variável antiga/divergente');
 assert.strictEqual(Retention.snapshotTtlMs({NODE_ENV:'development',ROOM_SNAPSHOT_TTL_MS:'3600000'}),60*60*1000,'desenvolvimento/testes podem usar TTL reduzido explicitamente');
 assert.ok(server.includes('RetentionPolicy.RECONNECT_GRACE_MS'),'server deve usar a política central para os 60 s');
-assert.ok(server.includes('RetentionPolicy.SOLO_ROOM_EXPIRY_MS'),'server deve usar a política central para os 5 min');
+assert.ok(server.includes('RetentionPolicy.ALL_HUMANS_OFFLINE_EXPIRY_MS'),'server deve usar a política central para os 5 min sem humanos conectados');
 assert.ok(envExample.includes('ROOM_SNAPSHOT_TTL_MS=28800000'),'exemplo deve documentar 8 horas em milissegundos');
 
 (async()=>{

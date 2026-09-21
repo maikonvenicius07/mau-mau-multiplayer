@@ -1,0 +1,15 @@
+MAU-MAU CANDEIAS — V40.68.1
+EXPIRAÇÃO QUANDO TODOS OS HUMANOS ESTÃO OFFLINE
+
+REGRA APROVADA:
+- Se pelo menos 1 jogador humano estiver conectado, a partida continua.
+- Robôs e AUTO só jogam enquanto existir pelo menos 1 humano conectado.
+- Se todos os humanos desconectarem, os robôs param imediatamente.
+- A sala fica reservada por no máximo 5 minutos, contados da queda do último humano.
+- Se alguém retornar dentro de 5 minutos, o prazo é cancelado e a partida continua.
+- Se ninguém retornar, a sala é excluída por completo e libera uma das 50 vagas.
+- Restart do Render não reinicia o relógio dos 5 minutos.
+- Os 60 segundos antes do AUTO continuam preservados.
+- O snapshot continua com TTL técnico máximo de 8 horas, mas sala totalmente offline expira em 5 minutos.
+
+Nenhuma regra das cartas foi alterada.

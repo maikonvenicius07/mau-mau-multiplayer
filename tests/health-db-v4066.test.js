@@ -9,7 +9,7 @@ const root=path.join(__dirname,'..');
 const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const pkg=JSON.parse(read('package.json'));
 
-assert.strictEqual(pkg.version,'40.68','package.json deve identificar V40.67');
+assert.strictEqual(pkg.version,'40.68.1','package.json deve identificar V40.67');
 assert.ok(pkg.scripts.verify.includes('node --check service-readiness.js'),'verify deve validar o módulo de readiness');
 assert.ok(read('render.yaml').includes('healthCheckPath: /ready'),'Render deve usar /ready, não apenas /health');
 assert.ok(read('server.js').includes("app.get('/health'"),'liveness /health deve continuar disponível');
