@@ -1,0 +1,9 @@
+MAU-MAU CANDEIAS V40.69.1a — Correção do Render
+
+Substitua na RAIZ do repositório GitHub o arquivo .env.example por este.
+O teste V40.69 exige:
+MAX_ROOMS=10
+MAX_SPECTATORS_PER_ROOM=5
+
+Depois faça commit e Deploy latest commit no Render.
+Nenhuma regra do jogo foi alterada.
