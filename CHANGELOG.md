@@ -1,3 +1,14 @@
+# V40.69.1f — Auditoria funcional e arraste real do Trocar lados
+
+- Corrigido o botão **⇄ Trocar lados** para arraste real em celular e desktop.
+- O controle foi movido para fora da mesa (`felt`) e agora é um controle global da partida, evitando dependência de `overflow` ou da posição dos jogadores.
+- O arraste acompanha o gesto pela `window`, evitando perder o movimento quando o dedo sai da área original do botão.
+- Adicionado fallback explícito de **Touch Events** para Safari/WebView e fallback de mouse para navegadores antigos.
+- Em telas pequenas a alça `⠿` permanece visível, deixando claro que o botão pode ser movido.
+- Corrigido o cache de `app.js` e `styles.css`: os arquivos passam a revalidar a cada carregamento e a página usa `?v=40.69.1f`, evitando que o celular continue executando JavaScript de uma versão anterior após o deploy.
+- Nenhuma regra do Mau-Mau, ranking, reconexão, login universal, limite de 10 salas ou limite de 5 observadores foi alterado.
+- Validação local: **96 testes independentes do Socket.IO real aprovados**, além de verificação de sintaxe em todos os arquivos JavaScript e validação do `package-lock.json`.
+
 # V40.69.1c — Trocar lados flutuante
 
 - O botão **⇄ Trocar lados** agora é flutuante e pode ser arrastado para não cobrir jogadores em mesas com 3, 4 ou 5 participantes.

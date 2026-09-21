@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const pkg=require('../package.json');
+const app=fs.readFileSync('public/app.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const css=fs.readFileSync('public/styles.css','utf8');
+const server=fs.readFileSync('server.js','utf8');
+
+assert.strictEqual(pkg.version,'40.69.1','versão-base do pacote deve continuar compatível com a suíte V40.69.1');
+assert(html.includes('styles.css?v=40.69.1f'),'CSS sem cache-busting da V40.69.2');
+assert(html.includes('app.js?v=40.69.1f'),'JS sem cache-busting da V40.69.2');
+const pileIndex=html.indexOf('id="pileSideBtn"');
+const tableIndex=html.indexOf('<main class="table-shell">');
+assert(pileIndex>0 && tableIndex>0 && pileIndex<tableIndex,'Trocar lados deve ficar fora da mesa/felt');
+assert.strictEqual((html.match(/id="pileSideBtn"/g)||[]).length,1,'Trocar lados duplicado no HTML');
+assert(app.includes("window.addEventListener('pointermove'"),'arraste não acompanha pointermove pela janela');
+assert(app.includes("window.addEventListener('pointerup'"),'arraste não encerra pointer pela janela');
+assert(app.includes("btn.addEventListener('touchstart'"),'fallback touchstart ausente');
+assert(app.includes("window.addEventListener('touchmove'"),'fallback touchmove ausente');
+assert(app.includes("window.addEventListener('touchend'"),'fallback touchend ausente');
+assert(app.includes("if(!('PointerEvent' in window))"),'fallback de mouse sem PointerEvent ausente');
+assert(css.includes('.pile-side-drag{display:inline'),'alça de arraste não fica visível no celular');
+assert(server.includes("res.setHeader('Cache-Control','no-cache, must-revalidate')"),'JS/CSS ainda podem ficar frescos por uma hora após deploy');
+console.log('✓ V40.69.1f: Trocar lados tem arraste móvel robusto, cache seguro e fica fora do felt.');

@@ -172,37 +172,97 @@ function restorePileSidePosition(){
 }
 function initDraggablePileSide(){
   const btn=$('#pileSideBtn');if(!btn)return;
-  let drag=null,suppressClick=false;
-  const finish=ev=>{
-    if(!drag)return;
-    try{btn.releasePointerCapture?.(drag.pointerId)}catch{}
-    if(drag.moved){suppressClick=true;setPileSidePosition(parseFloat(btn.style.left)||0,parseFloat(btn.style.top)||0,{save:true});}
-    btn.classList.remove('dragging');drag=null;
-    if(ev?.cancelable&&suppressClick)ev.preventDefault();
+  let drag=null,suppressClickUntil=0;
+
+  const pointFromTouch=(list,id)=>{
+    if(!list)return null;
+    for(const t of list)if(id==null||t.identifier===id)return t;
+    return null;
   };
-  btn.addEventListener('pointerdown',ev=>{
-    if(ev.button!==undefined&&ev.button!==0)return;
+  const begin=(kind,id,clientX,clientY,ev)=>{
+    if(drag||btn.disabled)return;
     const rect=btn.getBoundingClientRect();
-    drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};
-    btn.setPointerCapture?.(ev.pointerId);
-  });
-  btn.addEventListener('pointermove',ev=>{
-    if(!drag||ev.pointerId!==drag.pointerId)return;
-    const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
+    drag={kind,id,startX:clientX,startY:clientY,originX:rect.left,originY:rect.top,moved:false};
+    if(kind==='pointer')try{btn.setPointerCapture?.(id)}catch{}
+    // Não bloqueia o clique curto. O movimento passa a bloquear rolagem somente
+    // depois que ultrapassa o limiar de arraste.
+    if(ev?.type==='mousedown')ev.preventDefault?.();
+  };
+  const move=(kind,id,clientX,clientY,ev)=>{
+    if(!drag||drag.kind!==kind||drag.id!==id)return;
+    const dx=clientX-drag.startX,dy=clientY-drag.startY;
     if(!drag.moved&&Math.hypot(dx,dy)<5)return;
-    drag.moved=true;btn.classList.add('dragging');setPileSidePosition(drag.originX+dx,drag.originY+dy);
-    if(ev.cancelable)ev.preventDefault();
+    drag.moved=true;
+    btn.classList.add('dragging');
+    setPileSidePosition(drag.originX+dx,drag.originY+dy);
+    if(ev?.cancelable)ev.preventDefault();
+  };
+  const finish=(kind,id,ev)=>{
+    if(!drag||drag.kind!==kind||drag.id!==id)return;
+    const moved=drag.moved;
+    if(kind==='pointer')try{btn.releasePointerCapture?.(id)}catch{}
+    if(moved){
+      suppressClickUntil=Date.now()+500;
+      setPileSidePosition(parseFloat(btn.style.left)||0,parseFloat(btn.style.top)||0,{save:true});
+      if(ev?.cancelable)ev.preventDefault();
+    }
+    btn.classList.remove('dragging');
+    drag=null;
+  };
+
+  // Pointer Events: Chrome/Edge/Firefox e Safari/iOS modernos. O movimento e o
+  // término ficam na janela, então o arraste não se perde quando o dedo sai do botão.
+  btn.addEventListener('pointerdown',ev=>{
+    if(ev.pointerType==='mouse'&&ev.button!==0)return;
+    begin('pointer',ev.pointerId,ev.clientX,ev.clientY,ev);
   });
-  btn.addEventListener('pointerup',finish);btn.addEventListener('pointercancel',finish);
+  window.addEventListener('pointermove',ev=>move('pointer',ev.pointerId,ev.clientX,ev.clientY,ev),{passive:false});
+  window.addEventListener('pointerup',ev=>finish('pointer',ev.pointerId,ev),{passive:false});
+  window.addEventListener('pointercancel',ev=>finish('pointer',ev.pointerId,ev),{passive:false});
+
+  // Fallback explícito para Safari/WebView que entregue Touch Events sem um fluxo
+  // Pointer Events confiável. Se um pointer já estiver ativo, o toque duplicado é ignorado.
+  btn.addEventListener('touchstart',ev=>{
+    if(drag)return;
+    const t=pointFromTouch(ev.changedTouches,null);if(!t)return;
+    begin('touch',t.identifier,t.clientX,t.clientY,ev);
+  },{passive:true});
+  window.addEventListener('touchmove',ev=>{
+    if(!drag||drag.kind!=='touch')return;
+    const t=pointFromTouch(ev.touches,drag.id)||pointFromTouch(ev.changedTouches,drag.id);if(!t)return;
+    move('touch',drag.id,t.clientX,t.clientY,ev);
+  },{passive:false});
+  window.addEventListener('touchend',ev=>{
+    if(!drag||drag.kind!=='touch')return;
+    const t=pointFromTouch(ev.changedTouches,drag.id);if(t)finish('touch',drag.id,ev);
+  },{passive:false});
+  window.addEventListener('touchcancel',ev=>{
+    if(!drag||drag.kind!=='touch')return;
+    finish('touch',drag.id,ev);
+  },{passive:false});
+
+  // Fallback de mouse para navegadores antigos sem Pointer Events.
+  if(!('PointerEvent' in window)){
+    btn.addEventListener('mousedown',ev=>{if(ev.button===0)begin('mouse',0,ev.clientX,ev.clientY,ev)});
+    window.addEventListener('mousemove',ev=>move('mouse',0,ev.clientX,ev.clientY,ev));
+    window.addEventListener('mouseup',ev=>finish('mouse',0,ev));
+  }
+
   btn.addEventListener('click',ev=>{
-    if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}
+    if(Date.now()<suppressClickUntil){ev.preventDefault();ev.stopImmediatePropagation();return;}
     togglePileSide();
   });
   btn.addEventListener('dblclick',ev=>{
-    ev.preventDefault();const pos=pileSideDefaultPosition();setPileSidePosition(pos.x,pos.y,{save:true});
+    ev.preventDefault();
+    const pos=pileSideDefaultPosition();setPileSidePosition(pos.x,pos.y,{save:true});
     toast('⇄ Botão Trocar lados voltou à posição inicial.');
   });
-  window.addEventListener('resize',()=>{const r=btn.getBoundingClientRect();setPileSidePosition(r.left,r.top,{save:true})});
+  window.addEventListener('resize',()=>{
+    const r=btn.getBoundingClientRect();setPileSidePosition(r.left,r.top,{save:true});
+  });
+  window.addEventListener('orientationchange',()=>setTimeout(()=>{
+    const r=btn.getBoundingClientRect();setPileSidePosition(r.left,r.top,{save:true});
+  },120));
   restorePileSidePosition();
 }
 

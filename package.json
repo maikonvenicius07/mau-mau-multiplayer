@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
   "version": "40.69.1",
-  "description": "Mau-Mau Candeias V40.69.1: login universal Google + Apple + e-mail, preservando 10 salas e 5 observadores por sala.",
+  "description": "Mau-Mau Candeias V40.69.1f: auditoria funcional, arraste robusto do Trocar lados e cache seguro, preservando login universal, 10 salas e 5 observadores.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

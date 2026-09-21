@@ -347,13 +347,13 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 
 
-/* V28 / V40.69.1c — botão flutuante para alternar baralho e descarte */
+/* V28 / V40.69.1f — botão global e arrastável para alternar baralho e descarte */
 .pile-side-toggle{
   position:fixed;
   top:76px;
   left:230px;
   right:auto;
-  z-index:71;
+  z-index:74;
   min-height:42px;
   padding:8px 13px;
   border:1px solid #cfa64e;
@@ -378,7 +378,7 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 .pile-side-toggle:hover{filter:brightness(1.14)}
 .pile-side-toggle:active,.pile-side-toggle.dragging{cursor:grabbing}
-.pile-side-toggle.dragging{filter:brightness(1.18);box-shadow:0 10px 26px #0009,0 0 0 2px #f0cc7030}
+.pile-side-toggle.dragging{transition:none;filter:brightness(1.18);box-shadow:0 10px 26px #0009,0 0 0 2px #f0cc7030}
 .pile-side-drag{font-size:13px;line-height:1;color:#d9b968;opacity:.82}
 .pile-side-icon{font-size:15px;line-height:1}
 .pile-side-toggle[data-side="deck-right"]::after{content:" • baralho →";color:#9ce4bd;font-size:9px}
@@ -391,8 +391,9 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
   .pile-side-toggle[data-side="deck-right"]::after,.pile-side-toggle[data-side="deck-left"]::after{display:none}
 }
 @media(max-width:480px){
-  .pile-side-toggle{min-width:44px;width:44px;padding:0;gap:0}
-  .pile-side-drag,.pile-side-label{display:none}
+  .pile-side-toggle{min-width:54px;width:54px;padding:0 6px;gap:3px}
+  .pile-side-label{display:none}
+  .pile-side-drag{display:inline;font-size:10px;opacity:.95}
   .pile-side-icon{font-size:19px}
 }
 

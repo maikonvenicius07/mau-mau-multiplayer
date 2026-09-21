@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.1" />
+  <link rel="stylesheet" href="styles.css?v=40.69.1f" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -240,10 +240,13 @@
          Fica fora do felt para nunca ser recortado pelo overflow da mesa, inclusive no Modo Observador. -->
     <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone estável. Arraste para mover." aria-label="Microfone ao vivo estável: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
 
+    <!-- V40.69.1f: controle global fora do felt. Assim o arraste não depende da mesa,
+         do overflow nem da quantidade/posição dos jogadores. -->
+    <button id="pileSideBtn" class="pile-side-toggle" type="button" title="Trocar o lado do baralho e da carta da mesa. Arraste para mover." aria-label="Trocar o lado do baralho e da carta da mesa. Arraste para mover."><span class="pile-side-drag" aria-hidden="true">⠿</span><span class="pile-side-icon" aria-hidden="true">⇄</span><span class="pile-side-label">Trocar lados</span></button>
+
     <main class="table-shell">
       <div class="scoreboard" id="scoreboard"></div>
       <div class="felt">
-        <button id="pileSideBtn" class="pile-side-toggle" type="button" title="Trocar o lado do baralho e da carta da mesa. Arraste para mover." aria-label="Trocar o lado do baralho e da carta da mesa. Arraste para mover."><span class="pile-side-drag" aria-hidden="true">⠿</span><span class="pile-side-icon" aria-hidden="true">⇄</span><span class="pile-side-label">Trocar lados</span></button>
         <button id="floatingBurnBtn" class="floating-game-action floating-burn-action hidden" type="button" title="Queima disponível. Clique para queimar ou arraste para mover." aria-label="Botão flutuante de Queima"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">🔥</span><strong>QUEIMA</strong></button>
         <button id="floatingDoubleBtn" class="floating-game-action floating-double-action hidden" type="button" title="Carta Dupla disponível. Clique para jogar a dupla ou arraste para mover." aria-label="Botão flutuante de Carta Dupla"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">×2</span><strong>DUPLA</strong></button>
         <button id="floatingQuickBtn" class="floating-game-action floating-quick-action hidden" type="button" title="Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover." aria-label="Botão flutuante de Ação Rápida"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">⚡</span><strong>RÁPIDA</strong></button>
@@ -631,6 +634,6 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.1"></script>
+  <script src="app.js?v=40.69.1f"></script>
 </body>
 </html>
