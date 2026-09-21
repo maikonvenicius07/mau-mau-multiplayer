@@ -347,37 +347,53 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 
 
-/* V28 — botão para alternar baralho e descarte */
+/* V28 / V40.69.1c — botão flutuante para alternar baralho e descarte */
 .pile-side-toggle{
-  position:absolute;
-  top:34px;
-  left:30%;
-  transform:translateX(-50%);
-  z-index:12;
+  position:fixed;
+  top:76px;
+  left:230px;
+  right:auto;
+  z-index:71;
   min-height:42px;
   padding:8px 13px;
   border:1px solid #cfa64e;
   border-radius:999px;
   background:#0b1914e8;
   color:#f5d783;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   font-size:11px;
   font-weight:900;
   letter-spacing:.02em;
   box-shadow:0 6px 18px #0006, inset 0 0 0 1px #ffffff0c;
   backdrop-filter:blur(6px);
-  cursor:pointer;
+  cursor:grab;
   pointer-events:auto;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
 }
 .pile-side-toggle:hover{filter:brightness(1.14)}
-.pile-side-toggle:active{transform:translateX(-50%) scale(.96)}
-.pile-side-toggle[data-side="deck-right"]::after{content:"  • baralho →";color:#9ce4bd;font-size:9px}
-.pile-side-toggle[data-side="deck-left"]::after{content:"  • ← baralho";color:#9ce4bd;font-size:9px}
+.pile-side-toggle:active,.pile-side-toggle.dragging{cursor:grabbing}
+.pile-side-toggle.dragging{filter:brightness(1.18);box-shadow:0 10px 26px #0009,0 0 0 2px #f0cc7030}
+.pile-side-drag{font-size:13px;line-height:1;color:#d9b968;opacity:.82}
+.pile-side-icon{font-size:15px;line-height:1}
+.pile-side-toggle[data-side="deck-right"]::after{content:" • baralho →";color:#9ce4bd;font-size:9px}
+.pile-side-toggle[data-side="deck-left"]::after{content:" • ← baralho";color:#9ce4bd;font-size:9px}
 
 @media(max-width:900px){
-  .pile-side-toggle{top:10px;left:10px;transform:none;min-height:38px;padding:7px 10px;font-size:0;border-radius:11px}
-  .pile-side-toggle::before{content:"⇄";font-size:19px}
+  .pile-side-toggle{min-height:40px;padding:7px 10px;border-radius:999px;font-size:10px}
+  .pile-side-drag{font-size:12px}
+  .pile-side-icon{font-size:16px}
   .pile-side-toggle[data-side="deck-right"]::after,.pile-side-toggle[data-side="deck-left"]::after{display:none}
-  .pile-side-toggle:active{transform:scale(.96)}
+}
+@media(max-width:480px){
+  .pile-side-toggle{min-width:44px;width:44px;padding:0;gap:0}
+  .pile-side-drag,.pile-side-label{display:none}
+  .pile-side-icon{font-size:19px}
 }
 
 /* V35 — melhorar leitura das cartas na mão no mobile */

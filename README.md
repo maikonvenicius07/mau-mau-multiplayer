@@ -1,3 +1,11 @@
+# V40.69.1c — Trocar lados flutuante
+
+- O botão **⇄ Trocar lados** agora é flutuante e pode ser arrastado para não cobrir jogadores em mesas com 3, 4 ou 5 participantes.
+- A posição escolhida fica salva somente no aparelho/navegador.
+- Duplo clique/toque retorna o botão à posição inicial.
+- O microfone não foi alterado nesta correção.
+- Regras, turnos, ranking, reconexão, login universal, 10 salas e 5 observadores permanecem inalterados.
+
 # MAU-MAU CANDEIAS — V40.69.1
 
 ## V40.69.1 — Login universal

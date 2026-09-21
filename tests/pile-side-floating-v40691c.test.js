@@ -1,0 +1,14 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const app=fs.readFileSync('public/app.js','utf8');
+const css=fs.readFileSync('public/styles.css','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+assert(html.includes('id="pileSideBtn"'),'botão Trocar lados ausente');
+assert(html.includes('pile-side-drag'),'botão Trocar lados sem indicação de arraste');
+assert(css.includes('.pile-side-toggle{\n  position:fixed'),'Trocar lados não está flutuante/fixo');
+assert(app.includes("const pileSidePositionStorage='maumauPileSidePositionV1'"),'posição do Trocar lados não é persistida');
+assert(app.includes('function initDraggablePileSide()'),'arraste do Trocar lados não foi implementado');
+assert(app.includes('initDraggablePileSide();'),'arraste do Trocar lados não foi inicializado');
+assert(!app.includes("$('#pileSideBtn').onclick=togglePileSide"),'handler antigo conflita com arraste');
+console.log('✓ V40.69.1c: Trocar lados é flutuante, arrastável e salva a posição local.');

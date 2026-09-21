@@ -57,6 +57,7 @@ const liveMicSpectatorPositionStorage='maumauSpectatorLiveMicPositionV1';
 let liveMicPositionRole=null;
 const quickReactionsPositionStorage='maumauQuickReactionsPositionV2';
 const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDoublePositionStorage='maumauFloatingDoublePositionV1', floatingQuickPositionStorage='maumauFloatingQuickPositionV1';
+const pileSidePositionStorage='maumauPileSidePositionV1';
 const sessionKey='maumauSessionV1';
 const pendingVoluntaryLeaveKey='maumauPendingVoluntaryLeaveV1';
 let savedSessionResumePending=false,accountSeatResumePending=false;
@@ -130,8 +131,8 @@ function applyPileSide(mode=pileSide){
   if(btn){
     btn.dataset.side=pileSide;
     btn.title=pileSide==='deck-right'
-      ? 'Atual: carta da mesa à esquerda e baralho à direita. Clique para inverter.'
-      : 'Atual: baralho à esquerda e carta da mesa à direita. Clique para inverter.';
+      ? 'Atual: carta da mesa à esquerda e baralho à direita. Clique para inverter; arraste para mover.'
+      : 'Atual: baralho à esquerda e carta da mesa à direita. Clique para inverter; arraste para mover.';
     btn.setAttribute('aria-label',btn.title);
   }
   localStorage.setItem(pileSideStorage,pileSide);
@@ -142,6 +143,67 @@ function togglePileSide(){
   toast(pileSide==='deck-right'
     ? '🃏 Carta da mesa à esquerda • baralho à direita.'
     : '🂠 Baralho à esquerda • carta da mesa à direita.');
+}
+
+// V40.69.1c — o botão Trocar lados pode ser movido para não cobrir jogadores
+// em mesas com 3, 4 ou 5 participantes. A posição fica salva apenas neste aparelho.
+function pileSideDefaultPosition(){
+  const btn=$('#pileSideBtn'),w=btn?.offsetWidth||(window.innerWidth<=480?44:150);
+  const topbarBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom||58;
+  return {x:Math.max(8,Math.min(window.innerWidth-w-8,window.innerWidth<=900?12:230)),y:topbarBottom+10};
+}
+function clampPileSidePosition(x,y){
+  const btn=$('#pileSideBtn');if(!btn)return{x:0,y:0};
+  const margin=8,topMin=Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+margin;
+  const w=btn.offsetWidth||(window.innerWidth<=480?44:150),h=btn.offsetHeight||42;
+  const maxX=Math.max(margin,window.innerWidth-w-margin),maxY=Math.max(topMin,window.innerHeight-h-margin);
+  return{x:Math.min(maxX,Math.max(margin,Number(x)||0)),y:Math.min(maxY,Math.max(topMin,Number(y)||topMin))};
+}
+function setPileSidePosition(x,y,{save=false}={}){
+  const btn=$('#pileSideBtn');if(!btn)return;
+  const pos=clampPileSidePosition(x,y);
+  btn.style.left=`${Math.round(pos.x)}px`;btn.style.top=`${Math.round(pos.y)}px`;btn.style.right='auto';btn.style.bottom='auto';
+  if(save)try{localStorage.setItem(pileSidePositionStorage,JSON.stringify({x:Math.round(pos.x),y:Math.round(pos.y)}))}catch{}
+}
+function restorePileSidePosition(){
+  let pos=null;try{pos=JSON.parse(localStorage.getItem(pileSidePositionStorage)||'null')}catch{}
+  if(!pos||!Number.isFinite(Number(pos.x))||!Number.isFinite(Number(pos.y)))pos=pileSideDefaultPosition();
+  setPileSidePosition(pos.x,pos.y);
+}
+function initDraggablePileSide(){
+  const btn=$('#pileSideBtn');if(!btn)return;
+  let drag=null,suppressClick=false;
+  const finish=ev=>{
+    if(!drag)return;
+    try{btn.releasePointerCapture?.(drag.pointerId)}catch{}
+    if(drag.moved){suppressClick=true;setPileSidePosition(parseFloat(btn.style.left)||0,parseFloat(btn.style.top)||0,{save:true});}
+    btn.classList.remove('dragging');drag=null;
+    if(ev?.cancelable&&suppressClick)ev.preventDefault();
+  };
+  btn.addEventListener('pointerdown',ev=>{
+    if(ev.button!==undefined&&ev.button!==0)return;
+    const rect=btn.getBoundingClientRect();
+    drag={pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,originX:rect.left,originY:rect.top,moved:false};
+    btn.setPointerCapture?.(ev.pointerId);
+  });
+  btn.addEventListener('pointermove',ev=>{
+    if(!drag||ev.pointerId!==drag.pointerId)return;
+    const dx=ev.clientX-drag.startX,dy=ev.clientY-drag.startY;
+    if(!drag.moved&&Math.hypot(dx,dy)<5)return;
+    drag.moved=true;btn.classList.add('dragging');setPileSidePosition(drag.originX+dx,drag.originY+dy);
+    if(ev.cancelable)ev.preventDefault();
+  });
+  btn.addEventListener('pointerup',finish);btn.addEventListener('pointercancel',finish);
+  btn.addEventListener('click',ev=>{
+    if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}
+    togglePileSide();
+  });
+  btn.addEventListener('dblclick',ev=>{
+    ev.preventDefault();const pos=pileSideDefaultPosition();setPileSidePosition(pos.x,pos.y,{save:true});
+    toast('⇄ Botão Trocar lados voltou à posição inicial.');
+  });
+  window.addEventListener('resize',()=>{const r=btn.getBoundingClientRect();setPileSidePosition(r.left,r.top,{save:true})});
+  restorePileSidePosition();
 }
 
 const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
@@ -1344,7 +1406,7 @@ $('#leaveBtn').onclick=()=>{
 };
 
 applyPileSide();
-$('#pileSideBtn').onclick=togglePileSide;
+initDraggablePileSide();
 updateHandSortButton();
 $('#sortHandBtn').onclick=toggleHandSort;
 

@@ -1,0 +1,25 @@
+MAU-MAU CANDEIAS — V40.69.1c
+TROCAR LADOS FLUTUANTE
+
+OBJETIVO
+Evitar que o botão "⇄ Trocar lados" fique na frente de jogadores em mesas com 3, 4 ou 5 participantes.
+
+ALTERAÇÃO
+- O botão ⇄ Trocar lados agora é flutuante e arrastável.
+- A posição escolhida fica salva localmente no aparelho/navegador.
+- Duplo clique/toque retorna à posição inicial.
+- Em telas muito pequenas o botão fica compacto.
+- O microfone NÃO foi alterado nesta correção.
+- Nenhuma regra do jogo foi alterada.
+
+PRESERVADO
+- Login Google + Apple + e-mail.
+- Ranking e identidade do jogador.
+- Reconexão e AUTO temporário.
+- Limite de 10 salas.
+- Limite de 5 observadores por sala.
+- Queima, Carta Dupla, Ação Rápida e demais regras.
+
+VALIDAÇÃO LOCAL
+- 95 testes sem dependência externa aprovados.
+- O teste Socket.IO real depende de npm ci/npm install e deve rodar no GitHub/Render.
