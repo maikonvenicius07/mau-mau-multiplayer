@@ -1,0 +1,43 @@
+MAU-MAU CANDEIAS — V40.69.1
+LOGIN UNIVERSAL: GOOGLE + APPLE + E-MAIL
+
+OBJETIVO
+Preparar o jogo para Android e iPhone sem depender exclusivamente de Conta Google.
+
+O QUE MUDOU
+1. Google continua funcionando e preserva as identidades antigas.
+2. Novo login por e-mail sem senha:
+   - usuário informa o e-mail;
+   - recebe código de 6 dígitos;
+   - código vale 10 minutos;
+   - máximo de 5 tentativas;
+   - proteção contra solicitações repetidas.
+3. Novo suporte opcional a Sign in with Apple.
+4. Cookie de sessão passou a se chamar maumau_session.
+5. O cookie antigo maumau_google_session ainda é aceito para migração.
+6. Nova persistência de identidades no PostgreSQL.
+7. Ranking, reconexão, jogadores online e convites continuam usando playerKey controlado pelo servidor.
+8. Não foi criado modo visitante.
+
+IMPORTANTE PARA O IPHONE
+Para liberar iPhone sem configurar Apple agora, basta ativar o LOGIN POR E-MAIL no Render.
+O botão Apple pode ser ativado depois, quando a conta Apple Developer estiver configurada.
+
+LIMITES PRESERVADOS
+- 10 salas simultâneas.
+- 5 observadores por sala.
+- 2 a 5 jogadores.
+
+NÃO FOI ALTERADO
+- regras das cartas;
+- Dama em 2 jogadores;
+- Queima;
+- Ação Rápida;
+- Carta Dupla;
+- reconexão/AUTO;
+- ranking OFICIAL/TREINO;
+- microfone;
+- chat;
+- matchmaking;
+- convites;
+- Jogar de Novo.

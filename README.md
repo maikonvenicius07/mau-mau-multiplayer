@@ -1,3 +1,19 @@
+# MAU-MAU CANDEIAS — V40.69.1
+
+## V40.69.1 — Login universal
+
+- Google continua funcionando e preserva o `playerKey` das contas já existentes.
+- Novo acesso por **e-mail com código de 6 dígitos**, sem senha.
+- Novo suporte opcional a **Sign in with Apple** para web/PWA.
+- A sessão passa a usar cookie genérico `maumau_session`, mantendo leitura do cookie Google antigo durante a migração.
+- Nova camada `auth-identity-store.js` relaciona Google, Apple e e-mail verificado a um `playerKey` canônico persistente.
+- Quando dois métodos apresentam exatamente o mesmo e-mail verificado, a identidade existente é reutilizada. E-mails diferentes permanecem contas distintas.
+- Login por e-mail usa Resend, OTP de 10 minutos, limite de tentativas e rate limit.
+- Apple só aparece quando todas as credenciais necessárias estiverem configuradas.
+- Nenhuma regra de cartas, turno, reconexão, salas, observadores ou ranking foi alterada.
+
+---
+
 ## V40.69 — Proteção do servidor e observadores
 
 A V40.69 reduz o limite padrão para **10 salas simultâneas** e limita cada partida a **5 observadores**. Partidas existentes e reconexões válidas nunca são derrubadas por atingir esses limites. Entradas concorrentes de observadores reservam capacidade para impedir ultrapassagem do máximo.
@@ -385,7 +401,7 @@ A tela inicial agora possui uma Central de Partidas ao Vivo para observadores. S
 
 
 
-Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, Login Google obrigatório, Socket.IO, ranking PostgreSQL, presença online e reações rápidas com apenas a carinha visível.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, login por Google/Apple/e-mail verificado, Socket.IO, ranking PostgreSQL, presença online e reações rápidas.
 
 
 
@@ -439,9 +455,9 @@ Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo pa
 
 ## Recursos atuais
 
-- **Login Google obrigatório** com sessão própria em cookie HttpOnly.
+- **Login universal obrigatório**: Google, Apple ou e-mail com código temporário; sessão própria em cookie HttpOnly.
 - **Salas multiplayer** de 2 a 5 jogadores e modo contra máquinas.
-- **Jogadores Online + Convites** com presença identificada pela Conta Google.
+- **Jogadores Online + Convites** com presença identificada pelo `playerKey` autenticado.
 - **Buscar Jogadores**: matchmaking automático de 2 a 5 pessoas; a janela de 15 s começa quando o segundo jogador entra e a partida inicia imediatamente ao chegar a 5.
 - **Reconexão Inteligente**: 60 s para retornar; depois a Máquina assume temporariamente a mesma vaga e o jogador retoma o controle quando volta.
 - **SUA VEZ melhorado** com animação, iluminação, som e vibração opcional.
@@ -452,7 +468,7 @@ Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo pa
 - **Reações rápidas (V40.22)**: somente a carinha **😊** fica visível na mesa, agora menor, mais discreta, arrastável e com efeito semi-transparente após alguns segundos sem uso. Ao tocar, abre o painel com todas as reações e volta a ficar 100% visível.
 - **Ação Rápida flutuante (V40.23)**: botão **⚡** arrastável, fora da mão do jogador, visível apenas quando houver reação válida; mantém o destaque nas cartas rápidas.
 - **Conferência da Rodada** com cartas restantes e cálculo da pontuação.
-- **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela Conta Google.
+- **Novo Ranking V40.8**: somente vitórias, separado em **👥 OFICIAL** e **🤖 TREINO**, com filtros **Hoje, Semana, Mês, Temporada e Histórico** e identidade única pela conta autenticada.
 - Interface adaptada para computador e celular.
 
 As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
@@ -464,6 +480,8 @@ As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
 - Socket.IO
 - PostgreSQL (`pg`)
 - Google Identity Services + `google-auth-library`
+- Sign in with Apple JS + validação server-side do ID token/authorization code
+- Login por e-mail com OTP via Resend
 - HTML, CSS e JavaScript no front-end
 
 ## Estrutura do projeto
@@ -500,7 +518,7 @@ npm install
 ```
 
 3. Copie `.env.example` para `.env` apenas como referência. Este projeto não carrega `.env` automaticamente; defina as variáveis no terminal/sistema operacional ou na plataforma de hospedagem.
-4. Configure pelo menos `GOOGLE_CLIENT_ID` e `AUTH_SESSION_SECRET`.
+4. Configure `AUTH_SESSION_SECRET` e pelo menos um método de entrada. Para manter Google, use `GOOGLE_CLIENT_ID`; para e-mail, use `RESEND_API_KEY` e `EMAIL_FROM`.
 5. Inicie:
 
 ```bash
@@ -534,6 +552,10 @@ npm run verify
 | Variável | Uso |
 |---|---|
 | `GOOGLE_CLIENT_ID` | Client ID OAuth Web usado para validar o Login Google. |
+| `APPLE_CLIENT_ID` | Services ID do Sign in with Apple. |
+| `APPLE_REDIRECT_URI` | Return URL HTTPS cadastrada na Apple. |
+| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Credenciais server-side do Sign in with Apple. |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Envio do código temporário do login por e-mail. |
 | `AUTH_SESSION_SECRET` | Assina a sessão própria do jogo. Use valor longo, aleatório e estável. |
 | `DATABASE_URL` | Conexão PostgreSQL usada pelo ranking. Recomendada em produção. |
 | `PORT` | Porta HTTP. Plataformas como Render normalmente a fornecem. |
@@ -544,7 +566,7 @@ npm run verify
 
 ## Deploy no Render
 
-O projeto já inclui `render.yaml`. As instruções consolidadas de Login Google, PostgreSQL e deploy estão em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
+O projeto já inclui `render.yaml`. As instruções consolidadas de login universal, PostgreSQL e deploy estão em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
 
 ## Áudio
 
@@ -573,7 +595,7 @@ Ao concluir uma partida entre pessoas, os jogadores podem confirmar **JOGAR DE N
 - **🤖 TREINO**: partidas que contenham máquina.
 - Filtros: **Hoje, Semana, Mês, Temporada e Histórico**.
 - O **Histórico começa vazio** e será preenchido quando temporadas forem encerradas futuramente.
-- A identidade do ranking é o `playerKey` derivado da **Conta Google**. Trocar nome ou avatar não cria outro jogador e não separa vitórias.
+- A identidade do ranking é o `playerKey` canônico da **conta autenticada**. Trocar nome ou avatar não cria outro jogador e não separa vitórias.
 - Empates em vitórias ocupam a mesma posição.
 - Cada revanche do botão **JOGAR DE NOVO** usa `matchSerial` no `matchId`, garantindo que cada partida seja registrada separadamente.
 

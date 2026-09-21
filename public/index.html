@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69" />
+  <link rel="stylesheet" href="styles.css?v=40.69.1" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -17,19 +17,36 @@
     <div class="auth-card">
       <div class="auth-brand-mark">M</div>
       <div class="eyebrow">ACESSO AO MAU-MAU CANDEIAS</div>
-      <h1>Entre com sua Conta Google</h1>
-      <p>O login é obrigatório para identificar cada jogador com segurança e manter a mesma identidade ao acessar por celular ou computador.</p>
-      <div id="googleSignInButton" class="google-signin-container" aria-label="Entrar com Google"></div>
+      <h1>Entre para jogar</h1>
+      <p>Use Google, Apple ou seu e-mail. Sua conta mantém a mesma identidade do ranking e da reconexão em celular ou computador.</p>
+
+      <div id="googleSignInButton" class="google-signin-container" aria-label="Continuar com Google"></div>
+      <button id="appleSignInButton" class="apple-signin-btn hidden" type="button" aria-label="Continuar com Apple"><span class="apple-mark"></span><span>Continuar com Apple</span></button>
+
+      <div id="authDivider" class="auth-divider"><span>ou</span></div>
+      <div id="emailAuthBox" class="email-auth-box hidden">
+        <form id="emailRequestForm" class="email-auth-form">
+          <label for="emailLoginInput">Entrar com e-mail</label>
+          <div class="email-auth-row"><input id="emailLoginInput" type="email" inputmode="email" autocomplete="email" maxlength="180" placeholder="seuemail@exemplo.com" required /><button id="emailRequestBtn" type="submit">Enviar código</button></div>
+        </form>
+        <form id="emailCodeForm" class="email-auth-form hidden">
+          <label for="emailCodeInput">Código de 6 dígitos</label>
+          <p id="emailCodeHint" class="email-code-hint"></p>
+          <div class="email-auth-row"><input id="emailCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required /><button id="emailVerifyBtn" type="submit">Entrar</button></div>
+          <button id="emailChangeBtn" class="email-change-btn" type="button">Usar outro e-mail</button>
+        </form>
+      </div>
+
       <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
-      <p class="auth-privacy">O jogo recebe do Google apenas os dados básicos de identificação disponibilizados no login. Sua senha do Google nunca é enviada ao Mau-Mau Candeias.</p>
+      <p class="auth-privacy">O MAU-MAU CANDEIAS não recebe sua senha do Google ou da Apple. No acesso por e-mail, enviamos apenas um código temporário de confirmação.</p>
     </div>
   </section>
 
   <section id="landing" class="screen landing hidden">
     <div class="hero-card">
       <div class="google-account-bar">
-        <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da Conta Google" referrerpolicy="no-referrer" />
-        <div class="google-account-meta"><small>CONTA GOOGLE CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
+        <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da conta" referrerpolicy="no-referrer" />
+        <div class="google-account-meta"><small id="authProviderLabel">CONTA CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
         <button id="googleLogoutBtn" class="google-logout-btn" type="button">Sair da conta</button>
       </div>
       <div class="brand-row">
@@ -558,7 +575,7 @@
 
         <h3>🏆 Ranking</h3>
         <p>O ranking do <strong>MAU-MAU CANDEIAS</strong> conta <strong>somente vitórias</strong>. O modo <strong>👥 OFICIAL</strong> registra apenas partidas entre pessoas; partidas com máquina ficam separadas em <strong>🤖 TREINO</strong>. Os filtros disponíveis são <strong>Hoje, Semana, Mês, Temporada e Histórico</strong>.</p>
-        <p>A identidade do ranking é a <strong>Conta Google</strong>: mudar o nome na mesa ou o avatar não cria outro jogador nem separa as vitórias. Empates em número de vitórias ocupam a mesma posição.</p>
+        <p>A identidade do ranking é a <strong>conta autenticada</strong>: mudar o nome na mesa ou o avatar não cria outro jogador nem separa as vitórias. Empates em número de vitórias ocupam a mesma posição.</p>
       </article>
     </div>
 
@@ -608,11 +625,12 @@
         <tbody id="rankingBody"><tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr></tbody>
       </table>
     </div>
-    <div class="ranking-note"><strong>Temporada 1.</strong> A Conta Google é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
+    <div class="ranking-note"><strong>Temporada 1.</strong> A conta autenticada é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
   </dialog>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69"></script>
+  <script src="app.js?v=40.69.1"></script>
 </body>
 </html>

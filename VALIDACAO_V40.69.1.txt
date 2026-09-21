@@ -1,0 +1,37 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.69.1
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+
+- node --check auth-identity-store.js: APROVADO
+- node --check universal-auth.js: APROVADO
+- node --check server.js: APROVADO
+- node --check public/app.js: APROVADO
+- scripts/check-lockfile.js: APROVADO
+- 94 testes locais que não dependem da conexão Socket.IO real: APROVADOS
+- universal-auth-v40691.test.js: APROVADO
+
+O NOVO TESTE CONFERE
+- preservação do playerKey Google legado;
+- associação de e-mail verificado à identidade canônica;
+- identidade Apple;
+- persistência local de identidade;
+- challenge Apple com HMAC;
+- geração do client_secret ES256 da Apple;
+- OTP de 6 dígitos;
+- rotas Google/Apple/e-mail;
+- configuração do SDK Apple;
+- ausência de modo visitante;
+- novas variáveis no .env.example.
+
+LIMITAÇÃO DO AMBIENTE DE VALIDAÇÃO
+O teste de integração Socket.IO real não pôde ser executado neste ambiente porque a instalação
+npm não concluiu e o módulo socket.io-client não ficou disponível. Esse teste permanece na suíte
+e será executado normalmente no GitHub/Render após npm ci.
+
+ANTES DE CONSIDERAR A V40.69.1 VALIDADA EM PRODUÇÃO
+1. Confirmar login Google real.
+2. Confirmar recebimento do código por e-mail real.
+3. Confirmar login no Safari/iPhone.
+4. Confirmar preservação do ranking de uma conta Google antiga.
+5. Confirmar criação/entrada em sala após login por e-mail.
+6. Se Apple for ativado, testar Sign in with Apple real e a opção Ocultar Meu E-mail.

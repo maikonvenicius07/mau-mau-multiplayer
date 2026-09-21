@@ -8,7 +8,7 @@ const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const pkg=JSON.parse(read('package.json'));
 const server=read('server.js');
 
-assert.strictEqual(pkg.version,'40.69','package.json deve identificar V40.68');
+assert.strictEqual(pkg.version,'40.69.1','package.json deve identificar V40.68');
 assert.ok(pkg.scripts.verify.includes('node --check room-governance.js'),'verify deve validar room-governance.js');
 assert.strictEqual(Gov.DEFAULT_MAX_ROOMS,10,'limite padrão deve ser 10 salas');
 assert.strictEqual(Gov.maxRooms({}),10,'sem configuração deve usar 10 salas');
@@ -45,4 +45,4 @@ assert.ok(server.includes('reserveRoomCreationSlot'),'criação concorrente deve
 assert.ok(server.includes('roomCapacity:{limit:roomStats.limit'),'health deve expor diagnóstico agregado de capacidade');
 assert.ok(read('.env.example').includes('MAX_ROOMS=10'),'env de exemplo deve documentar limite de 10 salas');
 
-console.log('✓ V40.68/V40.69: limite de 10 salas, reserva concorrente, auditoria e diagnóstico de limpeza validados.');
+console.log('✓ V40.68/V40.69.1: limite de 10 salas, reserva concorrente, auditoria e diagnóstico de limpeza validados.');

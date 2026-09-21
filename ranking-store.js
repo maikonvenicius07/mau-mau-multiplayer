@@ -108,7 +108,7 @@ class JsonBackend {
       for (const r of match.results || []) {
         if (!r.playerKey) continue;
         const s = byPlayer.get(r.playerKey) || {playerKey:r.playerKey,name:r.name,avatar:r.avatar,wins:0};
-        // Nome/avatar são apenas visuais. A identidade e a soma permanecem vinculadas ao playerKey da Conta Google.
+        // Nome/avatar são apenas visuais. A identidade e a soma permanecem vinculadas ao playerKey da conta autenticada.
         s.name=r.name||s.name; s.avatar=r.avatar||s.avatar; s.wins += r.won ? 1 : 0;
         byPlayer.set(r.playerKey,s);
       }
@@ -211,7 +211,7 @@ class PostgresBackend {
       const meta=await client.query(`SELECT meta_value FROM mm_ranking_meta WHERE meta_key='ranking_generation'`);
       const generation=meta.rows[0]?.meta_value;
       if(generation!==RANKING_GENERATION){
-        // Reset ÚNICO da V40.8: descarta partidas/resultados antigos, preservando a identidade Google dos jogadores.
+        // Reset ÚNICO da V40.8: descarta partidas/resultados antigos, preservando a identidade autenticada dos jogadores.
         await client.query('DELETE FROM mm_match_results');
         await client.query('DELETE FROM mm_matches');
         await client.query('DELETE FROM mm_seasons');

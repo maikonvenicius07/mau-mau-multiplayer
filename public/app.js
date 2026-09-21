@@ -64,8 +64,9 @@ const customAvatarStoragePrefix='maumauCustomAvatarV1:';
 const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
 const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000;
-let googleUser=null;
-// V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey Google.
+let authUser=null;
+let authConfig=null,authControlsBound=false,emailPendingAddress='';
+// V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey autenticada.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
 let recentPlayers=[],playersDirectoryTab='online';
 const inviteCards=new Map();
@@ -303,11 +304,11 @@ function clearCustomAvatarSelection(){
   setAvatarSelection('macaco');
 }
 
-function permanentPlayerKey(){ return googleUser?.playerKey || ''; }
+function permanentPlayerKey(){ return authUser?.playerKey || ''; }
 function isSpectatorState(value=state){return value?.viewerRole==='SPECTATOR'||value?.me?.role==='SPECTATOR'}
-function profile(){ return {name:$('#nameInput').value.trim()||googleUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
+function profile(){ return {name:$('#nameInput').value.trim()||authUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
 function syncPresenceProfile(){
-  if(!googleUser||!socket.connected)return;
+  if(!authUser||!socket.connected)return;
   const p=profile();socket.emit('presenceProfile',{name:p.name,avatar:p.avatar});
 }
 function schedulePresenceSync(){
@@ -318,8 +319,11 @@ function authStatus(message='',kind=''){
   const el=$('#authStatus');if(!el)return;
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
-function showAuthGate(message='Entre com sua Conta Google para continuar.'){
-  googleUser=null;onlinePlayers=[];onlineCount=0;recentPlayers=[];inviteCards.clear();
+function providerLabel(provider){
+  return provider==='google'?'GOOGLE CONECTADO':provider==='apple'?'APPLE CONECTADO':provider==='email'?'E-MAIL CONECTADO':'CONTA CONECTADA';
+}
+function showAuthGate(message='Entre com Google, Apple ou e-mail para continuar.'){
+  authUser=null;onlinePlayers=[];onlineCount=0;recentPlayers=[];inviteCards.clear();
   matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};matchmakingDialogDismissed=false;
   renderOnlinePresence();renderInviteInbox();renderMatchmaking();
   if(socket.connected) socket.disconnect();
@@ -328,15 +332,16 @@ function showAuthGate(message='Entre com sua Conta Google para continuar.'){
   $('#authGate')?.classList.remove('hidden');
   authStatus(message);
 }
-function applyGoogleUser(user,{connect=true}={}){
+function applyAuthUser(user,{connect=true}={}){
   const priorRoomSession=saved();
   if(priorRoomSession && priorRoomSession.playerKey!==user?.playerKey) clearSession();
-  googleUser=user;
+  authUser=user;
   $('#authGate')?.classList.add('hidden');
   if(!state) $('#landing')?.classList.remove('hidden');
-  const name=$('#googleAccountName'),email=$('#googleAccountEmail'),photo=$('#googleAccountPhoto');
+  const name=$('#googleAccountName'),email=$('#googleAccountEmail'),photo=$('#googleAccountPhoto'),provider=$('#authProviderLabel');
   if(name)name.textContent=user?.name||'Jogador';
   if(email)email.textContent=user?.email||'';
+  if(provider)provider.textContent=providerLabel(user?.provider);
   if(photo){
     if(user?.picture){photo.src=user.picture;photo.classList.remove('hidden')}else{photo.removeAttribute('src');photo.classList.add('hidden')}
   }
@@ -356,50 +361,147 @@ function waitForGoogleIdentity(timeout=10000){
     };tick();
   });
 }
+function waitForAppleIdentity(timeout=10000){
+  return new Promise((resolve,reject)=>{
+    const started=Date.now();
+    const tick=()=>{
+      if(window.AppleID?.auth) return resolve(window.AppleID.auth);
+      if(Date.now()-started>=timeout) return reject(new Error('Biblioteca de login da Apple não carregou. Verifique sua internet e tente novamente.'));
+      setTimeout(tick,120);
+    };tick();
+  });
+}
 async function handleGoogleCredential(response){
   try{
     authStatus('Validando sua Conta Google...');
     const res=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:response?.credential||''})});
     const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
     if(!res.ok||!data.ok) throw new Error(data.message||'Não foi possível entrar com Google.');
-    applyGoogleUser(data.user);
-    authStatus('Conta Google conectada.','success');
+    applyAuthUser(data.user);
+    authStatus('Conta conectada.','success');
     toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
   }catch(e){authStatus(e.message||'Falha no login Google.','error')}
 }
-async function renderGoogleSignIn(){
+async function renderGoogleSignIn(cfg=authConfig){
   const target=$('#googleSignInButton');if(!target)return;
+  const googleCfg=cfg?.providers?.google||{configured:cfg?.configured,clientId:cfg?.clientId};
+  target.innerHTML='';
+  if(!googleCfg?.configured||!googleCfg?.clientId){target.classList.add('hidden');return;}
+  target.classList.remove('hidden');
   try{
-    authStatus('Carregando login Google...');
-    const cfgRes=await fetch('/api/auth/config');
-    const cfg=await cfgRes.json();
-    if(!cfg?.configured||!cfg?.clientId) throw new Error('Login Google ainda não foi configurado no servidor.');
     const gis=await waitForGoogleIdentity();
-    target.innerHTML='';
-    gis.initialize({client_id:cfg.clientId,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:false});
+    gis.initialize({client_id:googleCfg.clientId,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:false});
     const buttonWidth=Math.min(300,Math.max(220,window.innerWidth-72));
-    gis.renderButton(target,{theme:'outline',size:'large',shape:'pill',text:'signin_with',logo_alignment:'left',width:buttonWidth});
-    authStatus('Escolha sua Conta Google para entrar.');
-  }catch(e){authStatus(e.message||'Não foi possível carregar o login Google.','error')}
+    gis.renderButton(target,{theme:'outline',size:'large',shape:'pill',text:'continue_with',logo_alignment:'left',width:buttonWidth});
+  }catch(e){target.classList.add('hidden');console.warn('[auth] Google indisponível:',e?.message||e)}
 }
-async function initializeGoogleAuth(){
+async function handleAppleLogin(){
+  const button=$('#appleSignInButton');
+  try{
+    button.disabled=true;authStatus('Abrindo o login da Apple...');
+    const appleCfg=authConfig?.providers?.apple;
+    if(!appleCfg?.configured)throw new Error('Login Apple ainda não foi configurado no servidor.');
+    const challengeRes=await fetch('/api/auth/apple/challenge',{cache:'no-store'});
+    const challenge=await challengeRes.json().catch(()=>({ok:false}));
+    if(!challengeRes.ok||!challenge.ok)throw new Error(challenge.message||'Não foi possível iniciar o login Apple.');
+    const apple=await waitForAppleIdentity();
+    apple.init({clientId:appleCfg.clientId,scope:'name email',redirectURI:appleCfg.redirectURI,state:challenge.state,nonce:challenge.nonce,usePopup:true});
+    const response=await apple.signIn();
+    const authorization=response?.authorization||{};
+    const res=await fetch('/api/auth/apple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:authorization.id_token||'',code:authorization.code||'',state:authorization.state||'',user:response?.user||null})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível entrar com Apple.');
+    applyAuthUser(data.user);authStatus('Conta Apple conectada.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
+  }catch(e){
+    const message=String(e?.message||'Falha no login Apple.');
+    if(!/popup_closed|user_cancelled|cancel/i.test(message))authStatus(message,'error');else authStatus('Login Apple cancelado.');
+  }finally{if(button)button.disabled=false;}
+}
+function renderAppleSignIn(cfg=authConfig){
+  const button=$('#appleSignInButton');if(!button)return;
+  button.classList.toggle('hidden',!cfg?.providers?.apple?.configured);
+}
+function setEmailStep(step,email=''){
+  const request=$('#emailRequestForm'),code=$('#emailCodeForm');
+  if(step==='code'){
+    emailPendingAddress=email||emailPendingAddress;
+    request?.classList.add('hidden');code?.classList.remove('hidden');
+    const hint=$('#emailCodeHint');if(hint)hint.textContent=`Enviamos um código para ${emailPendingAddress}.`;
+    const input=$('#emailCodeInput');if(input){input.value='';setTimeout(()=>input.focus(),80)}
+  }else{
+    emailPendingAddress='';code?.classList.add('hidden');request?.classList.remove('hidden');
+  }
+}
+async function requestEmailCode(event){
+  event?.preventDefault?.();
+  const email=String($('#emailLoginInput')?.value||'').trim().toLowerCase();
+  const button=$('#emailRequestBtn');
+  if(!email)return authStatus('Informe seu e-mail.','error');
+  try{
+    button.disabled=true;authStatus('Enviando código por e-mail...');
+    const res=await fetch('/api/auth/email/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível enviar o código.');
+    emailPendingAddress=email;setEmailStep('code',email);authStatus(data.message||'Código enviado.','success');
+  }catch(e){authStatus(e.message||'Falha ao enviar o código.','error')}finally{if(button)button.disabled=false;}
+}
+async function verifyEmailCode(event){
+  event?.preventDefault?.();
+  const code=String($('#emailCodeInput')?.value||'').replace(/\D/g,'').slice(0,6);
+  const button=$('#emailVerifyBtn');
+  if(!emailPendingAddress||code.length!==6)return authStatus('Digite os 6 números do código.','error');
+  try{
+    button.disabled=true;authStatus('Validando código...');
+    const res=await fetch('/api/auth/email/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:emailPendingAddress,code})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok)throw new Error(data.message||'Código inválido.');
+    applyAuthUser(data.user);authStatus('E-mail confirmado.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
+  }catch(e){authStatus(e.message||'Falha ao validar o código.','error')}finally{if(button)button.disabled=false;}
+}
+function renderEmailSignIn(cfg=authConfig){
+  const box=$('#emailAuthBox'),divider=$('#authDivider');
+  const enabled=!!cfg?.providers?.email?.configured;
+  box?.classList.toggle('hidden',!enabled);
+  const other=!!(cfg?.providers?.google?.configured||cfg?.providers?.apple?.configured);
+  divider?.classList.toggle('hidden',!(enabled&&other));
+  if(enabled)setEmailStep('request');
+}
+function bindAuthControls(){
+  if(authControlsBound)return;authControlsBound=true;
+  $('#appleSignInButton')?.addEventListener('click',handleAppleLogin);
+  $('#emailRequestForm')?.addEventListener('submit',requestEmailCode);
+  $('#emailCodeForm')?.addEventListener('submit',verifyEmailCode);
+  $('#emailChangeBtn')?.addEventListener('click',()=>{setEmailStep('request');authStatus('Informe o e-mail que deseja usar para entrar.');$('#emailLoginInput')?.focus()});
+}
+async function renderAuthOptions(){
+  bindAuthControls();
+  try{
+    const cfgRes=await fetch('/api/auth/config',{cache:'no-store'});authConfig=await cfgRes.json();
+    if(!cfgRes.ok||!authConfig?.ok)throw new Error('Não foi possível carregar as opções de login.');
+    renderAppleSignIn(authConfig);renderEmailSignIn(authConfig);void renderGoogleSignIn(authConfig);
+    const enabled=['google','apple','email'].filter(k=>authConfig?.providers?.[k]?.configured);
+    if(enabled.length)authStatus('Escolha como deseja entrar.');
+    else authStatus('Nenhuma forma de login está configurada no servidor.','error');
+  }catch(e){authStatus(e.message||'Não foi possível carregar o login.','error')}
+}
+async function initializeAuth(){
+  bindAuthControls();
   try{
     const res=await fetch('/api/auth/me',{cache:'no-store'});
     const data=await res.json().catch(()=>({ok:false}));
-    if(res.ok&&data.ok&&data.user){applyGoogleUser(data.user);return;}
+    if(res.ok&&data.ok&&data.user){applyAuthUser(data.user);return;}
   }catch{}
-  showAuthGate('Entre com sua Conta Google para continuar.');
-  renderGoogleSignIn();
+  showAuthGate('Entre com Google, Apple ou e-mail para continuar.');
+  renderAuthOptions();
 }
-async function logoutGoogle(){
-  if(state) return toast('Saia da sala antes de desconectar a Conta Google.');
+async function logoutAuth(){
+  if(state) return toast('Saia da sala antes de desconectar sua conta.');
   try{await fetch('/api/auth/logout',{method:'POST'});}catch{}
-  clearSession();
-  googleUser=null;
+  clearSession();authUser=null;
   if(socket.connected)socket.disconnect();
   try{window.google?.accounts?.id?.disableAutoSelect?.()}catch{}
-  showAuthGate('Você saiu da Conta Google. Entre novamente para jogar.');
-  renderGoogleSignIn();
+  showAuthGate('Você saiu da sua conta. Entre novamente para jogar.');
+  renderAuthOptions();
 }
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
@@ -889,7 +991,7 @@ async function loadRanking(){
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
-      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua Conta Google</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua conta</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
     }else{
       mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui vitória neste período e modalidade.</div>';
     }
@@ -1021,7 +1123,7 @@ function updateMatchmakingCountdown(){
   el.innerHTML=`<strong>⏱️ ${sec}s</strong><span>Com ${n} jogador${n===1?'':'es'} encontrado${n===1?'':'s'}. Se chegar a 5, começa imediatamente.</span>`;
 }
 function startMatchmaking(){
-  if(!googleUser)return showAuthGate('Entre com Google para buscar jogadores.');
+  if(!authUser)return showAuthGate('Entre na sua conta para buscar jogadores.');
   if(!socket.connected)return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   if(matchmaking.searching){openMatchmaking();return;}
   const btn=$('#matchmakingStart');if(btn)btn.disabled=true;
@@ -1035,7 +1137,7 @@ function cancelMatchmaking(){
   socket.emit('cancelMatchmaking');
 }
 function sendOnlineInvite(targetPlayerKey,button){
-  if(!googleUser)return showAuthGate('Entre com Google para convidar jogadores.');
+  if(!authUser)return showAuthGate('Entre na sua conta para convidar jogadores.');
   if(!socket.connected)return toast('Sem conexão com o servidor.');
   if(!targetPlayerKey||targetPlayerKey===permanentPlayerKey())return;
   if(button){button.disabled=true;button.textContent='ENVIANDO...';setTimeout(()=>{renderOnlinePresence();renderRecentPlayers()},900)}
@@ -1091,24 +1193,24 @@ $$('.avatar-option').forEach(btn=>btn.onclick=()=>{
 $('#customAvatarInput')?.addEventListener('change',ev=>handleCustomAvatarFile(ev.target.files?.[0]||null));
 $('#customAvatarClear')?.addEventListener('click',()=>clearCustomAvatarSelection());
 setAvatarSelection($('#avatarSelect')?.value||loadCustomAvatarLocally()||'macaco');
-$('#googleLogoutBtn').onclick=logoutGoogle;
+$('#googleLogoutBtn').onclick=logoutAuth;
 $('#nameInput').addEventListener('input',schedulePresenceSync);
 $('#nameInput').addEventListener('change',schedulePresenceSync);
 
 $('#createBtn').onclick=()=>{
-  if(!googleUser) return showAuthGate('Entre com sua Conta Google para criar uma sala.');
+  if(!authUser) return showAuthGate('Entre na sua conta para criar uma sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 $('#botGameBtn').onclick=()=>{
-  if(!googleUser) return showAuthGate('Entre com sua Conta Google para jogar.');
+  if(!authUser) return showAuthGate('Entre na sua conta para jogar.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true,publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 function joinRoomByCode(rawCode,{fromLink=false}={}){
-  if(!googleUser) return showAuthGate('Entre com sua Conta Google para entrar na sala.');
+  if(!authUser) return showAuthGate('Entre na sua conta para entrar na sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   const code=String(rawCode||'').trim().toUpperCase();
   if(!code) return toast('Informe o código da sala.');
@@ -1138,7 +1240,7 @@ function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
 }
 function requestPublicRooms(){if(socket.connected)socket.emit('requestPublicRooms')}
 function openLiveRooms(){
-  if(!googleUser)return showAuthGate('Entre com sua Conta Google para assistir partidas.');
+  if(!authUser)return showAuthGate('Entre na sua conta para assistir partidas.');
   const dlg=$('#liveRoomsDialog');requestPublicRooms();if(dlg&&!dlg.open)dlg.showModal();
   clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
 }
@@ -1660,8 +1762,8 @@ function resetLiveVoice({notify=false,keepWanted=false}={}){
 }
 function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
 function nudgeSocketReconnect(){
-  if(!googleUser||socket.connected)return;
-  setTimeout(()=>{if(googleUser&&!socket.connected)socket.connect()},120);
+  if(!authUser||socket.connected)return;
+  setTimeout(()=>{if(authUser&&!socket.connected)socket.connect()},120);
 }
 window.addEventListener('online',()=>{
   nudgeSocketReconnect();
@@ -2365,7 +2467,7 @@ socket.on('gameError',e=>{
   const spectatorJoin=$('#spectatorJoinBtn');if(spectatorJoin){spectatorJoin.disabled=false;spectatorJoin.textContent='👁️ ASSISTIR PARTIDA'}
   $$('[data-watch-room]').forEach(btn=>{btn.disabled=false;btn.textContent='👁️ ASSISTIR'});requestPublicRooms();
   // Se um código/token antigo deixou de funcionar, ainda tentamos localizar a vaga
-  // pela Conta Google antes de obrigar o jogador a digitar qualquer código.
+  // pela conta autenticada antes de obrigar o jogador a digitar qualquer código.
   if(wasSavedResume&&socket.connected){clearSession();accountSeatResumePending=true;socket.emit('resumeActiveSeat');return;}
   playGameSound('error');toast(e.message);render();
 });
@@ -2425,7 +2527,7 @@ socket.on('connect',()=>{
   }
 
   // 1) O token persistente do navegador continua sendo a primeira opção e
-  // recupera exatamente a mesma cadeira. A playerKey da sessão Google é validada
+  // recupera exatamente a mesma cadeira. A playerKey da sessão autenticada é validada
   // novamente no servidor, portanto um token copiado por outra conta não funciona.
   if(sess?.code&&sess?.token){
     $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
@@ -2436,7 +2538,7 @@ socket.on('connect',()=>{
   }
 
   // 2) Sem código/token local (inclusive em outro aparelho), pedimos ao servidor
-  // para localizar uma vaga desconectada/AUTO pertencente à Conta Google atual.
+  // para localizar uma vaga desconectada/AUTO pertencente à conta autenticada atual.
   // Se não houver vaga, o usuário segue normalmente para convite/código de sala.
   accountSeatResumePending=true;
   socket.emit('resumeActiveSeat');
@@ -2445,7 +2547,7 @@ socket.on('connect',()=>{
 socket.on('disconnect',(reason)=>{stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
-  if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente com Google.');renderGoogleSignIn();}
+  if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
 });
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();updateNetworkDiagnosticsUI();});
@@ -2966,5 +3068,5 @@ let mobileResizeTimer;window.addEventListener('resize',()=>{clearTimeout(mobileR
 window.addEventListener('orientationchange',()=>setTimeout(()=>{if(state)renderPlayers()},180));
 
 
-// V38: o jogo só conecta ao Socket.IO depois que a sessão Google foi validada.
-initializeGoogleAuth();
+// V40.69.1: o jogo só conecta ao Socket.IO depois que uma sessão autenticada foi validada.
+initializeAuth();

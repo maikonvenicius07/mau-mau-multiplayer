@@ -11,7 +11,7 @@ const pkg=require('../package.json');
 const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.69','package.json deve identificar V40.62');
+assert.strictEqual(pkg.version,'40.69.1','package.json deve identificar V40.62');
 assert(server.includes('RetentionPolicy.ALL_HUMANS_OFFLINE_EXPIRY_MS'),'prazo de 5 minutos deve ser usado para sala ativa sem humanos conectados');
 assert(server.includes('refreshOfflineRoomExpiry(room);'),'mudanças de estado devem reavaliar o prazo de sala sem humanos conectados');
 assert(server.includes("await removeRoomDurably(liveRoom.code,Date.now(),'A sala foi encerrada após 5 minutos sem nenhum jogador humano conectado.');"),'expiração deve excluir a sala com tombstone durável');

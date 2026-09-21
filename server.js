@@ -16,6 +16,8 @@ const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
 const RoomGovernance = require('./room-governance');
 const AbuseGuard = require('./abuse-guard');
+const { AuthIdentityStore, normalizeEmail } = require('./auth-identity-store');
+const UniversalAuth = require('./universal-auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -156,7 +158,7 @@ function clearDisconnectDebouncesForRoom(roomCode){
 }
 
 // V40.1 — presença online e convites são efêmeros e vivem somente na memória.
-// A identidade é a playerKey derivada da Conta Google, nunca o socketId.
+// A identidade é a playerKey autenticada (Google, Apple ou e-mail), nunca o socketId.
 const onlinePresence = new Map();
 const invitations = new Map();
 const inviteTimers = new Map();
@@ -207,6 +209,10 @@ const abusePruneTimer=setInterval(()=>abuseLimiter.prune(),5*60*1000);
 abusePruneTimer.unref?.();
 const rankingStore = new RankingStore();
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
+// V40.69.1 — identidade universal. O playerKey continua sendo a chave canônica do ranking
+// e agora pode ser resolvido por Google, Apple ou e-mail verificado.
+const authIdentityStore = new AuthIdentityStore();
+const authIdentityReady = authIdentityStore.init().then(()=>{console.log(`[auth] identidades: ${authIdentityStore.kind}`);return true}).catch(e=>{console.error('[auth] falha ao iniciar identidades:',e);return false});
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
 const roomSnapshotStore = new RoomSnapshotStore();
 const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
@@ -268,10 +274,23 @@ function removeRoom(code,message='A mesa foi encerrada.'){
 }
 
 const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+const APPLE_CLIENT_ID = String(process.env.APPLE_CLIENT_ID || '').trim();
+const APPLE_REDIRECT_URI = String(process.env.APPLE_REDIRECT_URI || '').trim();
+const APPLE_TEAM_ID = String(process.env.APPLE_TEAM_ID || '').trim();
+const APPLE_KEY_ID = String(process.env.APPLE_KEY_ID || '').trim();
+const APPLE_PRIVATE_KEY = String(process.env.APPLE_PRIVATE_KEY || '').trim();
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || '').trim();
+const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
+const EMAIL_OTP_DEV_MODE = String(process.env.EMAIL_OTP_DEV_MODE || '') === '1' && String(process.env.NODE_ENV || '') !== 'production';
 const AUTH_SESSION_SECRET = String(process.env.AUTH_SESSION_SECRET || '').trim() || crypto.randomBytes(32).toString('hex');
-const AUTH_COOKIE = 'maumau_google_session';
+const AUTH_COOKIE = 'maumau_session';
+const LEGACY_AUTH_COOKIE = 'maumau_google_session';
 const AUTH_TTL_SECONDS = 7 * 24 * 60 * 60;
+const EMAIL_OTP_TTL_MS = 10 * 60 * 1000;
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+const emailOtpChallenges = new Map();
+const emailRequestByAddress = new UniversalAuth.SlidingWindowLimiter({limit:3,windowMs:15*60*1000});
+const emailRequestByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,windowMs:15*60*1000});
 
 // V40.33 — configuração de conectividade do microfone ao vivo.
 // STUN continua funcionando sem configuração extra. TURN é opcional, mas recomendado
@@ -312,22 +331,30 @@ function voiceIceServers(session=null){
   return out;
 }
 
-if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará bloqueado até configurar a variável no Render.');
+if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará indisponível.');
+if (!APPLE_CLIENT_ID || !APPLE_REDIRECT_URI || !APPLE_TEAM_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) console.warn('[auth] configuração Sign in with Apple incompleta. O login Apple ficará indisponível.');
+if (!RESEND_API_KEY || !EMAIL_FROM) console.warn('[auth] RESEND_API_KEY/EMAIL_FROM não configurados. O login por e-mail ficará indisponível em produção.');
 if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
 
+function appleLoginConfigured(){return !!(APPLE_CLIENT_ID&&APPLE_REDIRECT_URI&&APPLE_TEAM_ID&&APPLE_KEY_ID&&APPLE_PRIVATE_KEY);}
+function emailLoginConfigured(){ return !!((RESEND_API_KEY && EMAIL_FROM) || EMAIL_OTP_DEV_MODE); }
 function googlePlayerKey(sub) {
-  // O "sub" é a identidade estável da Conta Google. O hash evita expor esse identificador
-  // diretamente e mantém o mesmo playerKey em celulares/computadores diferentes.
+  // Compatibilidade: contas Google já existentes mantêm exatamente o mesmo playerKey,
+  // preservando ranking, histórico e reservas de reconexão de versões anteriores.
   return `g_${crypto.createHash('sha256').update(`mau-mau-google:${sub}`).digest('hex').slice(0,40)}`;
 }
+function sessionUser(user,provider=''){
+  return {
+    playerKey:String(user?.playerKey||'').slice(0,80),
+    name:String(user?.name||'Jogador').trim().slice(0,60)||'Jogador',
+    email:normalizeEmail(user?.email),
+    picture:String(user?.picture||'').trim().slice(0,500),
+    provider:String(provider||user?.provider||'').trim().toLowerCase().slice(0,20),
+  };
+}
 function signAuthSession(user) {
-  const payload = Buffer.from(JSON.stringify({
-    playerKey:user.playerKey,
-    name:user.name,
-    email:user.email || '',
-    picture:user.picture || '',
-    exp:Date.now() + AUTH_TTL_SECONDS * 1000,
-  })).toString('base64url');
+  const clean=sessionUser(user,user?.provider);
+  const payload = Buffer.from(JSON.stringify({...clean,exp:Date.now() + AUTH_TTL_SECONDS * 1000})).toString('base64url');
   const signature = crypto.createHmac('sha256', AUTH_SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -340,7 +367,7 @@ function verifyAuthSession(token) {
     if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) return null;
     const session = JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
     if (!session?.playerKey || !session?.exp || Date.now() >= Number(session.exp)) return null;
-    return session;
+    return sessionUser(session,session.provider);
   } catch { return null; }
 }
 function parseCookies(header='') {
@@ -354,15 +381,37 @@ function parseCookies(header='') {
   return out;
 }
 function authFromCookieHeader(header) {
-  return verifyAuthSession(parseCookies(header)[AUTH_COOKIE]);
+  const cookies=parseCookies(header);
+  return verifyAuthSession(cookies[AUTH_COOKIE]) || verifyAuthSession(cookies[LEGACY_AUTH_COOKIE]);
 }
-function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
+function authCookieLine(req,name,token,maxAge=AUTH_TTL_SECONDS) {
   const forwarded=String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
   const secure=req.secure || forwarded==='https';
   const value=token ? encodeURIComponent(token) : '';
-  const parts=[`${AUTH_COOKIE}=${value}`,'Path=/','HttpOnly','SameSite=Lax',`Max-Age=${maxAge}`];
+  const parts=[`${name}=${value}`,'Path=/','HttpOnly','SameSite=Lax',`Max-Age=${maxAge}`];
   if(secure) parts.push('Secure');
-  res.setHeader('Set-Cookie',parts.join('; '));
+  return parts.join('; ');
+}
+function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
+  res.setHeader('Set-Cookie',[
+    authCookieLine(req,AUTH_COOKIE,token,maxAge),
+    authCookieLine(req,LEGACY_AUTH_COOKIE,'',0),
+  ]);
+}
+function authIp(req){return String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0].trim().slice(0,80);}
+async function requireAuthIdentityStore(){if(!await authIdentityReady)throw new Error('Serviço de identidade temporariamente indisponível.');}
+async function sendEmailOtp(email,code){
+  if(EMAIL_OTP_DEV_MODE){console.log(`[auth-dev] código de e-mail para ${UniversalAuth.safeEmailDisplay(email)}: ${code}`);return true;}
+  const response=await fetch('https://api.resend.com/emails',{
+    method:'POST',headers:{Authorization:`Bearer ${RESEND_API_KEY}`,'Content-Type':'application/json'},
+    body:JSON.stringify({
+      from:EMAIL_FROM,to:[email],subject:'Código de acesso — MAU-MAU CANDEIAS',
+      text:`Seu código de acesso ao MAU-MAU CANDEIAS é ${code}. Ele expira em 10 minutos. Se você não solicitou este código, ignore esta mensagem.`,
+      html:`<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto"><h2>MAU-MAU CANDEIAS</h2><p>Seu código de acesso é:</p><div style="font-size:34px;font-weight:800;letter-spacing:8px">${code}</div><p>Ele expira em 10 minutos.</p><p style="color:#666;font-size:12px">Se você não solicitou este código, ignore esta mensagem.</p></div>`,
+    })
+  });
+  if(!response.ok){const detail=await response.text().catch(()=>String(response.status));throw new Error(`Falha no envio de e-mail (${response.status}): ${detail.slice(0,160)}`);}
+  return true;
 }
 
 app.set('trust proxy', 1);
@@ -385,13 +434,13 @@ app.use((req,res,next)=>{
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "script-src 'self' https://accounts.google.com",
+    "script-src 'self' https://accounts.google.com https://appleid.cdn-apple.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
     "media-src 'self' data: blob:",
-    "connect-src 'self' ws: wss: https://accounts.google.com",
-    "frame-src https://accounts.google.com",
+    "connect-src 'self' ws: wss: https://accounts.google.com https://appleid.apple.com",
+    "frame-src https://accounts.google.com https://appleid.apple.com",
     "worker-src 'self' blob:",
     "form-action 'self'",
   ].join('; '));
@@ -423,11 +472,25 @@ app.use((req,res,next)=>{
 });
 app.use(express.json({limit:'16kb'}));
 
-app.get('/api/auth/config', (_,res)=>res.json({ok:true,configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID || null}));
-app.get('/api/auth/me', (req,res)=>{
+app.get('/api/auth/config', (_,res)=>res.json({
+  ok:true,
+  // Campos legados preservados para não quebrar clientes ainda em cache.
+  configured:!!GOOGLE_CLIENT_ID,
+  clientId:GOOGLE_CLIENT_ID || null,
+  providers:{
+    google:{configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID||null},
+    apple:{configured:appleLoginConfigured(),clientId:APPLE_CLIENT_ID||null,redirectURI:APPLE_REDIRECT_URI||null},
+    email:{configured:emailLoginConfigured()},
+  }
+}));
+app.get('/api/auth/me', async (req,res)=>{
   const session=authFromCookieHeader(req.headers.cookie);
-  if(!session) return res.status(401).json({ok:false,message:'Login Google necessário.'});
-  res.json({ok:true,user:{playerKey:session.playerKey,name:session.name,email:session.email,picture:session.picture}});
+  if(!session) return res.status(401).json({ok:false,message:'Login necessário.'});
+  try{
+    if(await authIdentityReady)await authIdentityStore.ensureSessionUser(session);
+  }catch(e){console.warn('[auth] não foi possível registrar sessão existente:',e?.message||e);}
+  const provider=session.provider || (String(session.playerKey||'').startsWith('g_')?'google':'account');
+  res.json({ok:true,user:{...sessionUser(session,provider),provider}});
 });
 app.get('/api/voice/config', (req,res)=>{
   const session=authFromCookieHeader(req.headers.cookie);
@@ -438,29 +501,117 @@ app.get('/api/voice/config', (req,res)=>{
 app.post('/api/auth/google', async (req,res)=>{
   try {
     if(!googleAuthClient || !GOOGLE_CLIENT_ID) return res.status(503).json({ok:false,message:'Login Google ainda não foi configurado no servidor.'});
+    await requireAuthIdentityStore();
     const credential=String(req.body?.credential || '').trim();
     if(!credential) return res.status(400).json({ok:false,message:'Credencial Google não informada.'});
     const ticket=await googleAuthClient.verifyIdToken({idToken:credential,audience:GOOGLE_CLIENT_ID});
     const payload=ticket.getPayload();
     if(!payload?.sub) throw new Error('Conta Google sem identificador válido.');
     if(payload.email_verified === false) throw new Error('O e-mail desta Conta Google não está verificado.');
-    const user={
-      playerKey:googlePlayerKey(payload.sub),
+    const user=await authIdentityStore.resolveIdentity({
+      provider:'google',subject:payload.sub,legacyPlayerKey:googlePlayerKey(payload.sub),verifiedEmail:payload.email_verified!==false,
       name:String(payload.name || payload.given_name || 'Jogador').trim().slice(0,60),
-      email:String(payload.email || '').trim().slice(0,180),
-      picture:String(payload.picture || '').trim().slice(0,500),
-    };
+      email:String(payload.email || '').trim().slice(0,180),picture:String(payload.picture || '').trim().slice(0,500),
+    });
+    user.provider='google';
     setAuthCookie(req,res,signAuthSession(user));
-    res.json({ok:true,user});
+    res.json({ok:true,user:sessionUser(user,'google')});
   } catch(e) {
     console.error('[auth] falha no login Google:',e?.message || e);
     res.status(401).json({ok:false,message:'Não foi possível validar esta Conta Google. Tente novamente.'});
+  }
+});
+app.get('/api/auth/apple/challenge', (req,res)=>{
+  if(!appleLoginConfigured())return res.status(503).json({ok:false,message:'Login Apple ainda não foi configurado no servidor.'});
+  res.setHeader('Cache-Control','no-store');
+  res.json({ok:true,...UniversalAuth.createAppleChallenge(AUTH_SESSION_SECRET)});
+});
+app.post('/api/auth/apple', async (req,res)=>{
+  try{
+    if(!appleLoginConfigured())return res.status(503).json({ok:false,message:'Login Apple ainda não foi configurado no servidor.'});
+    await requireAuthIdentityStore();
+    const idToken=String(req.body?.idToken||'').trim();
+    const authorizationCode=String(req.body?.code||'').trim();
+    const state=String(req.body?.state||'').trim();
+    if(!idToken||!authorizationCode||!state)return res.status(400).json({ok:false,message:'Resposta da Apple incompleta.'});
+    const challenge=UniversalAuth.verifyAppleChallenge(AUTH_SESSION_SECRET,state);
+    if(!challenge)return res.status(401).json({ok:false,message:'A tentativa de login Apple expirou. Tente novamente.'});
+    const payload=await UniversalAuth.verifyAppleIdentityToken(idToken,{audience:APPLE_CLIENT_ID,nonce:challenge.nonce});
+    // Para login web, além de conferir a assinatura do ID token, validamos o código
+    // de autorização diretamente no endpoint da Apple usando um client_secret ES256.
+    const exchanged=await UniversalAuth.exchangeAppleAuthorizationCode(authorizationCode,{clientId:APPLE_CLIENT_ID,teamId:APPLE_TEAM_ID,keyId:APPLE_KEY_ID,privateKey:APPLE_PRIVATE_KEY,redirectURI:APPLE_REDIRECT_URI});
+    const exchangedPayload=await UniversalAuth.verifyAppleIdentityToken(exchanged.id_token,{audience:APPLE_CLIENT_ID});
+    if(exchangedPayload.sub!==payload.sub)throw new Error('A validação Apple retornou outra identidade.');
+    const suppliedName=req.body?.user?.name||{};
+    const appleName=[suppliedName.firstName,suppliedName.lastName].map(x=>String(x||'').trim()).filter(Boolean).join(' ').slice(0,60);
+    const verifiedEmail=payload.email_verified===true||String(payload.email_verified||'').toLowerCase()==='true';
+    const user=await authIdentityStore.resolveIdentity({
+      provider:'apple',subject:payload.sub,verifiedEmail,
+      name:appleName||String(payload.email||'').split('@')[0]||'Jogador',email:String(payload.email||''),picture:'',
+    });
+    user.provider='apple';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'apple')});
+  }catch(e){
+    console.error('[auth] falha no login Apple:',e?.message||e);
+    res.status(401).json({ok:false,message:'Não foi possível validar esta Conta Apple. Tente novamente.'});
+  }
+});
+app.post('/api/auth/email/request', async (req,res)=>{
+  try{
+    if(!emailLoginConfigured())return res.status(503).json({ok:false,message:'Login por e-mail ainda não foi configurado no servidor.'});
+    const email=normalizeEmail(req.body?.email);
+    if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
+    const byEmail=emailRequestByAddress.consume(email),byIp=emailRequestByIp.consume(authIp(req));
+    if(!byEmail.allowed||!byIp.allowed){
+      const retry=Math.max(byEmail.retryAfterMs||0,byIp.retryAfterMs||0);
+      return res.status(429).json({ok:false,message:`Muitas solicitações. Tente novamente em ${Math.max(1,Math.ceil(retry/60000))} minuto(s).`});
+    }
+    const code=UniversalAuth.generateEmailOtp();
+    const challengeKey=crypto.createHash('sha256').update(`otp-challenge:${email}`).digest('hex');
+    const challenge={hash:UniversalAuth.emailOtpHash(AUTH_SESSION_SECRET,email,code),expiresAt:Date.now()+EMAIL_OTP_TTL_MS,attempts:0};
+    await sendEmailOtp(email,code);
+    emailOtpChallenges.set(challengeKey,challenge);
+    res.json({ok:true,message:`Código enviado para ${UniversalAuth.safeEmailDisplay(email)}.`,expiresInSeconds:Math.floor(EMAIL_OTP_TTL_MS/1000)});
+  }catch(e){
+    console.error('[auth] falha ao enviar código por e-mail:',e?.message||e);
+    res.status(502).json({ok:false,message:'Não foi possível enviar o código agora. Tente novamente em instantes.'});
+  }
+});
+app.post('/api/auth/email/verify', async (req,res)=>{
+  try{
+    if(!emailLoginConfigured())return res.status(503).json({ok:false,message:'Login por e-mail ainda não foi configurado no servidor.'});
+    await requireAuthIdentityStore();
+    const email=normalizeEmail(req.body?.email),code=String(req.body?.code||'').replace(/\D/g,'').slice(0,6);
+    if(!email||code.length!==6)return res.status(400).json({ok:false,message:'E-mail ou código inválido.'});
+    const challengeKey=crypto.createHash('sha256').update(`otp-challenge:${email}`).digest('hex');
+    const challenge=emailOtpChallenges.get(challengeKey);
+    if(!challenge||challenge.expiresAt<=Date.now()){emailOtpChallenges.delete(challengeKey);return res.status(401).json({ok:false,message:'O código expirou. Solicite um novo.'});}
+    challenge.attempts++;
+    if(challenge.attempts>5){emailOtpChallenges.delete(challengeKey);return res.status(429).json({ok:false,message:'Muitas tentativas. Solicite um novo código.'});}
+    const supplied=Buffer.from(UniversalAuth.emailOtpHash(AUTH_SESSION_SECRET,email,code),'hex');
+    const expected=Buffer.from(challenge.hash,'hex');
+    if(supplied.length!==expected.length||!crypto.timingSafeEqual(supplied,expected))return res.status(401).json({ok:false,message:'Código incorreto.'});
+    emailOtpChallenges.delete(challengeKey);
+    const local=email.split('@')[0].replace(/[._-]+/g,' ').trim();
+    const displayName=(local||'Jogador').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,60);
+    const user=await authIdentityStore.resolveIdentity({provider:'email',subject:email,verifiedEmail:true,name:displayName,email,picture:''});
+    user.provider='email';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'email')});
+  }catch(e){
+    console.error('[auth] falha ao validar código por e-mail:',e?.message||e);
+    res.status(401).json({ok:false,message:'Não foi possível validar este código. Tente novamente.'});
   }
 });
 app.post('/api/auth/logout', (req,res)=>{
   setAuthCookie(req,res,'',0);
   res.json({ok:true});
 });
+const emailOtpPruneTimer=setInterval(()=>{
+  const now=Date.now();for(const [key,challenge] of emailOtpChallenges){if(!challenge||challenge.expiresAt<=now)emailOtpChallenges.delete(key);}
+  emailRequestByAddress.prune(now);emailRequestByIp.prune(now);
+},5*60*1000);emailOtpPruneTimer.unref?.();
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res,filePath){
@@ -484,6 +635,7 @@ app.get('/health', (_, res) => {
     sockets:io.engine?.clientsCount || 0,
     ranking:rankingStore.kind,
     roomSnapshots:roomSnapshotStore.kind,
+    authIdentities:authIdentityStore.kind,
     monitor:{
       httpRequests:monitor.httpRequests,
       http5xx:monitor.http5xx,
@@ -496,10 +648,14 @@ app.get('/health', (_, res) => {
 app.get('/ready', async (_,res)=>{
   res.setHeader('Cache-Control','no-store');
   const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,roomSnapshotsReady,env:process.env,timeoutMs:2000});
-  res.status(report.ok?200:503).json({
-    ok:report.ok,status:report.status,version:APP_VERSION,databaseRequired:report.databaseRequired,reason:report.reason,
+  let authOk=await authIdentityReady,authReason=authOk?'ok':'identity-store-init-failed';
+  if(authOk){try{authOk=await Promise.race([authIdentityStore.healthCheck(),new Promise(resolve=>setTimeout(()=>resolve(false),2000))]);authReason=authOk?'ok':'identity-store-health-failed';}catch(e){authOk=false;authReason='identity-store-health-failed';}}
+  const ok=report.ok&&authOk;
+  res.status(ok?200:503).json({
+    ok,status:ok?'ready':'not-ready',version:APP_VERSION,databaseRequired:report.databaseRequired,reason:ok?'ok':(!authOk?authReason:report.reason),
     ranking:{kind:report.ranking.kind,ok:report.ranking.ok,reason:report.ranking.reason},
     roomSnapshots:{kind:report.roomSnapshots.kind,ok:report.roomSnapshots.ok,reason:report.roomSnapshots.reason},
+    authIdentities:{kind:authIdentityStore.kind,ok:authOk,reason:authReason},
   });
 });
 
@@ -949,7 +1105,7 @@ function withRoom(socket, fn) {
     if (socket.data.role === ROLE_SPECTATOR) throw new Error('Modo Observador: esta ação é exclusiva dos jogadores da mesa.');
     const player = room.players.find(p => p.id === socket.data.playerId);
     if (!player) throw new Error('Jogador não encontrado na sala.');
-    if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra Conta Google.');
+    if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra conta.');
     if (!player.isBot && player.socketId !== socket.id) throw new Error('Esta conexão foi substituída por uma sessão mais recente.');
     if (!player.isBot && !player.connected) throw new Error('Esta vaga não está conectada por esta sessão.');
     fn(room, player);
@@ -1242,7 +1398,7 @@ function playerHasMatchmakingBlockingRoom(playerKey) {
 }
 
 // V40.59 — Reconexão automática condicionada a queda involuntária.
-// A procura usa SOMENTE a Conta Google autenticada e exige reconnectEligible=true.
+// A procura usa SOMENTE a conta autenticada e exige reconnectEligible=true.
 // SAIR, entrar em outra sala ou converter a cadeira para Máquina definitiva remove
 // essa elegibilidade; nome/avatar/token antigo nunca recriam uma reserva cancelada.
 function recoverablePlayerSeatForKey(playerKey) {
@@ -1274,14 +1430,14 @@ function recoverablePlayerSeatForKey(playerKey) {
 async function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) {
   if(!socket||!room||!player||player.isBot)throw new Error('Vaga de reconexão inválida.');
   const authKey=String(socket.data.auth?.playerKey||'');
-  if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra Conta Google.');
+  if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra conta.');
   if(!player.reconnectEligible)throw new Error('Esta vaga não possui uma reserva válida de reconexão automática.');
   const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
   if(player.connected&&liveSocket&&player.socketId!==socket.id){
     throw new Error('Sua vaga já está conectada em outro dispositivo.');
   }
 
-  // Defesa para dados legados: se versões antigas deixaram a mesma Conta Google
+  // Defesa para dados legados: se versões antigas deixaram a mesma conta autenticada
   // vinculada a mais de uma sala, ao retomar uma reserva válida mantemos somente
   // esta sala. As demais vagas humanas são abandonadas definitivamente.
   await abandonOtherPlayerMembershipsForSwitch(socket,room.code,'teve a reserva substituída pela sala retomada');
@@ -1333,7 +1489,7 @@ function requireNoOtherActivePlayerRoom(socket, exceptCode=null) {
 }
 
 // V40.59 — entrar em outra sala é abandono explícito da sala anterior.
-// A mesma Conta Google não pode manter uma vaga/reserva antiga enquanto participa
+// A mesma conta autenticada não pode manter uma vaga/reserva antiga enquanto participa
 // de outra mesa. Em rodada já iniciada, a cadeira antiga vira uma Máquina normal,
 // sem playerKey/token humano; fora da rodada, a vaga é removida.
 async function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, reason='entrou em outra sala') {
@@ -1511,7 +1667,7 @@ async function formMatchmakingGroup() {
     // enquanto aguardava na fila e somente então fazemos a troca definitiva.
     for(const x of group){
       const blocker=matchmakingBlockingRoomForKey(x.entry.playerKey);
-      if(blocker)throw new Error(`A Conta Google de ${cleanPresenceName(x.rec.name)} voltou a ficar ativa na sala ${blocker.code}.`);
+      if(blocker)throw new Error(`A conta de ${cleanPresenceName(x.rec.name)} voltou a ficar ativa na sala ${blocker.code}.`);
     }
     for(const x of group){
       await abandonOtherPlayerMembershipsForSwitch(x.socket,code,'entrou em nova sala pelo matchmaking');
@@ -1859,7 +2015,7 @@ io.on('connection', socket => {
   });
 
   // V40.57 — se o navegador perdeu o código/token local (ou é outro aparelho),
-  // a Conta Google autenticada ainda consegue localizar a vaga humana reservada.
+  // a conta autenticada ainda consegue localizar a vaga humana reservada.
   // O cliente não informa roomCode/playerKey: o servidor descobre a cadeira pela
   // identidade assinada da sessão e só permite recuperar vaga desconectada/AUTO.
   socket.on('resumeActiveSeat', async () => {
@@ -2130,7 +2286,7 @@ io.on('connection', socket => {
       if(requestedToken){
         const existing=room.players.find(x=>!x.isBot&&x.token===requestedToken);
         if(existing?.playerKey&&existing.playerKey!==socket.data.auth.playerKey){
-          throw new Error('Esta vaga pertence a outra Conta Google.');
+          throw new Error('Esta vaga pertence a outra conta.');
         }
         if(existing){
           await prepareSuccessfulEntry();
@@ -2152,7 +2308,7 @@ io.on('connection', socket => {
         }
       }
 
-      // 2) Mesma Conta Google, sem token local: só pode recuperar automaticamente
+      // 2) Mesma conta autenticada, sem token local: só pode recuperar automaticamente
       // uma cadeira desconectada que ainda possua reserva involuntária válida.
       if(!p){
         const byKey=room.players.find(x=>!x.isBot&&x.playerKey===socket.data.auth.playerKey);
@@ -2224,7 +2380,7 @@ io.on('connection', socket => {
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
       const token=InputSafety.cleanOpaqueId(payload?.token,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
-      if(spectator&&spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra Conta Google.');
+      if(spectator&&spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra conta.');
       if(!spectator){
         enforceActionRate(socket,'joinSpectator','Muitas tentativas de entrada como observador em pouco tempo.');
         releaseSpectatorSlot=reserveSpectatorJoinSlot(room);
@@ -2715,7 +2871,7 @@ setInterval(()=>{
 
 // V40.53 — restaura salas ativas antes de aceitar novas conexões. Como os socketIds
 // antigos não sobrevivem ao processo, os humanos recebem a mesma janela de 60 s para
-// o joinRoom automático do navegador recuperar a vaga pelo token/Conta Google.
+// o joinRoom automático do navegador recuperar a vaga pelo token/conta autenticada.
 function scheduleRestoredPlayerGrace(room,player){
   if(!room||!player||player.isBot||player.connected)return;
   const matchActive=room.status==='playing'||(room.status==='between-rounds'&&room.round>0);
@@ -2779,7 +2935,7 @@ async function gracefulShutdown(signal){
   try{await roomSnapshotsReady;await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
   catch(e){console.error('[rooms] erro no snapshot final:',e?.message||e);}
   try{io.close();}catch{}
-  server.close(async()=>{try{await roomSnapshotStore.close();}catch{};clearTimeout(force);process.exit(0);});
+  server.close(async()=>{try{await roomSnapshotStore.close();}catch{};try{await authIdentityStore.close();}catch{};clearTimeout(force);process.exit(0);});
 }
 process.once('SIGTERM',()=>gracefulShutdown('SIGTERM'));
 process.once('SIGINT',()=>gracefulShutdown('SIGINT'));

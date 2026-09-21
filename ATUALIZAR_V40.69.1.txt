@@ -1,0 +1,49 @@
+MAU-MAU CANDEIAS — COMO ATUALIZAR PARA V40.69.1
+
+1. SUBA OS ARQUIVOS DO PACOTE "ARQUIVOS PARA SUBSTITUIR" NO GITHUB.
+
+2. NO RENDER, MANTENHA AS VARIÁVEIS QUE JÁ EXISTEM:
+   DATABASE_URL
+   GOOGLE_CLIENT_ID
+   AUTH_SESSION_SECRET
+   MAX_ROOMS=10
+   MAX_SPECTATORS_PER_ROOM=5
+   e as variáveis de TURN já utilizadas, se houver.
+
+3. PARA ATIVAR O LOGIN POR E-MAIL (RECOMENDADO AGORA PARA IPHONE), ADICIONE:
+   RESEND_API_KEY=...
+   EMAIL_FROM=Mau-Mau Candeias <login@seudominio.com>
+
+   O remetente/domínio precisa estar autorizado no Resend.
+   Não use EMAIL_OTP_DEV_MODE=1 no Render.
+
+4. APPLE É OPCIONAL NESTA ETAPA.
+   O botão Apple só aparece quando TODAS as variáveis abaixo estiverem configuradas:
+   APPLE_CLIENT_ID=...
+   APPLE_REDIRECT_URI=https://SEU-DOMINIO/
+   APPLE_TEAM_ID=...
+   APPLE_KEY_ID=...
+   APPLE_PRIVATE_KEY=...
+
+   APPLE_PRIVATE_KEY é a chave privada .p8 e nunca deve ir para o GitHub.
+
+5. FAÇA DEPLOY LATEST COMMIT.
+
+6. TESTE NESTA ORDEM:
+   a) entre com uma Conta Google já usada antes;
+   b) confirme que o ranking/identidade continua normal;
+   c) saia da conta;
+   d) entre pelo MESMO e-mail usando o código de 6 dígitos;
+   e) confirme que a identidade permanece a mesma;
+   f) teste um e-mail diferente em outro aparelho/iPhone;
+   g) crie sala e teste reconexão;
+   h) teste ranking e Jogadores Online.
+
+OBSERVAÇÃO SOBRE CONTAS ANTIGAS
+Para um jogador antigo que queira passar a usar e-mail mantendo a identidade Google já existente,
+é recomendável entrar pelo Google pelo menos uma vez após esta atualização antes de trocar para
+o login por e-mail. Isso permite registrar no novo armazenamento a identidade antiga e seu e-mail.
+
+7. NÃO GERE O APK AINDA.
+Depois de validar Google + e-mail no Render e no iPhone/Safari, a próxima etapa será preparar o
+empacotamento Android sem refazer a autenticação.

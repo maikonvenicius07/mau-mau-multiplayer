@@ -1,3 +1,22 @@
+## V40.69.1 — Login universal para Android/iPhone
+
+A V40.69.1 remove a dependência exclusiva da Conta Google sem retirar o Google existente. A tela de acesso agora suporta três provedores: **Google**, **Sign in with Apple** e **e-mail com código de 6 dígitos**.
+
+- contas Google antigas mantêm o mesmo `g_...` playerKey e, portanto, preservam ranking e reconexão;
+- novas identidades são persistidas em `mm_auth_users` e `mm_auth_identities` no PostgreSQL;
+- métodos que apresentem o mesmo e-mail verificado podem reutilizar a identidade canônica já existente;
+- e-mail usa OTP criptograficamente aleatório, válido por 10 minutos, armazenado apenas como HMAC, com no máximo 5 tentativas e rate limit;
+- envio de OTP usa Resend quando `RESEND_API_KEY` e `EMAIL_FROM` estão configurados;
+- Apple usa challenge `state` + `nonce`, valida a assinatura do ID token com as chaves públicas da Apple e valida o authorization code no endpoint da Apple com client secret ES256;
+- cookie novo: `maumau_session`; o servidor ainda aceita `maumau_google_session` para migração transparente;
+- Socket.IO continua exigindo sessão autenticada antes de conectar;
+- nenhum modo visitante foi criado;
+- nenhuma regra do jogo, limite de 10 salas ou limite de 5 observadores foi alterado.
+
+**Validação local:** 94 testes independentes de Socket.IO real aprovados, incluindo o novo teste específico V40.69.1. O teste Socket.IO real continua dependente de `npm ci`/`socket.io-client` no ambiente de CI/Render.
+
+---
+
 ## V40.69 — Proteção do servidor e observadores
 
 A V40.69 reduz o limite padrão para **10 salas simultâneas** e limita cada partida a **5 observadores**. Partidas existentes e reconexões válidas nunca são derrubadas por atingir esses limites. Entradas concorrentes de observadores reservam capacidade para impedir ultrapassagem do máximo.
