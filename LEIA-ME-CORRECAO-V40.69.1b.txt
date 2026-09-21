@@ -1,0 +1,17 @@
+MAU-MAU CANDEIAS — V40.69.1b
+CORREÇÃO DO .env.example PARA LOGIN UNIVERSAL + LIMITES DO SERVIDOR
+
+Substitua somente o arquivo .env.example na raiz do projeto no GitHub.
+
+Esta versão mantém simultaneamente:
+- Google Login
+- Apple Login
+- Login por e-mail/OTP
+- MAX_ROOMS=10
+- MAX_SPECTATORS_PER_ROOM=5
+
+Depois do commit, faça Deploy latest commit no Render.
+
+Validações locais executadas:
+- tests/abuse-protection-v4069.test.js: OK
+- tests/universal-auth-v40691.test.js: OK
