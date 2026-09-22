@@ -20,7 +20,7 @@ As contas Google antigas preservam o mesmo `playerKey`.
 
 Não usa Resend e não envia código. O jogador cria uma conta informando e-mail e uma senha escolhida por ele, entre 6 e 60 caracteres. O e-mail é um identificador de login; a posse da caixa postal não é verificada.
 
-A senha é derivada com `scrypt` e salt aleatório. Após várias tentativas incorretas há bloqueio temporário. Na criação da conta o jogo entrega uma chave de recuperação, exibida uma vez, que deve ser guardada pelo jogador. Contas antigas criadas com PIN de 6 números continuam podendo entrar, preservando sua identidade e ranking.
+A senha é derivada com `scrypt` e salt aleatório. Após várias tentativas incorretas há bloqueio temporário. Na criação da conta o jogo entrega uma código de recuperação por e-mail, exibida uma vez, que deve ser guardada pelo jogador. Contas antigas criadas com PIN de 6 números continuam podendo entrar, preservando sua identidade e ranking.
 
 Não há variáveis de ambiente adicionais para esse método.
 
@@ -57,15 +57,15 @@ Para publicar com Google + e-mail/senha:
 1. Faça o deploy do commit mais recente.
 2. Aguarde o serviço ficar `Live`.
 3. Teste uma conta Google antiga e confirme o mesmo ranking.
-4. Crie uma conta nova por e-mail + senha e guarde a chave de recuperação.
+4. Crie uma conta nova por e-mail + senha e guarde a código de recuperação por e-mail.
 5. Saia e entre novamente com o mesmo e-mail + senha.
-6. Teste a recuperação trocando a senha pela chave de recuperação.
+6. Teste a recuperação trocando a senha pela código de recuperação por e-mail.
 7. Crie uma sala, reconecte e confira ranking/presença.
 
 ## 5. Segurança
 
 - Nunca commitar `.env`, `DATABASE_URL` ou `AUTH_SESSION_SECRET`.
-- Senha e chave de recuperação não são armazenados em texto puro.
+- Senha e código de recuperação por e-mail não são armazenados em texto puro.
 - O e-mail do modo senha não é tratado como e-mail verificado e não auto-vincula uma Conta Google.
 - A Conta Google usa e-mail verificado somente dentro do fluxo próprio do Google.
 - O navegador nunca escolhe o `playerKey`; a identidade é resolvida no servidor.

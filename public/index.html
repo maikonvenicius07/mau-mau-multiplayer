@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-preapk2b" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-preapk2e" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -45,13 +45,15 @@
           <label for="emailPasswordRegisterConfirm">Confirme a senha</label>
           <input id="emailPasswordRegisterConfirm" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="Repita a senha" required />
           <button id="emailPasswordRegisterBtn" type="submit">Criar conta</button>
-          <p class="email-code-hint">A senha pode ter de 6 a 60 caracteres. Você escolhe o tamanho e pode usar letras, números e símbolos. O e-mail funciona como identificador de acesso; nenhum código será enviado.</p>
+          <p class="email-code-hint">A senha pode ter de 6 a 60 caracteres. Você escolhe o tamanho e pode usar letras, números e símbolos. Use um e-mail ao qual você tenha acesso, pois ele será usado para recuperar a senha.</p>
         </form>
         <form id="emailPasswordRecoverForm" class="email-auth-form hidden">
           <label for="emailPasswordRecoverEmail">E-mail da conta</label>
           <input id="emailPasswordRecoverEmail" type="email" inputmode="email" autocomplete="username" maxlength="180" placeholder="seuemail@exemplo.com" required />
-          <label for="emailPasswordRecoveryCode">Chave de recuperação</label>
-          <input id="emailPasswordRecoveryCode" type="text" autocomplete="off" maxlength="32" placeholder="RC-XXXX-XXXX-XXXX-XXXX" required />
+          <button id="emailPasswordRecoverySend" type="button">Enviar código por e-mail</button>
+          <p class="email-code-hint">O código tem 6 números e vale por 10 minutos.</p>
+          <label for="emailPasswordRecoveryCode">Código recebido por e-mail</label>
+          <input id="emailPasswordRecoveryCode" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required />
           <label for="emailPasswordNewPassword">Nova senha</label>
           <input id="emailPasswordNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="6 a 60 caracteres" required />
           <label for="emailPasswordNewPasswordConfirm">Confirme a nova senha</label>
@@ -62,19 +64,10 @@
       </div>
 
       <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
-      <p class="auth-privacy">O Google protege as credenciais da Conta Google. No acesso por e-mail, você escolhe uma senha de 6 a 60 caracteres; nenhum código é enviado por e-mail.</p>
+      <p class="auth-privacy">O Google protege as credenciais da Conta Google. No acesso por e-mail, você escolhe uma senha de 6 a 60 caracteres. Se esquecer a senha, poderá receber um código de recuperação no e-mail cadastrado.</p>
     </div>
   </section>
 
-  <dialog id="emailPasswordRecoveryDialog" class="modal recovery-key-modal">
-    <button id="emailPasswordRecoveryClose" class="close" type="button" aria-label="Fechar">×</button>
-    <div class="eyebrow">CONTA CRIADA</div>
-    <h2>Guarde sua chave de recuperação</h2>
-    <p>Ela é necessária para criar uma nova senha se você esquecer a atual. O MAU-MAU não envia essa chave por e-mail.</p>
-    <div id="emailPasswordRecoveryValue" class="recovery-key-value"></div>
-    <div class="recovery-key-actions"><button id="emailPasswordRecoveryCopy" type="button">📋 Copiar chave</button><button id="emailPasswordRecoveryContinue" class="primary" type="button">✅ Já guardei</button></div>
-    <p class="recovery-key-warning">Não compartilhe esta chave. Ela permite redefinir a senha da conta.</p>
-  </dialog>
 
   <section id="landing" class="screen landing hidden">
     <div class="hero-card">

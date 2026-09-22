@@ -18,6 +18,7 @@ const RoomGovernance = require('./room-governance');
 const AbuseGuard = require('./abuse-guard');
 const { AuthIdentityStore, normalizeEmail } = require('./auth-identity-store');
 const UniversalAuth = require('./universal-auth');
+const EmailDelivery = require('./email-delivery');
 
 const app = express();
 const server = http.createServer(app);
@@ -288,6 +289,9 @@ const emailPinRegisterByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,win
 const emailPinLoginByAddress = new UniversalAuth.SlidingWindowLimiter({limit:12,windowMs:15*60*1000});
 const emailPinLoginByIp = new UniversalAuth.SlidingWindowLimiter({limit:30,windowMs:15*60*1000});
 const emailPinRecoveryByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,windowMs:60*60*1000});
+const emailPasswordResetRequestByEmail = new UniversalAuth.SlidingWindowLimiter({limit:3,windowMs:15*60*1000});
+const emailPasswordResetConfirmByEmail = new UniversalAuth.SlidingWindowLimiter({limit:10,windowMs:15*60*1000});
+const EMAIL_RECOVERY_CONFIGURED = EmailDelivery.emailRecoveryConfigured(process.env);
 
 // V40.33 — configuração de conectividade do microfone ao vivo.
 // STUN continua funcionando sem configuração extra. TURN é opcional, mas recomendado
@@ -329,6 +333,7 @@ function voiceIceServers(session=null){
 }
 
 if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará indisponível.');
+if (!EMAIL_RECOVERY_CONFIGURED) console.warn('[auth] RESEND_API_KEY/EMAIL_FROM não configurados. Login por e-mail funciona, mas recuperação de senha por e-mail ficará indisponível.');
 if (!APPLE_CLIENT_ID || !APPLE_REDIRECT_URI || !APPLE_TEAM_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) console.warn('[auth] configuração Sign in with Apple incompleta. O login Apple ficará indisponível.');
 if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
 
@@ -464,7 +469,7 @@ app.get('/api/auth/config', (_,res)=>res.json({
     // Pré-APK — e-mail + senha funciona sem serviço externo. O e-mail é apenas
     // identificador da conta; a caixa postal não é verificada nem recebe código.
     email:{configured:false,mode:'disabled'},
-    emailPassword:{configured:true,mode:'password',minLength:6,maxLength:60},
+    emailPassword:{configured:true,mode:'password',minLength:6,maxLength:60,recovery:{mode:'email_code',configured:EMAIL_RECOVERY_CONFIGURED}},
     // Compatibilidade de configuração para clientes antigos ainda em cache.
     emailPin:{configured:false,mode:'legacy'},
   }
@@ -545,7 +550,7 @@ app.post('/api/auth/apple', async (req,res)=>{
 });
 function emailPasswordErrorResponse(res,error,fallback='Não foi possível concluir o acesso.'){
   const code=String(error?.code||'');
-  const status=code==='EMAIL_EXISTS'?409:code==='NOT_FOUND'?404:code==='LOCKED'?429:['INVALID_EMAIL','INVALID_PASSWORD','INVALID_CREDENTIALS','INVALID_RECOVERY'].includes(code)?400:500;
+  const status=code==='EMAIL_EXISTS'?409:code==='NOT_FOUND'?404:code==='LOCKED'?429:['RESET_ATTEMPTS'].includes(code)?429:['EMAIL_NOT_CONFIGURED'].includes(code)?503:['EMAIL_SEND_FAILED'].includes(code)?502:['INVALID_EMAIL','INVALID_PASSWORD','INVALID_CREDENTIALS','INVALID_RECOVERY','INVALID_RESET','RESET_EXPIRED'].includes(code)?400:500;
   if(status>=500)console.error('[auth] falha em e-mail + senha:',error?.message||error);
   return res.status(status).json({ok:false,message:status>=500?fallback:String(error?.message||fallback)});
 }
@@ -558,7 +563,7 @@ app.post('/api/auth/email-password/register', async (req,res)=>{
     const result=await authIdentityStore.registerEmailPassword({email,password,name});
     result.user.provider='email_password';
     setAuthCookie(req,res,signAuthSession(result.user));
-    res.status(201).json({ok:true,user:sessionUser(result.user,'email_password'),recoveryCode:result.recoveryCode,message:'Conta criada. Guarde sua chave de recuperação.'});
+    res.status(201).json({ok:true,user:sessionUser(result.user,'email_password'),message:'Conta criada com sucesso.'});
   }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível criar a conta agora.');}
 });
 app.post('/api/auth/email-password/login', async (req,res)=>{
@@ -573,12 +578,29 @@ app.post('/api/auth/email-password/login', async (req,res)=>{
     res.json({ok:true,user:sessionUser(user,'email_password')});
   }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível entrar agora.');}
 });
+app.post('/api/auth/email-password/recovery/request', async (req,res)=>{
+  try{
+    if(!EMAIL_RECOVERY_CONFIGURED)return res.status(503).json({ok:false,message:'A recuperação por e-mail ainda não está configurada no servidor.'});
+    await requireAuthIdentityStore();
+    const email=normalizeEmail(req.body?.email);if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
+    const byIp=emailPinRecoveryByIp.consume(authIp(req)),byEmail=emailPasswordResetRequestByEmail.consume(email);
+    if(!byIp.allowed||!byEmail.allowed)return res.status(429).json({ok:false,message:'Muitas solicitações de recuperação. Aguarde alguns minutos e tente novamente.'});
+    const issued=await authIdentityStore.issueEmailPasswordResetCode({email});
+    if(issued.exists){
+      try{await EmailDelivery.sendPasswordResetCode({to:email,code:issued.code});}
+      catch(e){await authIdentityStore.clearEmailPasswordReset({email}).catch(()=>{});throw e;}
+    }
+    // Resposta deliberadamente igual para e-mail existente ou inexistente.
+    res.json({ok:true,message:'Se existir uma conta com este e-mail, o código de recuperação será enviado. Ele vale por 10 minutos.'});
+  }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível enviar o código de recuperação agora.');}
+});
 app.post('/api/auth/email-password/recover', async (req,res)=>{
   try{
     await requireAuthIdentityStore();
-    const rate=emailPinRecoveryByIp.consume(authIp(req));
-    if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de recuperação. Tente novamente mais tarde.'});
-    const user=await authIdentityStore.recoverEmailPassword({email:req.body?.email,recoveryCode:req.body?.recoveryCode,newPassword:req.body?.newPassword});user.provider='email_password';
+    const email=normalizeEmail(req.body?.email);if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
+    const byIp=emailPinRecoveryByIp.consume(authIp(req)),byEmail=emailPasswordResetConfirmByEmail.consume(email);
+    if(!byIp.allowed||!byEmail.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de recuperação. Aguarde alguns minutos e tente novamente.'});
+    const user=await authIdentityStore.resetEmailPasswordWithCode({email,code:req.body?.code,newPassword:req.body?.newPassword});user.provider='email_password';
     setAuthCookie(req,res,signAuthSession(user));
     res.json({ok:true,user:sessionUser(user,'email_password'),message:'Senha alterada com sucesso.'});
   }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível recuperar a conta agora.');}
@@ -604,7 +626,7 @@ app.post('/api/auth/logout', (req,res)=>{
   setAuthCookie(req,res,'',0);
   res.json({ok:true});
 });
-const emailPinLimiterPruneTimer=setInterval(()=>{const now=Date.now();emailPinRegisterByIp.prune(now);emailPinLoginByAddress.prune(now);emailPinLoginByIp.prune(now);emailPinRecoveryByIp.prune(now);},5*60*1000);emailPinLimiterPruneTimer.unref?.();
+const emailPinLimiterPruneTimer=setInterval(()=>{const now=Date.now();emailPinRegisterByIp.prune(now);emailPinLoginByAddress.prune(now);emailPinLoginByIp.prune(now);emailPinRecoveryByIp.prune(now);emailPasswordResetRequestByEmail.prune(now);emailPasswordResetConfirmByEmail.prune(now);},5*60*1000);emailPinLimiterPruneTimer.unref?.();
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res,filePath){

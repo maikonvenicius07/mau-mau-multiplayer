@@ -1,0 +1,16 @@
+MAU-MAU CANDEIAS — PRÉ-APK PASSO 2E
+
+Recuperação de senha por e-mail.
+
+Fluxo:
+1. Jogador toca em Esqueci minha senha.
+2. Informa o e-mail da conta.
+3. Solicita um código de 6 números.
+4. O código é enviado por e-mail e vale por 10 minutos.
+5. Jogador informa o código e cria nova senha de 6 a 60 caracteres.
+
+Variáveis necessárias no Render:
+RESEND_API_KEY
+EMAIL_FROM
+
+O login normal não envia código. Nenhuma regra do jogo foi alterada.

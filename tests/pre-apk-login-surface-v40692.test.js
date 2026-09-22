@@ -22,8 +22,9 @@ assert(!css.includes('.apple-signin-btn'),'CSS do botão Apple deve permanecer r
 
 assert(server.includes("app.post('/api/auth/email-password/register'"),'rota de cadastro com senha deve existir');
 assert(server.includes("app.post('/api/auth/email-password/login'"),'rota de login com senha deve existir');
-assert(server.includes("app.post('/api/auth/email-password/recover'"),'rota de recuperação com senha deve existir');
+assert(server.includes("app.post('/api/auth/email-password/recovery/request'"),'rota para enviar código de recuperação deve existir');
+assert(server.includes("app.post('/api/auth/email-password/recover'"),'rota para confirmar recuperação deve existir');
 assert(authStore.includes('const PASSWORD_MIN_LENGTH=6;'),'limite mínimo da senha deve ser 6');
 assert(authStore.includes('const PASSWORD_MAX_LENGTH=60;'),'limite máximo da senha deve ser 60');
 
-console.log('✓ Pré-APK Passo 2D: login executável validado com Google + e-mail/senha de 6 a 60 caracteres.');
+console.log('✓ Pré-APK Passo 2E: login e recuperação por e-mail validados.');

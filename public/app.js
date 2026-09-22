@@ -66,7 +66,7 @@ const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
 const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000;
 let authUser=null;
-let authConfig=null,authControlsBound=false,pendingEmailPasswordRecovery='';
+let authConfig=null,authControlsBound=false;
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey autenticada.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
 let recentPlayers=[],playersDirectoryTab='online';
@@ -534,11 +534,6 @@ async function loginEmailPassword(event){
     applyAuthUser(data.user);authStatus('Conta conectada.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
   }catch(e){authStatus(e.message||'Falha no acesso por e-mail + senha.','error')}finally{if(button)button.disabled=false;}
 }
-function openRecoveryKeyDialog(code){
-  pendingEmailPasswordRecovery=String(code||'');const value=$('#emailPasswordRecoveryValue');if(value)value.textContent=pendingEmailPasswordRecovery;
-  const dialog=$('#emailPasswordRecoveryDialog');try{if(dialog?.showModal)dialog.showModal();else dialog?.setAttribute('open','')}catch{}
-}
-function closeRecoveryKeyDialog(){const dialog=$('#emailPasswordRecoveryDialog');try{dialog?.close?.()}catch{}dialog?.removeAttribute?.('open');}
 async function registerEmailPassword(event){
   event?.preventDefault?.();
   const name=String($('#emailPasswordRegisterName')?.value||'').trim();
@@ -552,29 +547,37 @@ async function registerEmailPassword(event){
     const res=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password})});
     const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
     if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível criar a conta.');
-    applyAuthUser(data.user);authStatus('Conta criada.','success');openRecoveryKeyDialog(data.recoveryCode);toast('✅ Conta criada. Guarde sua chave de recuperação.');
+    applyAuthUser(data.user);authStatus('Conta criada.','success');toast('✅ Conta criada com sucesso.');
   }catch(e){authStatus(e.message||'Falha ao criar a conta.','error')}finally{if(button)button.disabled=false;}
+}
+async function requestEmailPasswordRecoveryCode(){
+  const email=String($('#emailPasswordRecoverEmail')?.value||'').trim().toLowerCase();
+  const button=$('#emailPasswordRecoverySend');
+  if(!email)return authStatus('Informe o e-mail da conta.','error');
+  try{
+    if(button)button.disabled=true;authStatus('Enviando código de recuperação...');
+    const res=await fetch('/api/auth/email-password/recovery/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível enviar o código.');
+    authStatus(data.message||'Confira seu e-mail para obter o código.','success');toast('📧 Se a conta existir, o código foi enviado para o e-mail informado.');
+    setTimeout(()=>$('#emailPasswordRecoveryCode')?.focus(),50);
+  }catch(e){authStatus(e.message||'Falha ao enviar o código de recuperação.','error')}finally{if(button)button.disabled=false;}
 }
 async function recoverEmailPassword(event){
   event?.preventDefault?.();
   const email=String($('#emailPasswordRecoverEmail')?.value||'').trim().toLowerCase();
-  const recoveryCode=String($('#emailPasswordRecoveryCode')?.value||'').trim();
+  const code=String($('#emailPasswordRecoveryCode')?.value||'').replace(/\D/g,'').slice(0,6);
   const newPassword=emailPasswordValue($('#emailPasswordNewPassword')?.value),confirmPassword=emailPasswordValue($('#emailPasswordNewPasswordConfirm')?.value);
   const button=$('#emailPasswordRecoverBtn');
-  if(!email||!recoveryCode||!isNewPasswordValid(newPassword))return authStatus('Preencha e-mail, chave de recuperação e uma nova senha de 6 a 60 caracteres.','error');
+  if(!email||!/^[0-9]{6}$/.test(code)||!isNewPasswordValid(newPassword))return authStatus('Informe o e-mail, o código de 6 números e uma nova senha de 6 a 60 caracteres.','error');
   if(newPassword!==confirmPassword)return authStatus('As duas novas senhas precisam ser iguais.','error');
   try{
     if(button)button.disabled=true;authStatus('Alterando a senha...');
-    const res=await fetch('/api/auth/email-password/recover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,recoveryCode,newPassword})});
+    const res=await fetch('/api/auth/email-password/recover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code,newPassword})});
     const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
     if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível alterar a senha.');
     applyAuthUser(data.user);authStatus('Senha alterada com sucesso.','success');toast('✅ Senha alterada. Você já está conectado.');
   }catch(e){authStatus(e.message||'Falha na recuperação da conta.','error')}finally{if(button)button.disabled=false;}
-}
-async function copyRecoveryKey(){
-  if(!pendingEmailPasswordRecovery)return;
-  try{await navigator.clipboard.writeText(pendingEmailPasswordRecovery);toast('📋 Chave de recuperação copiada.');}
-  catch{toast(`Chave: ${pendingEmailPasswordRecovery}`);}
 }
 function renderEmailPasswordSignIn(cfg=authConfig){
   const box=$('#emailPasswordAuthBox'),divider=$('#authDivider');const enabled=!!cfg?.providers?.emailPassword?.configured;
@@ -587,11 +590,9 @@ function bindAuthControls(){
   $('#emailPasswordRecoverForm')?.addEventListener('submit',recoverEmailPassword);
   $('#emailPasswordLoginTab')?.addEventListener('click',()=>{showEmailPasswordPanel('login');authStatus('Informe seu e-mail e senha.');});
   $('#emailPasswordRegisterTab')?.addEventListener('click',()=>{showEmailPasswordPanel('register');authStatus('Crie sua conta com e-mail e senha.');});
-  $('#emailPasswordRecoverOpen')?.addEventListener('click',()=>{showEmailPasswordPanel('recover');authStatus('Use a chave de recuperação que você guardou ao criar a conta.');});
+  $('#emailPasswordRecoverOpen')?.addEventListener('click',()=>{showEmailPasswordPanel('recover');authStatus('Informe seu e-mail para receber um código de recuperação.');});
   $('#emailPasswordRecoverBack')?.addEventListener('click',()=>{showEmailPasswordPanel('login');authStatus('Informe seu e-mail e senha.');});
-  $('#emailPasswordRecoveryCopy')?.addEventListener('click',copyRecoveryKey);
-  $('#emailPasswordRecoveryContinue')?.addEventListener('click',closeRecoveryKeyDialog);
-  $('#emailPasswordRecoveryClose')?.addEventListener('click',closeRecoveryKeyDialog);
+  $('#emailPasswordRecoverySend')?.addEventListener('click',requestEmailPasswordRecoveryCode);
 }
 async function renderAuthOptions(){
   bindAuthControls();

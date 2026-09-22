@@ -1,3 +1,12 @@
+
+## Pré-APK Passo 2E — recuperação de senha por e-mail
+- Login normal permanece Google ou e-mail + senha (6–60 caracteres).
+- “Esqueci minha senha” envia código numérico de 6 dígitos ao e-mail cadastrado.
+- Código expira em 10 minutos, é de uso único e aceita no máximo 5 tentativas.
+- Código é armazenado somente como hash; o servidor não grava o código em texto aberto.
+- Envio usa RESEND_API_KEY e EMAIL_FROM somente na recuperação.
+- Chave de recuperação deixou de ser exibida ao jogador.
+- Nenhuma regra do jogo foi alterada.
 # Pré-APK Passo 2C — correção do build e senha 6–60
 
 - Corrigido o teste `pre-apk-login-surface-v40692.test.js` para não derrubar o deploy por conteúdo do arquivo oculto `.env.example`.

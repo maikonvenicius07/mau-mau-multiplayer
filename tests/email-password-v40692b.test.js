@@ -27,5 +27,7 @@ const {AuthIdentityStore,normalizePassword,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENG
   assert(html.includes('e-mail + senha'));
   assert(html.includes('6 a 60 caracteres'));
   assert(!html.includes('PIN de 6 números'));
+  assert(html.includes('Enviar código por e-mail'));
+  assert(html.includes('Código recebido por e-mail'));
   console.log('✓ Pré-APK Passo 2B: senha flexível 6–60 e compatibilidade com conta antiga validadas.');
 })().catch(e=>{console.error(e);process.exit(1);});

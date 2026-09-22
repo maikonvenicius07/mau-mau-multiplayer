@@ -12,6 +12,8 @@ function normalizeEmail(value) {
 }
 const PASSWORD_MIN_LENGTH=6;
 const PASSWORD_MAX_LENGTH=60;
+const PASSWORD_RESET_TTL_MS=10*60*1000;
+const PASSWORD_RESET_MAX_ATTEMPTS=5;
 function normalizePassword(value,{allowLegacyPin=false}={}){
   const password=String(value??'');
   if(/[\u0000-\u001F\u007F]/u.test(password))return '';
@@ -20,6 +22,11 @@ function normalizePassword(value,{allowLegacyPin=false}={}){
   if(allowLegacyPin&&/^\d{6}$/.test(password))return password;
   return '';
 }
+function normalizePasswordResetCode(value){
+  const code=String(value||'').replace(/\D/g,'').slice(0,6);
+  return /^\d{6}$/.test(code)?code:'';
+}
+function generatePasswordResetCode(){return String(crypto.randomInt(0,1000000)).padStart(6,'0');}
 function normalizePin(value){
   const pin=String(value||'').replace(/\D/g,'').slice(0,6);
   return /^\d{6}$/.test(pin)?pin:'';
@@ -165,6 +172,31 @@ class JsonBackend {
     cred.pinSalt=randomSalt();cred.pinHash=await scryptHex(newPassword,cred.pinSalt);cred.failedAttempts=0;cred.lockedUntil=0;cred.updatedAt=new Date().toISOString();this.persist();
     const user=this.data.users[cred.playerKey]||{playerKey:cred.playerKey,name:emailPinDisplayName(email)};return publicEmailPasswordUser(user,email);
   }
+
+  async issueEmailPasswordResetCode({email,now=Date.now()}={}){
+    email=normalizeEmail(email);if(!email)throw authError('INVALID_EMAIL','Informe um e-mail válido.');
+    const cred=this.data.emailPins[email];if(!cred)return {exists:false};
+    const code=generatePasswordResetCode(),salt=randomSalt(),hash=await scryptHex(code,salt),expiresAt=now+PASSWORD_RESET_TTL_MS;
+    cred.passwordResetSalt=salt;cred.passwordResetHash=hash;cred.passwordResetExpiresAt=expiresAt;cred.passwordResetAttempts=0;cred.passwordResetSentAt=now;cred.updatedAt=new Date(now).toISOString();this.persist();
+    return {exists:true,code,expiresAt};
+  }
+  async clearEmailPasswordReset({email}={}){
+    email=normalizeEmail(email);const cred=this.data.emailPins[email];if(!cred)return false;
+    delete cred.passwordResetSalt;delete cred.passwordResetHash;delete cred.passwordResetExpiresAt;delete cred.passwordResetAttempts;delete cred.passwordResetSentAt;this.persist();return true;
+  }
+  async resetEmailPasswordWithCode({email,code,newPassword,now=Date.now()}={}){
+    email=normalizeEmail(email);code=normalizePasswordResetCode(code);newPassword=normalizePassword(newPassword);
+    if(!email||!code||!newPassword)throw authError('INVALID_RESET',`Preencha o código e uma nova senha de ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres.`);
+    const cred=this.data.emailPins[email];if(!cred)throw authError('INVALID_RESET','Código inválido ou expirado.');
+    const expiresAt=Number(cred.passwordResetExpiresAt||0);if(!cred.passwordResetSalt||!cred.passwordResetHash||!expiresAt||expiresAt<now){await this.clearEmailPasswordReset({email});throw authError('RESET_EXPIRED','Código inválido ou expirado. Solicite um novo.');}
+    const actual=await scryptHex(code,cred.passwordResetSalt);if(!safeHexEqual(actual,cred.passwordResetHash)){
+      cred.passwordResetAttempts=Number(cred.passwordResetAttempts||0)+1;
+      if(cred.passwordResetAttempts>=PASSWORD_RESET_MAX_ATTEMPTS){await this.clearEmailPasswordReset({email});throw authError('RESET_ATTEMPTS','Muitas tentativas incorretas. Solicite um novo código.');}
+      cred.updatedAt=new Date(now).toISOString();this.persist();throw authError('INVALID_RESET','Código inválido ou expirado.');
+    }
+    cred.pinSalt=randomSalt();cred.pinHash=await scryptHex(newPassword,cred.pinSalt);cred.failedAttempts=0;cred.lockedUntil=0;cred.updatedAt=new Date(now).toISOString();delete cred.passwordResetSalt;delete cred.passwordResetHash;delete cred.passwordResetExpiresAt;delete cred.passwordResetAttempts;delete cred.passwordResetSentAt;this.persist();
+    const user=this.data.users[cred.playerKey]||{playerKey:cred.playerKey,name:emailPinDisplayName(email)};return publicEmailPasswordUser(user,email);
+  }
   async close(){}
 }
 
@@ -205,6 +237,13 @@ class PostgresBackend {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           last_login_at TIMESTAMPTZ
         );
+      `);
+      await client.query(`
+        ALTER TABLE mm_auth_email_pin ADD COLUMN IF NOT EXISTS password_reset_salt VARCHAR(64);
+        ALTER TABLE mm_auth_email_pin ADD COLUMN IF NOT EXISTS password_reset_hash VARCHAR(128);
+        ALTER TABLE mm_auth_email_pin ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+        ALTER TABLE mm_auth_email_pin ADD COLUMN IF NOT EXISTS password_reset_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE mm_auth_email_pin ADD COLUMN IF NOT EXISTS password_reset_sent_at TIMESTAMPTZ;
       `);
       await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS mm_auth_users_email_normalized_uq ON mm_auth_users(email_normalized) WHERE email_normalized IS NOT NULL AND email_normalized <> ''`);
       await client.query(`CREATE INDEX IF NOT EXISTS mm_auth_identities_player_idx ON mm_auth_identities(player_key)`);
@@ -296,6 +335,39 @@ class PostgresBackend {
       const actual=await scryptHex(recovery,cred.recovery_salt);if(!safeHexEqual(actual,cred.recovery_hash))throw authError('INVALID_RECOVERY','Chave de recuperação inválida.');const pinSalt=randomSalt(),pinHash=await scryptHex(newPassword,pinSalt);await client.query(`UPDATE mm_auth_email_pin SET pin_salt=$2,pin_hash=$3,failed_attempts=0,locked_until=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email,pinSalt,pinHash]);await client.query('COMMIT');return publicEmailPasswordUser({playerKey:cred.player_key,name:cred.name,picture:cred.picture||''},email);
     }catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}finally{client.release();}
   }
+
+  async issueEmailPasswordResetCode({email,now=Date.now()}={}){
+    email=normalizeEmail(email);if(!email)throw authError('INVALID_EMAIL','Informe um e-mail válido.');const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`email-reset:${email}`]);
+      const found=await client.query(`SELECT email_normalized FROM mm_auth_email_pin WHERE email_normalized=$1`,[email]);if(!found.rowCount){await client.query('COMMIT');return {exists:false};}
+      const code=generatePasswordResetCode(),salt=randomSalt(),hash=await scryptHex(code,salt),expiresAt=new Date(now+PASSWORD_RESET_TTL_MS);
+      await client.query(`UPDATE mm_auth_email_pin SET password_reset_salt=$2,password_reset_hash=$3,password_reset_expires_at=$4,password_reset_attempts=0,password_reset_sent_at=NOW(),updated_at=NOW() WHERE email_normalized=$1`,[email,salt,hash,expiresAt]);await client.query('COMMIT');return {exists:true,code,expiresAt:expiresAt.getTime()};
+    }catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}finally{client.release();}
+  }
+  async clearEmailPasswordReset({email}={}){
+    email=normalizeEmail(email);if(!email)return false;const result=await this.pool.query(`UPDATE mm_auth_email_pin SET password_reset_salt=NULL,password_reset_hash=NULL,password_reset_expires_at=NULL,password_reset_attempts=0,password_reset_sent_at=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email]);return result.rowCount>0;
+  }
+  async resetEmailPasswordWithCode({email,code,newPassword,now=Date.now()}={}){
+    email=normalizeEmail(email);code=normalizePasswordResetCode(code);newPassword=normalizePassword(newPassword);
+    if(!email||!code||!newPassword)throw authError('INVALID_RESET',`Preencha o código e uma nova senha de ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres.`);const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`email-reset:${email}`]);
+      const found=await client.query(`SELECT c.*,u.name,u.picture FROM mm_auth_email_pin c JOIN mm_auth_users u ON u.player_key=c.player_key WHERE c.email_normalized=$1`,[email]);const cred=found.rows[0];
+      if(!cred||!cred.password_reset_salt||!cred.password_reset_hash||!cred.password_reset_expires_at||new Date(cred.password_reset_expires_at).getTime()<now){
+        if(cred)await client.query(`UPDATE mm_auth_email_pin SET password_reset_salt=NULL,password_reset_hash=NULL,password_reset_expires_at=NULL,password_reset_attempts=0,password_reset_sent_at=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email]);
+        await client.query('COMMIT');throw authError('RESET_EXPIRED','Código inválido ou expirado. Solicite um novo.');
+      }
+      const actual=await scryptHex(code,cred.password_reset_salt);if(!safeHexEqual(actual,cred.password_reset_hash)){
+        const attempts=Number(cred.password_reset_attempts||0)+1;
+        if(attempts>=PASSWORD_RESET_MAX_ATTEMPTS)await client.query(`UPDATE mm_auth_email_pin SET password_reset_salt=NULL,password_reset_hash=NULL,password_reset_expires_at=NULL,password_reset_attempts=0,password_reset_sent_at=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email]);
+        else await client.query(`UPDATE mm_auth_email_pin SET password_reset_attempts=$2,updated_at=NOW() WHERE email_normalized=$1`,[email,attempts]);
+        await client.query('COMMIT');throw authError(attempts>=PASSWORD_RESET_MAX_ATTEMPTS?'RESET_ATTEMPTS':'INVALID_RESET',attempts>=PASSWORD_RESET_MAX_ATTEMPTS?'Muitas tentativas incorretas. Solicite um novo código.':'Código inválido ou expirado.');
+      }
+      const pinSalt=randomSalt(),pinHash=await scryptHex(newPassword,pinSalt);
+      await client.query(`UPDATE mm_auth_email_pin SET pin_salt=$2,pin_hash=$3,failed_attempts=0,locked_until=NULL,password_reset_salt=NULL,password_reset_hash=NULL,password_reset_expires_at=NULL,password_reset_attempts=0,password_reset_sent_at=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email,pinSalt,pinHash]);await client.query('COMMIT');return publicEmailPasswordUser({playerKey:cred.player_key,name:cred.name,picture:cred.picture||''},email);
+    }catch(e){if(!['INVALID_RESET','RESET_EXPIRED','RESET_ATTEMPTS'].includes(e?.code)){try{await client.query('ROLLBACK')}catch{}}throw e;}finally{client.release();}
+  }
   async close(){await this.pool.end();}
 }
 
@@ -311,7 +383,10 @@ class AuthIdentityStore {
   async registerEmailPassword(opts){return this.backend.registerEmailPassword(opts);}
   async loginEmailPassword(opts){return this.backend.loginEmailPassword(opts);}
   async recoverEmailPassword(opts){return this.backend.recoverEmailPassword(opts);}
+  async issueEmailPasswordResetCode(opts){return this.backend.issueEmailPasswordResetCode(opts);}
+  async clearEmailPasswordReset(opts){return this.backend.clearEmailPasswordReset(opts);}
+  async resetEmailPasswordWithCode(opts){return this.backend.resetEmailPasswordWithCode(opts);}
   async close(){return this.backend.close();}
 }
 
-module.exports={AuthIdentityStore,normalizeEmail,normalizePin,normalizePassword,normalizeRecoveryCode,identityHash,newPlayerKey,cleanUserProfile,generateRecoveryCode,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENGTH};
+module.exports={AuthIdentityStore,normalizeEmail,normalizePin,normalizePassword,normalizePasswordResetCode,normalizeRecoveryCode,identityHash,newPlayerKey,cleanUserProfile,generateRecoveryCode,generatePasswordResetCode,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENGTH,PASSWORD_RESET_TTL_MS,PASSWORD_RESET_MAX_ATTEMPTS};

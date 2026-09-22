@@ -1,10 +1,10 @@
 # V40.69.2 — Login pronto para web/app: Google + e-mail/senha
 
 - Google continua funcionando e preserva o `playerKey` das contas existentes.
-- O acesso alternativo usa **e-mail + senha escolhida pelo jogador, de 6 a 60 caracteres**, sem Resend e sem envio de código.
+- O acesso alternativo usa **e-mail + senha escolhida pelo jogador, de 6 a 60 caracteres**, sem Resend e com recuperação por código enviado ao e-mail.
 - A senha é protegida com `scrypt` e salt aleatório; nunca é armazenada em texto puro.
 - Após 5 senhas incorretas, a conta é bloqueada temporariamente por 15 minutos.
-- Na criação da conta, o jogo entrega uma **chave de recuperação** única; ela permite trocar a senha sem depender de e-mail.
+- Na criação da conta, o jogo entrega uma **código de recuperação por e-mail** única; ela permite trocar a senha sem depender de e-mail.
 - O e-mail digitado no modo senha funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma Conta Google.
 - **Contas antigas com PIN de 6 números continuam entrando normalmente**; o PIN antigo funciona como a senha atual até o jogador optar por redefini-la.
 - Nenhuma regra do Mau-Mau, ranking, reconexão, salas, observadores, chat, voz ou microfone foi alterada.

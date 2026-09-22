@@ -126,7 +126,7 @@ A classificação considera:
 1. maior número de vitórias;
 2. em caso de empate, menor média de pontos.
 
-A identidade do ranking é vinculada à conta autenticada (Google ou e-mail + PIN); alterar o nome na mesa ou o avatar não cria outro jogador no ranking.
+A identidade do ranking é vinculada à conta autenticada (Google ou e-mail + senha); alterar o nome na mesa ou o avatar não cria outro jogador no ranking.
 
 ## 14. Recursos da mesa
 - Chat em tempo real.
@@ -142,7 +142,7 @@ A identidade do ranking é vinculada à conta autenticada (Google ou e-mail + PI
 ## 15. Regras técnicas
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.
 - Reconexão Inteligente: uma queda durante a rodada pausa a mesa por até 60 segundos; nos intervalos da partida, a cadeira também fica reservada pelo mesmo prazo. Se o jogador não voltar, a Máquina assume temporariamente a mesma mão, posição e pontuação. Ao reconectar, o jogador retoma automaticamente seu lugar.
-- O acesso ao jogo exige uma conta autenticada por Google ou e-mail + PIN.
+- O acesso ao jogo exige uma conta autenticada por Google ou e-mail + senha.
 
 
 ## Ranking — Temporada 1

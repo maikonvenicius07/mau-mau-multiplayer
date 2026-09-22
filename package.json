@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
   "version": "40.69.2",
-  "description": "Mau-Mau Candeias V40.69.2: login para web/app com Google e e-mail + senha de 6 a 60 caracteres, sem envio de código, mantendo identidade, ranking e reconexão.",
+  "description": "Mau-Mau Candeias V40.69.2: login com Google ou e-mail + senha de 6 a 60 caracteres e recuperação de senha por código enviado ao e-mail.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
