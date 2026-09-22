@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-preapk2" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -18,11 +18,9 @@
       <div class="auth-brand-mark">M</div>
       <div class="eyebrow">ACESSO AO MAU-MAU CANDEIAS</div>
       <h1>Entre para jogar</h1>
-      <p>Use Google, Apple ou seu e-mail. Sua conta mantém a mesma identidade do ranking e da reconexão em celular ou computador.</p>
+      <p>Use Google ou e-mail + PIN. Sua conta mantém a mesma identidade do ranking e da reconexão em celular ou computador.</p>
 
       <div id="googleSignInButton" class="google-signin-container" aria-label="Continuar com Google"></div>
-      <button id="appleSignInButton" class="apple-signin-btn hidden" type="button" aria-label="Continuar com Apple"><span class="apple-mark"></span><span>Continuar com Apple</span></button>
-
       <div id="authDivider" class="auth-divider"><span>ou</span></div>
       <div id="emailPinAuthBox" class="email-auth-box hidden">
         <div class="email-auth-tabs" role="tablist" aria-label="Acesso por e-mail e PIN">
@@ -64,7 +62,7 @@
       </div>
 
       <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
-      <p class="auth-privacy">Google e Apple continuam protegendo suas próprias credenciais. No acesso por e-mail, o MAU-MAU usa um PIN de 6 números; nenhum código é enviado por e-mail.</p>
+      <p class="auth-privacy">O Google protege as credenciais da Conta Google. No acesso por e-mail, o MAU-MAU usa um PIN de 6 números; nenhum código é enviado por e-mail.</p>
     </div>
   </section>
 
@@ -668,8 +666,7 @@
   </dialog>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.2"></script>
+  <script src="app.js?v=40.69.2-preapk2"></script>
 </body>
 </html>

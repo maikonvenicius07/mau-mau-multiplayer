@@ -25,5 +25,5 @@ assert(/const socket\s*=\s*io\(\{[\s\S]{0,500}?autoConnect\s*:\s*false/.test(app
 assert(app.includes('initializeAuth()'),'inicialização da autenticação universal ausente');
 assert(app.includes("fetch('/api/auth/google'"),'cliente não envia credencial Google ao servidor');
 assert(!app.includes("const playerKeyStorage='maumauPlayerKeyV1'"),'playerKey local antigo ainda ativo');
-assert(css.includes('V40.69.2 — LOGIN UNIVERSAL'),'estilo da tela universal ausente');
-console.log('✓ V40.69.2: Google preservado dentro do login universal e sessão HttpOnly conferidos.');
+assert(css.includes('PRÉ-APK PASSO 2 — LOGIN: GOOGLE + E-MAIL/PIN'),'estilo da tela de login Pré-APK ausente');
+console.log('✓ V40.69.2 Pré-APK: Google preservado no login e sessão HttpOnly conferidos.');

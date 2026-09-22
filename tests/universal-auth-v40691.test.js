@@ -73,13 +73,14 @@ const U=require('../universal-auth');
   assert(server.includes("const AUTH_COOKIE = 'maumau_session'"));
   assert(server.includes("const LEGACY_AUTH_COOKIE = 'maumau_google_session'"));
 
-  for(const id of ['googleSignInButton','appleSignInButton','emailPinAuthBox','emailPinLoginForm','emailPinRegisterForm','emailPinRecoverForm','emailPinRecoveryDialog'])assert(html.includes(`id="${id}"`),`controle ${id} ausente`);
+  for(const id of ['googleSignInButton','emailPinAuthBox','emailPinLoginForm','emailPinRegisterForm','emailPinRecoverForm','emailPinRecoveryDialog'])assert(html.includes(`id="${id}"`),`controle ${id} ausente`);
   assert(!html.toLowerCase().includes('jogar como visitante'));
-  assert(app.includes('handleAppleLogin'));
+  assert(!html.includes('appleSignInButton')&&!html.includes('appleid.cdn-apple.com'),'Apple não deve ser exposto na interface Pré-APK');
+  assert(!app.includes('handleAppleLogin')&&!app.includes('renderAppleSignIn')&&!app.includes('waitForAppleIdentity'));
   assert(app.includes('loginEmailPin')&&app.includes('registerEmailPin')&&app.includes('recoverEmailPin'));
   assert(app.includes('initializeAuth()'));
-  assert(css.includes('.apple-signin-btn')&&css.includes('.email-auth-box')&&css.includes('.recovery-key-modal'));
+  assert(!css.includes('.apple-signin-btn')&&css.includes('.email-auth-box')&&css.includes('.recovery-key-modal'));
 
   fs.rmSync(tmp,{recursive:true,force:true});
-  console.log('✓ V40.69.2: Google + Apple + e-mail/PIN, recuperação e isolamento de identidade validados.');
+  console.log('✓ V40.69.2 Pré-APK: interface Google + e-mail/PIN, recuperação e isolamento de identidade validados.');
 })().catch(e=>{console.error(e);process.exit(1);});

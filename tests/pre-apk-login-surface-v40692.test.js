@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const read=(p)=>fs.readFileSync(path.join(root,p),'utf8');
+const html=read('public/index.html');
+const app=read('public/app.js');
+const css=read('public/styles.css');
+const env=read('.env.example');
+const deploy=read('docs/DEPLOY_RENDER.md');
+const rules=read('docs/REGRAS.md');
+
+assert(html.includes('Use Google ou e-mail + PIN'));
+assert(html.includes('googleSignInButton')&&html.includes('emailPinAuthBox'));
+assert(!/Apple|appleSignInButton|appleid\.cdn-apple\.com/.test(html),'interface não deve exibir Apple');
+assert(!/handleAppleLogin|renderAppleSignIn|waitForAppleIdentity/.test(app),'cliente não deve carregar fluxo Apple');
+assert(!css.includes('.apple-signin-btn'),'CSS do botão Apple deve ser removido');
+assert(!env.includes('APPLE_'),'exemplo de ambiente Pré-APK não deve pedir credenciais Apple');
+assert(!/Apple/i.test(deploy),'guia atual de deploy não deve orientar Apple');
+assert(rules.includes('Google ou e-mail + PIN'));
+console.log('✓ Pré-APK Passo 2: superfície de login limitada a Google + e-mail/PIN.');

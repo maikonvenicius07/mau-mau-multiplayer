@@ -1,14 +1,16 @@
-# V40.69.2 — Login pronto para web/app: Google + Apple + e-mail/PIN
+# V40.69.2 — Login pronto para web/app: Google + e-mail/PIN
 
 - Google continua funcionando e preserva o `playerKey` das contas existentes.
-- Sign in with Apple continua disponível quando as credenciais Apple forem configuradas no Render.
 - O acesso alternativo agora usa **e-mail + PIN de 6 números**, sem Resend e sem envio de código.
 - O PIN é protegido com `scrypt` e salt aleatório; nunca é armazenado em texto puro.
 - Após 5 PINs incorretos, a conta é bloqueada temporariamente por 15 minutos.
 - Na criação da conta, o jogo entrega uma **chave de recuperação** única; ela permite trocar o PIN sem depender de e-mail.
-- O e-mail digitado no modo PIN funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma conta Google/Apple.
-- Google e Apple com o mesmo e-mail realmente verificado continuam podendo reutilizar a identidade canônica existente.
+- O e-mail digitado no modo PIN funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma Conta Google.
 - Nenhuma regra do Mau-Mau, ranking, reconexão, salas, observadores, chat, voz ou microfone foi alterada.
+
+## Estado atual de autenticação para o Pré-APK
+
+A interface atual oferece somente **Google** e **e-mail + PIN de 6 números**. O cliente não carrega SDK nem exibe botão de outro provedor. Referências em seções antigas de histórico descrevem versões anteriores e não representam a tela atual.
 
 ---
 
@@ -434,7 +436,7 @@ A tela inicial agora possui uma Central de Partidas ao Vivo para observadores. S
 
 
 
-Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, login por Google/Apple/e-mail verificado, Socket.IO, ranking PostgreSQL, presença online e reações rápidas.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, login por Google ou e-mail + PIN, Socket.IO, ranking PostgreSQL, presença online e reações rápidas.
 
 
 
@@ -488,7 +490,7 @@ Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo pa
 
 ## Recursos atuais
 
-- **Login universal obrigatório**: Google, Apple ou e-mail com código temporário; sessão própria em cookie HttpOnly.
+- **Login obrigatório**: Google ou e-mail + PIN de 6 números; sessão própria em cookie HttpOnly.
 - **Salas multiplayer** de 2 a 5 jogadores e modo contra máquinas.
 - **Jogadores Online + Convites** com presença identificada pelo `playerKey` autenticado.
 - **Buscar Jogadores**: matchmaking automático de 2 a 5 pessoas; a janela de 15 s começa quando o segundo jogador entra e a partida inicia imediatamente ao chegar a 5.
@@ -513,8 +515,7 @@ As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
 - Socket.IO
 - PostgreSQL (`pg`)
 - Google Identity Services + `google-auth-library`
-- Sign in with Apple JS + validação server-side do ID token/authorization code
-- Login por e-mail com OTP via Resend
+- Login por e-mail + PIN protegido, sem serviço externo de envio
 - HTML, CSS e JavaScript no front-end
 
 ## Estrutura do projeto
@@ -551,7 +552,7 @@ npm install
 ```
 
 3. Copie `.env.example` para `.env` apenas como referência. Este projeto não carrega `.env` automaticamente; defina as variáveis no terminal/sistema operacional ou na plataforma de hospedagem.
-4. Configure `AUTH_SESSION_SECRET`. Para manter Google, use `GOOGLE_CLIENT_ID`. O acesso por e-mail + PIN não exige serviço externo. Para Apple, configure as variáveis `APPLE_*`.
+4. Configure `AUTH_SESSION_SECRET`. Para manter Google, use `GOOGLE_CLIENT_ID`. O acesso por e-mail + PIN não exige serviço externo.
 5. Inicie:
 
 ```bash
@@ -585,9 +586,6 @@ npm run verify
 | Variável | Uso |
 |---|---|
 | `GOOGLE_CLIENT_ID` | Client ID OAuth Web usado para validar o Login Google. |
-| `APPLE_CLIENT_ID` | Services ID do Sign in with Apple. |
-| `APPLE_REDIRECT_URI` | Return URL HTTPS cadastrada na Apple. |
-| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Credenciais server-side do Sign in with Apple. |
 | E-mail + PIN | Não exige variável de ambiente adicional; as credenciais ficam protegidas no armazenamento de identidade. |
 | `AUTH_SESSION_SECRET` | Assina a sessão própria do jogo. Use valor longo, aleatório e estável. |
 | `DATABASE_URL` | Conexão PostgreSQL usada pelo ranking. Recomendada em produção. |
@@ -599,7 +597,7 @@ npm run verify
 
 ## Deploy no Render
 
-O projeto já inclui `render.yaml`. As instruções consolidadas de login universal, PostgreSQL e deploy estão em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
+O projeto já inclui `render.yaml`. As instruções consolidadas de login, PostgreSQL e deploy estão em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
 
 ## Áudio
 

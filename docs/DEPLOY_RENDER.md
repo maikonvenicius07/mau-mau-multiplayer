@@ -1,8 +1,8 @@
-# Deploy no Render — MAU-MAU CANDEIAS V40.69.2
+# Deploy no Render — MAU-MAU CANDEIAS V40.69.2 — Pré-APK Passo 2
 
-## 1. Formas de entrada
+## 1. Formas de entrada atuais
 
-A V40.69.2 aceita **Google**, **Apple** e **e-mail + PIN de 6 números**. Não existe modo visitante. A sessão do jogo usa cookie HttpOnly e o `playerKey` autenticado continua sendo a identidade usada por ranking, presença e reconexão.
+A versão atual usa **Google** ou **e-mail + PIN de 6 números**. Não existe modo visitante. A sessão do jogo usa cookie HttpOnly e o `playerKey` autenticado continua sendo a identidade usada por ranking, presença e reconexão.
 
 ### Google
 
@@ -24,22 +24,6 @@ O PIN é derivado com `scrypt` e salt aleatório. Após várias tentativas incor
 
 Não há variáveis de ambiente adicionais para esse método.
 
-### Sign in with Apple
-
-Para habilitar o botão Apple, configure Sign in with Apple no Apple Developer, um **Services ID** e uma Return URL HTTPS.
-
-No Render:
-
-```text
-APPLE_CLIENT_ID=SEU_SERVICES_ID
-APPLE_REDIRECT_URI=https://SEU-SERVICO.onrender.com/
-APPLE_TEAM_ID=SEU_TEAM_ID
-APPLE_KEY_ID=SEU_KEY_ID
-APPLE_PRIVATE_KEY=SUA_CHAVE_P8
-```
-
-`APPLE_PRIVATE_KEY` é segredo. Nunca publique a chave `.p8` no GitHub.
-
 ### Sessão
 
 ```text
@@ -56,7 +40,7 @@ Configure:
 DATABASE_URL=CONNECTION_STRING_DO_POSTGRESQL
 ```
 
-O PostgreSQL armazena ranking, snapshots, identidades Google/Apple e as credenciais protegidas de e-mail + PIN. As tabelas são criadas automaticamente.
+O PostgreSQL armazena ranking, snapshots, identidades Google e as credenciais protegidas das contas de e-mail + PIN. As tabelas são criadas automaticamente.
 
 ## 3. Variáveis mínimas recomendadas
 
@@ -68,8 +52,6 @@ Para publicar com Google + e-mail/PIN:
 - `MAX_ROOMS=10`
 - `MAX_SPECTATORS_PER_ROOM=5`
 
-Para Apple, acrescente depois `APPLE_CLIENT_ID`, `APPLE_REDIRECT_URI`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY`.
-
 ## 4. Deploy e teste
 
 1. Faça o deploy do commit mais recente.
@@ -78,13 +60,12 @@ Para Apple, acrescente depois `APPLE_CLIENT_ID`, `APPLE_REDIRECT_URI`, `APPLE_TE
 4. Crie uma conta nova por e-mail + PIN e guarde a chave de recuperação.
 5. Saia e entre novamente com o mesmo e-mail + PIN.
 6. Teste a recuperação trocando o PIN pela chave de recuperação.
-7. Se Apple estiver configurado, teste o botão Apple no Safari/iPhone.
-8. Crie uma sala, reconecte e confira ranking/presença.
+7. Crie uma sala, reconecte e confira ranking/presença.
 
 ## 5. Segurança
 
-- Nunca commitar `.env`, `DATABASE_URL`, `AUTH_SESSION_SECRET` ou `APPLE_PRIVATE_KEY`.
+- Nunca commitar `.env`, `DATABASE_URL` ou `AUTH_SESSION_SECRET`.
 - PIN e chave de recuperação não são armazenados em texto puro.
-- O e-mail do modo PIN não é tratado como e-mail verificado e não auto-vincula Google/Apple.
-- Google/Apple só usam e-mail verificado para a vinculação canônica existente.
+- O e-mail do modo PIN não é tratado como e-mail verificado e não auto-vincula uma Conta Google.
+- A Conta Google usa e-mail verificado somente dentro do fluxo próprio do Google.
 - O navegador nunca escolhe o `playerKey`; a identidade é resolvida no servidor.

@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — PRÉ-APK — PASSO 2
+
+Objetivo
+Retirar referências ao login Apple da interface e dos textos atuais, mantendo somente Google + e-mail/PIN.
+
+Alterações realizadas
+1. Removido o botão Apple da tela de login.
+2. Removido o carregamento do SDK Apple no navegador.
+3. Removido o fluxo Apple do JavaScript do cliente.
+4. Textos visíveis agora informam somente Google ou e-mail + PIN.
+5. .env.example e documentação atual de deploy não pedem credenciais Apple.
+6. docs/REGRAS.md foi alinhado ao login atual.
+7. Foi criado teste de proteção da superfície de login Pré-APK.
+8. Referências históricas em CHANGELOG e arquivos de versões antigas foram preservadas apenas como histórico.
+
+Importante
+- Nenhuma regra do Mau-Mau foi alterada.
+- game-engine.js e bot-player.js não foram modificados neste passo.
+- O backend legado de Apple foi mantido dormente para minimizar risco de regressão; a interface atual não o expõe nem carrega seu SDK.
+- Google e e-mail + PIN permanecem funcionando como antes.

@@ -442,9 +442,9 @@ function authStatus(message='',kind=''){
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
 function providerLabel(provider){
-  return provider==='google'?'GOOGLE CONECTADO':provider==='apple'?'APPLE CONECTADO':provider==='email_pin'?'E-MAIL + PIN':'CONTA CONECTADA';
+  return provider==='google'?'GOOGLE CONECTADO':provider==='email_pin'?'E-MAIL + PIN':'CONTA CONECTADA';
 }
-function showAuthGate(message='Entre com Google, Apple ou e-mail + PIN para continuar.'){
+function showAuthGate(message='Entre com Google ou e-mail + PIN para continuar.'){
   authUser=null;onlinePlayers=[];onlineCount=0;recentPlayers=[];inviteCards.clear();
   matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};matchmakingDialogDismissed=false;
   renderOnlinePresence();renderInviteInbox();renderMatchmaking();
@@ -483,16 +483,6 @@ function waitForGoogleIdentity(timeout=10000){
     };tick();
   });
 }
-function waitForAppleIdentity(timeout=10000){
-  return new Promise((resolve,reject)=>{
-    const started=Date.now();
-    const tick=()=>{
-      if(window.AppleID?.auth) return resolve(window.AppleID.auth);
-      if(Date.now()-started>=timeout) return reject(new Error('Biblioteca de login da Apple não carregou. Verifique sua internet e tente novamente.'));
-      setTimeout(tick,120);
-    };tick();
-  });
-}
 async function handleGoogleCredential(response){
   try{
     authStatus('Validando sua Conta Google...');
@@ -516,32 +506,6 @@ async function renderGoogleSignIn(cfg=authConfig){
     const buttonWidth=Math.min(300,Math.max(220,window.innerWidth-72));
     gis.renderButton(target,{theme:'outline',size:'large',shape:'pill',text:'continue_with',logo_alignment:'left',width:buttonWidth});
   }catch(e){target.classList.add('hidden');console.warn('[auth] Google indisponível:',e?.message||e)}
-}
-async function handleAppleLogin(){
-  const button=$('#appleSignInButton');
-  try{
-    button.disabled=true;authStatus('Abrindo o login da Apple...');
-    const appleCfg=authConfig?.providers?.apple;
-    if(!appleCfg?.configured)throw new Error('Login Apple ainda não foi configurado no servidor.');
-    const challengeRes=await fetch('/api/auth/apple/challenge',{cache:'no-store'});
-    const challenge=await challengeRes.json().catch(()=>({ok:false}));
-    if(!challengeRes.ok||!challenge.ok)throw new Error(challenge.message||'Não foi possível iniciar o login Apple.');
-    const apple=await waitForAppleIdentity();
-    apple.init({clientId:appleCfg.clientId,scope:'name email',redirectURI:appleCfg.redirectURI,state:challenge.state,nonce:challenge.nonce,usePopup:true});
-    const response=await apple.signIn();
-    const authorization=response?.authorization||{};
-    const res=await fetch('/api/auth/apple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:authorization.id_token||'',code:authorization.code||'',state:authorization.state||'',user:response?.user||null})});
-    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
-    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível entrar com Apple.');
-    applyAuthUser(data.user);authStatus('Conta Apple conectada.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
-  }catch(e){
-    const message=String(e?.message||'Falha no login Apple.');
-    if(!/popup_closed|user_cancelled|cancel/i.test(message))authStatus(message,'error');else authStatus('Login Apple cancelado.');
-  }finally{if(button)button.disabled=false;}
-}
-function renderAppleSignIn(cfg=authConfig){
-  const button=$('#appleSignInButton');if(!button)return;
-  button.classList.toggle('hidden',!cfg?.providers?.apple?.configured);
 }
 function emailPinDigits(value){return String(value||'').replace(/\D/g,'').slice(0,6);}
 function showEmailPinPanel(panel='login'){
@@ -612,11 +576,10 @@ async function copyRecoveryKey(){
 }
 function renderEmailPinSignIn(cfg=authConfig){
   const box=$('#emailPinAuthBox'),divider=$('#authDivider');const enabled=!!cfg?.providers?.emailPin?.configured;
-  box?.classList.toggle('hidden',!enabled);const other=!!(cfg?.providers?.google?.configured||cfg?.providers?.apple?.configured);divider?.classList.toggle('hidden',!(enabled&&other));if(enabled)showEmailPinPanel('login');
+  box?.classList.toggle('hidden',!enabled);const other=!!cfg?.providers?.google?.configured;divider?.classList.toggle('hidden',!(enabled&&other));if(enabled)showEmailPinPanel('login');
 }
 function bindAuthControls(){
   if(authControlsBound)return;authControlsBound=true;
-  $('#appleSignInButton')?.addEventListener('click',handleAppleLogin);
   $('#emailPinLoginForm')?.addEventListener('submit',loginEmailPin);
   $('#emailPinRegisterForm')?.addEventListener('submit',registerEmailPin);
   $('#emailPinRecoverForm')?.addEventListener('submit',recoverEmailPin);
@@ -633,8 +596,8 @@ async function renderAuthOptions(){
   try{
     const cfgRes=await fetch('/api/auth/config',{cache:'no-store'});authConfig=await cfgRes.json();
     if(!cfgRes.ok||!authConfig?.ok)throw new Error('Não foi possível carregar as opções de login.');
-    renderAppleSignIn(authConfig);renderEmailPinSignIn(authConfig);void renderGoogleSignIn(authConfig);
-    const enabled=['google','apple','emailPin'].filter(k=>authConfig?.providers?.[k]?.configured);
+    renderEmailPinSignIn(authConfig);void renderGoogleSignIn(authConfig);
+    const enabled=['google','emailPin'].filter(k=>authConfig?.providers?.[k]?.configured);
     if(enabled.length)authStatus('Escolha como deseja entrar.');
     else authStatus('Nenhuma forma de login está configurada no servidor.','error');
   }catch(e){authStatus(e.message||'Não foi possível carregar o login.','error')}
@@ -646,7 +609,7 @@ async function initializeAuth(){
     const data=await res.json().catch(()=>({ok:false}));
     if(res.ok&&data.ok&&data.user){applyAuthUser(data.user);return;}
   }catch{}
-  showAuthGate('Entre com Google, Apple ou e-mail + PIN para continuar.');
+  showAuthGate('Entre com Google ou e-mail + PIN para continuar.');
   renderAuthOptions();
 }
 async function logoutAuth(){

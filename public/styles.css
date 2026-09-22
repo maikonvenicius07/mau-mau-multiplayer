@@ -492,15 +492,13 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 
 
-/* V40.69.2 — LOGIN UNIVERSAL: GOOGLE + APPLE + E-MAIL/PIN */
+/* PRÉ-APK PASSO 2 — LOGIN: GOOGLE + E-MAIL/PIN */
 .auth-screen{display:grid;place-items:center;padding:28px;min-height:100vh}
 .auth-card{width:min(520px,94vw);text-align:center;background:linear-gradient(145deg,rgba(25,49,38,.98),rgba(12,25,20,.98));border:1px solid #315343;border-radius:28px;padding:34px;box-shadow:0 28px 80px #0008}
 .auth-brand-mark{width:70px;height:88px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(145deg,#f9d887,#c88b2d);color:#271c08;font-size:44px;font-weight:1000;border-radius:19px;box-shadow:inset 0 0 0 2px #fff5,0 8px 20px #0005;transform:rotate(-4deg)}
 .auth-card h1{margin:8px 0 10px;font-size:clamp(28px,7vw,43px);line-height:1.02;letter-spacing:-.035em}
 .auth-card>p{color:#c8d5ce;line-height:1.45}
 .google-signin-container{min-height:54px;margin:24px auto 12px;display:flex;align-items:center;justify-content:center}
-.apple-signin-btn{width:min(300px,100%);min-height:44px;margin:8px auto 12px;border-radius:999px;border:1px solid #fff;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;cursor:pointer}
-.apple-signin-btn:hover{filter:brightness(1.08)}.apple-signin-btn:disabled{opacity:.55;cursor:wait}.apple-mark{font-size:23px;line-height:1}
 .auth-divider{display:flex;align-items:center;gap:10px;margin:14px auto 12px;color:#7f958a;font-size:11px;font-weight:900;text-transform:uppercase;max-width:360px}.auth-divider::before,.auth-divider::after{content:"";height:1px;flex:1;background:#315343}.auth-divider span{padding:0 4px}
 .email-auth-box{width:min(410px,100%);margin:0 auto}.email-auth-form{display:grid;gap:8px}.email-auth-form label{text-align:left;color:#dbe8e1;font-size:12px;font-weight:900}.email-auth-row{display:flex;gap:8px}.email-auth-row input{min-width:0;flex:1;border:1px solid #3b5e4d;border-radius:12px;background:#081812;color:#f6f3e7;padding:12px 13px;outline:none}.email-auth-row input:focus{border-color:#d7b35d;box-shadow:0 0 0 2px #d7b35d22}.email-auth-row button{flex:0 0 auto;border:1px solid #b98d3c;border-radius:12px;background:#d7b35d;color:#251b08;padding:10px 14px;font-weight:950;cursor:pointer}.email-auth-row button:disabled{opacity:.55;cursor:wait}.email-code-hint{margin:0!important;text-align:left;font-size:11px!important;color:#9fb1a7!important}.email-change-btn{justify-self:start;border:0;background:transparent;color:#d5b86a;font-size:11px;font-weight:800;padding:2px 0;cursor:pointer}
 .auth-status{min-height:22px;color:#e8cd8d;font-size:12px;font-weight:800;margin-top:8px}
@@ -510,7 +508,7 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .google-account-photo{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid #d7b35d}
 .google-account-meta{display:flex;flex-direction:column;min-width:0;flex:1}.google-account-meta small{font-size:8px;color:#86a294;letter-spacing:.08em;font-weight:900}.google-account-meta strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.google-account-meta span{font-size:9px;color:#9fb1a7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .google-logout-btn{flex:0 0 auto!important;width:auto!important;margin:0!important;padding:8px 10px!important;min-height:36px!important;border:1px solid #76514a!important;background:#351e1a!important;color:#ffd7d1!important;border-radius:10px!important;font-size:10px!important;font-weight:900!important}
-@media(max-width:520px){.auth-screen{padding:14px}.auth-card{padding:28px 18px;border-radius:22px}.google-account-bar{margin:-7px 0 14px}.google-account-photo{width:36px;height:36px}.google-account-email{display:none}.google-logout-btn{padding:7px 8px!important;font-size:9px!important}.email-auth-row{flex-direction:column}.email-auth-row button{width:100%;min-height:44px}.apple-signin-btn{min-height:46px}}
+@media(max-width:520px){.auth-screen{padding:14px}.auth-card{padding:28px 18px;border-radius:22px}.google-account-bar{margin:-7px 0 14px}.google-account-photo{width:36px;height:36px}.google-account-email{display:none}.google-logout-btn{padding:7px 8px!important;font-size:9px!important}.email-auth-row{flex-direction:column}.email-auth-row button{width:100%;min-height:44px}}
 
 
 /* ============================================================
