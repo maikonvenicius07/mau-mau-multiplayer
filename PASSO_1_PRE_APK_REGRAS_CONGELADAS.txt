@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — PRÉ-APK — PASSO 1 CONCLUÍDO
+
+O que foi feito:
+1. Nenhuma regra do motor foi alterada.
+2. Foi criada uma base documental das regras atuais em docs/BASE_REGRAS_PRE_APK_V40.69.2.md.
+3. Foi criado o teste tests/pre-apk-rules-freeze-v40692.test.js para detectar mudanças acidentais nas regras centrais.
+4. A partir desta etapa, uma mudança intencional de regra deve atualizar em conjunto: motor, documento-base e testes.
+
+Objetivo:
+Manter a versão funcional atual como referência segura durante a preparação do APK.
