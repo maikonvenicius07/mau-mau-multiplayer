@@ -1,3 +1,17 @@
+# V40.69.2 — Login pronto para web/app: Google + Apple + e-mail/PIN
+
+- Google continua funcionando e preserva o `playerKey` das contas existentes.
+- Sign in with Apple continua disponível quando as credenciais Apple forem configuradas no Render.
+- O acesso alternativo agora usa **e-mail + PIN de 6 números**, sem Resend e sem envio de código.
+- O PIN é protegido com `scrypt` e salt aleatório; nunca é armazenado em texto puro.
+- Após 5 PINs incorretos, a conta é bloqueada temporariamente por 15 minutos.
+- Na criação da conta, o jogo entrega uma **chave de recuperação** única; ela permite trocar o PIN sem depender de e-mail.
+- O e-mail digitado no modo PIN funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma conta Google/Apple.
+- Google e Apple com o mesmo e-mail realmente verificado continuam podendo reutilizar a identidade canônica existente.
+- Nenhuma regra do Mau-Mau, ranking, reconexão, salas, observadores, chat, voz ou microfone foi alterada.
+
+---
+
 # V40.69.1f — Auditoria funcional e arraste real do Trocar lados
 
 - Corrigido o botão **⇄ Trocar lados** para arraste real em celular e desktop.
@@ -537,7 +551,7 @@ npm install
 ```
 
 3. Copie `.env.example` para `.env` apenas como referência. Este projeto não carrega `.env` automaticamente; defina as variáveis no terminal/sistema operacional ou na plataforma de hospedagem.
-4. Configure `AUTH_SESSION_SECRET` e pelo menos um método de entrada. Para manter Google, use `GOOGLE_CLIENT_ID`; para e-mail, use `RESEND_API_KEY` e `EMAIL_FROM`.
+4. Configure `AUTH_SESSION_SECRET`. Para manter Google, use `GOOGLE_CLIENT_ID`. O acesso por e-mail + PIN não exige serviço externo. Para Apple, configure as variáveis `APPLE_*`.
 5. Inicie:
 
 ```bash
@@ -574,7 +588,7 @@ npm run verify
 | `APPLE_CLIENT_ID` | Services ID do Sign in with Apple. |
 | `APPLE_REDIRECT_URI` | Return URL HTTPS cadastrada na Apple. |
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | Credenciais server-side do Sign in with Apple. |
-| `RESEND_API_KEY` / `EMAIL_FROM` | Envio do código temporário do login por e-mail. |
+| E-mail + PIN | Não exige variável de ambiente adicional; as credenciais ficam protegidas no armazenamento de identidade. |
 | `AUTH_SESSION_SECRET` | Assina a sessão própria do jogo. Use valor longo, aleatório e estável. |
 | `DATABASE_URL` | Conexão PostgreSQL usada pelo ranking. Recomendada em produção. |
 | `PORT` | Porta HTTP. Plataformas como Render normalmente a fornecem. |

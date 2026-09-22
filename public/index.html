@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.1f" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -24,23 +24,59 @@
       <button id="appleSignInButton" class="apple-signin-btn hidden" type="button" aria-label="Continuar com Apple"><span class="apple-mark"></span><span>Continuar com Apple</span></button>
 
       <div id="authDivider" class="auth-divider"><span>ou</span></div>
-      <div id="emailAuthBox" class="email-auth-box hidden">
-        <form id="emailRequestForm" class="email-auth-form">
-          <label for="emailLoginInput">Entrar com e-mail</label>
-          <div class="email-auth-row"><input id="emailLoginInput" type="email" inputmode="email" autocomplete="email" maxlength="180" placeholder="seuemail@exemplo.com" required /><button id="emailRequestBtn" type="submit">Enviar código</button></div>
+      <div id="emailPinAuthBox" class="email-auth-box hidden">
+        <div class="email-auth-tabs" role="tablist" aria-label="Acesso por e-mail e PIN">
+          <button id="emailPinLoginTab" class="email-auth-tab active" type="button" role="tab" aria-selected="true">Entrar</button>
+          <button id="emailPinRegisterTab" class="email-auth-tab" type="button" role="tab" aria-selected="false">Criar conta</button>
+        </div>
+        <form id="emailPinLoginForm" class="email-auth-form">
+          <label for="emailPinLoginEmail">E-mail</label>
+          <input id="emailPinLoginEmail" type="email" inputmode="email" autocomplete="username" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <label for="emailPinLoginPin">PIN de 6 números</label>
+          <input id="emailPinLoginPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required />
+          <button id="emailPinLoginBtn" type="submit">Entrar com e-mail + PIN</button>
+          <button id="emailPinRecoverOpen" class="email-change-btn" type="button">Esqueci meu PIN</button>
         </form>
-        <form id="emailCodeForm" class="email-auth-form hidden">
-          <label for="emailCodeInput">Código de 6 dígitos</label>
-          <p id="emailCodeHint" class="email-code-hint"></p>
-          <div class="email-auth-row"><input id="emailCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required /><button id="emailVerifyBtn" type="submit">Entrar</button></div>
-          <button id="emailChangeBtn" class="email-change-btn" type="button">Usar outro e-mail</button>
+        <form id="emailPinRegisterForm" class="email-auth-form hidden">
+          <label for="emailPinRegisterName">Nome do jogador</label>
+          <input id="emailPinRegisterName" type="text" autocomplete="nickname" maxlength="60" placeholder="Seu nome" />
+          <label for="emailPinRegisterEmail">E-mail</label>
+          <input id="emailPinRegisterEmail" type="email" inputmode="email" autocomplete="email" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <label for="emailPinRegisterPin">Crie um PIN de 6 números</label>
+          <input id="emailPinRegisterPin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required />
+          <label for="emailPinRegisterConfirm">Confirme o PIN</label>
+          <input id="emailPinRegisterConfirm" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required />
+          <button id="emailPinRegisterBtn" type="submit">Criar conta</button>
+          <p class="email-code-hint">O e-mail funciona como identificador de acesso. Nenhum código será enviado para sua caixa postal.</p>
+        </form>
+        <form id="emailPinRecoverForm" class="email-auth-form hidden">
+          <label for="emailPinRecoverEmail">E-mail da conta</label>
+          <input id="emailPinRecoverEmail" type="email" inputmode="email" autocomplete="username" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <label for="emailPinRecoveryCode">Chave de recuperação</label>
+          <input id="emailPinRecoveryCode" type="text" autocomplete="off" maxlength="32" placeholder="RC-XXXX-XXXX-XXXX-XXXX" required />
+          <label for="emailPinNewPin">Novo PIN de 6 números</label>
+          <input id="emailPinNewPin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required />
+          <label for="emailPinNewPinConfirm">Confirme o novo PIN</label>
+          <input id="emailPinNewPinConfirm" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required />
+          <button id="emailPinRecoverBtn" type="submit">Alterar PIN</button>
+          <button id="emailPinRecoverBack" class="email-change-btn" type="button">Voltar para entrar</button>
         </form>
       </div>
 
       <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
-      <p class="auth-privacy">O MAU-MAU CANDEIAS não recebe sua senha do Google ou da Apple. No acesso por e-mail, enviamos apenas um código temporário de confirmação.</p>
+      <p class="auth-privacy">Google e Apple continuam protegendo suas próprias credenciais. No acesso por e-mail, o MAU-MAU usa um PIN de 6 números; nenhum código é enviado por e-mail.</p>
     </div>
   </section>
+
+  <dialog id="emailPinRecoveryDialog" class="modal recovery-key-modal">
+    <button id="emailPinRecoveryClose" class="close" type="button" aria-label="Fechar">×</button>
+    <div class="eyebrow">CONTA CRIADA</div>
+    <h2>Guarde sua chave de recuperação</h2>
+    <p>Ela é necessária para criar um novo PIN se você esquecer o atual. O MAU-MAU não envia essa chave por e-mail.</p>
+    <div id="emailPinRecoveryValue" class="recovery-key-value"></div>
+    <div class="recovery-key-actions"><button id="emailPinRecoveryCopy" type="button">📋 Copiar chave</button><button id="emailPinRecoveryContinue" class="primary" type="button">✅ Já guardei</button></div>
+    <p class="recovery-key-warning">Não compartilhe esta chave. Ela permite redefinir o PIN da conta.</p>
+  </dialog>
 
   <section id="landing" class="screen landing hidden">
     <div class="hero-card">
@@ -634,6 +670,6 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.1f"></script>
+  <script src="app.js?v=40.69.2"></script>
 </body>
 </html>

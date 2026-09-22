@@ -1,0 +1,57 @@
+MAU-MAU CANDEIAS — ATUALIZAÇÃO V40.69.2
+
+OBJETIVO
+Preparar o acesso do jogo para web/app com três opções:
+1. Google — preservado;
+2. Apple — disponível quando as credenciais APPLE_* forem configuradas;
+3. E-mail + PIN de 6 números — sem envio de código e sem Resend.
+
+IMPORTANTE
+- Não apagar DATABASE_URL, AUTH_SESSION_SECRET ou GOOGLE_CLIENT_ID do Render.
+- RESEND_API_KEY e EMAIL_FROM não são usados nesta versão.
+- O e-mail usado com PIN é somente identificador de login e não prova posse da caixa postal.
+- Por segurança, uma conta criada por e-mail + PIN não é vinculada automaticamente a Google/Apple pelo mesmo endereço.
+- Google e Apple podem continuar reutilizando a mesma identidade quando ambos apresentarem o mesmo e-mail realmente verificado.
+
+PASSOS NO GITHUB
+1. Substitua/adicione os arquivos do pacote "Arquivos_para_Substituir".
+2. Faça commit.
+3. Aguarde o Render iniciar o deploy automático ou use Deploy latest commit.
+
+PASSOS NO RENDER
+Mantenha:
+- DATABASE_URL
+- AUTH_SESSION_SECRET
+- GOOGLE_CLIENT_ID
+- ROOM_SNAPSHOT_TTL_MS
+- MAX_ROOMS=10
+- MAX_SPECTATORS_PER_ROOM=5
+- variáveis TURN que já estiverem configuradas
+
+Pode remover, se existirem:
+- RESEND_API_KEY
+- EMAIL_FROM
+- EMAIL_OTP_DEV_MODE
+
+Para Apple, serão necessárias depois:
+- APPLE_CLIENT_ID
+- APPLE_REDIRECT_URI
+- APPLE_TEAM_ID
+- APPLE_KEY_ID
+- APPLE_PRIVATE_KEY
+
+TESTE E-MAIL + PIN
+1. Abra o jogo em janela anônima.
+2. Clique em "Criar conta".
+3. Informe nome, e-mail e PIN de 6 números.
+4. Guarde a chave de recuperação mostrada na tela.
+5. Saia da conta.
+6. Entre novamente com o mesmo e-mail + PIN.
+7. Confirme que o mesmo jogador/ranking é usado.
+8. Teste "Esqueci meu PIN" com a chave de recuperação e defina um novo PIN.
+
+SEGURANÇA
+- PIN nunca é salvo em texto puro; usa scrypt + salt aleatório.
+- A chave de recuperação também é armazenada apenas como hash.
+- Após 5 PINs errados, a conta é bloqueada por 15 minutos.
+- Há rate limit adicional por IP/e-mail.

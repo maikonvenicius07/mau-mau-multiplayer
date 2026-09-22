@@ -279,18 +279,15 @@ const APPLE_REDIRECT_URI = String(process.env.APPLE_REDIRECT_URI || '').trim();
 const APPLE_TEAM_ID = String(process.env.APPLE_TEAM_ID || '').trim();
 const APPLE_KEY_ID = String(process.env.APPLE_KEY_ID || '').trim();
 const APPLE_PRIVATE_KEY = String(process.env.APPLE_PRIVATE_KEY || '').trim();
-const RESEND_API_KEY = String(process.env.RESEND_API_KEY || '').trim();
-const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
-const EMAIL_OTP_DEV_MODE = String(process.env.EMAIL_OTP_DEV_MODE || '') === '1' && String(process.env.NODE_ENV || '') !== 'production';
 const AUTH_SESSION_SECRET = String(process.env.AUTH_SESSION_SECRET || '').trim() || crypto.randomBytes(32).toString('hex');
 const AUTH_COOKIE = 'maumau_session';
 const LEGACY_AUTH_COOKIE = 'maumau_google_session';
 const AUTH_TTL_SECONDS = 7 * 24 * 60 * 60;
-const EMAIL_OTP_TTL_MS = 10 * 60 * 1000;
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
-const emailOtpChallenges = new Map();
-const emailRequestByAddress = new UniversalAuth.SlidingWindowLimiter({limit:3,windowMs:15*60*1000});
-const emailRequestByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,windowMs:15*60*1000});
+const emailPinRegisterByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,windowMs:60*60*1000});
+const emailPinLoginByAddress = new UniversalAuth.SlidingWindowLimiter({limit:12,windowMs:15*60*1000});
+const emailPinLoginByIp = new UniversalAuth.SlidingWindowLimiter({limit:30,windowMs:15*60*1000});
+const emailPinRecoveryByIp = new UniversalAuth.SlidingWindowLimiter({limit:8,windowMs:60*60*1000});
 
 // V40.33 — configuração de conectividade do microfone ao vivo.
 // STUN continua funcionando sem configuração extra. TURN é opcional, mas recomendado
@@ -333,11 +330,9 @@ function voiceIceServers(session=null){
 
 if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará indisponível.');
 if (!APPLE_CLIENT_ID || !APPLE_REDIRECT_URI || !APPLE_TEAM_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) console.warn('[auth] configuração Sign in with Apple incompleta. O login Apple ficará indisponível.');
-if (!RESEND_API_KEY || !EMAIL_FROM) console.warn('[auth] RESEND_API_KEY/EMAIL_FROM não configurados. O login por e-mail ficará indisponível em produção.');
 if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
 
 function appleLoginConfigured(){return !!(APPLE_CLIENT_ID&&APPLE_REDIRECT_URI&&APPLE_TEAM_ID&&APPLE_KEY_ID&&APPLE_PRIVATE_KEY);}
-function emailLoginConfigured(){ return !!((RESEND_API_KEY && EMAIL_FROM) || EMAIL_OTP_DEV_MODE); }
 function googlePlayerKey(sub) {
   // Compatibilidade: contas Google já existentes mantêm exatamente o mesmo playerKey,
   // preservando ranking, histórico e reservas de reconexão de versões anteriores.
@@ -400,20 +395,6 @@ function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
 }
 function authIp(req){return String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0].trim().slice(0,80);}
 async function requireAuthIdentityStore(){if(!await authIdentityReady)throw new Error('Serviço de identidade temporariamente indisponível.');}
-async function sendEmailOtp(email,code){
-  if(EMAIL_OTP_DEV_MODE){console.log(`[auth-dev] código de e-mail para ${UniversalAuth.safeEmailDisplay(email)}: ${code}`);return true;}
-  const response=await fetch('https://api.resend.com/emails',{
-    method:'POST',headers:{Authorization:`Bearer ${RESEND_API_KEY}`,'Content-Type':'application/json'},
-    body:JSON.stringify({
-      from:EMAIL_FROM,to:[email],subject:'Código de acesso — MAU-MAU CANDEIAS',
-      text:`Seu código de acesso ao MAU-MAU CANDEIAS é ${code}. Ele expira em 10 minutos. Se você não solicitou este código, ignore esta mensagem.`,
-      html:`<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto"><h2>MAU-MAU CANDEIAS</h2><p>Seu código de acesso é:</p><div style="font-size:34px;font-weight:800;letter-spacing:8px">${code}</div><p>Ele expira em 10 minutos.</p><p style="color:#666;font-size:12px">Se você não solicitou este código, ignore esta mensagem.</p></div>`,
-    })
-  });
-  if(!response.ok){const detail=await response.text().catch(()=>String(response.status));throw new Error(`Falha no envio de e-mail (${response.status}): ${detail.slice(0,160)}`);}
-  return true;
-}
-
 app.set('trust proxy', 1);
 
 // V40.58 — camada HTTP: origem restrita, cabeçalhos de segurança e telemetria
@@ -480,7 +461,10 @@ app.get('/api/auth/config', (_,res)=>res.json({
   providers:{
     google:{configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID||null},
     apple:{configured:appleLoginConfigured(),clientId:APPLE_CLIENT_ID||null,redirectURI:APPLE_REDIRECT_URI||null},
-    email:{configured:emailLoginConfigured()},
+    // V40.69.2 — e-mail + PIN funciona sem serviço externo. O e-mail é apenas
+    // identificador da conta; a caixa postal não é verificada nem recebe código.
+    email:{configured:false,mode:'disabled'},
+    emailPin:{configured:true,mode:'pin'},
   }
 }));
 app.get('/api/auth/me', async (req,res)=>{
@@ -557,61 +541,52 @@ app.post('/api/auth/apple', async (req,res)=>{
     res.status(401).json({ok:false,message:'Não foi possível validar esta Conta Apple. Tente novamente.'});
   }
 });
-app.post('/api/auth/email/request', async (req,res)=>{
+function emailPinErrorResponse(res,error,fallback='Não foi possível concluir o acesso.'){
+  const code=String(error?.code||'');
+  const status=code==='EMAIL_EXISTS'?409:code==='NOT_FOUND'?404:code==='LOCKED'?429:['INVALID_EMAIL','INVALID_PIN','INVALID_CREDENTIALS','INVALID_RECOVERY'].includes(code)?400:500;
+  if(status>=500)console.error('[auth] falha em e-mail + PIN:',error?.message||error);
+  return res.status(status).json({ok:false,message:status>=500?fallback:String(error?.message||fallback)});
+}
+app.post('/api/auth/email-pin/register', async (req,res)=>{
   try{
-    if(!emailLoginConfigured())return res.status(503).json({ok:false,message:'Login por e-mail ainda não foi configurado no servidor.'});
-    const email=normalizeEmail(req.body?.email);
-    if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
-    const byEmail=emailRequestByAddress.consume(email),byIp=emailRequestByIp.consume(authIp(req));
-    if(!byEmail.allowed||!byIp.allowed){
-      const retry=Math.max(byEmail.retryAfterMs||0,byIp.retryAfterMs||0);
-      return res.status(429).json({ok:false,message:`Muitas solicitações. Tente novamente em ${Math.max(1,Math.ceil(retry/60000))} minuto(s).`});
-    }
-    const code=UniversalAuth.generateEmailOtp();
-    const challengeKey=crypto.createHash('sha256').update(`otp-challenge:${email}`).digest('hex');
-    const challenge={hash:UniversalAuth.emailOtpHash(AUTH_SESSION_SECRET,email,code),expiresAt:Date.now()+EMAIL_OTP_TTL_MS,attempts:0};
-    await sendEmailOtp(email,code);
-    emailOtpChallenges.set(challengeKey,challenge);
-    res.json({ok:true,message:`Código enviado para ${UniversalAuth.safeEmailDisplay(email)}.`,expiresInSeconds:Math.floor(EMAIL_OTP_TTL_MS/1000)});
-  }catch(e){
-    console.error('[auth] falha ao enviar código por e-mail:',e?.message||e);
-    res.status(502).json({ok:false,message:'Não foi possível enviar o código agora. Tente novamente em instantes.'});
-  }
-});
-app.post('/api/auth/email/verify', async (req,res)=>{
-  try{
-    if(!emailLoginConfigured())return res.status(503).json({ok:false,message:'Login por e-mail ainda não foi configurado no servidor.'});
     await requireAuthIdentityStore();
-    const email=normalizeEmail(req.body?.email),code=String(req.body?.code||'').replace(/\D/g,'').slice(0,6);
-    if(!email||code.length!==6)return res.status(400).json({ok:false,message:'E-mail ou código inválido.'});
-    const challengeKey=crypto.createHash('sha256').update(`otp-challenge:${email}`).digest('hex');
-    const challenge=emailOtpChallenges.get(challengeKey);
-    if(!challenge||challenge.expiresAt<=Date.now()){emailOtpChallenges.delete(challengeKey);return res.status(401).json({ok:false,message:'O código expirou. Solicite um novo.'});}
-    challenge.attempts++;
-    if(challenge.attempts>5){emailOtpChallenges.delete(challengeKey);return res.status(429).json({ok:false,message:'Muitas tentativas. Solicite um novo código.'});}
-    const supplied=Buffer.from(UniversalAuth.emailOtpHash(AUTH_SESSION_SECRET,email,code),'hex');
-    const expected=Buffer.from(challenge.hash,'hex');
-    if(supplied.length!==expected.length||!crypto.timingSafeEqual(supplied,expected))return res.status(401).json({ok:false,message:'Código incorreto.'});
-    emailOtpChallenges.delete(challengeKey);
-    const local=email.split('@')[0].replace(/[._-]+/g,' ').trim();
-    const displayName=(local||'Jogador').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,60);
-    const user=await authIdentityStore.resolveIdentity({provider:'email',subject:email,verifiedEmail:true,name:displayName,email,picture:''});
-    user.provider='email';
-    setAuthCookie(req,res,signAuthSession(user));
-    res.json({ok:true,user:sessionUser(user,'email')});
-  }catch(e){
-    console.error('[auth] falha ao validar código por e-mail:',e?.message||e);
-    res.status(401).json({ok:false,message:'Não foi possível validar este código. Tente novamente.'});
-  }
+    const rate=emailPinRegisterByIp.consume(authIp(req));
+    if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas criações de conta neste aparelho. Tente novamente mais tarde.'});
+    const email=normalizeEmail(req.body?.email),pin=String(req.body?.pin||''),name=String(req.body?.name||'').trim().slice(0,60);
+    const result=await authIdentityStore.registerEmailPin({email,pin,name});
+    result.user.provider='email_pin';
+    setAuthCookie(req,res,signAuthSession(result.user));
+    res.status(201).json({ok:true,user:sessionUser(result.user,'email_pin'),recoveryCode:result.recoveryCode,message:'Conta criada. Guarde sua chave de recuperação.'});
+  }catch(e){emailPinErrorResponse(res,e,'Não foi possível criar a conta agora.');}
 });
+app.post('/api/auth/email-pin/login', async (req,res)=>{
+  try{
+    await requireAuthIdentityStore();
+    const email=normalizeEmail(req.body?.email),pin=String(req.body?.pin||'');
+    if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
+    const byEmail=emailPinLoginByAddress.consume(email),byIp=emailPinLoginByIp.consume(authIp(req));
+    if(!byEmail.allowed||!byIp.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.'});
+    const user=await authIdentityStore.loginEmailPin({email,pin});user.provider='email_pin';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'email_pin')});
+  }catch(e){emailPinErrorResponse(res,e,'Não foi possível entrar agora.');}
+});
+app.post('/api/auth/email-pin/recover', async (req,res)=>{
+  try{
+    await requireAuthIdentityStore();
+    const rate=emailPinRecoveryByIp.consume(authIp(req));
+    if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de recuperação. Tente novamente mais tarde.'});
+    const user=await authIdentityStore.recoverEmailPin({email:req.body?.email,recoveryCode:req.body?.recoveryCode,newPin:req.body?.newPin});user.provider='email_pin';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'email_pin'),message:'PIN alterado com sucesso.'});
+  }catch(e){emailPinErrorResponse(res,e,'Não foi possível recuperar a conta agora.');}
+});
+
 app.post('/api/auth/logout', (req,res)=>{
   setAuthCookie(req,res,'',0);
   res.json({ok:true});
 });
-const emailOtpPruneTimer=setInterval(()=>{
-  const now=Date.now();for(const [key,challenge] of emailOtpChallenges){if(!challenge||challenge.expiresAt<=now)emailOtpChallenges.delete(key);}
-  emailRequestByAddress.prune(now);emailRequestByIp.prune(now);
-},5*60*1000);emailOtpPruneTimer.unref?.();
+const emailPinLimiterPruneTimer=setInterval(()=>{const now=Date.now();emailPinRegisterByIp.prune(now);emailPinLoginByAddress.prune(now);emailPinLoginByIp.prune(now);emailPinRecoveryByIp.prune(now);},5*60*1000);emailPinLimiterPruneTimer.unref?.();
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res,filePath){

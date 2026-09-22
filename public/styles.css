@@ -492,7 +492,7 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 }
 
 
-/* V40.69.1 — LOGIN UNIVERSAL: GOOGLE + APPLE + E-MAIL */
+/* V40.69.2 — LOGIN UNIVERSAL: GOOGLE + APPLE + E-MAIL/PIN */
 .auth-screen{display:grid;place-items:center;padding:28px;min-height:100vh}
 .auth-card{width:min(520px,94vw);text-align:center;background:linear-gradient(145deg,rgba(25,49,38,.98),rgba(12,25,20,.98));border:1px solid #315343;border-radius:28px;padding:34px;box-shadow:0 28px 80px #0008}
 .auth-brand-mark{width:70px;height:88px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(145deg,#f9d887,#c88b2d);color:#271c08;font-size:44px;font-weight:1000;border-radius:19px;box-shadow:inset 0 0 0 2px #fff5,0 8px 20px #0005;transform:rotate(-4deg)}
@@ -1030,3 +1030,19 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .link-invite-banner{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin:-6px 0 16px;padding:12px 14px;border:1px solid #4c705d;border-radius:14px;background:linear-gradient(135deg,#102b20,#0b1e17);box-shadow:0 10px 28px #0004}.link-invite-banner.hidden{display:none}.link-invite-copy{display:grid;gap:2px;min-width:0}.link-invite-copy small{font-size:8px;font-weight:950;letter-spacing:.1em;color:#d8bd70}.link-invite-copy strong{font-size:14px;color:#ecf8f1}.link-invite-copy span{font-size:10px;color:#9fb5a9;line-height:1.4}.link-invite-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.link-invite-actions button{min-height:36px;padding:8px 11px;font-size:9px;font-weight:900}
 .players-directory-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}.players-directory-tabs button{min-height:34px;border:1px solid #345847;border-radius:9px;background:#0a1b14;color:#9eb4a8;font-size:9px;font-weight:950;letter-spacing:.06em}.players-directory-tabs button.active{background:#214b39;border-color:#5b8a70;color:#e1f5e9}.recent-player-meta{display:flex;flex-wrap:wrap;gap:6px;color:#8fa69a;font-size:8px}.recent-player-meta span{white-space:nowrap}.recent-offline{color:#7f9188!important}.recent-invite-btn:disabled{opacity:.44}
 @media(max-width:700px){.link-invite-banner{grid-template-columns:1fr}.link-invite-actions{justify-content:stretch}.link-invite-actions button{flex:1}.players-directory-tabs{position:sticky;top:0;z-index:2;background:#102a20;padding:3px 0}}
+
+/* V40.69.2 — login por e-mail + PIN, sem envio de código */
+.email-auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px;padding:4px;background:#081812;border:1px solid #315343;border-radius:14px}
+.email-auth-tab{min-height:38px;border:0;border-radius:10px;background:transparent;color:#9fb1a7;font-weight:900;cursor:pointer}
+.email-auth-tab.active{background:#244737;color:#fff;box-shadow:0 3px 12px #0004}
+.email-auth-form>input{width:100%;min-width:0;border:1px solid #3b5e4d;border-radius:12px;background:#081812;color:#f6f3e7;padding:12px 13px;outline:none}
+.email-auth-form>input:focus{border-color:#d7b35d;box-shadow:0 0 0 2px #d7b35d22}
+.email-auth-form>button[type="submit"]{width:100%;min-height:44px;border:1px solid #b98d3c;border-radius:12px;background:#d7b35d;color:#251b08;padding:10px 14px;font-weight:950;cursor:pointer;margin-top:4px}
+.email-auth-form>button[type="submit"]:disabled{opacity:.55;cursor:wait}
+.recovery-key-modal{width:min(520px,92vw);background:linear-gradient(145deg,#193126,#0c1914);color:#f6f3e7;border:1px solid #315343;border-radius:22px;padding:28px;box-shadow:0 28px 80px #000a}
+.recovery-key-modal::backdrop{background:#000b;backdrop-filter:blur(3px)}
+.recovery-key-modal h2{margin:7px 0 10px}.recovery-key-modal p{color:#b8c9c0;line-height:1.45}
+.recovery-key-value{margin:18px 0;padding:16px;border:1px dashed #d7b35d;border-radius:14px;background:#07140f;color:#ffe5a1;font:900 18px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;text-align:center;word-break:break-word;user-select:all}
+.recovery-key-actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}.recovery-key-actions button{min-height:42px;border-radius:12px;padding:9px 14px;font-weight:900;cursor:pointer}
+.recovery-key-warning{font-size:11px!important;color:#ffb7a9!important;margin:15px 0 0!important}
+@media(max-width:520px){.recovery-key-modal{padding:24px 17px}.recovery-key-value{font-size:15px}.email-auth-tabs{margin-top:2px}}

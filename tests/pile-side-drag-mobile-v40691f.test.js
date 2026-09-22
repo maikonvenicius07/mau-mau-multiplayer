@@ -7,9 +7,9 @@ const html=fs.readFileSync('public/index.html','utf8');
 const css=fs.readFileSync('public/styles.css','utf8');
 const server=fs.readFileSync('server.js','utf8');
 
-assert.strictEqual(pkg.version,'40.69.1','versão-base do pacote deve continuar compatível com a suíte V40.69.1');
-assert(html.includes('styles.css?v=40.69.1f'),'CSS sem cache-busting da V40.69.2');
-assert(html.includes('app.js?v=40.69.1f'),'JS sem cache-busting da V40.69.2');
+assert.strictEqual(pkg.version,'40.69.2','versão-base do pacote deve continuar compatível com a suíte V40.69.2');
+assert(html.includes('styles.css?v=40.69.2'),'CSS sem cache-busting da V40.69.2');
+assert(html.includes('app.js?v=40.69.2'),'JS sem cache-busting da V40.69.2');
 const pileIndex=html.indexOf('id="pileSideBtn"');
 const tableIndex=html.indexOf('<main class="table-shell">');
 assert(pileIndex>0 && tableIndex>0 && pileIndex<tableIndex,'Trocar lados deve ficar fora da mesa/felt');
@@ -22,4 +22,4 @@ assert(app.includes("window.addEventListener('touchend'"),'fallback touchend aus
 assert(app.includes("if(!('PointerEvent' in window))"),'fallback de mouse sem PointerEvent ausente');
 assert(css.includes('.pile-side-drag{display:inline'),'alça de arraste não fica visível no celular');
 assert(server.includes("res.setHeader('Cache-Control','no-cache, must-revalidate')"),'JS/CSS ainda podem ficar frescos por uma hora após deploy');
-console.log('✓ V40.69.1f: Trocar lados tem arraste móvel robusto, cache seguro e fica fora do felt.');
+console.log('✓ V40.69.2: Trocar lados tem arraste móvel robusto, cache seguro e fica fora do felt.');

@@ -12,7 +12,7 @@ const pkg=require('../package.json');
 const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 
-assert.strictEqual(pkg.version,'40.69.1','package.json deve identificar V40.68.1');
+assert.strictEqual(pkg.version,'40.69.2','package.json deve identificar V40.68.1');
 assert.strictEqual(Retention.ALL_HUMANS_OFFLINE_EXPIRY_MS,5*60*1000,'sala totalmente sem humanos deve expirar em 5 minutos');
 assert.strictEqual(Retention.SOLO_ROOM_EXPIRY_MS,Retention.ALL_HUMANS_OFFLINE_EXPIRY_MS,'regra solo histórica deve continuar compatível com o mesmo prazo');
 

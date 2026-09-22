@@ -1,3 +1,15 @@
+# V40.69.2 — Google + Apple + e-mail/PIN, sem código por e-mail
+
+- Substituído o OTP/Resend por login local com e-mail + PIN de 6 números.
+- PIN protegido por `scrypt` com salt aleatório e comparação em tempo constante.
+- Após 5 PINs incorretos, a credencial entra em bloqueio temporário de 15 minutos.
+- Criação de conta gera chave de recuperação exibida ao jogador e armazenada apenas como hash.
+- Recuperação permite definir novo PIN sem serviço externo.
+- Contas de e-mail/PIN não são tratadas como e-mail verificado, impedindo vinculação automática insegura com Google/Apple.
+- Google existente preservado; Apple permanece opcional e configurável pelas variáveis `APPLE_*`.
+- Criada tabela PostgreSQL `mm_auth_email_pin`; fallback JSON também suporta o novo método.
+- Nenhuma regra do jogo, ranking, reconexão, limite de 10 salas ou 5 observadores foi alterada.
+
 # V40.69.1f — Auditoria funcional e arraste real do Trocar lados
 
 - Corrigido o botão **⇄ Trocar lados** para arraste real em celular e desktop.

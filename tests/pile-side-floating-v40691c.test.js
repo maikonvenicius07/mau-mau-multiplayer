@@ -11,4 +11,4 @@ assert(app.includes("const pileSidePositionStorage='maumauPileSidePositionV1'"),
 assert(app.includes('function initDraggablePileSide()'),'arraste do Trocar lados não foi implementado');
 assert(app.includes('initDraggablePileSide();'),'arraste do Trocar lados não foi inicializado');
 assert(!app.includes("$('#pileSideBtn').onclick=togglePileSide"),'handler antigo conflita com arraste');
-console.log('✓ V40.69.1c: Trocar lados é flutuante, arrastável e salva a posição local.');
+console.log('✓ V40.69.2c: Trocar lados é flutuante, arrastável e salva a posição local.');

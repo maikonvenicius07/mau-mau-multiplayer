@@ -1,0 +1,26 @@
+MAU-MAU CANDEIAS — VALIDAÇÃO V40.69.2
+
+VALIDADO LOCALMENTE
+- 96 testes independentes do Socket.IO real aprovados.
+- Sintaxe de auth-identity-store.js aprovada.
+- Sintaxe de server.js aprovada.
+- Sintaxe de public/app.js aprovada.
+- package-lock.json validado pelo script oficial.
+- Google legado preserva playerKey.
+- Apple com o mesmo e-mail verificado do Google reutiliza a identidade canônica.
+- E-mail + PIN cria identidade persistente própria.
+- PIN incorreto é rejeitado.
+- Recuperação troca o PIN pela chave de recuperação.
+- Conta e-mail + PIN não auto-vincula Google/Apple por e-mail não verificado.
+- Persistência do e-mail + PIN sobrevive à reabertura do armazenamento JSON de teste.
+
+PENDÊNCIA DE AMBIENTE
+O teste Socket.IO real depende de npm ci/socket.io-client. Deve ser confirmado no GitHub/Render, onde as dependências completas são instaladas.
+
+TESTE DE PRODUÇÃO OBRIGATÓRIO APÓS DEPLOY
+1. Google antigo: confirmar mesmo ranking.
+2. Criar e-mail + PIN: confirmar chave de recuperação.
+3. Sair/entrar novamente: confirmar mesmo playerKey/ranking.
+4. Recuperar PIN: confirmar acesso com o novo PIN.
+5. Criar sala e testar reconexão.
+6. Quando Apple for configurado, testar login no Safari/iPhone.

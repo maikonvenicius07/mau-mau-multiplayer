@@ -8,7 +8,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.strictEqual(pkg.version,'40.69.1');
+assert.strictEqual(pkg.version,'40.69.2');
 assert(pkg.dependencies['google-auth-library'],'google-auth-library ausente');
 assert(server.includes("app.post('/api/auth/google'"),'endpoint de login Google ausente');
 assert(server.includes('verifyIdToken({idToken:credential,audience:GOOGLE_CLIENT_ID})'),'ID token Google não é validado para o audience correto');
@@ -25,5 +25,5 @@ assert(/const socket\s*=\s*io\(\{[\s\S]{0,500}?autoConnect\s*:\s*false/.test(app
 assert(app.includes('initializeAuth()'),'inicialização da autenticação universal ausente');
 assert(app.includes("fetch('/api/auth/google'"),'cliente não envia credencial Google ao servidor');
 assert(!app.includes("const playerKeyStorage='maumauPlayerKeyV1'"),'playerKey local antigo ainda ativo');
-assert(css.includes('V40.69.1 — LOGIN UNIVERSAL'),'estilo da tela universal ausente');
-console.log('✓ V40.69.1: Google preservado dentro do login universal e sessão HttpOnly conferidos.');
+assert(css.includes('V40.69.2 — LOGIN UNIVERSAL'),'estilo da tela universal ausente');
+console.log('✓ V40.69.2: Google preservado dentro do login universal e sessão HttpOnly conferidos.');

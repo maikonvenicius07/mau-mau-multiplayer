@@ -9,9 +9,9 @@ const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const pkg=JSON.parse(read('package.json'));
 const server=read('server.js');
 
-assert.strictEqual(pkg.version,'40.69.1','package.json deve identificar V40.69.1');
-assert.strictEqual(Gov.DEFAULT_MAX_ROOMS,10,'V40.69.1 deve usar 10 salas por padrão');
-assert.strictEqual(Abuse.DEFAULT_MAX_SPECTATORS_PER_ROOM,5,'V40.69.1 deve usar 5 observadores por sala');
+assert.strictEqual(pkg.version,'40.69.2','package.json deve identificar V40.69.2');
+assert.strictEqual(Gov.DEFAULT_MAX_ROOMS,10,'V40.69.2 deve usar 10 salas por padrão');
+assert.strictEqual(Abuse.DEFAULT_MAX_SPECTATORS_PER_ROOM,5,'V40.69.2 deve usar 5 observadores por sala');
 assert.strictEqual(Abuse.maxSpectatorsPerRoom({}),5);
 assert.strictEqual(Abuse.maxSpectatorsPerRoom({MAX_SPECTATORS_PER_ROOM:'8'}),8,'limite de observadores deve permanecer configurável');
 assert.strictEqual(Abuse.spectatorAtCapacity({spectators:new Array(4)},5,0),false);
@@ -35,4 +35,4 @@ assert.ok(server.includes('spectatorCapacity:{perRoom:MAX_SPECTATORS_PER_ROOM}')
 assert.ok(read('.env.example').includes('MAX_ROOMS=10'),'env deve documentar 10 salas');
 assert.ok(read('.env.example').includes('MAX_SPECTATORS_PER_ROOM=5'),'env deve documentar 5 observadores');
 
-console.log('✓ V40.69.1: 10 salas, 5 observadores, rate limit e códigos criptograficamente seguros validados.');
+console.log('✓ V40.69.2: 10 salas, 5 observadores, rate limit e códigos criptograficamente seguros validados.');

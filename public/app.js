@@ -66,7 +66,7 @@ const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
 const CUSTOM_AVATAR_MAX_DATA_URL_LENGTH=90000;
 let authUser=null;
-let authConfig=null,authControlsBound=false,emailPendingAddress='';
+let authConfig=null,authControlsBound=false,pendingEmailPinRecovery='';
 // V40.1 — presença global e convites efêmeros. A lista é unificada pela playerKey autenticada.
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
 let recentPlayers=[],playersDirectoryTab='online';
@@ -442,9 +442,9 @@ function authStatus(message='',kind=''){
   el.textContent=message;el.className=`auth-status ${kind}`.trim();
 }
 function providerLabel(provider){
-  return provider==='google'?'GOOGLE CONECTADO':provider==='apple'?'APPLE CONECTADO':provider==='email'?'E-MAIL CONECTADO':'CONTA CONECTADA';
+  return provider==='google'?'GOOGLE CONECTADO':provider==='apple'?'APPLE CONECTADO':provider==='email_pin'?'E-MAIL + PIN':'CONTA CONECTADA';
 }
-function showAuthGate(message='Entre com Google, Apple ou e-mail para continuar.'){
+function showAuthGate(message='Entre com Google, Apple ou e-mail + PIN para continuar.'){
   authUser=null;onlinePlayers=[];onlineCount=0;recentPlayers=[];inviteCards.clear();
   matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};matchmakingDialogDismissed=false;
   renderOnlinePresence();renderInviteInbox();renderMatchmaking();
@@ -543,65 +543,98 @@ function renderAppleSignIn(cfg=authConfig){
   const button=$('#appleSignInButton');if(!button)return;
   button.classList.toggle('hidden',!cfg?.providers?.apple?.configured);
 }
-function setEmailStep(step,email=''){
-  const request=$('#emailRequestForm'),code=$('#emailCodeForm');
-  if(step==='code'){
-    emailPendingAddress=email||emailPendingAddress;
-    request?.classList.add('hidden');code?.classList.remove('hidden');
-    const hint=$('#emailCodeHint');if(hint)hint.textContent=`Enviamos um código para ${emailPendingAddress}.`;
-    const input=$('#emailCodeInput');if(input){input.value='';setTimeout(()=>input.focus(),80)}
-  }else{
-    emailPendingAddress='';code?.classList.add('hidden');request?.classList.remove('hidden');
-  }
+function emailPinDigits(value){return String(value||'').replace(/\D/g,'').slice(0,6);}
+function showEmailPinPanel(panel='login'){
+  const login=$('#emailPinLoginForm'),register=$('#emailPinRegisterForm'),recover=$('#emailPinRecoverForm');
+  login?.classList.toggle('hidden',panel!=='login');register?.classList.toggle('hidden',panel!=='register');recover?.classList.toggle('hidden',panel!=='recover');
+  const loginTab=$('#emailPinLoginTab'),registerTab=$('#emailPinRegisterTab');
+  loginTab?.classList.toggle('active',panel==='login');registerTab?.classList.toggle('active',panel==='register');
+  loginTab?.setAttribute('aria-selected',String(panel==='login'));registerTab?.setAttribute('aria-selected',String(panel==='register'));
+  if(panel==='login')setTimeout(()=>$('#emailPinLoginEmail')?.focus(),50);
+  if(panel==='register')setTimeout(()=>$('#emailPinRegisterName')?.focus(),50);
+  if(panel==='recover')setTimeout(()=>$('#emailPinRecoverEmail')?.focus(),50);
 }
-async function requestEmailCode(event){
+async function loginEmailPin(event){
   event?.preventDefault?.();
-  const email=String($('#emailLoginInput')?.value||'').trim().toLowerCase();
-  const button=$('#emailRequestBtn');
-  if(!email)return authStatus('Informe seu e-mail.','error');
+  const email=String($('#emailPinLoginEmail')?.value||'').trim().toLowerCase();
+  const pin=emailPinDigits($('#emailPinLoginPin')?.value);
+  const button=$('#emailPinLoginBtn');
+  if(!email||pin.length!==6)return authStatus('Informe o e-mail e um PIN de 6 números.','error');
   try{
-    button.disabled=true;authStatus('Enviando código por e-mail...');
-    const res=await fetch('/api/auth/email/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    if(button)button.disabled=true;authStatus('Entrando com e-mail + PIN...');
+    const res=await fetch('/api/auth/email-pin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,pin})});
     const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
-    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível enviar o código.');
-    emailPendingAddress=email;setEmailStep('code',email);authStatus(data.message||'Código enviado.','success');
-  }catch(e){authStatus(e.message||'Falha ao enviar o código.','error')}finally{if(button)button.disabled=false;}
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível entrar.');
+    applyAuthUser(data.user);authStatus('Conta conectada.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
+  }catch(e){authStatus(e.message||'Falha no acesso por e-mail + PIN.','error')}finally{if(button)button.disabled=false;}
 }
-async function verifyEmailCode(event){
+function openRecoveryKeyDialog(code){
+  pendingEmailPinRecovery=String(code||'');const value=$('#emailPinRecoveryValue');if(value)value.textContent=pendingEmailPinRecovery;
+  const dialog=$('#emailPinRecoveryDialog');try{if(dialog?.showModal)dialog.showModal();else dialog?.setAttribute('open','')}catch{}
+}
+function closeRecoveryKeyDialog(){const dialog=$('#emailPinRecoveryDialog');try{dialog?.close?.()}catch{}dialog?.removeAttribute?.('open');}
+async function registerEmailPin(event){
   event?.preventDefault?.();
-  const code=String($('#emailCodeInput')?.value||'').replace(/\D/g,'').slice(0,6);
-  const button=$('#emailVerifyBtn');
-  if(!emailPendingAddress||code.length!==6)return authStatus('Digite os 6 números do código.','error');
+  const name=String($('#emailPinRegisterName')?.value||'').trim();
+  const email=String($('#emailPinRegisterEmail')?.value||'').trim().toLowerCase();
+  const pin=emailPinDigits($('#emailPinRegisterPin')?.value),confirmPin=emailPinDigits($('#emailPinRegisterConfirm')?.value);
+  const button=$('#emailPinRegisterBtn');
+  if(!email||pin.length!==6)return authStatus('Informe um e-mail e crie um PIN de 6 números.','error');
+  if(pin!==confirmPin)return authStatus('Os dois PINs precisam ser iguais.','error');
   try{
-    button.disabled=true;authStatus('Validando código...');
-    const res=await fetch('/api/auth/email/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:emailPendingAddress,code})});
+    if(button)button.disabled=true;authStatus('Criando sua conta...');
+    const res=await fetch('/api/auth/email-pin/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,pin})});
     const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
-    if(!res.ok||!data.ok)throw new Error(data.message||'Código inválido.');
-    applyAuthUser(data.user);authStatus('E-mail confirmado.','success');toast(`✅ Bem-vindo, ${data.user?.name||'Jogador'}!`);
-  }catch(e){authStatus(e.message||'Falha ao validar o código.','error')}finally{if(button)button.disabled=false;}
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível criar a conta.');
+    applyAuthUser(data.user);authStatus('Conta criada.','success');openRecoveryKeyDialog(data.recoveryCode);toast('✅ Conta criada. Guarde sua chave de recuperação.');
+  }catch(e){authStatus(e.message||'Falha ao criar a conta.','error')}finally{if(button)button.disabled=false;}
 }
-function renderEmailSignIn(cfg=authConfig){
-  const box=$('#emailAuthBox'),divider=$('#authDivider');
-  const enabled=!!cfg?.providers?.email?.configured;
-  box?.classList.toggle('hidden',!enabled);
-  const other=!!(cfg?.providers?.google?.configured||cfg?.providers?.apple?.configured);
-  divider?.classList.toggle('hidden',!(enabled&&other));
-  if(enabled)setEmailStep('request');
+async function recoverEmailPin(event){
+  event?.preventDefault?.();
+  const email=String($('#emailPinRecoverEmail')?.value||'').trim().toLowerCase();
+  const recoveryCode=String($('#emailPinRecoveryCode')?.value||'').trim();
+  const newPin=emailPinDigits($('#emailPinNewPin')?.value),confirmPin=emailPinDigits($('#emailPinNewPinConfirm')?.value);
+  const button=$('#emailPinRecoverBtn');
+  if(!email||!recoveryCode||newPin.length!==6)return authStatus('Preencha e-mail, chave de recuperação e novo PIN.','error');
+  if(newPin!==confirmPin)return authStatus('Os dois novos PINs precisam ser iguais.','error');
+  try{
+    if(button)button.disabled=true;authStatus('Alterando o PIN...');
+    const res=await fetch('/api/auth/email-pin/recover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,recoveryCode,newPin})});
+    const data=await res.json().catch(()=>({ok:false,message:'Resposta inválida do servidor.'}));
+    if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível alterar o PIN.');
+    applyAuthUser(data.user);authStatus('PIN alterado com sucesso.','success');toast('✅ PIN alterado. Você já está conectado.');
+  }catch(e){authStatus(e.message||'Falha na recuperação da conta.','error')}finally{if(button)button.disabled=false;}
+}
+async function copyRecoveryKey(){
+  if(!pendingEmailPinRecovery)return;
+  try{await navigator.clipboard.writeText(pendingEmailPinRecovery);toast('📋 Chave de recuperação copiada.');}
+  catch{toast(`Chave: ${pendingEmailPinRecovery}`);}
+}
+function renderEmailPinSignIn(cfg=authConfig){
+  const box=$('#emailPinAuthBox'),divider=$('#authDivider');const enabled=!!cfg?.providers?.emailPin?.configured;
+  box?.classList.toggle('hidden',!enabled);const other=!!(cfg?.providers?.google?.configured||cfg?.providers?.apple?.configured);divider?.classList.toggle('hidden',!(enabled&&other));if(enabled)showEmailPinPanel('login');
 }
 function bindAuthControls(){
   if(authControlsBound)return;authControlsBound=true;
   $('#appleSignInButton')?.addEventListener('click',handleAppleLogin);
-  $('#emailRequestForm')?.addEventListener('submit',requestEmailCode);
-  $('#emailCodeForm')?.addEventListener('submit',verifyEmailCode);
-  $('#emailChangeBtn')?.addEventListener('click',()=>{setEmailStep('request');authStatus('Informe o e-mail que deseja usar para entrar.');$('#emailLoginInput')?.focus()});
+  $('#emailPinLoginForm')?.addEventListener('submit',loginEmailPin);
+  $('#emailPinRegisterForm')?.addEventListener('submit',registerEmailPin);
+  $('#emailPinRecoverForm')?.addEventListener('submit',recoverEmailPin);
+  $('#emailPinLoginTab')?.addEventListener('click',()=>{showEmailPinPanel('login');authStatus('Informe seu e-mail e PIN.');});
+  $('#emailPinRegisterTab')?.addEventListener('click',()=>{showEmailPinPanel('register');authStatus('Crie sua conta com e-mail e PIN.');});
+  $('#emailPinRecoverOpen')?.addEventListener('click',()=>{showEmailPinPanel('recover');authStatus('Use a chave de recuperação que você guardou ao criar a conta.');});
+  $('#emailPinRecoverBack')?.addEventListener('click',()=>{showEmailPinPanel('login');authStatus('Informe seu e-mail e PIN.');});
+  $('#emailPinRecoveryCopy')?.addEventListener('click',copyRecoveryKey);
+  $('#emailPinRecoveryContinue')?.addEventListener('click',closeRecoveryKeyDialog);
+  $('#emailPinRecoveryClose')?.addEventListener('click',closeRecoveryKeyDialog);
 }
 async function renderAuthOptions(){
   bindAuthControls();
   try{
     const cfgRes=await fetch('/api/auth/config',{cache:'no-store'});authConfig=await cfgRes.json();
     if(!cfgRes.ok||!authConfig?.ok)throw new Error('Não foi possível carregar as opções de login.');
-    renderAppleSignIn(authConfig);renderEmailSignIn(authConfig);void renderGoogleSignIn(authConfig);
-    const enabled=['google','apple','email'].filter(k=>authConfig?.providers?.[k]?.configured);
+    renderAppleSignIn(authConfig);renderEmailPinSignIn(authConfig);void renderGoogleSignIn(authConfig);
+    const enabled=['google','apple','emailPin'].filter(k=>authConfig?.providers?.[k]?.configured);
     if(enabled.length)authStatus('Escolha como deseja entrar.');
     else authStatus('Nenhuma forma de login está configurada no servidor.','error');
   }catch(e){authStatus(e.message||'Não foi possível carregar o login.','error')}
@@ -613,7 +646,7 @@ async function initializeAuth(){
     const data=await res.json().catch(()=>({ok:false}));
     if(res.ok&&data.ok&&data.user){applyAuthUser(data.user);return;}
   }catch{}
-  showAuthGate('Entre com Google, Apple ou e-mail para continuar.');
+  showAuthGate('Entre com Google, Apple ou e-mail + PIN para continuar.');
   renderAuthOptions();
 }
 async function logoutAuth(){

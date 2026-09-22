@@ -9,7 +9,7 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 
-assert(pkg.version==='40.69.1','package.json deve identificar V40.54');
+assert(pkg.version==='40.69.2','package.json deve identificar V40.54');
 assert(app.includes('LIVE_VOICE_RTC_MAX_PEERS=6'),'limite protetor de peers WebRTC ausente');
 assert(app.includes('LIVE_VOICE_CONNECT_TIMEOUT_MS=4500'),'timeout para fallback de WebRTC ausente');
 assert(app.includes('scheduleLiveVoiceConnectTimeout'),'fallback não é ativado após timeout de conexão');
@@ -21,5 +21,5 @@ assert(server.includes('VOICE_TURN_SECRET'),'TURN REST/coturn temporário ausent
 assert(server.includes("createHmac('sha1',VOICE_TURN_SECRET)"),'credencial temporária TURN não é assinada');
 assert(server.includes('turnAuthMode:voiceTurnAuthMode()'),'endpoint não informa modo de autenticação TURN');
 assert(env.includes('VOICE_TURN_SECRET=')&&env.includes('VOICE_TURN_TTL_SECONDS=3600'),'exemplo de configuração TURN temporária ausente');
-assert(html.includes('app.js?v=40.69.1')&&html.includes('styles.css?v=40.69.1'),'cache-busting V40.54 ausente');
+assert(html.includes('app.js?v=40.69.2')&&html.includes('styles.css?v=40.69.2'),'cache-busting V40.54 ausente');
 console.log('✓ V40.54: WebRTC/Opus para observadores, TURN temporário e fallback seletivo conferidos.');

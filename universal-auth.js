@@ -1,7 +1,6 @@
 'use strict';
 
 const crypto=require('crypto');
-const {normalizeEmail}=require('./auth-identity-store');
 
 function hmacToken(secret,payloadObject){
   const payload=Buffer.from(JSON.stringify(payloadObject)).toString('base64url');
@@ -86,17 +85,6 @@ async function exchangeAppleAuthorizationCode(code,{clientId,teamId,keyId,privat
   return data;
 }
 
-function generateEmailOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,'0');}
-function emailOtpHash(secret,email,code){
-  return crypto.createHmac('sha256',secret).update(`email-otp:${normalizeEmail(email)}:${String(code||'')}`).digest('hex');
-}
-function safeEmailDisplay(email){
-  const normalized=normalizeEmail(email);if(!normalized)return '';
-  const [local,domain]=normalized.split('@');
-  const visible=local.length<=2?local.slice(0,1):local.slice(0,2);
-  return `${visible}${'*'.repeat(Math.max(1,Math.min(6,local.length-visible)))}@${domain}`;
-}
-
 class SlidingWindowLimiter {
   constructor({limit=3,windowMs=15*60*1000}={}){this.limit=limit;this.windowMs=windowMs;this.entries=new Map();}
   consume(subject,now=Date.now()){
@@ -110,5 +98,5 @@ class SlidingWindowLimiter {
 
 module.exports={
   hmacToken,verifyHmacToken,createAppleChallenge,verifyAppleChallenge,verifyAppleIdentityToken,createAppleClientSecret,exchangeAppleAuthorizationCode,
-  generateEmailOtp,emailOtpHash,safeEmailDisplay,SlidingWindowLimiter,
+  SlidingWindowLimiter,
 };
