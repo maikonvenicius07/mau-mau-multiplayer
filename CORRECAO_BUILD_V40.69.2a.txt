@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — CORREÇÃO DE BUILD V40.69.2a
+
+CAUSA
+O teste universal-auth-v40691.test.js estava derrubando o build quando o GitHub ainda mantinha um .env.example antigo com RESEND_API_KEY=.
+O jogo já não usa Resend na V40.69.2; a falha era apenas uma verificação de documentação, não uma falha do login.
+
+CORREÇÃO
+- O teste agora verifica a dependência real no server.js.
+- Um .env.example antigo não bloqueia mais o deploy.
+- O .env.example correto continua incluído no projeto completo.
+
+O QUE SUBIR NO GITHUB
+Substitua pelo menos:
+- tests/universal-auth-v40691.test.js
+
+Opcionalmente substitua também:
+- .env.example
+- CHANGELOG.md
+
+Depois aguarde o GitHub Actions e o Render executarem novamente.

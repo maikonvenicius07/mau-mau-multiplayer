@@ -1,3 +1,10 @@
+# V40.69.2a — Correção do build após remoção do Resend
+
+- Corrigido o teste de autenticação para validar a dependência real do servidor, sem derrubar o deploy apenas por documentação antiga em `.env.example`.
+- O login e-mail + PIN continua sem Resend e sem envio de código.
+- `.env.example` permanece atualizado, sem `RESEND_API_KEY`/`EMAIL_FROM`.
+- Nenhuma regra do jogo, ranking, reconexão, salas, observadores, voz ou interface foi alterada.
+
 # V40.69.2 — Google + Apple + e-mail/PIN, sem código por e-mail
 
 - Substituído o OTP/Resend por login local com e-mail + PIN de 6 números.

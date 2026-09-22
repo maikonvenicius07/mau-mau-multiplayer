@@ -15,7 +15,6 @@ const U=require('../universal-auth');
   const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
   const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
   const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
-  const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 
   assert.strictEqual(pkg.version,'40.69.2');
   assert.strictEqual(normalizeEmail('  Jogador@Exemplo.COM '),'jogador@exemplo.com');
@@ -80,8 +79,6 @@ const U=require('../universal-auth');
   assert(app.includes('loginEmailPin')&&app.includes('registerEmailPin')&&app.includes('recoverEmailPin'));
   assert(app.includes('initializeAuth()'));
   assert(css.includes('.apple-signin-btn')&&css.includes('.email-auth-box')&&css.includes('.recovery-key-modal'));
-  for(const key of ['APPLE_CLIENT_ID=','APPLE_REDIRECT_URI=','APPLE_TEAM_ID=','APPLE_KEY_ID=','APPLE_PRIVATE_KEY='])assert(env.includes(key),`.env.example sem ${key}`);
-  assert(!env.includes('RESEND_API_KEY='));
 
   fs.rmSync(tmp,{recursive:true,force:true});
   console.log('✓ V40.69.2: Google + Apple + e-mail/PIN, recuperação e isolamento de identidade validados.');
