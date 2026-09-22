@@ -1,0 +1,28 @@
+MAU-MAU CANDEIAS — PRÉ-APK PASSO 2B
+GOOGLE + E-MAIL/SENHA
+
+Objetivo
+- Substituir o PIN fixo de 6 números por senha escolhida pelo jogador.
+- Manter o Google exatamente como já funcionava.
+- Não alterar nenhuma regra do jogo.
+
+Novo padrão
+- Novas contas: senha entre 6 e 60 caracteres.
+- O jogador escolhe o tamanho dentro desse intervalo.
+- Pode usar letras, números e símbolos.
+- Nenhum código é enviado por e-mail.
+- A chave de recuperação continua sendo exibida na criação da conta.
+- Após 5 tentativas incorretas, continua existindo bloqueio temporário de 15 minutos.
+
+Compatibilidade
+- Contas antigas que já foram criadas com PIN de 6 números não são perdidas.
+- O PIN antigo continua funcionando como senha para entrada.
+- Ao usar a recuperação, o jogador passa a definir uma nova senha de 6 a 60 caracteres.
+- PlayerKey, ranking e identidade do jogador são preservados.
+
+Banco de dados
+- A estrutura física antiga de credenciais foi mantida internamente para evitar migração destrutiva.
+- O segredo continua protegido com scrypt + salt; a senha nunca é armazenada em texto puro.
+
+Regras do jogo
+- Nenhuma regra, turno, pontuação, reconexão, ranking, sala, observador, chat, voz ou áudio foi alterado por este passo.

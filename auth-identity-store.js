@@ -10,6 +10,16 @@ function normalizeEmail(value) {
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '';
   return email;
 }
+const PASSWORD_MIN_LENGTH=6;
+const PASSWORD_MAX_LENGTH=60;
+function normalizePassword(value,{allowLegacyPin=false}={}){
+  const password=String(value??'');
+  if(/[\u0000-\u001F\u007F]/u.test(password))return '';
+  if(password.length>=PASSWORD_MIN_LENGTH&&password.length<=PASSWORD_MAX_LENGTH)return password;
+  // Compatibilidade: contas criadas antes desta versão usavam PIN numérico de 6 dígitos.
+  if(allowLegacyPin&&/^\d{6}$/.test(password))return password;
+  return '';
+}
 function normalizePin(value){
   const pin=String(value||'').replace(/\D/g,'').slice(0,6);
   return /^\d{6}$/.test(pin)?pin:'';
@@ -53,6 +63,7 @@ function generateRecoveryCode(){
   return `RC-${body.slice(0,4)}-${body.slice(4,8)}-${body.slice(8,12)}-${body.slice(12,16)}`;
 }
 function publicEmailPinUser(user,email){return {...cleanUserProfile({...user,email,provider:'email_pin'}),provider:'email_pin'};}
+function publicEmailPasswordUser(user,email){return {...cleanUserProfile({...user,email,provider:'email_password'}),provider:'email_password'};}
 
 class JsonBackend {
   constructor(filePath){this.filePath=filePath;this.data={version:2,users:{},identities:{},emailPins:{}};}
@@ -71,7 +82,7 @@ class JsonBackend {
     const user=cleanUserProfile(session);if(!user.playerKey)return null;
     // E-mail+PIN não prova posse da caixa postal; nunca promove esse e-mail para
     // e-mail verificado/canônico, evitando vinculação automática insegura com Google/Apple.
-    if(user.provider==='email_pin')user.email='';
+    if(user.provider==='email_pin'||user.provider==='email_password')user.email='';
     const prior=this.data.users[user.playerKey]||{};
     this.data.users[user.playerKey]={...prior,...user,provider:user.provider||prior.provider||'',updatedAt:new Date().toISOString(),createdAt:prior.createdAt||new Date().toISOString()};
     this.persist();return this.data.users[user.playerKey];
@@ -122,6 +133,38 @@ class JsonBackend {
     cred.pinSalt=randomSalt();cred.pinHash=await scryptHex(newPin,cred.pinSalt);cred.failedAttempts=0;cred.lockedUntil=0;cred.updatedAt=new Date().toISOString();this.persist();
     const user=this.data.users[cred.playerKey]||{playerKey:cred.playerKey,name:emailPinDisplayName(email)};return publicEmailPinUser(user,email);
   }
+  async registerEmailPassword({email,password,name}={}){
+    email=normalizeEmail(email);password=normalizePassword(password);
+    if(!email)throw authError('INVALID_EMAIL','Informe um e-mail válido.');
+    if(!password)throw authError('INVALID_PASSWORD',`A senha deve ter entre ${PASSWORD_MIN_LENGTH} e ${PASSWORD_MAX_LENGTH} caracteres.`);
+    if(this.data.emailPins[email])throw authError('EMAIL_EXISTS','Este e-mail já possui uma conta. Use Entrar.');
+    const playerKey=newPlayerKey(),now=new Date().toISOString(),pinSalt=randomSalt(),recoverySalt=randomSalt(),recoveryCode=generateRecoveryCode();
+    const [pinHash,recoveryHash]=await Promise.all([scryptHex(password,pinSalt),scryptHex(normalizeRecoveryCode(recoveryCode),recoverySalt)]);
+    const user=cleanUserProfile({playerKey,name:emailPinDisplayName(email,name),email:'',picture:'',provider:'email_password'});
+    this.data.users[playerKey]={...user,createdAt:now,updatedAt:now};
+    // Mantemos os nomes internos antigos para preservar contas existentes sem migração destrutiva.
+    this.data.emailPins[email]={playerKey,pinSalt,pinHash,recoverySalt,recoveryHash,failedAttempts:0,lockedUntil:0,createdAt:now,updatedAt:now,lastLoginAt:null};
+    this.persist();return {user:publicEmailPasswordUser(user,email),recoveryCode};
+  }
+  async loginEmailPassword({email,password,now=Date.now()}={}){
+    email=normalizeEmail(email);password=normalizePassword(password,{allowLegacyPin:true});
+    if(!email||!password)throw authError('INVALID_CREDENTIALS','E-mail ou senha inválida.');
+    const cred=this.data.emailPins[email];if(!cred)throw authError('NOT_FOUND','Conta não encontrada para este e-mail.');
+    if(Number(cred.lockedUntil||0)>now)throw authError('LOCKED','Muitas tentativas incorretas. Aguarde alguns minutos e tente novamente.');
+    const actual=await scryptHex(password,cred.pinSalt);if(!safeHexEqual(actual,cred.pinHash)){
+      cred.failedAttempts=Number(cred.failedAttempts||0)+1;if(cred.failedAttempts>=5){cred.lockedUntil=now+15*60*1000;cred.failedAttempts=0;}cred.updatedAt=new Date(now).toISOString();this.persist();throw authError('INVALID_CREDENTIALS','E-mail ou senha incorreta.');
+    }
+    cred.failedAttempts=0;cred.lockedUntil=0;cred.lastLoginAt=new Date(now).toISOString();cred.updatedAt=cred.lastLoginAt;this.persist();
+    const user=this.data.users[cred.playerKey]||{playerKey:cred.playerKey,name:emailPinDisplayName(email)};return publicEmailPasswordUser(user,email);
+  }
+  async recoverEmailPassword({email,recoveryCode,newPassword}={}){
+    email=normalizeEmail(email);newPassword=normalizePassword(newPassword);const recovery=normalizeRecoveryCode(recoveryCode);
+    if(!email||!newPassword||!recovery)throw authError('INVALID_RECOVERY',`Preencha os dados corretamente. A nova senha deve ter entre ${PASSWORD_MIN_LENGTH} e ${PASSWORD_MAX_LENGTH} caracteres.`);
+    const cred=this.data.emailPins[email];if(!cred)throw authError('NOT_FOUND','Conta não encontrada para este e-mail.');
+    const actual=await scryptHex(recovery,cred.recoverySalt);if(!safeHexEqual(actual,cred.recoveryHash))throw authError('INVALID_RECOVERY','Chave de recuperação inválida.');
+    cred.pinSalt=randomSalt();cred.pinHash=await scryptHex(newPassword,cred.pinSalt);cred.failedAttempts=0;cred.lockedUntil=0;cred.updatedAt=new Date().toISOString();this.persist();
+    const user=this.data.users[cred.playerKey]||{playerKey:cred.playerKey,name:emailPinDisplayName(email)};return publicEmailPasswordUser(user,email);
+  }
   async close(){}
 }
 
@@ -169,7 +212,7 @@ class PostgresBackend {
   }
   async healthCheck(){const {rows}=await this.pool.query('SELECT 1 AS ok');return Number(rows?.[0]?.ok)===1;}
   async ensureSessionUser(session){
-    const user=cleanUserProfile(session);if(!user.playerKey)return null;if(user.provider==='email_pin')user.email='';
+    const user=cleanUserProfile(session);if(!user.playerKey)return null;if(user.provider==='email_pin'||user.provider==='email_password')user.email='';
     await this.pool.query(`INSERT INTO mm_auth_users(player_key,name,email,email_normalized,picture,created_at,updated_at) VALUES($1,$2,$3,$4,$5,NOW(),NOW()) ON CONFLICT(player_key) DO UPDATE SET name=COALESCE(NULLIF(EXCLUDED.name,''),mm_auth_users.name),email=COALESCE(NULLIF(EXCLUDED.email,''),mm_auth_users.email),email_normalized=COALESCE(NULLIF(EXCLUDED.email_normalized,''),mm_auth_users.email_normalized),picture=COALESCE(NULLIF(EXCLUDED.picture,''),mm_auth_users.picture),updated_at=NOW()`,[user.playerKey,user.name,user.email||null,user.email||null,user.picture||null]);return user;
   }
   async resolveIdentity({provider,subject,legacyPlayerKey='',name,email,picture,verifiedEmail=true}={}){
@@ -216,6 +259,43 @@ class PostgresBackend {
       const actual=await scryptHex(recovery,cred.recovery_salt);if(!safeHexEqual(actual,cred.recovery_hash))throw authError('INVALID_RECOVERY','Chave de recuperação inválida.');const pinSalt=randomSalt(),pinHash=await scryptHex(newPin,pinSalt);await client.query(`UPDATE mm_auth_email_pin SET pin_salt=$2,pin_hash=$3,failed_attempts=0,locked_until=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email,pinSalt,pinHash]);await client.query('COMMIT');return publicEmailPinUser({playerKey:cred.player_key,name:cred.name,picture:cred.picture||''},email);
     }catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}finally{client.release();}
   }
+  async registerEmailPassword({email,password,name}={}){
+    email=normalizeEmail(email);password=normalizePassword(password);
+    if(!email)throw authError('INVALID_EMAIL','Informe um e-mail válido.');
+    if(!password)throw authError('INVALID_PASSWORD',`A senha deve ter entre ${PASSWORD_MIN_LENGTH} e ${PASSWORD_MAX_LENGTH} caracteres.`);
+    const playerKey=newPlayerKey(),pinSalt=randomSalt(),recoverySalt=randomSalt(),recoveryCode=generateRecoveryCode();
+    const [pinHash,recoveryHash]=await Promise.all([scryptHex(password,pinSalt),scryptHex(normalizeRecoveryCode(recoveryCode),recoverySalt)]);
+    const displayName=emailPinDisplayName(email,name);const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`email-password:${email}`]);
+      const exists=await client.query(`SELECT 1 FROM mm_auth_email_pin WHERE email_normalized=$1`,[email]);if(exists.rowCount)throw authError('EMAIL_EXISTS','Este e-mail já possui uma conta. Use Entrar.');
+      await client.query(`INSERT INTO mm_auth_users(player_key,name,email,email_normalized,picture,created_at,updated_at) VALUES($1,$2,NULL,NULL,NULL,NOW(),NOW())`,[playerKey,displayName]);
+      // A tabela/colunas mantêm o nome legado para preservar contas existentes sem recriar o banco.
+      await client.query(`INSERT INTO mm_auth_email_pin(email_normalized,player_key,pin_salt,pin_hash,recovery_salt,recovery_hash,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,NOW(),NOW())`,[email,playerKey,pinSalt,pinHash,recoverySalt,recoveryHash]);await client.query('COMMIT');
+      return {user:publicEmailPasswordUser({playerKey,name:displayName,picture:''},email),recoveryCode};
+    }catch(e){await client.query('ROLLBACK');if(e?.code==='23505')throw authError('EMAIL_EXISTS','Este e-mail já possui uma conta. Use Entrar.');throw e;}finally{client.release();}
+  }
+  async loginEmailPassword({email,password,now=Date.now()}={}){
+    email=normalizeEmail(email);password=normalizePassword(password,{allowLegacyPin:true});
+    if(!email||!password)throw authError('INVALID_CREDENTIALS','E-mail ou senha inválida.');const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`email-password:${email}`]);
+      const found=await client.query(`SELECT c.*,u.name,u.picture FROM mm_auth_email_pin c JOIN mm_auth_users u ON u.player_key=c.player_key WHERE c.email_normalized=$1`,[email]);const cred=found.rows[0];if(!cred)throw authError('NOT_FOUND','Conta não encontrada para este e-mail.');
+      if(cred.locked_until&&new Date(cred.locked_until).getTime()>now)throw authError('LOCKED','Muitas tentativas incorretas. Aguarde alguns minutos e tente novamente.');
+      const actual=await scryptHex(password,cred.pin_salt);if(!safeHexEqual(actual,cred.pin_hash)){
+        const attempts=Number(cred.failed_attempts||0)+1;if(attempts>=5)await client.query(`UPDATE mm_auth_email_pin SET failed_attempts=0,locked_until=NOW()+INTERVAL '15 minutes',updated_at=NOW() WHERE email_normalized=$1`,[email]);else await client.query(`UPDATE mm_auth_email_pin SET failed_attempts=$2,updated_at=NOW() WHERE email_normalized=$1`,[email,attempts]);await client.query('COMMIT');throw authError('INVALID_CREDENTIALS','E-mail ou senha incorreta.');
+      }
+      await client.query(`UPDATE mm_auth_email_pin SET failed_attempts=0,locked_until=NULL,last_login_at=NOW(),updated_at=NOW() WHERE email_normalized=$1`,[email]);await client.query('COMMIT');return publicEmailPasswordUser({playerKey:cred.player_key,name:cred.name,picture:cred.picture||''},email);
+    }catch(e){if(!['INVALID_CREDENTIALS'].includes(e?.code)){try{await client.query('ROLLBACK')}catch{}}throw e;}finally{client.release();}
+  }
+  async recoverEmailPassword({email,recoveryCode,newPassword}={}){
+    email=normalizeEmail(email);newPassword=normalizePassword(newPassword);const recovery=normalizeRecoveryCode(recoveryCode);
+    if(!email||!newPassword||!recovery)throw authError('INVALID_RECOVERY',`Preencha os dados corretamente. A nova senha deve ter entre ${PASSWORD_MIN_LENGTH} e ${PASSWORD_MAX_LENGTH} caracteres.`);const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`email-password:${email}`]);const found=await client.query(`SELECT c.*,u.name,u.picture FROM mm_auth_email_pin c JOIN mm_auth_users u ON u.player_key=c.player_key WHERE c.email_normalized=$1`,[email]);const cred=found.rows[0];if(!cred)throw authError('NOT_FOUND','Conta não encontrada para este e-mail.');
+      const actual=await scryptHex(recovery,cred.recovery_salt);if(!safeHexEqual(actual,cred.recovery_hash))throw authError('INVALID_RECOVERY','Chave de recuperação inválida.');const pinSalt=randomSalt(),pinHash=await scryptHex(newPassword,pinSalt);await client.query(`UPDATE mm_auth_email_pin SET pin_salt=$2,pin_hash=$3,failed_attempts=0,locked_until=NULL,updated_at=NOW() WHERE email_normalized=$1`,[email,pinSalt,pinHash]);await client.query('COMMIT');return publicEmailPasswordUser({playerKey:cred.player_key,name:cred.name,picture:cred.picture||''},email);
+    }catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}finally{client.release();}
+  }
   async close(){await this.pool.end();}
 }
 
@@ -228,7 +308,10 @@ class AuthIdentityStore {
   async registerEmailPin(opts){return this.backend.registerEmailPin(opts);}
   async loginEmailPin(opts){return this.backend.loginEmailPin(opts);}
   async recoverEmailPin(opts){return this.backend.recoverEmailPin(opts);}
+  async registerEmailPassword(opts){return this.backend.registerEmailPassword(opts);}
+  async loginEmailPassword(opts){return this.backend.loginEmailPassword(opts);}
+  async recoverEmailPassword(opts){return this.backend.recoverEmailPassword(opts);}
   async close(){return this.backend.close();}
 }
 
-module.exports={AuthIdentityStore,normalizeEmail,normalizePin,normalizeRecoveryCode,identityHash,newPlayerKey,cleanUserProfile,generateRecoveryCode};
+module.exports={AuthIdentityStore,normalizeEmail,normalizePin,normalizePassword,normalizeRecoveryCode,identityHash,newPlayerKey,cleanUserProfile,generateRecoveryCode,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENGTH};

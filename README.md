@@ -1,16 +1,17 @@
-# V40.69.2 — Login pronto para web/app: Google + e-mail/PIN
+# V40.69.2 — Login pronto para web/app: Google + e-mail/senha
 
 - Google continua funcionando e preserva o `playerKey` das contas existentes.
-- O acesso alternativo agora usa **e-mail + PIN de 6 números**, sem Resend e sem envio de código.
-- O PIN é protegido com `scrypt` e salt aleatório; nunca é armazenado em texto puro.
-- Após 5 PINs incorretos, a conta é bloqueada temporariamente por 15 minutos.
-- Na criação da conta, o jogo entrega uma **chave de recuperação** única; ela permite trocar o PIN sem depender de e-mail.
-- O e-mail digitado no modo PIN funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma Conta Google.
+- O acesso alternativo usa **e-mail + senha escolhida pelo jogador, de 6 a 60 caracteres**, sem Resend e sem envio de código.
+- A senha é protegida com `scrypt` e salt aleatório; nunca é armazenada em texto puro.
+- Após 5 senhas incorretas, a conta é bloqueada temporariamente por 15 minutos.
+- Na criação da conta, o jogo entrega uma **chave de recuperação** única; ela permite trocar a senha sem depender de e-mail.
+- O e-mail digitado no modo senha funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma Conta Google.
+- **Contas antigas com PIN de 6 números continuam entrando normalmente**; o PIN antigo funciona como a senha atual até o jogador optar por redefini-la.
 - Nenhuma regra do Mau-Mau, ranking, reconexão, salas, observadores, chat, voz ou microfone foi alterada.
 
 ## Estado atual de autenticação para o Pré-APK
 
-A interface atual oferece somente **Google** e **e-mail + PIN de 6 números**. O cliente não carrega SDK nem exibe botão de outro provedor. Referências em seções antigas de histórico descrevem versões anteriores e não representam a tela atual.
+A interface atual oferece somente **Google** e **e-mail + senha**. O cliente não carrega SDK nem exibe botão de outro provedor. Referências em seções antigas de histórico descrevem versões anteriores e não representam a tela atual.
 
 ---
 
@@ -436,7 +437,7 @@ A tela inicial agora possui uma Central de Partidas ao Vivo para observadores. S
 
 
 
-Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, login por Google ou e-mail + PIN, Socket.IO, ranking PostgreSQL, presença online e reações rápidas.
+Jogo Mau-Mau Candeias multiplayer para navegador, com salas de 2 a 5 jogadores, login por Google ou e-mail + senha, Socket.IO, ranking PostgreSQL, presença online e reações rápidas.
 
 
 
@@ -490,7 +491,7 @@ Os seis avatares adicionados na V40.25 foram redesenhados para ficar no mesmo pa
 
 ## Recursos atuais
 
-- **Login obrigatório**: Google ou e-mail + PIN de 6 números; sessão própria em cookie HttpOnly.
+- **Login obrigatório**: Google ou e-mail + senha de 6 a 60 caracteres; sessão própria em cookie HttpOnly.
 - **Salas multiplayer** de 2 a 5 jogadores e modo contra máquinas.
 - **Jogadores Online + Convites** com presença identificada pelo `playerKey` autenticado.
 - **Buscar Jogadores**: matchmaking automático de 2 a 5 pessoas; a janela de 15 s começa quando o segundo jogador entra e a partida inicia imediatamente ao chegar a 5.
@@ -515,7 +516,7 @@ As regras consolidadas do jogo estão em [`docs/REGRAS.md`](docs/REGRAS.md).
 - Socket.IO
 - PostgreSQL (`pg`)
 - Google Identity Services + `google-auth-library`
-- Login por e-mail + PIN protegido, sem serviço externo de envio
+- Login por e-mail + senha protegida, sem serviço externo de envio
 - HTML, CSS e JavaScript no front-end
 
 ## Estrutura do projeto
@@ -552,7 +553,7 @@ npm install
 ```
 
 3. Copie `.env.example` para `.env` apenas como referência. Este projeto não carrega `.env` automaticamente; defina as variáveis no terminal/sistema operacional ou na plataforma de hospedagem.
-4. Configure `AUTH_SESSION_SECRET`. Para manter Google, use `GOOGLE_CLIENT_ID`. O acesso por e-mail + PIN não exige serviço externo.
+4. Configure `AUTH_SESSION_SECRET`. Para manter Google, use `GOOGLE_CLIENT_ID`. O acesso por e-mail + senha não exige serviço externo.
 5. Inicie:
 
 ```bash
@@ -586,7 +587,7 @@ npm run verify
 | Variável | Uso |
 |---|---|
 | `GOOGLE_CLIENT_ID` | Client ID OAuth Web usado para validar o Login Google. |
-| E-mail + PIN | Não exige variável de ambiente adicional; as credenciais ficam protegidas no armazenamento de identidade. |
+| E-mail + senha | Não exige variável de ambiente adicional; as credenciais ficam protegidas no armazenamento de identidade. |
 | `AUTH_SESSION_SECRET` | Assina a sessão própria do jogo. Use valor longo, aleatório e estável. |
 | `DATABASE_URL` | Conexão PostgreSQL usada pelo ranking. Recomendada em produção. |
 | `PORT` | Porta HTTP. Plataformas como Render normalmente a fornecem. |

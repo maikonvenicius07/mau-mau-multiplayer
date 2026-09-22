@@ -35,26 +35,33 @@ const U=require('../universal-auth');
   const appleRelay=await store.resolveIdentity({provider:'apple',subject:'apple-sub-relay',name:'Outro',email:'abc@privaterelay.appleid.com',verifiedEmail:true});
   assert.notStrictEqual(appleRelay.playerKey,google.playerKey);
 
-  // E-mail + PIN cria uma identidade própria SEM marcar a caixa postal como verificada.
-  const pinAccount=await store.registerEmailPin({email:'novo@example.com',pin:'123456',name:'Novo'});
-  assert(/^u_[0-9a-f]{40}$/.test(pinAccount.user.playerKey));
-  assert(/^RC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(pinAccount.recoveryCode));
-  const pinLogin=await store.loginEmailPin({email:'novo@example.com',pin:'123456'});
-  assert.strictEqual(pinLogin.playerKey,pinAccount.user.playerKey);
-  await assert.rejects(()=>store.loginEmailPin({email:'novo@example.com',pin:'999999'}),/incorreto/i);
-  const recovered=await store.recoverEmailPin({email:'novo@example.com',recoveryCode:pinAccount.recoveryCode,newPin:'654321'});
-  assert.strictEqual(recovered.playerKey,pinAccount.user.playerKey);
-  await assert.rejects(()=>store.loginEmailPin({email:'novo@example.com',pin:'123456'}),/incorreto/i);
-  assert.strictEqual((await store.loginEmailPin({email:'novo@example.com',pin:'654321'})).playerKey,pinAccount.user.playerKey);
+  // E-mail + senha cria uma identidade própria SEM marcar a caixa postal como verificada.
+  const passwordAccount=await store.registerEmailPassword({email:'novo@example.com',password:'MinhaSenha123!',name:'Novo'});
+  assert(/^u_[0-9a-f]{40}$/.test(passwordAccount.user.playerKey));
+  assert(/^RC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(passwordAccount.recoveryCode));
+  const passwordLogin=await store.loginEmailPassword({email:'novo@example.com',password:'MinhaSenha123!'});
+  assert.strictEqual(passwordLogin.playerKey,passwordAccount.user.playerKey);
+  await assert.rejects(()=>store.loginEmailPassword({email:'novo@example.com',password:'SenhaErrada123!'}),/incorreta/i);
+  await assert.rejects(()=>store.registerEmailPassword({email:'curta@example.com',password:'12345',name:'Curta'}),/6.*60/i);
+  const sixChars=await store.registerEmailPassword({email:'seis@example.com',password:'123456',name:'Seis'});
+  assert.strictEqual((await store.loginEmailPassword({email:'seis@example.com',password:'123456'})).playerKey,sixChars.user.playerKey);
+  const recovered=await store.recoverEmailPassword({email:'novo@example.com',recoveryCode:passwordAccount.recoveryCode,newPassword:'NovaSenha#2026'});
+  assert.strictEqual(recovered.playerKey,passwordAccount.user.playerKey);
+  await assert.rejects(()=>store.loginEmailPassword({email:'novo@example.com',password:'MinhaSenha123!'}),/incorreta/i);
+  assert.strictEqual((await store.loginEmailPassword({email:'novo@example.com',password:'NovaSenha#2026'})).playerKey,passwordAccount.user.playerKey);
+
+  // Compatibilidade: conta antiga com PIN de 6 números continua entrando pela tela nova de senha.
+  const legacy=await store.registerEmailPin({email:'legado@example.com',pin:'111222',name:'Legado'});
+  assert.strictEqual((await store.loginEmailPassword({email:'legado@example.com',password:'111222'})).playerKey,legacy.user.playerKey);
 
   // Segurança: um e-mail digitado manualmente não pode sequestrar futura identidade Google/Apple.
-  const manual=await store.registerEmailPin({email:'seguro@example.com',pin:'111222',name:'Manual'});
+  const manual=await store.registerEmailPassword({email:'seguro@example.com',password:'Segura#1234',name:'Manual'});
   const googleVerified=await store.resolveIdentity({provider:'google',subject:'google-safe',legacyPlayerKey:'g_safe',name:'Google',email:'seguro@example.com',verifiedEmail:true});
-  assert.notStrictEqual(googleVerified.playerKey,manual.user.playerKey,'e-mail + PIN não verificado não deve auto-vincular Google');
+  assert.notStrictEqual(googleVerified.playerKey,manual.user.playerKey,'e-mail + senha não verificado não deve auto-vincular Google');
 
   const reopened=new AuthIdentityStore({databaseUrl:'',filePath});
   await reopened.init();
-  assert.strictEqual((await reopened.loginEmailPin({email:'novo@example.com',pin:'654321'})).playerKey,pinAccount.user.playerKey,'e-mail + PIN deve sobreviver a reinício');
+  assert.strictEqual((await reopened.loginEmailPassword({email:'novo@example.com',password:'NovaSenha#2026'})).playerKey,passwordAccount.user.playerKey,'e-mail + senha deve sobreviver a reinício');
 
   const secret='segredo-teste-123';
   const challenge=U.createAppleChallenge(secret,{ttlMs:60000,now:1000});
@@ -65,7 +72,7 @@ const U=require('../universal-auth');
   const appleSecret=U.createAppleClientSecret({clientId:'com.example.web',teamId:'TEAM123',keyId:'KEY123',privateKey:privateKey.export({type:'pkcs8',format:'pem'}),now:1000,ttlSeconds:600});
   assert.strictEqual(appleSecret.split('.').length,3);
 
-  for(const route of ['/api/auth/google','/api/auth/apple','/api/auth/email-pin/register','/api/auth/email-pin/login','/api/auth/email-pin/recover'])assert(server.includes(route),`rota ${route} ausente`);
+  for(const route of ['/api/auth/google','/api/auth/apple','/api/auth/email-password/register','/api/auth/email-password/login','/api/auth/email-password/recover'])assert(server.includes(route),`rota ${route} ausente`);
   assert(universal.includes('https://appleid.apple.com/auth/keys'));
   assert(universal.includes('https://appleid.apple.com/auth/token'));
   assert(!server.includes('RESEND_API_KEY'),'V40.69.2 não deve depender do Resend');
@@ -73,14 +80,14 @@ const U=require('../universal-auth');
   assert(server.includes("const AUTH_COOKIE = 'maumau_session'"));
   assert(server.includes("const LEGACY_AUTH_COOKIE = 'maumau_google_session'"));
 
-  for(const id of ['googleSignInButton','emailPinAuthBox','emailPinLoginForm','emailPinRegisterForm','emailPinRecoverForm','emailPinRecoveryDialog'])assert(html.includes(`id="${id}"`),`controle ${id} ausente`);
+  for(const id of ['googleSignInButton','emailPasswordAuthBox','emailPasswordLoginForm','emailPasswordRegisterForm','emailPasswordRecoverForm','emailPasswordRecoveryDialog'])assert(html.includes(`id="${id}"`),`controle ${id} ausente`);
   assert(!html.toLowerCase().includes('jogar como visitante'));
   assert(!html.includes('appleSignInButton')&&!html.includes('appleid.cdn-apple.com'),'Apple não deve ser exposto na interface Pré-APK');
   assert(!app.includes('handleAppleLogin')&&!app.includes('renderAppleSignIn')&&!app.includes('waitForAppleIdentity'));
-  assert(app.includes('loginEmailPin')&&app.includes('registerEmailPin')&&app.includes('recoverEmailPin'));
+  assert(app.includes('loginEmailPassword')&&app.includes('registerEmailPassword')&&app.includes('recoverEmailPassword'));
   assert(app.includes('initializeAuth()'));
   assert(!css.includes('.apple-signin-btn')&&css.includes('.email-auth-box')&&css.includes('.recovery-key-modal'));
 
   fs.rmSync(tmp,{recursive:true,force:true});
-  console.log('✓ V40.69.2 Pré-APK: interface Google + e-mail/PIN, recuperação e isolamento de identidade validados.');
+  console.log('✓ V40.69.2 Pré-APK: Google + e-mail/senha, compatibilidade de PIN legado, recuperação e isolamento validados.');
 })().catch(e=>{console.error(e);process.exit(1);});

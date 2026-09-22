@@ -1,0 +1,18 @@
+MAU-MAU CANDEIAS — PRÉ-APK — PASSO 2C
+CORREÇÃO DO BUILD + SENHA DE 6 A 60 CARACTERES
+
+Objetivos desta correção:
+- Corrigir o teste Pré-APK que derrubava o deploy por depender do arquivo oculto .env.example.
+- Manter a interface atual sem Apple.
+- Permitir senha escolhida pelo jogador entre 6 e 60 caracteres.
+- Preservar contas antigas, identidade, ranking e chave de recuperação.
+- Não alterar nenhuma regra do Mau-Mau.
+
+Segurança mantida:
+- senha derivada com scrypt + salt;
+- chave de recuperação protegida;
+- bloqueio temporário após tentativas incorretas;
+- e-mail manual não é tratado como e-mail verificado e não sequestra a conta Google.
+
+Observação sobre o build:
+O teste de superfície não depende mais de .env.example. Esse arquivo é apenas exemplo de configuração e, por começar com ponto, pode ser omitido em alguns fluxos de upload pelo navegador. O deploy deve validar o comportamento efetivo do cliente e do servidor, não a presença de texto em um arquivo de exemplo.

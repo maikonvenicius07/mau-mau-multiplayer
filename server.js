@@ -461,10 +461,12 @@ app.get('/api/auth/config', (_,res)=>res.json({
   providers:{
     google:{configured:!!GOOGLE_CLIENT_ID,clientId:GOOGLE_CLIENT_ID||null},
     apple:{configured:appleLoginConfigured(),clientId:APPLE_CLIENT_ID||null,redirectURI:APPLE_REDIRECT_URI||null},
-    // V40.69.2 — e-mail + PIN funciona sem serviço externo. O e-mail é apenas
+    // Pré-APK — e-mail + senha funciona sem serviço externo. O e-mail é apenas
     // identificador da conta; a caixa postal não é verificada nem recebe código.
     email:{configured:false,mode:'disabled'},
-    emailPin:{configured:true,mode:'pin'},
+    emailPassword:{configured:true,mode:'password',minLength:6,maxLength:60},
+    // Compatibilidade de configuração para clientes antigos ainda em cache.
+    emailPin:{configured:false,mode:'legacy'},
   }
 }));
 app.get('/api/auth/me', async (req,res)=>{
@@ -541,24 +543,48 @@ app.post('/api/auth/apple', async (req,res)=>{
     res.status(401).json({ok:false,message:'Não foi possível validar esta Conta Apple. Tente novamente.'});
   }
 });
-function emailPinErrorResponse(res,error,fallback='Não foi possível concluir o acesso.'){
+function emailPasswordErrorResponse(res,error,fallback='Não foi possível concluir o acesso.'){
   const code=String(error?.code||'');
-  const status=code==='EMAIL_EXISTS'?409:code==='NOT_FOUND'?404:code==='LOCKED'?429:['INVALID_EMAIL','INVALID_PIN','INVALID_CREDENTIALS','INVALID_RECOVERY'].includes(code)?400:500;
-  if(status>=500)console.error('[auth] falha em e-mail + PIN:',error?.message||error);
+  const status=code==='EMAIL_EXISTS'?409:code==='NOT_FOUND'?404:code==='LOCKED'?429:['INVALID_EMAIL','INVALID_PASSWORD','INVALID_CREDENTIALS','INVALID_RECOVERY'].includes(code)?400:500;
+  if(status>=500)console.error('[auth] falha em e-mail + senha:',error?.message||error);
   return res.status(status).json({ok:false,message:status>=500?fallback:String(error?.message||fallback)});
 }
-app.post('/api/auth/email-pin/register', async (req,res)=>{
+app.post('/api/auth/email-password/register', async (req,res)=>{
   try{
     await requireAuthIdentityStore();
     const rate=emailPinRegisterByIp.consume(authIp(req));
     if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas criações de conta neste aparelho. Tente novamente mais tarde.'});
-    const email=normalizeEmail(req.body?.email),pin=String(req.body?.pin||''),name=String(req.body?.name||'').trim().slice(0,60);
-    const result=await authIdentityStore.registerEmailPin({email,pin,name});
-    result.user.provider='email_pin';
+    const email=normalizeEmail(req.body?.email),password=String(req.body?.password??''),name=String(req.body?.name||'').trim().slice(0,60);
+    const result=await authIdentityStore.registerEmailPassword({email,password,name});
+    result.user.provider='email_password';
     setAuthCookie(req,res,signAuthSession(result.user));
-    res.status(201).json({ok:true,user:sessionUser(result.user,'email_pin'),recoveryCode:result.recoveryCode,message:'Conta criada. Guarde sua chave de recuperação.'});
-  }catch(e){emailPinErrorResponse(res,e,'Não foi possível criar a conta agora.');}
+    res.status(201).json({ok:true,user:sessionUser(result.user,'email_password'),recoveryCode:result.recoveryCode,message:'Conta criada. Guarde sua chave de recuperação.'});
+  }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível criar a conta agora.');}
 });
+app.post('/api/auth/email-password/login', async (req,res)=>{
+  try{
+    await requireAuthIdentityStore();
+    const email=normalizeEmail(req.body?.email),password=String(req.body?.password??'');
+    if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
+    const byEmail=emailPinLoginByAddress.consume(email),byIp=emailPinLoginByIp.consume(authIp(req));
+    if(!byEmail.allowed||!byIp.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.'});
+    const user=await authIdentityStore.loginEmailPassword({email,password});user.provider='email_password';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'email_password')});
+  }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível entrar agora.');}
+});
+app.post('/api/auth/email-password/recover', async (req,res)=>{
+  try{
+    await requireAuthIdentityStore();
+    const rate=emailPinRecoveryByIp.consume(authIp(req));
+    if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de recuperação. Tente novamente mais tarde.'});
+    const user=await authIdentityStore.recoverEmailPassword({email:req.body?.email,recoveryCode:req.body?.recoveryCode,newPassword:req.body?.newPassword});user.provider='email_password';
+    setAuthCookie(req,res,signAuthSession(user));
+    res.json({ok:true,user:sessionUser(user,'email_password'),message:'Senha alterada com sucesso.'});
+  }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível recuperar a conta agora.');}
+});
+// Compatibilidade temporária: clientes antigos ainda abertos podem autenticar contas PIN.
+// Criação e recuperação pelo fluxo antigo foram encerradas; a tela atual usa senha.
 app.post('/api/auth/email-pin/login', async (req,res)=>{
   try{
     await requireAuthIdentityStore();
@@ -566,21 +592,13 @@ app.post('/api/auth/email-pin/login', async (req,res)=>{
     if(!email)return res.status(400).json({ok:false,message:'Informe um e-mail válido.'});
     const byEmail=emailPinLoginByAddress.consume(email),byIp=emailPinLoginByIp.consume(authIp(req));
     if(!byEmail.allowed||!byIp.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.'});
-    const user=await authIdentityStore.loginEmailPin({email,pin});user.provider='email_pin';
+    const user=await authIdentityStore.loginEmailPin({email,pin});user.provider='email_password';
     setAuthCookie(req,res,signAuthSession(user));
-    res.json({ok:true,user:sessionUser(user,'email_pin')});
-  }catch(e){emailPinErrorResponse(res,e,'Não foi possível entrar agora.');}
+    res.json({ok:true,user:sessionUser(user,'email_password'),legacy:true});
+  }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível entrar agora.');}
 });
-app.post('/api/auth/email-pin/recover', async (req,res)=>{
-  try{
-    await requireAuthIdentityStore();
-    const rate=emailPinRecoveryByIp.consume(authIp(req));
-    if(!rate.allowed)return res.status(429).json({ok:false,message:'Muitas tentativas de recuperação. Tente novamente mais tarde.'});
-    const user=await authIdentityStore.recoverEmailPin({email:req.body?.email,recoveryCode:req.body?.recoveryCode,newPin:req.body?.newPin});user.provider='email_pin';
-    setAuthCookie(req,res,signAuthSession(user));
-    res.json({ok:true,user:sessionUser(user,'email_pin'),message:'PIN alterado com sucesso.'});
-  }catch(e){emailPinErrorResponse(res,e,'Não foi possível recuperar a conta agora.');}
-});
+app.post('/api/auth/email-pin/register', (req,res)=>res.status(410).json({ok:false,message:'O cadastro por PIN foi substituído por senha. Atualize a página e crie uma senha de 6 a 60 caracteres.'}));
+app.post('/api/auth/email-pin/recover', (req,res)=>res.status(410).json({ok:false,message:'A recuperação por PIN foi substituída por senha. Atualize a página.'}));
 
 app.post('/api/auth/logout', (req,res)=>{
   setAuthCookie(req,res,'',0);

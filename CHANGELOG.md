@@ -1,3 +1,21 @@
+# Pré-APK Passo 2C — correção do build e senha 6–60
+
+- Corrigido o teste `pre-apk-login-surface-v40692.test.js` para não derrubar o deploy por conteúdo do arquivo oculto `.env.example`.
+- Senhas novas e redefinidas passam a aceitar **6 a 60 caracteres**.
+- Login existente permanece compatível, inclusive com contas antigas de PIN de 6 números.
+- Google + e-mail/senha permanecem como superfície de login; Apple continua fora da interface.
+- Nenhuma regra do Mau-Mau foi alterada.
+
+# Pré-APK Passo 2B — E-mail + senha flexível
+
+- A interface passou de **e-mail + PIN** para **e-mail + senha**.
+- Novas senhas podem ter de **6 a 60 caracteres**, com letras, números e símbolos.
+- O jogador escolhe o tamanho da senha dentro desse intervalo.
+- Contas antigas com PIN de 6 números continuam entrando normalmente, preservando `playerKey`, ranking e identidade.
+- Recuperação passa a criar uma nova senha de 6 a 60 caracteres.
+- Senhas continuam protegidas com `scrypt` + salt e bloqueio temporário após tentativas incorretas.
+- Nenhuma regra do jogo foi alterada.
+
 # V40.69.2a — Correção do build após remoção do Resend
 
 - Corrigido o teste de autenticação para validar a dependência real do servidor, sem derrubar o deploy apenas por documentação antiga em `.env.example`.
