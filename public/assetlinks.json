@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.maumaucandeias",
+      "sha256_cert_fingerprints": [
+        "78:71:98:BA:40:42:E0:60:DC:F2:80:67:BB:2E:7F:E1:0E:C0:6A:63:79:CF:8D:10:36:96:6A:4D:E6:8B:6F:B9"
+      ]
+    }
+  }
+]
