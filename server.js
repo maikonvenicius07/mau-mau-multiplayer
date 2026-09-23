@@ -631,6 +631,11 @@ app.post('/api/auth/logout', (req,res)=>{
 });
 const emailPinLimiterPruneTimer=setInterval(()=>{const now=Date.now();emailPinRegisterByIp.prune(now);emailPinLoginByAddress.prune(now);emailPinLoginByIp.prune(now);emailPinRecoveryByIp.prune(now);emailPasswordResetRequestByEmail.prune(now);emailPasswordResetConfirmByEmail.prune(now);},5*60*1000);emailPinLimiterPruneTimer.unref?.();
 
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.type('application/json');
+  res.sendFile(path.join(__dirname, 'public', 'assetlinks.json'));
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res,filePath){
     if(filePath.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control','public, max-age=86400, stale-while-revalidate=604800');
