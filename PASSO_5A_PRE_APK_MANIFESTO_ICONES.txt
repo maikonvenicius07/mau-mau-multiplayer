@@ -1,0 +1,22 @@
+MAU-MAU CANDEIAS — PASSO 5A PRÉ-APK
+
+Objetivo: preparar a camada web para o empacotamento Android/TWA.
+
+Incluído:
+- public/manifest.webmanifest
+- ícones 64, 180, 192 e 512 px
+- ícone maskable 512 px
+- referências do manifesto e ícones no public/index.html
+- teste de contrato do manifesto
+
+Não alterado:
+- regras do jogo
+- turnos
+- reconexão
+- bot temporário
+- ranking
+- autenticação
+- observadores
+- voz/chat
+
+Próximo passo: definir origem/domínio final da TWA, package id Android e assinatura antes de gerar o primeiro APK de teste.

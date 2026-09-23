@@ -41,3 +41,11 @@
 - limites atuais de salas e observadores;
 - política de 5 minutos totalmente offline;
 - identidade persistente por conta.
+
+## Passo 5A — Base web para Android/TWA
+
+- Manifesto web adicionado em `public/manifest.webmanifest`.
+- Ícones 192x192, 512x512 e maskable adicionados em `public/assets/app/`.
+- `index.html` referencia manifesto e ícones.
+- Nenhuma regra do jogo, reconexão, autenticação, ranking, áudio ou sala foi alterada nesta etapa.
+

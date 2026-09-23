@@ -841,3 +841,9 @@ Este arquivo mantém somente os marcos relevantes do projeto. Os antigos arquivo
 - Chat e efeitos compartilhados.
 - Mau-Mau falado e alertas de uma carta.
 - Bots, avatares e melhorias sucessivas do motor de jogo.
+## Pré-APK — Passo 5A: manifesto e ícones
+- Adicionado Web App Manifest para preparação Android/TWA.
+- Adicionados ícones 64, 180, 192, 512 e maskable 512.
+- `public/index.html` passou a anunciar manifesto e ícones do app.
+- Nenhuma lógica de jogo foi alterada.
+
