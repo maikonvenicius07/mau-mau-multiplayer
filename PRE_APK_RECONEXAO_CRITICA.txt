@@ -1,0 +1,41 @@
+MAU-MAU CANDEIAS — CORREÇÃO PRÉ-APK DE RECONEXÃO CRÍTICA
+
+BASE
+- Projeto analisado: mau-mau-multiplayer-main (8)(5).zip enviado em 23/09/2026.
+- Alteração feita somente após análise do fluxo atual de disconnect, resumeActiveSeat, joinRoom, abandono e expiração offline.
+
+CAUSA PRINCIPAL DO F5
+- O servidor usa debounce de 3 segundos para microquedas.
+- Em um F5 rápido, o novo socket pode chegar antes de o socket antigo ser consolidado como desconectado.
+- A recuperação pela conta recusava a cadeira enquanto o socket antigo ainda parecia vivo.
+- Sessões locais antigas sem playerKey também podiam ser apagadas durante a autenticação, removendo o token local e expondo ainda mais a corrida.
+
+CORREÇÃO
+1. A playerKey autenticada continua sendo a identidade persistente.
+2. Se a mesma conta abrir um novo socket enquanto o anterior ainda está vivo, o novo socket assume a mesma cadeira e o anterior é aposentado com segurança.
+3. Sala, playerId, avatar, mão, pontuação e estado permanecem na cadeira original.
+4. Sessões locais antigas sem playerKey são migradas; conta diferente continua limpando a sessão.
+5. O cliente repete poucas vezes a busca da cadeira em caso de resposta "none" durante uma microjanela de corrida.
+6. SAIR continua sendo abandono voluntário definitivo.
+7. Ao tentar trocar manualmente de sala, criar nova sala, entrar como observador em outra sala ou ingressar por convite, o servidor pergunta antes de abandonar a cadeira anterior.
+8. A nova sala é validada antes do abandono; se estiver cheia, inválida ou expirar o convite, a cadeira antiga permanece.
+9. Matchmaking automático não foi alterado nesta correção, para preservar sua regra própria de fila.
+
+REGRA PRESERVADA
+- Se todos os humanos de uma partida ativa ficarem desconectados, começa o prazo global de 5 minutos.
+- Se ninguém retornar nesse prazo, a sala é encerrada.
+- O marco de 5 minutos continua persistente em snapshot/restart.
+
+ARQUIVOS DE REGRAS/NÚCLEO NÃO ALTERADOS
+- game-engine.js
+- bot-player.js
+- room-lifecycle.js
+- ranking-store.js
+- auth-identity-store.js
+
+VALIDAÇÃO
+- package-lock.json válido.
+- Sintaxe JavaScript validada.
+- 101 testes locais sem Socket.IO real aprovados.
+- Teste de integração Socket.IO foi atualizado para reproduzir: novo socket chegando antes do disconnect antigo, retorno à sala antiga e troca confirmada.
+- O teste Socket.IO real precisa rodar no GitHub/Render após npm ci, pois a instalação local das dependências não concluiu completamente neste ambiente.

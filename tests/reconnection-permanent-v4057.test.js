@@ -102,7 +102,7 @@ for(let count=2;count<=5;count++){
 // Contrato atual: auto-resume só procura reserva criada por queda involuntária.
 assert(server.includes("socket.on('resumeActiveSeat', async () =>"),'evento de retomada automática sem código ausente');
 assert(server.includes('recoverablePlayerSeatForKey(socket.data.auth?.playerKey)'),'retomada deve usar playerKey autenticada no servidor');
-assert(server.includes('if(!player.reconnectEligible)throw new Error'),'retomada deve exigir reserva automática válida');
+assert(server.includes('if(!player.reconnectEligible&&!connectedTransfer'),'retomada deve exigir reserva válida, exceto na transferência segura do mesmo usuário durante F5');
 assert(server.includes('RoomLifecycle.markInvoluntaryDisconnect'),'disconnect involuntário deve criar a reserva no servidor');
 assert(server.includes('RoomLifecycle.markAutoTakeover'),'AUTO após o prazo deve preservar a reserva humana');
 assert(server.includes('abandonOtherPlayerMembershipsForSwitch(socket,room.code'),'ao retomar uma reserva válida, vínculos legados duplicados devem ser eliminados');

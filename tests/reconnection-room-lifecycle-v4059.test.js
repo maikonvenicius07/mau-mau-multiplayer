@@ -127,7 +127,7 @@ function botInfo(n=1){return {name:n===1?'Máquina':`Máquina ${n}`,avatar:'pret
 
 // Contratos extras que distinguem claramente queda, SAIR e troca de sala.
 assert(server.includes('RoomLifecycle.markInvoluntaryDisconnect'),'disconnect deve marcar reserva involuntária explicitamente');
-assert(server.includes('if(!player.reconnectEligible)throw new Error'),'auto-resume deve exigir reserva válida');
+assert(server.includes('if(!player.reconnectEligible&&!connectedTransfer'),'auto-resume deve exigir reserva válida, exceto na transferência segura do mesmo usuário durante F5');
 assert(server.includes('abandonOtherPlayerMembershipsForSwitch'),'troca de sala deve cancelar pertencimento anterior');
 assert(server.includes("socket.on('abandonReservedSeat'"),'SAIR clicado offline deve ser confirmado depois no servidor');
 assert(app.includes('pendingVoluntaryLeaveKey'),'cliente deve persistir intenção de SAIR se estiver offline');

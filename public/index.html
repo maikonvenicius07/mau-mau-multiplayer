@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10291f" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-preapk2e" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-reconnect-critical" />
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -449,6 +449,25 @@
     </div>
   </dialog>
 
+  <dialog id="roomSwitchDialog" class="modal room-switch-modal">
+    <div class="room-switch-head">
+      <span class="room-switch-icon" aria-hidden="true">↔️</span>
+      <div>
+        <div class="eyebrow">PARTIDA ATIVA ENCONTRADA</div>
+        <h2>Você ainda está em outra sala</h2>
+      </div>
+    </div>
+    <p id="roomSwitchText" class="room-switch-text">Você ainda possui uma cadeira em uma partida ativa.</p>
+    <div class="room-switch-warning">
+      <strong>⚠️ A saída é definitiva para aquela partida</strong>
+      <span>Se você escolher continuar para a nova sala, sua vaga anterior deixa de pertencer à sua conta e a regra normal de substituição da mesa será aplicada.</span>
+    </div>
+    <div class="room-switch-actions">
+      <button id="roomSwitchReturnBtn" type="button">↩️ VOLTAR À PARTIDA</button>
+      <button id="roomSwitchContinueBtn" type="button" class="primary">🚪 SAIR E CONTINUAR</button>
+    </div>
+  </dialog>
+
   <dialog id="matchmakingDialog" class="modal matchmaking-modal">
     <button class="close matchmaking-close" id="matchmakingClose" type="button" aria-label="Fechar acompanhamento da busca">×</button>
     <div class="matchmaking-head">
@@ -615,9 +634,9 @@
       <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.51/V40.52 tenta WebRTC/Opus também com observadores, usa TURN automaticamente quando configurado e mantém o relay leve pelo servidor apenas como fallback seletivo. O diagnóstico mostra se a rota real está em P2P, TURN ou fallback. O áudio não é gravado nem salvo no PostgreSQL ou no ranking.</p>
       <p><strong>Minha Música:</strong> a V40.48 permite escolher um arquivo de áudio do próprio celular ou computador pelo botão 🎵. A música toca somente naquele aparelho, não é enviada ao servidor e não é compartilhada com os outros jogadores. Quando há microfone/voz ativa, a música local pausa para priorizar a conversa e volta depois, se estava tocando.</p>
       <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
-      <p><strong>Reconexão Inteligente:</strong> a reconexão automática existe somente após uma <strong>desconexão involuntária</strong>, como queda de internet, atualização da página ou fechamento acidental. A mesa aguarda até <strong>60 segundos</strong>; depois, a Máquina pode assumir temporariamente a mesma mão, posição e pontuação. Enquanto o jogador não escolher sair nem entrar em outra sala, a reserva continua válida e ele pode retomar automaticamente a mão atual. <strong>Sair da sala</strong> ou <strong>entrar em outra sala</strong> cancela essa reserva; para voltar depois, será necessário usar novamente o código da sala.</p>
+      <p><strong>Reconexão Inteligente:</strong> a reconexão automática existe somente após uma <strong>desconexão involuntária</strong>, como queda de internet, atualização da página ou fechamento acidental. A mesa aguarda até <strong>60 segundos</strong>; depois, a Máquina pode assumir temporariamente a mesma mão, posição e pontuação. Enquanto o jogador não escolher sair nem entrar em outra sala, a reserva continua válida e ele pode retomar automaticamente a mão atual. <strong>Sair da sala</strong> ou <strong>entrar em outra sala</strong> cancela essa reserva somente após uma ação voluntária confirmada. Ao tentar trocar de sala, o jogo oferece <strong>VOLTAR À PARTIDA</strong> ou <strong>SAIR E CONTINUAR</strong>. Para voltar depois de confirmar a saída, será necessário usar novamente o código da sala.</p>
       <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
-      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>. Recusar não altera a sala atual. Quando a entrada em outra sala realmente acontece, qualquer reserva de reconexão da sala anterior é cancelada; se a rodada antiga ainda estiver em andamento, a cadeira pode continuar como uma Máquina normal para não interromper os demais jogadores. Se a sala do convite estiver no meio de uma rodada, a entrada aguarda um momento em que a nova mesa possa receber o jogador.</p>
+      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>. Recusar não altera a sala atual. Quando a entrada em outra sala é confirmada e realmente acontece, qualquer reserva de reconexão da sala anterior é cancelada; se a rodada antiga ainda estiver em andamento, a cadeira pode continuar como uma Máquina normal para não interromper os demais jogadores. Se a sala do convite estiver no meio de uma rodada, a entrada aguarda um momento em que a nova mesa possa receber o jogador.</p>
       <p><strong>Jogar de Novo:</strong> ao terminar uma partida entre pessoas, cada jogador conectado pode confirmar <strong>JOGAR DE NOVO</strong>. Quando todos confirmam e há pelo menos 2 jogadores, começa automaticamente outra partida de 5 rodadas na mesma sala, com placar zerado. O resultado anterior permanece registrado separadamente no ranking.</p>
     </div>
 
@@ -660,6 +679,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.2-preapk2b"></script>
+  <script src="app.js?v=40.69.2-reconnect-critical"></script>
 </body>
 </html>

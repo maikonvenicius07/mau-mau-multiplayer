@@ -60,7 +60,7 @@ const floatingBurnPositionStorage='maumauFloatingBurnPositionV1', floatingDouble
 const pileSidePositionStorage='maumauPileSidePositionV1';
 const sessionKey='maumauSessionV1';
 const pendingVoluntaryLeaveKey='maumauPendingVoluntaryLeaveV1';
-let savedSessionResumePending=false,accountSeatResumePending=false;
+let savedSessionResumePending=false,accountSeatResumePending=false,accountSeatResumeAttempts=0,accountSeatResumeRetryTimer=null;
 const customAvatarStoragePrefix='maumauCustomAvatarV1:';
 const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
@@ -75,6 +75,7 @@ const inviteCards=new Map();
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
 let matchmakingDialogDismissed=false;
 let pendingSpectatorOffer=null;
+let pendingRoomSwitch=null;
 let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,spectatorLimitPerRoom:5,rooms:[],at:0};
 let liveRoomsRefreshTimer=null;
 let rankingPeriod='day', rankingMode='official';
@@ -456,7 +457,13 @@ function showAuthGate(message='Entre com Google ou e-mail + senha para continuar
 }
 function applyAuthUser(user,{connect=true}={}){
   const priorRoomSession=saved();
-  if(priorRoomSession && priorRoomSession.playerKey!==user?.playerKey) clearSession();
+  if(priorRoomSession){
+    // Sessões antigas (anteriores ao playerKey no localStorage) continuam válidas.
+    // O servidor sempre valida token + conta autenticada, então migramos a sessão
+    // local em vez de apagá-la durante um refresh. Conta diferente continua limpando.
+    if(priorRoomSession.playerKey&&priorRoomSession.playerKey!==user?.playerKey) clearSession();
+    else if(!priorRoomSession.playerKey&&user?.playerKey) saveSession({...priorRoomSession,playerKey:user.playerKey});
+  }
   authUser=user;
   $('#authGate')?.classList.add('hidden');
   if(!state) $('#landing')?.classList.remove('hidden');
@@ -628,6 +635,13 @@ async function logoutAuth(){
 function saved(){try{return JSON.parse(localStorage.getItem(sessionKey)||'null')}catch{return null}}
 function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))}
 function clearSession(){localStorage.removeItem(sessionKey)}
+function clearAccountSeatResumeRetry(){if(accountSeatResumeRetryTimer){clearTimeout(accountSeatResumeRetryTimer);accountSeatResumeRetryTimer=null}}
+function requestAccountSeatResume(attempt=0){
+  if(!socket.connected||state||pendingRoomSwitch)return;
+  clearAccountSeatResumeRetry();
+  accountSeatResumePending=true;accountSeatResumeAttempts=attempt;
+  socket.emit('resumeActiveSeat');
+}
 function pendingVoluntaryLeave(){try{return JSON.parse(localStorage.getItem(pendingVoluntaryLeaveKey)||'null')}catch{return null}}
 function savePendingVoluntaryLeave(data){try{localStorage.setItem(pendingVoluntaryLeaveKey,JSON.stringify(data||{}))}catch{}}
 function clearPendingVoluntaryLeave(){try{localStorage.removeItem(pendingVoluntaryLeaveKey)}catch{}}
@@ -1322,13 +1336,12 @@ $('#nameInput').addEventListener('change',schedulePresenceSync);
 $('#createBtn').onclick=()=>{
   if(!authUser) return showAuthGate('Entre na sua conta para criar uma sala.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
-  clearSession();
+  // A sessão atual só será substituída depois que a nova sala for confirmada.
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 $('#botGameBtn').onclick=()=>{
   if(!authUser) return showAuthGate('Entre na sua conta para jogar.');
   if(!socket.connected) return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
-  clearSession();
   socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:true,publicRoom:$('#publicRoomToggle')?.checked!==false});
 };
 function joinRoomByCode(rawCode,{fromLink=false}={}){
@@ -1370,7 +1383,7 @@ function closeLiveRooms(){clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshT
 function watchPublicRoom(code,button=null){
   if(!code||!socket.connected)return toast('Sem conexão com o servidor. Aguarde alguns segundos.');
   if(button){button.disabled=true;button.textContent='Entrando...'}
-  clearSession();
+  // Não apagamos a sessão anterior antes de o servidor confirmar a troca.
   socket.emit('joinSpectator',{...profile(),code:String(code).toUpperCase(),token:crypto.randomUUID()});
   setTimeout(()=>{if(button&&button.isConnected){button.disabled=false;button.textContent='👁️ ASSISTIR'}},2500);
 }
@@ -1400,6 +1413,53 @@ $('#spectatorJoinBtn')?.addEventListener('click',joinAsSpectator);
 $('#spectatorCancelBtn')?.addEventListener('click',closeSpectatorOffer);
 $('#spectatorOfferClose')?.addEventListener('click',closeSpectatorOffer);
 $('#spectatorOfferDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeSpectatorOffer()});
+
+function closeRoomSwitchDialog(){
+  const dlg=$('#roomSwitchDialog');if(dlg?.open)dlg.close();
+}
+function roomSwitchActionText(info={}){
+  const code=String(info.toCode||'').toUpperCase();
+  if(info.action==='create-room')return 'criar uma nova sala';
+  if(info.action==='join-spectator')return `assistir à sala ${code}`;
+  return `entrar na sala ${code}`;
+}
+function openRoomSwitchDialog(info={}){
+  if(!info?.token||!info?.fromCode)return;
+  pendingRoomSwitch=info;
+  const actionText=roomSwitchActionText(info);
+  const text=$('#roomSwitchText'),continueBtn=$('#roomSwitchContinueBtn'),dlg=$('#roomSwitchDialog');
+  if(text)text.textContent=`Você ainda possui uma cadeira na sala ${info.fromCode}. Deseja voltar para essa partida ou sair definitivamente dela para ${actionText}?`;
+  if(continueBtn){
+    continueBtn.textContent=info.action==='create-room'?'🚪 SAIR E CRIAR NOVA SALA':info.action==='join-spectator'?'🚪 SAIR E ASSISTIR NOVA SALA':'🚪 SAIR E ENTRAR NA NOVA SALA';
+  }
+  if(dlg&&!dlg.open)dlg.showModal();
+}
+function returnToReservedRoom(){
+  pendingRoomSwitch=null;closeRoomSwitchDialog();
+  accountSeatResumeAttempts=0;
+  if(socket.connected){accountSeatResumePending=true;socket.emit('resumeActiveSeat')}
+  else toast('Aguardando conexão para voltar à sua partida.');
+}
+function confirmRoomSwitch(){
+  const info=pendingRoomSwitch;if(!info)return closeRoomSwitchDialog();
+  pendingRoomSwitch=null;closeRoomSwitchDialog();
+  const switchConfirmationToken=info.token,context=info.context||{};
+  if(info.action==='create-room'){
+    socket.emit('createRoom',{...profile(),token:crypto.randomUUID(),withBot:!!context.withBot,publicRoom:context.publicRoom!==false,switchConfirmationToken});
+  }else if(info.action==='join-room'){
+    socket.emit('joinRoom',{...profile(),code:String(info.toCode||'').toUpperCase(),token:crypto.randomUUID(),switchConfirmationToken});
+  }else if(info.action==='join-spectator'){
+    socket.emit('joinSpectator',{...profile(),code:String(info.toCode||'').toUpperCase(),token:crypto.randomUUID(),switchConfirmationToken});
+  }else if(info.action==='accept-invite'){
+    socket.emit('respondInvite',{inviteId:context.inviteId,accept:true,switchConfirmationToken});
+  }else if(info.action==='claim-invite'){
+    socket.emit('claimInvite',{inviteId:context.inviteId,switchConfirmationToken});
+  }
+}
+$('#roomSwitchReturnBtn')?.addEventListener('click',returnToReservedRoom);
+$('#roomSwitchContinueBtn')?.addEventListener('click',confirmRoomSwitch);
+$('#roomSwitchDialog')?.addEventListener('cancel',e=>{e.preventDefault();returnToReservedRoom()});
+
 function roomInviteUrl(code){
   const clean=String(code||'').trim().toUpperCase();
   const url=new URL(location.href);url.search='';url.hash='';url.searchParams.set('room',clean);return url.toString();
@@ -2409,7 +2469,7 @@ function updateReconnectCountdown(){
 setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
-  savedSessionResumePending=false;accountSeatResumePending=false;
+  savedSessionResumePending=false;accountSeatResumePending=false;accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();pendingRoomSwitch=null;closeRoomSwitchDialog();
   // V40.58.3 — o chat é por SALA. Ao entrar em outra sala, limpamos primeiro
   // a tela local; em seguida o servidor envia somente o histórico daquela sala.
   // Revanche na mesma sala mantém a conversa da própria sala.
@@ -2583,6 +2643,11 @@ socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
   toast(`✅ Vez passada${next?.name?`. Agora é a vez de ${next.name}.`:'.'}`);
 });
+socket.on('roomSwitchRequired',info=>{
+  accountSeatResumePending=false;clearAccountSeatResumeRetry();
+  renderInviteInbox();
+  openRoomSwitchDialog(info||{});
+});
 socket.on('gameError',e=>{
   passPending=false;
   const wasSavedResume=savedSessionResumePending;savedSessionResumePending=false;
@@ -2590,7 +2655,7 @@ socket.on('gameError',e=>{
   $$('[data-watch-room]').forEach(btn=>{btn.disabled=false;btn.textContent='👁️ ASSISTIR'});requestPublicRooms();
   // Se um código/token antigo deixou de funcionar, ainda tentamos localizar a vaga
   // pela conta autenticada antes de obrigar o jogador a digitar qualquer código.
-  if(wasSavedResume&&socket.connected){clearSession();accountSeatResumePending=true;socket.emit('resumeActiveSeat');return;}
+  if(wasSavedResume&&socket.connected){clearSession();requestAccountSeatResume(0);return;}
   playGameSound('error');toast(e.message);render();
 });
 socket.on('leftRoom',data=>{
@@ -2610,8 +2675,16 @@ socket.on('reconnectionEvent',event=>{
 });
 socket.on('resumeActiveSeatResult',info=>{
   accountSeatResumePending=false;
-  if(info?.ok)return;
-  // 'none' é o caso normal de quem não tem partida para recuperar; sem alerta.
+  if(info?.ok){accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();return;}
+  // Uma resposta 'none' pode ocorrer na microjanela de reload/redeploy. Fazemos
+  // poucas tentativas silenciosas antes de concluir que não há cadeira ativa.
+  if(info?.reason==='none'&&!state&&!pendingRoomSwitch&&accountSeatResumeAttempts<2){
+    const nextAttempt=accountSeatResumeAttempts+1;
+    clearAccountSeatResumeRetry();
+    accountSeatResumeRetryTimer=setTimeout(()=>requestAccountSeatResume(nextAttempt),nextAttempt===1?350:900);
+    return;
+  }
+  accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();
   if(info?.reason==='error'&&info?.message)toast(info.message);
 });
 socket.on('sessionReplaced',()=>{resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
@@ -2662,11 +2735,10 @@ socket.on('connect',()=>{
   // 2) Sem código/token local (inclusive em outro aparelho), pedimos ao servidor
   // para localizar uma vaga desconectada/AUTO pertencente à conta autenticada atual.
   // Se não houver vaga, o usuário segue normalmente para convite/código de sala.
-  accountSeatResumePending=true;
-  socket.emit('resumeActiveSeat');
+  requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}

@@ -1,3 +1,15 @@
+## Pré-APK — Reconexão persistente e confirmação de troca de sala
+- Corrigida a janela crítica de F5/reload em que o novo socket podia chegar antes de o socket antigo ser marcado como desconectado.
+- A mesma conta autenticada pode transferir a própria cadeira para o socket mais novo, preservando sala, playerId, avatar, mão, pontuação e estado da partida.
+- Sessões locais antigas sem `playerKey` passam a ser migradas em vez de apagadas durante a autenticação; o servidor continua validando token + conta.
+- O cliente faz até duas novas tentativas silenciosas de `resumeActiveSeat` para cobrir pequenas corridas de rede/redeploy.
+- Ao tentar criar/entrar/assistir outra sala ou aceitar/ocupar um convite enquanto ainda existe uma cadeira ativa, o servidor pede confirmação: **VOLTAR À PARTIDA** ou **SAIR E CONTINUAR**.
+- A cadeira anterior só é abandonada após a confirmação e após a sala destino continuar válida/capaz de receber o jogador.
+- A regra de expiração de **5 minutos quando todos os humanos estão desconectados** foi preservada sem alterações.
+- Matchmaking automático foi preservado no comportamento existente, sem mudança nesta correção.
+- `game-engine.js`, `bot-player.js`, `room-lifecycle.js`, `ranking-store.js` e `auth-identity-store.js` permaneceram byte a byte inalterados.
+- Validação local: 101 testes independentes da instalação real do Socket.IO aprovados; teste Socket.IO real atualizado para reproduzir a corrida de F5 e a confirmação de troca.
+
 
 ## Pré-APK Passo 2E — recuperação de senha por e-mail
 - Login normal permanece Google ou e-mail + senha (6–60 caracteres).

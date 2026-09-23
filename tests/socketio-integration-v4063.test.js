@@ -187,8 +187,21 @@ async function scenarioReconnect(baseUrl) {
   await startRound(alice);
   const originalHand = alice.lastState.me.hand.map(c => c.id).sort();
 
-  // Refresh/queda antes do prazo: reconecta pelo token salvo na MESMA cadeira e mão.
-  alice.disconnect();
+  // F5 real: o novo socket chega ANTES de o socket antigo cair/debounce terminar.
+  // A identidade autenticada deve transferir a MESMA cadeira e aposentar a aba antiga.
+  const replacedP = waitEvent(alice, 'sessionReplaced', { timeout: 4000 });
+  const aliceFastRefresh = await connectUser(baseUrl, 'alice-v4063', 'Alice');
+  const fastResumeP = waitEvent(aliceFastRefresh, 'resumeActiveSeatResult');
+  aliceFastRefresh.emit('resumeActiveSeat');
+  const fastResume = await fastResumeP;
+  assert.strictEqual(fastResume.ok, true, 'F5 rápido deve localizar a cadeira mesmo com socket antigo ainda vivo');
+  assert.strictEqual(fastResume.playerId, aliceId, 'F5 rápido deve manter o mesmo playerId');
+  await replacedP;
+  await waitUntil(() => aliceFastRefresh.lastState?.me?.id === aliceId, { label: 'estado após F5 rápido' });
+  assert.deepStrictEqual(aliceFastRefresh.lastState.me.hand.map(c => c.id).sort(), originalHand, 'F5 rápido deve preservar a mão');
+
+  // Queda normal antes do prazo: reconecta pelo token salvo na MESMA cadeira e mão.
+  aliceFastRefresh.disconnect();
   await waitUntil(() => {
     const p = playerIn(bob.lastState, aliceId);
     return p && p.connected === false && p.reconnectDeadlineAt;
@@ -244,16 +257,46 @@ async function scenarioSwitchRoom(baseUrl) {
 
   const target = await createRoom(eva, 'Eva');
   const carlosNew = await connectUser(baseUrl, 'carlos-v4063', 'Carlos');
-  const entered = await joinRoom(carlosNew, target.code, 'Carlos');
-  assert.strictEqual(entered.code, target.code, 'entrada normal em nova sala deve funcionar');
-  await waitUntil(() => playerIn(dani.lastState, oldCarlosId)?.isBot === true, { label: 'vaga antiga perder associação humana' });
+
+  // Tentar outra sala NÃO pode abandonar a antiga antes da confirmação.
+  const promptP = waitEvent(carlosNew, 'roomSwitchRequired');
+  carlosNew.emit('joinRoom', { code: target.code, name: 'Carlos', avatar: 'macaco' });
+  const prompt = await promptP;
+  assert.strictEqual(prompt.fromCode, oldJoined.code, 'prompt deve informar a sala antiga');
+  assert.strictEqual(prompt.toCode, target.code, 'prompt deve informar a sala destino');
+  assert.strictEqual(prompt.action, 'join-room');
+  assert.strictEqual(playerIn(dani.lastState, oldCarlosId)?.isBot, false, 'apenas abrir o prompt não pode abandonar a cadeira antiga');
+
+  // Escolher VOLTAR À PARTIDA retoma a cadeira antiga, sem trocar de sala.
+  const backP = waitEvent(carlosNew, 'resumeActiveSeatResult');
+  carlosNew.emit('resumeActiveSeat');
+  const back = await backP;
+  assert.strictEqual(back.ok, true, 'VOLTAR À PARTIDA deve retomar a reserva antiga');
+  assert.strictEqual(back.code, oldJoined.code);
+  assert.strictEqual(back.playerId, oldCarlosId);
+  await waitUntil(() => carlosNew.lastState?.me?.id === oldCarlosId, { label: 'Carlos voltou à sala antiga' });
+
+  // Depois de nova queda, confirmar a troca deve abandonar a antiga só quando
+  // a sala destino já foi validada e então entrar nela.
+  carlosNew.disconnect();
+  await waitUntil(() => playerIn(dani.lastState, oldCarlosId)?.connected === false, { label: 'segunda reserva antiga desconectada' });
+  const carlosSwitch = await connectUser(baseUrl, 'carlos-v4063', 'Carlos');
+  const prompt2P = waitEvent(carlosSwitch, 'roomSwitchRequired');
+  carlosSwitch.emit('joinRoom', { code: target.code, name: 'Carlos', avatar: 'macaco' });
+  const prompt2 = await prompt2P;
+  const enteredP = waitEvent(carlosSwitch, 'joined', { predicate: data => data?.code === target.code });
+  carlosSwitch.emit('joinRoom', { code: target.code, name: 'Carlos', avatar: 'macaco', switchConfirmationToken: prompt2.token });
+  const entered = await enteredP;
+  assert.strictEqual(entered.code, target.code, 'troca confirmada deve entrar na nova sala');
+  await waitUntil(() => playerIn(dani.lastState, oldCarlosId)?.isBot === true, { label: 'vaga antiga perder associação humana após confirmação' });
 
   // Uma nova sessão da mesma conta não pode ressuscitar a reserva antiga.
   const carlosProbe = await connectUser(baseUrl, 'carlos-v4063', 'Carlos');
   const probeP = waitEvent(carlosProbe, 'resumeActiveSeatResult');
   carlosProbe.emit('resumeActiveSeat');
   const probe = await probeP;
-  assert.strictEqual(probe.ok, false, 'entrar em outra sala deve cancelar a reserva automática anterior');
+  assert.strictEqual(probe.ok, true, 'a conta agora possui a sala nova como única sala ativa');
+  assert.strictEqual(probe.code, target.code, 'auto-resume posterior deve apontar para a sala nova, nunca para a antiga');
 }
 
 async function scenarioInvite(baseUrl) {
@@ -309,7 +352,7 @@ async function scenarioTwoDrops(baseUrl) {
     await scenarioSwitchRoom(baseUrl);
     await scenarioInvite(baseUrl);
     await scenarioTwoDrops(baseUrl);
-    console.log('✓ V40.63: integração Socket.IO real validou refresh, queda, AUTO, retorno, SAIR, troca de sala, convite e duas quedas simultâneas.');
+    console.log('✓ PRE-APK: integração Socket.IO real validou F5 com corrida, queda, AUTO, retorno, SAIR, confirmação de troca, convite e duas quedas simultâneas.');
   } catch (e) {
     console.error(e?.stack || e);
     process.exitCode = 1;

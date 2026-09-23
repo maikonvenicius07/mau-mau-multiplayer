@@ -1044,3 +1044,8 @@ button,.playing-card,.avatar-option,.pile{touch-action:manipulation;-webkit-tap-
 .recovery-key-actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}.recovery-key-actions button{min-height:42px;border-radius:12px;padding:9px 14px;font-weight:900;cursor:pointer}
 .recovery-key-warning{font-size:11px!important;color:#ffb7a9!important;margin:15px 0 0!important}
 @media(max-width:520px){.recovery-key-modal{padding:24px 17px}.recovery-key-value{font-size:15px}.email-auth-tabs{margin-top:2px}}
+
+/* PRE-APK — confirmação antes de abandonar uma cadeira ativa para outra sala. */
+.room-switch-modal{width:min(560px,94vw);max-width:560px;background:linear-gradient(160deg,#162d23,#0b1b15);border-color:#6f6b3e}.room-switch-modal::backdrop{background:#020705dc;backdrop-filter:blur(5px)}
+.room-switch-head{display:flex;align-items:flex-start;gap:12px}.room-switch-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#253c30;border:1px solid #536b5e;font-size:23px}.room-switch-head h2{margin:3px 0 0}.room-switch-text{color:#c7d5ce;line-height:1.55;margin:16px 0 12px}.room-switch-warning{display:grid;gap:4px;padding:11px 12px;border-radius:12px;background:#2a2415;border:1px solid #766331}.room-switch-warning strong{color:#f3d681;font-size:11px}.room-switch-warning span{color:#c9bd94;font-size:9px;line-height:1.45}.room-switch-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.room-switch-actions button{min-height:48px;font-size:10px}
+@media(max-width:560px){.room-switch-actions{grid-template-columns:1fr}.room-switch-modal{width:calc(100vw - 14px);padding:18px 12px}.room-switch-head h2{font-size:21px}}
