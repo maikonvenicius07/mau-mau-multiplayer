@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — PRÉ-APK — PASSO 3 CONCLUÍDO
+
+Objetivo: alinhar documentação e exemplo de ambiente ao funcionamento atual sem alterar o jogo.
+
+Atualizado:
+- README.md (estado atual)
+- docs/DEPLOY_RENDER.md
+- docs/REGRAS.md (somente regras técnicas de reconexão/autenticação)
+- .env.example
+- docs/PRE_APK_STATUS.md
+
+Nenhum arquivo de execução do jogo foi alterado.

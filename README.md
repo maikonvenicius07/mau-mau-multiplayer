@@ -1,17 +1,25 @@
-# V40.69.2 — Login pronto para web/app: Google + e-mail/senha
+# MAU-MAU CANDEIAS — Estado atual Pré-APK
 
-- Google continua funcionando e preserva o `playerKey` das contas existentes.
-- O acesso alternativo usa **e-mail + senha escolhida pelo jogador, de 6 a 60 caracteres**, sem Resend e com recuperação por código enviado ao e-mail.
-- A senha é protegida com `scrypt` e salt aleatório; nunca é armazenada em texto puro.
-- Após 5 senhas incorretas, a conta é bloqueada temporariamente por 15 minutos.
-- Na criação da conta, o jogo entrega uma **código de recuperação por e-mail** única; ela permite trocar a senha sem depender de e-mail.
-- O e-mail digitado no modo senha funciona apenas como identificador de login e não é tratado como e-mail verificado. Por segurança, ele não vincula automaticamente uma Conta Google.
-- **Contas antigas com PIN de 6 números continuam entrando normalmente**; o PIN antigo funciona como a senha atual até o jogador optar por redefini-la.
-- Nenhuma regra do Mau-Mau, ranking, reconexão, salas, observadores, chat, voz ou microfone foi alterada.
+**Base funcional:** V40.69.2 + correção de reconexão crítica — 23/09/2026.
 
-## Estado atual de autenticação para o Pré-APK
+- Login atual: **Google** ou **e-mail + senha de 6 a 60 caracteres**.
+- Recuperação de senha: código numérico de **6 dígitos enviado ao e-mail cadastrado**, válido por 10 minutos.
+- O envio de recuperação usa **Resend** somente nesse fluxo, com `RESEND_API_KEY` e `EMAIL_FROM` configurados no Render.
+- O domínio de envio em produção é `maumaucandeias.com.br`.
+- Senhas são protegidas com `scrypt` + salt e não são armazenadas em texto puro.
+- Após 5 tentativas incorretas de senha, a credencial entra em bloqueio temporário de 15 minutos.
+- Contas antigas criadas com PIN de 6 números continuam compatíveis: o PIN antigo funciona como a senha atual até ser redefinido.
+- A interface atual não oferece Apple. O backend legado de Apple permanece sem uso pelo cliente e não faz parte do fluxo Pré-APK atual.
+- Reconexão: F5/reload, fechamento acidental, queda de internet e troca de rede preservam a cadeira; após 60 segundos o AUTO pode assumir temporariamente; o jogador original continua podendo reassumir enquanto a sala existir.
+- Se **todos os humanos** ficarem desconectados, a sala permanece reservada por **5 minutos**; sem retorno, a sala e o snapshot são encerrados.
+- Ao tentar entrar/criar/assistir outra sala ou seguir convite com uma cadeira ativa, o sistema exige confirmação antes do abandono voluntário.
+- Regras de cartas, ordem dos jogadores, turnos, ranking, observadores, chat, voz e microfone permanecem preservados.
 
-A interface atual oferece somente **Google** e **e-mail + senha**. O cliente não carrega SDK nem exibe botão de outro provedor. Referências em seções antigas de histórico descrevem versões anteriores e não representam a tela atual.
+## Situação Pré-APK
+
+Concluído: congelamento das regras, login Google + e-mail/senha, recuperação de senha por e-mail, PostgreSQL persistente e correção da reconexão crítica.
+
+Pendente antes do primeiro APK: testes reais completos, preparação PWA/TWA (manifesto e ícones), associação Digital Asset Links, assinatura Android e geração do APK de teste. Veja `docs/PRE_APK_STATUS.md`.
 
 ---
 

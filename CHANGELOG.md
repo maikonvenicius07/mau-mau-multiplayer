@@ -1,3 +1,10 @@
+## Pré-APK Passo 3 — documentação alinhada
+- Documentação operacional atualizada para Google + e-mail/senha de 6–60 caracteres e recuperação por código enviado por e-mail via Resend.
+- `.env.example` alinhado ao ambiente atual, sem referências de configuração Apple na superfície Pré-APK.
+- Regras técnicas documentam F5/reload, AUTO de 60 s, expiração global de 5 minutos e confirmação antes de troca voluntária de sala.
+- Criado `docs/PRE_APK_STATUS.md` com o estado concluído e as próximas etapas até o APK.
+- Nenhum arquivo de execução do jogo foi alterado.
+
 ## Pré-APK — Reconexão persistente e confirmação de troca de sala
 - Corrigida a janela crítica de F5/reload em que o novo socket podia chegar antes de o socket antigo ser marcado como desconectado.
 - A mesma conta autenticada pode transferir a própria cadeira para o socket mais novo, preservando sala, playerId, avatar, mão, pontuação e estado da partida.

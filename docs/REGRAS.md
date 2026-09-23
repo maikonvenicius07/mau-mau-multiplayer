@@ -141,8 +141,12 @@ A identidade do ranking é vinculada à conta autenticada (Google ou e-mail + se
 
 ## 15. Regras técnicas
 - Se o monte acabar, o descarte é reembaralhado preservando a carta do topo.
-- Reconexão Inteligente: uma queda durante a rodada pausa a mesa por até 60 segundos; nos intervalos da partida, a cadeira também fica reservada pelo mesmo prazo. Se o jogador não voltar, a Máquina assume temporariamente a mesma mão, posição e pontuação. Ao reconectar, o jogador retoma automaticamente seu lugar.
-- O acesso ao jogo exige uma conta autenticada por Google ou e-mail + senha.
+- Reconexão Inteligente: F5/reload, fechamento acidental, queda de internet, troca de rede ou perda temporária do socket não são abandono. A conta autenticada continua vinculada à mesma cadeira por `playerKey`.
+- A janela antes do AUTO temporário assumir é de 60 segundos. Depois disso, a Máquina pode jogar pela mesma mão, posição e pontuação, mas o jogador original continua proprietário da cadeira e pode reassumir ao retornar enquanto a sala existir.
+- Se todos os humanos da partida ficarem desconectados, começa um prazo global de 5 minutos. Se qualquer humano retornar, o prazo é cancelado. Se ninguém retornar, a sala, timers, reservas e snapshot são encerrados.
+- Clicar em **SAIR** é abandono voluntário. Ao tentar entrar/criar/assistir outra sala ou seguir um convite enquanto possui cadeira ativa, o sistema deve pedir confirmação entre **VOLTAR À PARTIDA** e **SAIR E CONTINUAR** antes de abandonar a cadeira anterior.
+- A entrada na nova sala deve ser validada antes de concluir o abandono da sala anterior.
+- O acesso ao jogo exige uma conta autenticada por Google ou e-mail + senha. A recuperação de senha usa código de 6 dígitos enviado ao e-mail cadastrado.
 
 
 ## Ranking — Temporada 1
