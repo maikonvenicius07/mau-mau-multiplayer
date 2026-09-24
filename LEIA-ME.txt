@@ -1,16 +1,13 @@
-MAU-MAU CANDEIAS — V40.47 ÁUDIO SIMPLIFICADO
+MAU-MAU CANDEIAS — pacote visual do ícone
 
-A música de fundo interna foi removida.
-O jogador pode usar a música que quiser no próprio celular.
+Substituir somente os arquivos em:
+public/assets/app/
 
-Mantidos:
-- efeitos sonoros do jogo;
-- avisos falados;
-- Áudio Rápido;
-- microfone ao vivo;
-- Modo Observador;
-- regras/turnos da V40.43;
-- segurança V40.44;
-- otimizações de avatar/figurinha/cache V40.46.
+Arquivos:
+- icon-64.png
+- icon-180.png
+- icon-192.png
+- icon-512.png
+- icon-maskable-512.png
 
-IMPORTANTE: ao atualizar por arquivos, exclua a pasta public/assets/music/ do GitHub.
+Os avatares NÃO foram alterados.
