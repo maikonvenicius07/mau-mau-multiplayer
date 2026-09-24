@@ -1,0 +1,5 @@
+MAU-MAU CANDEIAS — V41.8.1
+
+Ajuste visual: as figurinhas do painel CHAT foram reduzidas para ocupar menos espaço.
+As reações que aparecem na mesa continuam grandes e destacadas.
+Nenhuma regra, som, avatar, ranking ou lógica foi alterada.

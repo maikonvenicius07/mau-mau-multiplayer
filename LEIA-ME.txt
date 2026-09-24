@@ -1,26 +1,18 @@
-MAU-MAU CANDEIAS — V41.8 PLACAR / CONFERÊNCIA FINAL PREMIUM
+MAU-MAU CANDEIAS — V41.8.1 FIGURINHAS COMPACTAS NO CHAT
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 
-Incluído também:
-- ATUALIZAR_V41.8_PLACAR_FINAL_PREMIUM.txt
+O que mudou:
+- somente as figurinhas dentro da aba CHAT ficaram menores;
+- as reações que aparecem sobre a mesa continuam grandes e destacadas;
+- sons e vozes continuam iguais.
 
-Mantidos intactos:
+Não foram alterados:
 - avatares
 - regras
-- pontuação
 - ranking
 - reconexão
 - observador
-- login
 - servidor
-
-Validações executadas com sucesso:
-- audit-fixes-v40571.test.js
-- ui-contract.test.js
-- mobile-layout-contract.test.js
-- avatar-contract.test.js
-- round-review.test.js
-- play-again-contract.test.js

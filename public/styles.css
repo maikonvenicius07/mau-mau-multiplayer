@@ -2049,3 +2049,40 @@ button.bot-primary{
   .round-review-card-wrap .playing-card .suit-big{font-size:25px!important}
   .round-review-legend{font-size:9px!important;line-height:1.45!important}
 }
+
+
+/* =========================================================
+   V41.8.1 — FIGURINHAS COMPACTAS NO CHAT
+   Apenas o painel de efeitos dentro do CHAT fica menor.
+   As reações que aparecem na mesa continuam grandes.
+   ========================================================= */
+#chatView .sticker-effect-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:6px!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction{
+  height:54px!important;
+  min-height:54px!important;
+  padding:4px 3px!important;
+  border-width:2px!important;
+  border-radius:12px!important;
+  gap:2px!important;
+  box-shadow:0 3px 0 rgba(0,0,0,.30),0 6px 12px rgba(0,0,0,.22)!important;
+}
+#chatView .sticker-effect-grid .sticker-symbol{
+  font-size:20px!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction span{
+  font-size:7px!important;
+  line-height:1!important;
+}
+@media(max-width:700px){
+  #chatView .sticker-effect-grid{gap:5px!important}
+  #chatView .sticker-effect-grid .sticker-reaction{
+    height:48px!important;
+    min-height:48px!important;
+    padding:3px 2px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-symbol{font-size:18px!important}
+  #chatView .sticker-effect-grid .sticker-reaction span{font-size:6.5px!important}
+}
