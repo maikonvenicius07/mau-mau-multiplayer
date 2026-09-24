@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v41.4-game-premium" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v41.5-victory-premium" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -532,6 +532,16 @@
 
   <dialog id="roundReviewDialog" class="modal round-review-modal">
     <button class="close round-review-close" id="roundReviewClose" type="button" aria-label="Fechar conferência">×</button>
+    <section id="finalVictoryHero" class="final-victory-hero hidden" aria-live="polite">
+      <div class="final-victory-confetti" aria-hidden="true"><span>♦</span><span>♣</span><span>♥</span><span>♠</span><span>★</span><span>♦</span></div>
+      <div class="final-victory-cards" aria-hidden="true">
+        <span class="red">A♥</span><span>Q♠</span>
+      </div>
+      <div class="final-victory-trophy" aria-hidden="true">🏆</div>
+      <div id="finalVictoryLabel" class="final-victory-ribbon">VITÓRIA!</div>
+      <div id="finalVictoryNames" class="final-victory-names"></div>
+      <div id="finalVictoryMessage" class="final-victory-message">Parabéns! Você venceu a partida!</div>
+    </section>
     <div class="round-review-head">
       <div>
         <div class="eyebrow">CONFERÊNCIA DA RODADA</div>
@@ -698,6 +708,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.2-reconnect-critical"></script>
+  <script src="app.js?v=40.69.2-v41.5-victory-premium"></script>
 </body>
 </html>

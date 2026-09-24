@@ -1,0 +1,24 @@
+MAU-MAU CANDEIAS — V41.5 TELA DE VITÓRIA PREMIUM
+
+ALTERAÇÕES VISUAIS
+- Resultado final da partida ganha apresentação premium.
+- Troféu dourado central, cartas decorativas, faixa VITÓRIA!/EMPATE! e confetes.
+- Nome(s) do(s) campeão(ões) destacados.
+- Mensagem especial quando o usuário atual é o vencedor.
+- Área de resultado final e botões refinados.
+- JOGAR DE NOVO continua usando a mesma lógica já existente.
+
+ARQUIVOS ALTERADOS
+- public/index.html
+- public/styles.css
+- public/app.js
+
+NÃO ALTERADO
+- regras
+- pontuação
+- avatares
+- reconexão
+- observador
+- ranking
+- login
+- servidor

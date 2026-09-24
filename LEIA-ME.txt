@@ -1,26 +1,27 @@
-MAU-MAU CANDEIAS — V41.4 TELA DE PARTIDA PREMIUM
+MAU-MAU CANDEIAS — V41.5 TELA DE VITÓRIA PREMIUM
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
+- public/app.js
 
 Incluído também:
-- ATUALIZAR_V41.4_TELA_PARTIDA_PREMIUM.txt
+- ATUALIZAR_V41.5_TELA_VITORIA_PREMIUM.txt
 
 Mantidos intactos:
 - avatares
-- regras
-- ordem de turnos
+- regras e pontuação
 - reconexão
 - observador
-- ranking/lógica
+- ranking
 - login
 - servidor
 
 Validações executadas com sucesso:
+- node --check public/app.js
 - audit-fixes-v40571.test.js
 - ui-contract.test.js
 - mobile-layout-contract.test.js
 - avatar-contract.test.js
-- turn-integrity-v4042.test.js
-- spectator-ui-contract.test.js
+- play-again-contract.test.js
+- round-review.test.js

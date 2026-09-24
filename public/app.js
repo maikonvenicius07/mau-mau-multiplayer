@@ -2399,9 +2399,35 @@ function openRoundReview(review=state?.roundReview){
   const dlg=$('#roundReviewDialog');
   if(!dlg||!review)return;
   const winner=review.players?.find(p=>p.id===review.winnerId);
-  $('#roundReviewTitle').textContent=`🧮 Conferência — Rodada ${review.round}`;
-  $('#roundReviewWinner').innerHTML=`🏆 <strong>${esc(review.winnerName||winner?.name||'Jogador')}</strong> venceu a rodada.`;
-  $('#roundReviewBadge').textContent=`Rodada ${review.round}/${state?.rounds||5}`;
+  const isFinal=state?.status==='finished';
+  dlg.classList.toggle('final-match-review',isFinal);
+  const victoryHero=$('#finalVictoryHero');
+  if(victoryHero){
+    victoryHero.classList.toggle('hidden',!isFinal);
+    if(isFinal){
+      const finalPlayers=Array.isArray(state?.players)?state.players:[];
+      const minScore=finalPlayers.length?Math.min(...finalPlayers.map(p=>Number(p.score)||0)):0;
+      const champions=finalPlayers.filter(p=>(Number(p.score)||0)===minScore);
+      const names=champions.map(p=>p.name||'Jogador');
+      const meChampion=champions.some(p=>p.id===state?.me?.id);
+      const tied=champions.length>1;
+      const label=$('#finalVictoryLabel');
+      const namesEl=$('#finalVictoryNames');
+      const message=$('#finalVictoryMessage');
+      if(label)label.textContent=tied?'EMPATE!':'VITÓRIA!';
+      if(namesEl)namesEl.textContent=names.join(' e ')||review.winnerName||winner?.name||'Jogador';
+      if(message)message.textContent=tied
+        ? 'Partida encerrada com empate na menor pontuação.'
+        : meChampion
+          ? 'Parabéns! Você venceu a partida!'
+          : 'Partida encerrada. Parabéns ao vencedor!';
+    }
+  }
+  $('#roundReviewTitle').textContent=isFinal?`🏆 Resultado final — ${state?.rounds||5} rodadas`:`🧮 Conferência — Rodada ${review.round}`;
+  $('#roundReviewWinner').innerHTML=isFinal
+    ? 'Confira abaixo a pontuação final e as cartas da última rodada.'
+    : `🏆 <strong>${esc(review.winnerName||winner?.name||'Jogador')}</strong> venceu a rodada.`;
+  $('#roundReviewBadge').textContent=isFinal?'PARTIDA ENCERRADA':`Rodada ${review.round}/${state?.rounds||5}`;
   const jack=$('#roundReviewJackNote');
   if(review.doubledByJack){
     jack.classList.remove('hidden');
