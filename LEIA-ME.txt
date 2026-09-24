@@ -1,4 +1,4 @@
-MAU-MAU CANDEIAS — V41.7 FIGURINHAS / EXPRESSÕES PREMIUM
+MAU-MAU CANDEIAS — V41.7.1 CORREÇÃO DO MENU DE FIGURINHAS
 
 Substituir no GitHub:
 - public/index.html
@@ -6,19 +6,11 @@ Substituir no GitHub:
 - public/app.js
 - server.js
 
-Incluído também:
-- ATUALIZAR_V41.7_FIGURINHAS_EXPRESSOES_PREMIUM.txt
+Correção aplicada:
+- o painel aberto pelo botão 😊 passa a usar as figurinhas premium;
+- mesmo que o navegador tenha HTML antigo em cache, o app.js reconstrói o menu;
+- o menu passa a mostrar: MAU-MAU!, QUEIMOU!, SUA VEZ!, COMPRA 2!, REVERSO!, JOGA BOCA!, GANHEI!, TÁ LENTO! e BOA PARTIDA!.
 
-Novo visual de figurinhas:
-- MAU-MAU!
-- QUEIMOU!
-- SUA VEZ!
-- COMPRA 2!
-- REVERSO!
-- JOGA BOCA!
-- GANHEI!
-- TÁ LENTO!
-- BOA PARTIDA!
-
-A reação COMPRA 2 é apenas social/visual; não altera a regra da carta 7.
-Avatares e regras do jogo não foram alterados.
+IMPORTANTE:
+- COMPRA 2 é apenas reação social/visual;
+- avatares, regras, ranking, reconexão e observador não foram alterados.

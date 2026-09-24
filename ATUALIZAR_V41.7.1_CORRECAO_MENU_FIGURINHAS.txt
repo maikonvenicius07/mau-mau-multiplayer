@@ -1,0 +1,13 @@
+MAU-MAU CANDEIAS — V41.7.1
+
+CORREÇÃO DO MENU DE FIGURINHAS / REAÇÕES
+
+O que foi corrigido:
+- O painel aberto pelo botão 😊 agora é reconstruído em JavaScript com o visual premium.
+- Isso evita que um HTML antigo em cache continue mostrando Aplausos/Risada/Raiva/Corneta etc.
+- O menu passa a mostrar: MAU-MAU!, QUEIMOU!, SUA VEZ!, COMPRA 2!, REVERSO!, JOGA BOCA!, GANHEI!, TÁ LENTO! e BOA PARTIDA!.
+- O cache-busting de index.html foi atualizado para V41.7.1.
+
+IMPORTANTE:
+- COMPRA 2 é somente reação social/visual; não altera a regra da carta 7.
+- Avatares, regras, ranking, reconexão e observador não foram alterados.

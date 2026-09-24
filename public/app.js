@@ -273,6 +273,41 @@ const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +
 const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},angry:{emoji:'😡',label:'Raiva'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'},jogaBoca:{emoji:'🔊',label:'JOGA BOCA ABERTA!'}};
 const effectStickerCatalog={horn:{emoji:'🃏',label:'MAU-MAU!'},angry:{emoji:'🔥',label:'QUEIMOU!'},wow:{emoji:'👉',label:'SUA VEZ!'},draw2:{emoji:'+2',label:'COMPRA 2!'},drum:{emoji:'🔄',label:'REVERSO!'},jogaBoca:{emoji:'😮',label:'JOGA BOCA ABERTA!'},victory:{emoji:'🏆',label:'GANHEI!'},laugh:{emoji:'🐌',label:'TÁ LENTO HEIN...'},applause:{emoji:'👍',label:'BOA PARTIDA!'}};
 
+// V41.7.1 — garante que o painel 😊 use as figurinhas premium mesmo quando
+// o navegador ainda estiver com o HTML antigo em cache. Não altera regras.
+function applyPremiumReactionMenu(){
+  const items=[
+    ['horn','sticker-mau','🃏','MAU-MAU!'],
+    ['angry','sticker-burn','🔥','QUEIMOU!'],
+    ['wow','sticker-turn','👉','SUA VEZ!'],
+    ['draw2','sticker-draw2','+2','COMPRA 2!'],
+    ['drum','sticker-reverse','🔄','REVERSO!'],
+    ['jogaBoca','sticker-boca','😮','JOGA BOCA!'],
+    ['victory','sticker-win','🏆','GANHEI!'],
+    ['laugh','sticker-slow','🐌','TÁ LENTO!'],
+    ['applause','sticker-good','👍','BOA PARTIDA!']
+  ];
+  const premiumButtons=(speakerClass='')=>items.map(([effect,cls,symbol,label])=>{
+    const extra=effect==='jogaBoca'?speakerClass:'';
+    const title=effect==='jogaBoca'?'JOGA BOCA ABERTA!':label;
+    return `<button data-effect="${effect}" class="sticker-reaction ${cls}${extra?` ${extra}`:''}" type="button" title="${title}" aria-label="${title}"><b class="sticker-symbol">${symbol}</b><span>${label}</span></button>`;
+  }).join('');
+
+  const allGrid=document.querySelector('#allReactionsPanel .all-reactions-grid');
+  if(allGrid){
+    allGrid.classList.add('sticker-reactions-grid');
+    allGrid.innerHTML=premiumButtons('all-reaction-speaker');
+    allGrid.querySelectorAll('button').forEach(b=>b.classList.add('all-reaction-btn'));
+  }
+
+  const effectGrid=document.querySelector('.effect-grid');
+  if(effectGrid){
+    effectGrid.classList.add('sticker-effect-grid');
+    effectGrid.innerHTML=premiumButtons('effect-shout effect-speaker-only');
+  }
+}
+applyPremiumReactionMenu();
+
 const avatarCatalog={
   macaco:{label:'Macaco',src:'assets/avatars/macaco.webp',grupo:'Animais'},
   boi:{label:'Boi',src:'assets/avatars/boi.webp',grupo:'Animais'},
