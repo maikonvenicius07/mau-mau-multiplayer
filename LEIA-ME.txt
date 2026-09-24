@@ -1,19 +1,26 @@
-MAU-MAU CANDEIAS — V41.7.2 SONS DAS REAÇÕES PREMIUM
+MAU-MAU CANDEIAS — V41.8 PLACAR / CONFERÊNCIA FINAL PREMIUM
 
 Substituir no GitHub:
 - public/index.html
-- public/app.js
+- public/styles.css
 
-Melhorias de áudio:
-- MAU-MAU!: fanfarra curta + voz
-- QUEIMOU!: impacto grave + voz
-- SUA VEZ!: campainha + voz
-- COMPRA 2!: dois impactos + voz
-- REVERSO!: efeito de giro + voz
-- GANHEI!: fanfarra + voz
-- TÁ LENTO!: efeito brincalhão + voz
-- BOA PARTIDA!: palmas + voz
+Incluído também:
+- ATUALIZAR_V41.8_PLACAR_FINAL_PREMIUM.txt
 
-JOGA BOCA ABERTA foi mantido exatamente como estava.
+Mantidos intactos:
+- avatares
+- regras
+- pontuação
+- ranking
+- reconexão
+- observador
+- login
+- servidor
 
-Não foram alterados: avatares, regras, ranking, reconexão, observador ou servidor.
+Validações executadas com sucesso:
+- audit-fixes-v40571.test.js
+- ui-contract.test.js
+- mobile-layout-contract.test.js
+- avatar-contract.test.js
+- round-review.test.js
+- play-again-contract.test.js

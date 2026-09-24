@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V41.8 PLACAR / CONFERÊNCIA FINAL PREMIUM
+
+Melhorias visuais:
+- cabeçalho da conferência mais elegante;
+- cartões de jogadores com melhor contraste;
+- vencedor destacado em dourado;
+- cartas da conferência com acabamento premium;
+- cálculo e legenda mais legíveis;
+- botões JOGAR DE NOVO e FECHAR com novo acabamento;
+- refinamento específico para celular.
+
+Não foram alterados:
+- avatares;
+- regras;
+- pontuação;
+- ranking;
+- reconexão;
+- observador;
+- login;
+- servidor.

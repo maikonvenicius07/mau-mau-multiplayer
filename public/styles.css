@@ -1951,3 +1951,101 @@ button.bot-primary{
   .reaction-pop .reaction-emoji{font-size:36px!important;min-width:42px}
   .reaction-pop span{font-size:13px!important}
 }
+
+
+/* =========================================================
+   V41.8 — CONFERÊNCIA / PLACAR FINAL PREMIUM
+   Visual only. Não altera regras, pontuação, ranking ou avatares.
+   ========================================================= */
+.round-review-modal{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(214,167,61,.12),transparent 32%),
+    linear-gradient(180deg,#0d2a1f 0%,#071a13 100%);
+  border:1px solid rgba(224,184,82,.55);
+  box-shadow:0 26px 70px rgba(0,0,0,.66),0 0 0 1px rgba(255,246,214,.03) inset;
+}
+.round-review-modal::before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.18;
+  background-image:
+    radial-gradient(circle at 12% 18%,rgba(255,225,151,.35) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 78% 10%,rgba(255,255,255,.20) 0 1px,transparent 1.4px);
+  background-size:38px 38px,52px 52px;
+  mask-image:linear-gradient(to bottom,#000,transparent 50%);
+}
+.round-review-modal>*{position:relative;z-index:1}
+.round-review-head{
+  padding:15px 17px!important;margin:0 0 13px!important;border-radius:17px;
+  border:1px solid rgba(229,188,83,.25);
+  background:linear-gradient(145deg,rgba(16,65,47,.88),rgba(7,38,28,.94));
+  box-shadow:0 10px 24px rgba(0,0,0,.24),0 1px 0 rgba(255,255,255,.035) inset;
+}
+.round-review-head h2{font-size:clamp(19px,2.2vw,28px);letter-spacing:-.02em;color:#ffe5a0!important;text-shadow:0 3px 12px #0008}
+.round-review-winner{font-size:12px;line-height:1.45;color:#d7e5dd!important}
+.round-review-badge{
+  border-color:#e1b54c!important;background:linear-gradient(135deg,#6f4b10,#c18c27)!important;color:#fff2c0!important;
+  box-shadow:0 7px 18px rgba(0,0,0,.28),0 1px 0 rgba(255,255,255,.30) inset;
+}
+.round-review-players{gap:12px}
+.round-review-player{
+  border-color:rgba(95,147,119,.42)!important;
+  background:linear-gradient(145deg,rgba(8,40,29,.96),rgba(5,28,21,.98))!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.02) inset!important;
+}
+.round-review-player.winner{
+  border-color:#e6bc55!important;
+  background:
+    radial-gradient(circle at 90% 10%,rgba(239,193,77,.14),transparent 34%),
+    linear-gradient(145deg,#133f2d,#594315)!important;
+  box-shadow:0 0 0 1px rgba(255,222,126,.13),0 14px 34px rgba(0,0,0,.35)!important;
+}
+.round-review-player-head{padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.055)}
+.round-review-winner-tag{background:linear-gradient(135deg,#f5d56f,#d99c28);color:#241806;box-shadow:0 3px 9px #0004}
+.round-review-score b{color:#ffd56d!important}.round-review-score strong{color:#fff8e6!important}
+.round-review-cards{
+  background:
+    radial-gradient(circle at 50% 45%,rgba(31,97,68,.26),transparent 52%),
+    #04140e!important;
+  border-color:rgba(255,255,255,.07)!important;
+  box-shadow:inset 0 8px 18px rgba(0,0,0,.28);
+}
+.round-review-card-wrap .playing-card{box-shadow:0 8px 18px rgba(0,0,0,.48),0 0 0 1px rgba(255,255,255,.65) inset!important}
+.round-review-card-points{background:#18392a!important;border-color:#5f7d54!important;color:#f1cd69!important}
+.round-review-calc{
+  margin-top:9px;padding:8px 10px;border-radius:10px;background:rgba(2,15,10,.43);border:1px solid rgba(255,255,255,.035)
+}
+.round-review-legend{
+  border-left:none!important;border:1px solid rgba(221,180,74,.22)!important;
+  background:linear-gradient(145deg,rgba(12,49,35,.78),rgba(5,28,20,.86))!important;
+  color:#cbd9d1!important;border-radius:13px!important;padding:11px 13px!important;
+}
+.round-review-legend strong{color:#f1c85f}.round-review-legend span{color:#9eb4a8;margin-top:3px}
+.round-review-jack{background:linear-gradient(135deg,#4c3110,#6e4b18)!important;border-color:#c38c31!important;box-shadow:0 7px 18px #0003}
+.round-review-actions{
+  gap:10px!important;padding-top:4px
+}
+.round-review-actions .primary,
+.round-review-actions .replay-btn{
+  min-height:48px!important;border-radius:14px!important;font-weight:950!important;letter-spacing:.035em!important
+}
+.round-review-actions .primary{
+  background:linear-gradient(135deg,#0f6949,#0a5039)!important;border-color:#58a983!important;color:#effbf5!important
+}
+.round-review-actions .replay-btn{
+  background:linear-gradient(135deg,#f1c65a,#d79c2b)!important;border-color:#f6dc8c!important;color:#251907!important
+}
+.final-match-review .round-review-actions{
+  background:linear-gradient(180deg,rgba(5,25,18,0),rgba(5,25,18,.98) 28%)!important
+}
+@media(max-width:600px){
+  .round-review-head{padding:12px 11px!important;border-radius:14px}
+  .round-review-head h2{font-size:18px}
+  .round-review-player{border-radius:14px!important}
+  .round-review-player-head{gap:7px}
+  .round-review-person strong{font-size:11px!important}
+  .round-review-score span{font-size:8px}
+  .round-review-score b,.round-review-score strong{font-size:13px!important}
+  .round-review-cards{min-height:86px!important;padding:6px 3px 8px!important}
+  .round-review-card-wrap .playing-card{width:52px!important;height:75px!important}
+  .round-review-card-wrap .playing-card .suit-big{font-size:25px!important}
+  .round-review-legend{font-size:9px!important;line-height:1.45!important}
+}
