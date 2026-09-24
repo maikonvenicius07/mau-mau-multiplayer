@@ -1,0 +1,16 @@
+MAU-MAU CANDEIAS — V41 VISUAL PREMIUM
+
+Alterações visuais:
+- identidade verde escuro + dourado aplicada à tela de login, início, mesa, ranking e conferência/vitória;
+- marca passa a usar o novo ícone do MAU-MAU CANDEIAS;
+- botões e painéis receberam acabamento premium;
+- cache do styles.css atualizado para forçar carregamento da nova aparência;
+- ícones PWA/Android substituídos.
+
+NÃO ALTERADO:
+- avatares temáticos;
+- regras do jogo;
+- reconexão;
+- ranking/lógica;
+- Socket.IO;
+- autenticação.

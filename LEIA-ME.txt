@@ -1,13 +1,21 @@
-MAU-MAU CANDEIAS - NOVO ICONE
+MAU-MAU CANDEIAS — V41 VISUAL PREMIUM
 
-Substituir somente os arquivos da pasta:
-public/assets/app/
+PACOTE PARA SUBSTITUIR NO GITHUB
 
-Arquivos alterados:
-- icon-64.png
-- icon-180.png
-- icon-192.png
-- icon-512.png
-- icon-maskable-512.png
+Substitua apenas estes arquivos, mantendo exatamente as mesmas pastas:
+- public/index.html
+- public/styles.css
+- public/assets/app/icon-64.png
+- public/assets/app/icon-180.png
+- public/assets/app/icon-192.png
+- public/assets/app/icon-512.png
+- public/assets/app/icon-maskable-512.png
 
-Os avatares e demais arquivos do jogo nao foram alterados.
+Também incluído:
+- ATUALIZAR_V41_VISUAL_PREMIUM.txt
+
+Importante:
+- Os AVATARES NÃO foram alterados.
+- Regras, reconexão, ranking, login e servidor NÃO foram alterados.
+- A aparência interna do jogo passa a usar o tema premium verde + dourado.
+- O ícone do APK Android já instalado só muda após gerar e instalar um NOVO APK.
