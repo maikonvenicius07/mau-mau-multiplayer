@@ -1,23 +1,10 @@
-MAU-MAU CANDEIAS — V41.3 TELA INICIAL PREMIUM
+MAU-MAU CANDEIAS — V41.3.1
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 
-Incluído também:
-- ATUALIZAR_V41.3_TELA_INICIAL_PREMIUM.txt
+Correção:
+- texto ASSISTIR PARTIDAS não fica mais truncado.
 
-Mantidos intactos:
-- avatares
-- regras
-- reconexão
-- ranking/lógica
-- login
-- servidor
-
-Validações relevantes executadas com sucesso:
-- audit-fixes-v40571.test.js
-- ui-contract.test.js
-- mobile-layout-contract.test.js
-- avatar-contract.test.js
-- pre-apk-webapp-manifest.test.js
+Avatares e regras não foram alterados.

@@ -1,0 +1,6 @@
+MAU-MAU CANDEIAS — V41.3.1
+
+Ajuste visual:
+- Corrigido o texto “ASSISTIR PARTIDAS” que aparecia truncado como “ASSISTIR P...”.
+- Mantido o mesmo padrão premium azul do botão.
+- Nenhuma regra, avatar, login, ranking, reconexão ou servidor foi alterado.
