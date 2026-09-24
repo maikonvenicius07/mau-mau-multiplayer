@@ -1,10 +1,26 @@
-MAU-MAU CANDEIAS — V41.3.1
+MAU-MAU CANDEIAS — V41.4 TELA DE PARTIDA PREMIUM
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 
-Correção:
-- texto ASSISTIR PARTIDAS não fica mais truncado.
+Incluído também:
+- ATUALIZAR_V41.4_TELA_PARTIDA_PREMIUM.txt
 
-Avatares e regras não foram alterados.
+Mantidos intactos:
+- avatares
+- regras
+- ordem de turnos
+- reconexão
+- observador
+- ranking/lógica
+- login
+- servidor
+
+Validações executadas com sucesso:
+- audit-fixes-v40571.test.js
+- ui-contract.test.js
+- mobile-layout-contract.test.js
+- avatar-contract.test.js
+- turn-integrity-v4042.test.js
+- spectator-ui-contract.test.js

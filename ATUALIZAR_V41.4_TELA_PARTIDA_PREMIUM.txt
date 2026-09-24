@@ -1,0 +1,21 @@
+MAU-MAU CANDEIAS — V41.4 TELA DE PARTIDA PREMIUM
+
+Alterações visuais:
+- topo da partida refinado em verde/dourado;
+- mesa de feltro com acabamento premium;
+- jogadores e indicação de turno com maior destaque;
+- baralho, descarte e área central refinados;
+- mão do jogador e botões de ação com nova identidade;
+- placar e painel lateral harmonizados;
+- botões flutuantes QUEIMA, DUPLA e RÁPIDA refinados;
+- alertas de SUA VEZ mais claros.
+
+Não alterado:
+- avatares;
+- regras;
+- ordem de turnos;
+- reconexão;
+- observador;
+- ranking;
+- login;
+- servidor.

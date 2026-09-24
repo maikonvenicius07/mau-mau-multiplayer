@@ -1594,3 +1594,180 @@ button.bot-primary{
   .watch-rooms-main .watch-rooms-copy strong{font-size:10.5px!important;letter-spacing:.025em!important}
   .watch-rooms-main .watch-rooms-copy small{font-size:8.5px!important}
 }
+
+
+/* =========================================================
+   V41.4 — TELA DE PARTIDA PREMIUM
+   Somente acabamento visual da mesa. Não altera regras,
+   turnos, reconexão, observador, avatares ou lógica.
+   ========================================================= */
+#game{
+  --game-gold:#e5bd5a;
+  --game-gold-soft:#f7da87;
+  --game-green:#0d5d40;
+  --game-green-deep:#03271c;
+  --game-panel:rgba(4,31,22,.94);
+  background:
+    radial-gradient(circle at 50% -10%,rgba(231,190,87,.10),transparent 28%),
+    linear-gradient(180deg,#041f17 0%,#031711 100%);
+}
+#game .topbar{
+  min-height:68px;height:auto;padding:8px 14px;gap:9px;
+  background:linear-gradient(180deg,rgba(4,37,26,.99),rgba(2,24,17,.98));
+  border-bottom:1px solid rgba(232,192,93,.38);
+  box-shadow:0 9px 30px rgba(0,0,0,.34),inset 0 -1px rgba(255,224,139,.05);
+}
+#game .brand-small{
+  border:1px solid rgba(231,190,88,.38);border-radius:14px;
+  background:linear-gradient(145deg,#0f6345,#063825);padding:5px 9px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.035),0 6px 18px #0005;
+}
+#game .brand-small>span{
+  width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+  color:#251a08;background:linear-gradient(145deg,#f4d373,#bd8122);
+  border:1px solid #ffe39a;box-shadow:0 3px 10px #0006;font-weight:1000;
+}
+#game .brand-small strong{color:#fff6dc;letter-spacing:.045em}
+#game .brand-small small{color:#e6bd57;letter-spacing:.12em}
+#game .room-chip,#game .status-chip,#game .connection-chip{
+  min-height:38px;border-radius:12px!important;border:1px solid rgba(228,188,91,.30)!important;
+  background:linear-gradient(145deg,rgba(12,79,55,.92),rgba(5,45,32,.96))!important;
+  color:#e9f5ef!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),0 6px 16px #0003;
+}
+#game .room-chip strong{color:#f3cf70}
+#game .icon-btn,#game .leave-btn{
+  min-width:38px;min-height:38px;border-radius:11px!important;border:1px solid rgba(224,184,85,.26)!important;
+  background:linear-gradient(145deg,#0d4c36,#082f22)!important;color:#f3ead2!important;
+  box-shadow:0 5px 14px #0004!important;
+}
+#game .leave-btn{background:linear-gradient(145deg,#5c281f,#351814)!important;border-color:#9e5242!important}
+#game .icon-btn:hover,#game .leave-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+
+#game .table-shell{
+  background:
+    radial-gradient(circle at 48% 20%,rgba(38,143,96,.08),transparent 35%),
+    linear-gradient(180deg,#041c14,#03140f);
+}
+#game .felt{
+  border:12px solid #5b351d;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(37,139,94,.30),transparent 22%),
+    radial-gradient(ellipse at center,#14734f 0%,#0b543a 56%,#063625 100%);
+  box-shadow:
+    inset 0 0 0 4px #b17b3c,
+    inset 0 0 0 6px rgba(255,220,139,.10),
+    inset 0 0 85px rgba(0,0,0,.48),
+    0 26px 64px rgba(0,0,0,.58),
+    0 0 0 1px rgba(255,222,143,.08);
+}
+#game .felt:before{
+  content:"";position:absolute;inset:25px;border-radius:inherit;pointer-events:none;
+  border:1px solid rgba(245,211,126,.15);box-shadow:inset 0 0 34px rgba(234,193,91,.035);
+}
+#game .felt:after{border-color:rgba(255,228,160,.13)}
+
+#game .player-card{
+  padding:8px 11px;border-radius:16px;
+  background:linear-gradient(145deg,rgba(5,43,30,.96),rgba(3,27,20,.96));
+  border:1px solid rgba(225,184,83,.24);
+  box-shadow:0 9px 22px rgba(0,0,0,.34),inset 0 0 0 1px rgba(255,255,255,.025);
+}
+#game .player-card.active{
+  border-color:#efd073;box-shadow:0 0 0 2px rgba(242,203,103,.25),0 0 28px rgba(230,179,66,.38),0 10px 24px #0007;
+}
+#game .player-card.next-turn{border-color:#61c99d;box-shadow:0 0 0 2px rgba(81,194,146,.18),0 9px 22px #0006}
+#game .avatar img{border:2px solid rgba(239,199,100,.68)!important;box-shadow:0 4px 12px #0006}
+#game .current-turn-indicator{
+  background:linear-gradient(135deg,#825d18,#3d2b0c);border-color:#f7d16e;color:#fff0bd;
+}
+#game .next-turn-arrow{background:linear-gradient(135deg,#0f5c43,#073326);border-color:#66d6a7;color:#e2fff2}
+
+#game .center-zone{filter:drop-shadow(0 10px 18px rgba(0,0,0,.20))}
+#game .turn-banner{
+  min-width:190px;text-align:center;padding:9px 18px;border-radius:999px;
+  background:linear-gradient(145deg,rgba(6,49,34,.95),rgba(3,29,21,.96));
+  border:1px solid rgba(230,190,91,.34);color:#eef7f2;box-shadow:0 7px 18px #0004;
+}
+#game.my-turn .turn-banner{
+  background:linear-gradient(135deg,#7d5a18,#3f2c0c)!important;border-color:#f2cf6d!important;
+  color:#fff0bd!important;box-shadow:0 0 0 2px rgba(244,205,107,.18),0 0 24px rgba(226,176,64,.32)!important;
+}
+#game .piles{gap:38px}
+#game .pile{border-radius:14px}
+#game .back-card{
+  border:5px solid #f4e8ca;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(227,185,84,.16),transparent 31%),
+    repeating-linear-gradient(45deg,#174934 0 8px,#0d2d21 8px 16px);
+  box-shadow:0 11px 25px #0007,0 0 0 2px rgba(233,193,97,.30);
+}
+#game .back-card .back-m{
+  color:#f2cf73;border-color:#e5b952;background:rgba(1,23,16,.38);
+  box-shadow:0 0 20px rgba(229,187,84,.15) inset;
+}
+#game #discardPile .playing-card{box-shadow:0 12px 28px #0008,0 0 0 2px rgba(238,199,105,.22)}
+
+#game .scoreboard,#game .log-panel{
+  border:1px solid rgba(229,188,90,.30)!important;
+  background:linear-gradient(155deg,rgba(7,48,34,.97),rgba(3,26,19,.98))!important;
+  box-shadow:0 15px 38px rgba(0,0,0,.34),inset 0 0 0 1px rgba(255,255,255,.025);
+}
+#game .score-title{color:#f1ca67}
+#game .score-row{border-top-color:rgba(255,230,165,.08)}
+#game .side-tabs{border-bottom-color:rgba(236,199,108,.14)}
+#game .side-tab.active{background:linear-gradient(145deg,#765318,#3f2b0c);color:#ffe09b}
+
+#game .hand-panel{
+  border:1px solid rgba(232,191,92,.32);
+  background:linear-gradient(180deg,rgba(5,37,27,.97),rgba(3,24,18,.98));
+  box-shadow:0 -10px 34px rgba(0,0,0,.30),inset 0 0 0 1px rgba(255,255,255,.025);
+}
+#game .hand-owner strong{color:#fff4d7}
+#game .sort-hand-btn{
+  border-color:#8c7138;background:linear-gradient(135deg,#214f3b,#103525);color:#f8e7b7;
+}
+#game .toolbar-actions button{border-radius:11px!important;border:1px solid rgba(229,188,88,.24)!important;box-shadow:0 5px 12px #0004}
+#game .mau-btn{background:linear-gradient(135deg,#176044,#0d3d2d)!important;border-color:#5aa07c!important}
+#game .burn-tone{background:linear-gradient(135deg,#9d4e1e,#5a2b13)!important;border-color:#d17a35!important}
+#game .pass-turn-btn{background:linear-gradient(135deg,#31506b,#1b3043)!important;border-color:#6484a1!important}
+#game .playing-card{
+  border:1px solid #d2c7ad;background:linear-gradient(155deg,#fffef8,#f3ead5);
+  box-shadow:0 8px 20px rgba(0,0,0,.38);
+}
+#game .playing-card.playable{box-shadow:0 0 0 3px #efd06f,0 0 22px rgba(231,187,73,.34),0 11px 24px #0008}
+
+#game .floating-burn-action{
+  background:linear-gradient(145deg,#d76b24,#7e3416)!important;border-color:#ffbd66!important;box-shadow:0 9px 26px #0008,0 0 22px rgba(255,127,47,.33)!important
+}
+#game .floating-double-action{
+  background:linear-gradient(145deg,#315fb5,#18356c)!important;border-color:#80a4ff!important;box-shadow:0 9px 26px #0008,0 0 22px rgba(80,126,255,.28)!important
+}
+#game .floating-quick-action{
+  background:linear-gradient(145deg,#8d6b16,#4d390d)!important;border-color:#f0ca5f!important;box-shadow:0 9px 26px #0008,0 0 22px rgba(236,190,65,.28)!important
+}
+#game .your-turn-alert{
+  border-color:#f1ca68;background:radial-gradient(circle at 50% 20%,rgba(161,116,27,.96),rgba(8,39,28,.97) 68%);
+  box-shadow:0 0 0 2px rgba(244,207,113,.26),0 0 60px rgba(234,184,67,.38),0 25px 70px #000b;
+}
+
+@media(max-width:900px){
+  #game .topbar{gap:6px;padding:7px 8px}
+  #game .brand-small{padding:4px 6px}
+  #game .brand-small>span{width:28px;height:28px}
+  #game .room-chip,#game .status-chip,#game .connection-chip,#game .icon-btn,#game .leave-btn{min-height:35px}
+  #game .felt{border-width:9px;border-radius:34% / 26%}
+  #game .piles{gap:22px}
+  #game .player-card{padding:6px 8px;border-radius:13px}
+  #game .hand-panel{border-radius:17px 17px 10px 10px}
+}
+@media(max-width:600px){
+  #game .topbar{padding-top:max(6px,env(safe-area-inset-top));flex-wrap:wrap}
+  #game .brand-small{order:0}
+  #game .room-chip{order:1}
+  #game .status-chip{order:2}
+  #game .felt{border-width:7px;box-shadow:inset 0 0 0 3px #9e6c38,inset 0 0 55px #001b,0 18px 42px #0007}
+  #game .turn-banner{min-width:155px;font-size:11px;padding:7px 12px}
+  #game .player-card{gap:5px}
+  #game .scoreboard{border-radius:14px}
+  #game .hand-panel{background:rgba(3,27,20,.97)}
+}
