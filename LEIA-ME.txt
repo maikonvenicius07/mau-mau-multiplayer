@@ -1,27 +1,19 @@
-MAU-MAU CANDEIAS — V41.5 TELA DE VITÓRIA PREMIUM
+MAU-MAU CANDEIAS — V41.5.1
+
+CORREÇÃO DA TELA DE VITÓRIA PREMIUM
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
-- public/app.js
 
-Incluído também:
-- ATUALIZAR_V41.5_TELA_VITORIA_PREMIUM.txt
+A V41.5 já tinha o HTML e a lógica corretos, mas o bloco CSS premium foi salvo com sequências \\n literais. A V41.5.1 corrige isso e força novo carregamento do CSS.
 
 Mantidos intactos:
 - avatares
-- regras e pontuação
+- regras
+- placar
+- ranking/lógica
 - reconexão
 - observador
-- ranking
 - login
 - servidor
-
-Validações executadas com sucesso:
-- node --check public/app.js
-- audit-fixes-v40571.test.js
-- ui-contract.test.js
-- mobile-layout-contract.test.js
-- avatar-contract.test.js
-- play-again-contract.test.js
-- round-review.test.js

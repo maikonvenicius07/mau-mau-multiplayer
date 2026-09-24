@@ -1,0 +1,8 @@
+MAU-MAU CANDEIAS — V41.5.1
+
+Correção da Tela de Vitória Premium.
+
+A V41.5 inseriu o bloco visual premium no CSS com sequências \n literais, fazendo o navegador ignorar a estilização.
+A V41.5.1 converte essas sequências em quebras de linha reais e atualiza o cache-busting do CSS.
+
+Não altera regras, placar, ranking, reconexão, observador, login ou avatares.
