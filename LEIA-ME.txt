@@ -1,16 +1,23 @@
-MAU-MAU CANDEIAS — V41.2 SPLASH PREMIUM
+MAU-MAU CANDEIAS — V41.3 TELA INICIAL PREMIUM
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 
 Incluído também:
-- ATUALIZAR_V41.2_SPLASH_PREMIUM.txt
+- ATUALIZAR_V41.3_TELA_INICIAL_PREMIUM.txt
 
-Não foram alterados:
+Mantidos intactos:
 - avatares
 - regras
 - reconexão
-- ranking
+- ranking/lógica
 - login
 - servidor
+
+Validações relevantes executadas com sucesso:
+- audit-fixes-v40571.test.js
+- ui-contract.test.js
+- mobile-layout-contract.test.js
+- avatar-contract.test.js
+- pre-apk-webapp-manifest.test.js

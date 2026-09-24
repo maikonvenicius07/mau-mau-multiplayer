@@ -1345,3 +1345,234 @@ button.bot-primary{
 @media (prefers-reduced-motion:reduce){
   .app-splash,.app-splash-logo,.app-splash-glow,.app-splash-loader span{animation-duration:.01ms!important;animation-delay:.55s!important}
 }
+
+
+/* =========================================================
+   V41.3 — REFINAMENTO PREMIUM DA TELA INICIAL
+   Somente visual. Não altera regras, avatares ou lógica.
+   Referência oficial: verde escuro + dourado + cartões coloridos.
+   ========================================================= */
+
+/* Cartões de descoberta mais fortes e próximos do conceito aprovado */
+.online-discovery{
+  gap:12px!important;
+  align-items:stretch;
+}
+.online-count-card,
+.matchmaking-main,
+.online-players-main,
+.watch-rooms-main,
+.watch-rooms-compact{
+  min-height:72px!important;
+  height:auto!important;
+  border-radius:18px!important;
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+}
+.online-count-card::before,
+.matchmaking-main::before,
+.online-players-main::before,
+.watch-rooms-main::before{
+  content:"";
+  position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:linear-gradient(135deg,rgba(255,255,255,.10),transparent 38%,rgba(0,0,0,.10));
+}
+.online-count-card{
+  padding:13px 15px!important;
+  background:linear-gradient(145deg,#0a2c20,#071d16)!important;
+  border:1px solid rgba(93,170,132,.42)!important;
+  box-shadow:0 12px 26px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.035)!important;
+}
+.online-count-card strong{font-size:12px!important;line-height:1.15;letter-spacing:.045em}
+.online-count-card small{font-size:8px!important;max-width:78px;text-align:right;line-height:1.2}
+.online-live-dot{width:10px;height:10px}
+
+.matchmaking-main,
+.online-players-main,
+.watch-rooms-main,
+.watch-rooms-compact{
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr) 18px!important;
+  grid-template-rows:auto auto!important;
+  column-gap:10px!important;
+  row-gap:2px!important;
+  align-items:center!important;
+  text-align:left!important;
+  padding:12px 14px!important;
+  box-shadow:0 13px 28px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.14)!important;
+  transition:transform .16s ease,filter .16s ease,box-shadow .16s ease!important;
+}
+.matchmaking-main:hover,
+.online-players-main:hover,
+.watch-rooms-main:hover{
+  transform:translateY(-2px)!important;
+  filter:brightness(1.06)!important;
+  box-shadow:0 17px 34px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.18)!important;
+}
+.matchmaking-main>span,
+.online-players-main>span,
+.watch-rooms-main>.watch-rooms-eye{
+  grid-column:1!important;
+  grid-row:1/3!important;
+  width:38px;height:38px;border-radius:12px;
+  display:grid!important;place-items:center;
+  font-size:22px!important;line-height:1!important;
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 1px rgba(255,255,255,.16),0 5px 12px rgba(0,0,0,.16);
+  opacity:1!important;
+}
+.matchmaking-main::after,
+.online-players-main::after,
+.watch-rooms-main::after{
+  content:"›";
+  grid-column:3;grid-row:1/3;
+  align-self:center;justify-self:end;
+  font-size:26px;font-weight:900;line-height:1;
+  color:rgba(255,255,255,.82);
+  text-shadow:0 1px 4px rgba(0,0,0,.25);
+}
+.matchmaking-main strong,
+.online-players-main strong,
+.watch-rooms-main strong{font-size:12px!important;letter-spacing:.04em!important;font-weight:950!important}
+.matchmaking-main small,
+.online-players-main small,
+.watch-rooms-main small{font-size:9px!important;line-height:1.25!important;font-weight:700!important;opacity:.92}
+
+/* BUSCAR = dourado */
+.matchmaking-main{
+  background:linear-gradient(145deg,#e2b248,#ba7d1c)!important;
+  border-color:#f0cd72!important;
+  color:#241908!important;
+}
+.matchmaking-main>span{background:rgba(255,249,220,.42);border-color:rgba(255,255,255,.36)}
+.matchmaking-main strong,.matchmaking-main small{color:#241908!important}
+.matchmaking-main::after{color:#3b290c}
+
+/* JOGADORES ONLINE = verde */
+.online-players-main{
+  background:linear-gradient(145deg,#1b784f,#0d5338)!important;
+  border-color:#56a87f!important;
+}
+.online-players-main strong{color:#f3fff9!important}
+.online-players-main small{color:#d4eee2!important}
+
+/* ASSISTIR = azul profundo */
+.watch-rooms-main,.watch-rooms-compact{
+  background:linear-gradient(145deg,#294b9a,#192f6f)!important;
+  border-color:#5578c9!important;
+  color:#f4f7ff!important;
+}
+.watch-rooms-main .watch-rooms-copy{
+  display:contents!important;
+}
+.watch-rooms-main .watch-rooms-copy strong{
+  grid-column:2;grid-row:1!important;
+  color:#fff!important;
+}
+.watch-rooms-main .watch-rooms-copy small{
+  grid-column:2;grid-row:2!important;
+  color:#d9e3ff!important;
+}
+.watch-rooms-main .watch-rooms-copy small b{color:#fff!important}
+
+/* Ações abaixo dos avatares: tiles premium compactos */
+.action-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin-top:17px!important;
+}
+.action-grid>button,
+.action-grid>.join-row{
+  min-height:58px;
+  border-radius:16px!important;
+}
+#createBtn,#botGameBtn,#joinBtn{
+  min-height:54px;
+  font-size:12px!important;
+  letter-spacing:.02em;
+}
+#createBtn{
+  background:linear-gradient(145deg,#dcae43,#b87818)!important;
+  border:1px solid #efcb70!important;
+  color:#231806!important;
+}
+#botGameBtn{
+  background:linear-gradient(145deg,#176b4b,#0b4934)!important;
+  border:1px solid #4b9975!important;
+  color:#f1fff8!important;
+}
+.action-grid .join-row{
+  grid-column:auto!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:7px;
+  padding:0!important;
+}
+.action-grid .join-row input{
+  min-width:0;
+  height:54px;
+  margin:0!important;
+  border-radius:14px!important;
+  border:1px solid #4c6592!important;
+  background:linear-gradient(145deg,#101c35,#0b1427)!important;
+  color:#fff!important;
+}
+#joinBtn{
+  background:linear-gradient(145deg,#3156a6,#213c7d)!important;
+  border:1px solid #6281c8!important;
+  color:#fff!important;
+  padding-inline:14px!important;
+}
+
+/* Linha de atalhos inferior mais uniforme */
+.landing-links{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px!important;
+  margin-top:12px!important;
+}
+.landing-links button{
+  width:100%;min-height:44px;margin:0!important;
+  border-radius:14px!important;
+  font-size:11px!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.18)!important;
+}
+.ranking-link-btn{
+  background:linear-gradient(145deg,#9a6b19,#5b3d0d)!important;
+  border-color:#d6ab4d!important;color:#ffe59a!important;
+}
+.local-music-link-btn{
+  background:linear-gradient(145deg,#1d4b72,#15354f)!important;
+  border-color:#4b7899!important;color:#e9f6ff!important;
+}
+.landing-links .link-btn{
+  background:linear-gradient(145deg,#27332e,#18231f)!important;
+  border:1px solid #4f675c!important;color:#e7eee9!important;
+}
+
+/* Mobile: mantém tudo grande o bastante para toque e sem apertar os avatares */
+@media(max-width:700px){
+  .online-discovery{gap:9px!important}
+  .online-count-card,
+  .matchmaking-main,
+  .online-players-main,
+  .watch-rooms-main,
+  .watch-rooms-compact{min-height:62px!important}
+  .matchmaking-main,
+  .online-players-main,
+  .watch-rooms-main,
+  .watch-rooms-compact{grid-template-columns:38px minmax(0,1fr) 16px!important;padding:10px 12px!important}
+  .matchmaking-main>span,
+  .online-players-main>span,
+  .watch-rooms-main>.watch-rooms-eye{width:34px;height:34px;font-size:19px!important}
+  .action-grid{grid-template-columns:1fr!important}
+  .action-grid .join-row{grid-column:auto!important}
+  .landing-links{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .landing-links button{padding:8px 6px!important;font-size:10px!important}
+}
+@media(max-width:430px){
+  .landing-links{grid-template-columns:1fr 1fr!important}
+  .landing-links .link-btn{grid-column:1/-1}
+}

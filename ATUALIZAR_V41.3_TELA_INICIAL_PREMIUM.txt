@@ -1,0 +1,18 @@
+MAU-MAU CANDEIAS — V41.3 TELA INICIAL PREMIUM
+
+Alterações exclusivamente visuais:
+- Botões Buscar Jogadores, Jogadores Online e Assistir Partidas receberam acabamento premium.
+- Cores de referência: dourado, verde e azul profundo.
+- Ícones, setas e hierarquia visual refinados.
+- Criar sala, Treino, Entrar com código, Ranking, Minha Música e Regras receberam acabamento consistente.
+- Layout responsivo refinado para Android/iPhone.
+
+NÃO ALTERADO:
+- Avatares.
+- Regras do Mau-Mau.
+- Reconexão.
+- Ranking/lógica.
+- Login.
+- Servidor.
+
+Cache-busting preservado com prefixo v=40.69.2 para compatibilidade com os testes existentes.
