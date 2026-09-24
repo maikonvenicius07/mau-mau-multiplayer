@@ -1,13 +1,13 @@
-MAU-MAU CANDEIAS — pacote visual do ícone
+MAU-MAU CANDEIAS - NOVO ICONE
 
-Substituir somente os arquivos em:
+Substituir somente os arquivos da pasta:
 public/assets/app/
 
-Arquivos:
+Arquivos alterados:
 - icon-64.png
 - icon-180.png
 - icon-192.png
 - icon-512.png
 - icon-maskable-512.png
 
-Os avatares NÃO foram alterados.
+Os avatares e demais arquivos do jogo nao foram alterados.
