@@ -271,6 +271,7 @@ const suitGlyph={hearts:'♥',diamonds:'♦',clubs:'♣',spades:'♠'};
 const suitName={hearts:'Copas',diamonds:'Ouros',clubs:'Paus',spades:'Espadas'};
 const specialName={A:'PULA',Q:'INVERTE',J:'ESCOLHE NAIPE','7':'+2',K:'ANTERIOR +1','8':'ANTERIOR +2'};
 const effectCatalog={applause:{emoji:'👏',label:'Aplausos'},laugh:{emoji:'😂',label:'Risada'},angry:{emoji:'😡',label:'Raiva'},horn:{emoji:'📯',label:'Corneta'},drum:{emoji:'🥁',label:'Tambores'},victory:{emoji:'🎉',label:'Vitória'},wow:{emoji:'😱',label:'Uau!'},jogaBoca:{emoji:'🔊',label:'JOGA BOCA ABERTA!'}};
+const effectStickerCatalog={horn:{emoji:'🃏',label:'MAU-MAU!'},angry:{emoji:'🔥',label:'QUEIMOU!'},wow:{emoji:'👉',label:'SUA VEZ!'},draw2:{emoji:'+2',label:'COMPRA 2!'},drum:{emoji:'🔄',label:'REVERSO!'},jogaBoca:{emoji:'😮',label:'JOGA BOCA ABERTA!'},victory:{emoji:'🏆',label:'GANHEI!'},laugh:{emoji:'🐌',label:'TÁ LENTO HEIN...'},applause:{emoji:'👍',label:'BOA PARTIDA!'}};
 
 const avatarCatalog={
   macaco:{label:'Macaco',src:'assets/avatars/macaco.webp',grupo:'Animais'},
@@ -1087,6 +1088,9 @@ function playSocialEffect(effect){
     [523,659,784,1046].forEach((f,i)=>tone(ac,f,t+i*.13,i===3?.34:.16,'triangle',.035));
   } else if(effect==='wow'){
     [280,360,470,620].forEach((f,i)=>tone(ac,f,t+i*.07,.12,'sine',.026));
+  } else if(effect==='draw2'){
+    [330,440].forEach((f,i)=>tone(ac,f,t+i*.12,.18,'square',.030));
+    noiseBurst(ac,t+.20,.06,.015);
   } else if(effect==='jogaBoca'){
     // Chamada forte antes da fala para o efeito se destacar na mesa.
     noiseBurst(ac,t,.20,.075);
@@ -2669,9 +2673,10 @@ socket.on('liveVoiceStatus',info=>{
 });
 socket.on('liveVoiceRelayPcm',playLiveVoiceRelayPcm);
 socket.on('soundEffect',event=>{
-  const fx=effectCatalog[event.effect];if(!fx)return;
+  const fx=effectCatalog[event.effect]||effectStickerCatalog[event.effect];if(!fx)return;
+  const sticker=effectStickerCatalog[event.effect]||fx;
   const displayName=event.role==='SPECTATOR'?`👁️ ${event.name||'Observador'}`:(event.name||'Jogador');
-  playSocialEffect(event.effect);showReaction(displayName,fx.emoji,fx.label,event.avatar);
+  playSocialEffect(event.effect);showReaction(displayName,sticker.emoji,sticker.label,event.avatar,event.effect);
 });
 socket.on('passConfirmed',data=>{
   const next=state?.players?.find(p=>p.id===data?.nextPlayerId);
@@ -2842,11 +2847,12 @@ function renderChat(){
   }
   box.scrollTop=box.scrollHeight;
 }
-function showReaction(name,emoji,label,avatar=null){
+function showReaction(name,emoji,label,avatar=null,effect=''){
   const layer=$('#reactionLayer');if(!layer)return;
-  const el=document.createElement('div');el.className='reaction-pop';
+  const safeEffect=String(effect||'').replace(/[^a-zA-Z0-9_-]/g,'');
+  const el=document.createElement('div');el.className=`reaction-pop${safeEffect?` reaction-pop-${safeEffect}`:''}`;
   el.innerHTML=`<div class="reaction-emoji">${emoji}</div>${avatar?avatarHTML(avatar,'sm'):''}<div><strong>${esc(name)}</strong><span>${esc(label)}</span></div>`;
-  layer.appendChild(el);setTimeout(()=>el.remove(),2100);
+  layer.appendChild(el);setTimeout(()=>el.remove(),2250);
 }
 
 function canAct(){return !isSpectatorState()&&!passPending&&socket.connected&&state?.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id}

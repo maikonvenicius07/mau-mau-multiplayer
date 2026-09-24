@@ -1,0 +1,35 @@
+MAU-MAU CANDEIAS — V41.7 FIGURINHAS / EXPRESSÕES PREMIUM
+
+ALTERAÇÕES
+- Reações sociais receberam visual de figurinhas premium.
+- Novo conjunto visual: MAU-MAU!, QUEIMOU!, SUA VEZ!, COMPRA 2!, REVERSO!, JOGA BOCA!, GANHEI!, TÁ LENTO! e BOA PARTIDA!.
+- A reação COMPRA 2 foi adicionada como novo efeito social, sem alterar regras de compra ou cartas.
+- As figurinhas aparecem tanto no painel flutuante quanto no painel de efeitos do chat.
+- A reação recebida aparece em destaque no centro da tela com cores próprias.
+
+NÃO ALTERADO
+- Avatares.
+- Regras do Mau-Mau.
+- Turnos.
+- Queima/Ação Rápida/Carta Dupla.
+- Ranking e pontuação.
+- Reconexão.
+- Modo observador.
+- Login.
+
+ARQUIVOS ALTERADOS
+- public/index.html
+- public/styles.css
+- public/app.js
+- server.js
+
+VALIDAÇÃO
+- all-reactions-menu.test.js
+- joga-boca-speech.test.js
+- sound-contract.test.js
+- quick-reactions-visible.test.js
+- quick-reactions-idle.test.js
+- ui-contract.test.js
+- mobile-layout-contract.test.js
+- avatar-contract.test.js
+- audit-fixes-v40571.test.js

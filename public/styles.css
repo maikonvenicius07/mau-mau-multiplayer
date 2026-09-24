@@ -1884,3 +1884,70 @@ button.bot-primary{
   .ranking-table tr{background:linear-gradient(145deg,#091d15,#06130e)}
   .rank-tier-badge{font-size:7px!important;padding:3px 6px}
 }
+
+
+/* ==========================================================
+   V41.7 — FIGURINHAS / EXPRESSÕES PREMIUM
+   Somente visual/social: não altera regras da partida.
+   ========================================================== */
+.all-reactions-panel{
+  width:300px!important;padding:12px!important;border-radius:22px!important;
+  border:1px solid rgba(236,196,91,.58)!important;
+  background:linear-gradient(165deg,rgba(4,35,25,.98),rgba(7,20,16,.99))!important;
+  box-shadow:0 20px 50px rgba(0,0,0,.72),0 0 0 1px rgba(255,240,190,.05) inset!important;
+}
+.all-reactions-title{font-size:10px!important;color:#f4d36c!important;letter-spacing:.18em!important;text-align:center!important;padding:2px 3px 10px!important}
+.sticker-reactions-grid,.sticker-effect-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important}
+.sticker-reaction{
+  position:relative!important;min-width:0!important;height:76px!important;padding:7px 5px!important;
+  display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:4px!important;
+  border:3px solid #fff!important;border-radius:16px!important;
+  color:#fff!important;overflow:visible!important;
+  box-shadow:0 5px 0 rgba(0,0,0,.36),0 9px 18px rgba(0,0,0,.28),0 0 0 2px rgba(0,0,0,.20)!important;
+  text-shadow:0 2px 2px rgba(0,0,0,.62)!important;
+  transform:rotate(-1.2deg);
+}
+.sticker-reaction:nth-child(even){transform:rotate(1.2deg)}
+.sticker-reaction:hover{transform:translateY(-2px) scale(1.04)!important;filter:saturate(1.16) brightness(1.06)!important}
+.sticker-reaction:active{transform:scale(.96)!important}
+.sticker-symbol{font-size:29px;line-height:1;font-weight:1000;filter:drop-shadow(0 2px 2px #0007)}
+.sticker-reaction span{font-size:9px!important;line-height:1.05!important;color:#fff!important;font-weight:1000!important;letter-spacing:.025em!important;white-space:normal!important;text-align:center!important;overflow:visible!important;text-overflow:clip!important;max-width:100%!important}
+.sticker-mau{background:linear-gradient(145deg,#141414,#303030)!important;border-color:#f8f5ec!important}
+.sticker-burn{background:linear-gradient(145deg,#e33a22,#8f120a)!important;border-color:#ffd16b!important}
+.sticker-turn{background:linear-gradient(145deg,#f2ad18,#9b5f00)!important;border-color:#fff0a8!important}
+.sticker-draw2{background:linear-gradient(145deg,#2774d7,#123b90)!important;border-color:#d7e8ff!important}
+.sticker-reverse{background:linear-gradient(145deg,#24a7c8,#126178)!important;border-color:#ddfbff!important}
+.sticker-boca{background:linear-gradient(145deg,#e5542d,#a31e12)!important;border-color:#fff0c8!important}
+.sticker-win{background:linear-gradient(145deg,#e2ad21,#8d6110)!important;border-color:#fff3a8!important}
+.sticker-slow{background:linear-gradient(145deg,#786239,#473719)!important;border-color:#ead79b!important}
+.sticker-good{background:linear-gradient(145deg,#2f8e5b,#135338)!important;border-color:#dbffe7!important}
+.effect-grid.sticker-effect-grid button{height:74px!important;border-radius:15px!important}
+.reaction-pop{
+  min-width:225px;max-width:min(88vw,420px);padding:12px 16px!important;
+  border:3px solid #fff!important;border-radius:19px!important;
+  background:linear-gradient(145deg,#113e2d,#082319)!important;
+  box-shadow:0 9px 0 rgba(0,0,0,.30),0 18px 42px rgba(0,0,0,.52)!important;
+  transform-origin:center;
+}
+.reaction-pop .reaction-emoji{font-size:42px!important;min-width:48px;text-align:center;filter:drop-shadow(0 3px 2px #0007)}
+.reaction-pop strong{font-size:11px!important;color:#f7f2df!important}
+.reaction-pop span{font-size:15px!important;color:#ffd85e!important;font-weight:1000!important;letter-spacing:.025em!important;text-shadow:0 2px 2px #0008!important}
+.reaction-pop-angry{background:linear-gradient(145deg,#7f190f,#30100b)!important;border-color:#ffca62!important}
+.reaction-pop-horn{background:linear-gradient(145deg,#242424,#0d0d0d)!important;border-color:#f9e39b!important}
+.reaction-pop-wow{background:linear-gradient(145deg,#9d6500,#3b2600)!important;border-color:#ffe39a!important}
+.reaction-pop-draw2{background:linear-gradient(145deg,#174f9f,#0b244f)!important;border-color:#dbeaff!important}
+.reaction-pop-drum{background:linear-gradient(145deg,#17748e,#0a3340)!important;border-color:#d6faff!important}
+.reaction-pop-jogaBoca{background:linear-gradient(145deg,#a92d18,#43130c)!important;border-color:#fff0b0!important}
+.reaction-pop-victory{background:linear-gradient(145deg,#8b6412,#332204)!important;border-color:#ffed91!important}
+.reaction-pop-laugh{background:linear-gradient(145deg,#5f4b2c,#2b2112)!important;border-color:#ead79b!important}
+.reaction-pop-applause{background:linear-gradient(145deg,#1d7147,#0b3925)!important;border-color:#d6ffe5!important}
+@media(max-width:700px){
+  .all-reactions-panel{width:min(292px,calc(100vw - 18px))!important;padding:9px!important}
+  .sticker-reactions-grid,.sticker-effect-grid{gap:7px!important}
+  .sticker-reaction,.effect-grid.sticker-effect-grid button{height:68px!important;padding:5px 3px!important}
+  .sticker-symbol{font-size:25px}
+  .sticker-reaction span{font-size:8px!important}
+  .reaction-pop{min-width:200px;padding:10px 12px!important}
+  .reaction-pop .reaction-emoji{font-size:36px!important;min-width:42px}
+  .reaction-pop span{font-size:13px!important}
+}

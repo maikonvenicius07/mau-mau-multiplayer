@@ -1,28 +1,24 @@
-MAU-MAU CANDEIAS — V41.6 RANKING COM TROFÉUS PREMIUM
+MAU-MAU CANDEIAS — V41.7 FIGURINHAS / EXPRESSÕES PREMIUM
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 - public/app.js
+- server.js
 
 Incluído também:
-- ATUALIZAR_V41.6_RANKING_TROFEUS_PREMIUM.txt
+- ATUALIZAR_V41.7_FIGURINHAS_EXPRESSOES_PREMIUM.txt
 
-Faixas visuais:
-- 1º: Lenda de Candeias
-- 2º: Diamante Lendário
-- 3º: Ouro Mestre
-- 4º ao 10º: Prata Competidor
-- 11º em diante: Bronze Novato
+Novo visual de figurinhas:
+- MAU-MAU!
+- QUEIMOU!
+- SUA VEZ!
+- COMPRA 2!
+- REVERSO!
+- JOGA BOCA!
+- GANHEI!
+- TÁ LENTO!
+- BOA PARTIDA!
 
-IMPORTANTE:
-- A regra do ranking continua sendo SOMENTE VITÓRIAS.
-- Empates continuam compartilhando a mesma posição.
-- Avatares e regras do jogo não foram alterados.
-
-Testes principais executados com sucesso:
-- ranking-ui-contract.test.js
-- audit-fixes-v40571.test.js
-- ui-contract.test.js
-- mobile-layout-contract.test.js
-- avatar-contract.test.js
+A reação COMPRA 2 é apenas social/visual; não altera a regra da carta 7.
+Avatares e regras do jogo não foram alterados.
