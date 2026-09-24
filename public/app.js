@@ -1099,7 +1099,15 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show'
 
 const rankPeriodLabel={day:'Hoje',week:'Semana',month:'Mês',season:'Temporada',history:'Histórico'};
 const rankModeLabel={official:'Oficial',training:'Treino'};
-function rankMedal(rank){return rank===1?'👑':rank===2?'🥈':rank===3?'🥉':String(rank)}
+function rankMedal(rank){return rank===1?'👑':rank===2?'💎':rank===3?'🏆':String(rank)}
+function rankingTier(rank){
+  const n=Number(rank)||0;
+  if(n===1)return {key:'legend',icon:'👑',label:'Lenda de Candeias'};
+  if(n===2)return {key:'diamond',icon:'💎',label:'Diamante Lendário'};
+  if(n===3)return {key:'gold',icon:'🏆',label:'Ouro Mestre'};
+  if(n>=4&&n<=10)return {key:'silver',icon:'🥈',label:'Prata Competidor'};
+  return {key:'bronze',icon:'🥉',label:'Bronze Novato'};
+}
 async function loadRanking(){
   const body=$('#rankingBody'), mine=$('#rankingMine');
   if(!body||!mine)return;
@@ -1123,11 +1131,11 @@ async function loadRanking(){
     if(!rank.rows?.length){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há vitórias neste ranking.</td></tr>';
     }else{
-      body.innerHTML=rank.rows.map(r=>`<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row':''}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<span>${esc(r.name)}</span></div></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`).join('');
+      body.innerHTML=rank.rows.map(r=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small></div></div></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
-      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua conta</span></div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua conta</span>${r.rank?`<em class="rank-tier-badge tier-${rankingTier(r.rank).key}">${rankingTier(r.rank).icon} ${rankingTier(r.rank).label}</em>`:''}</div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
     }else{
       mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui vitória neste período e modalidade.</div>';
     }

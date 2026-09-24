@@ -1821,3 +1821,66 @@ button.bot-primary{
 @keyframes finalConfetti{from{transform:translateY(-3px) rotate(-8deg);opacity:.58}to{transform:translateY(5px) rotate(10deg);opacity:1}}
 @media(max-width:600px){.round-review-modal.final-match-review{width:calc(100vw - 8px);padding:11px 9px}.final-victory-hero{min-height:286px;padding:20px 10px 18px;border-radius:17px}.final-victory-trophy{font-size:92px}.final-victory-ribbon{font-size:23px;padding:9px 20px;min-width:72vw}.final-victory-names{font-size:18px}.final-victory-message{font-size:11px}.final-victory-cards{width:300px;top:62px}.final-victory-cards span{width:70px;height:104px;font-size:19px}.final-match-review .round-review-actions{margin:16px -9px -11px;padding:14px 10px max(14px,env(safe-area-inset-bottom))}.final-match-review .round-review-actions button{width:100%;min-width:0}}
 @media(prefers-reduced-motion:reduce){.final-victory-trophy,.final-victory-confetti span{animation:none!important}}
+
+
+/* V41.6 — RANKING COM TROFÉUS PREMIUM
+   Faixas visuais baseadas apenas na posição exibida. A regra continua sendo somente vitórias. */
+.ranking-modal{
+  background:
+    radial-gradient(circle at 50% -10%,rgba(244,197,77,.18),transparent 34%),
+    radial-gradient(circle at 90% 16%,rgba(62,161,114,.11),transparent 28%),
+    linear-gradient(155deg,#07291e,#041b14 72%)!important;
+  border-color:rgba(235,193,88,.58)!important;
+  box-shadow:0 34px 100px #000c,0 0 0 1px rgba(255,233,164,.04) inset!important;
+}
+.ranking-head h2{color:#fff1bd;text-shadow:0 3px 18px #0008}
+.ranking-head p{color:#bdd0c5}
+.ranking-leagues{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:-2px 0 14px;
+}
+.ranking-league-card{
+  min-height:82px;display:grid;place-items:center;align-content:center;gap:1px;padding:9px 5px;
+  border:1px solid rgba(255,255,255,.10);border-radius:15px;text-align:center;
+  background:linear-gradient(155deg,rgba(255,255,255,.055),rgba(0,0,0,.14));
+  box-shadow:0 9px 22px rgba(0,0,0,.24),0 1px 0 rgba(255,255,255,.05) inset;
+}
+.ranking-league-icon{font-size:25px;line-height:1;filter:drop-shadow(0 4px 6px #0007)}
+.ranking-league-card strong{font-size:11px;letter-spacing:.055em;text-transform:uppercase}
+.ranking-league-card small{font-size:8px;color:#aebfb5;font-weight:800}
+.ranking-league-card.tier-bronze{border-color:#9c613e;background:linear-gradient(155deg,#3d2418,#17110d)}
+.ranking-league-card.tier-bronze strong{color:#e7a071}
+.ranking-league-card.tier-silver{border-color:#8f9aaa;background:linear-gradient(155deg,#313943,#12161b)}
+.ranking-league-card.tier-silver strong{color:#dbe3ef}
+.ranking-league-card.tier-gold{border-color:#d9ab43;background:linear-gradient(155deg,#594013,#241a09)}
+.ranking-league-card.tier-gold strong{color:#ffd768}
+.ranking-league-card.tier-diamond{border-color:#55aee4;background:linear-gradient(155deg,#123f62,#092335)}
+.ranking-league-card.tier-diamond strong{color:#8ed8ff}
+.ranking-league-card.tier-legend{border-color:#e1b641;background:radial-gradient(circle at 50% 10%,rgba(255,224,99,.18),transparent 44%),linear-gradient(155deg,#714a10,#2a1c08)}
+.ranking-league-card.tier-legend strong{color:#ffe181}
+.ranking-mine{position:relative;overflow:hidden;box-shadow:0 12px 30px #0005,0 0 0 1px rgba(255,255,255,.025) inset}
+.ranking-mine:after{content:"";position:absolute;inset:auto -20% -70% 30%;height:120px;background:radial-gradient(circle,rgba(241,193,76,.10),transparent 70%);pointer-events:none}
+.rank-player-copy{display:flex;min-width:0;flex-direction:column;gap:4px}
+.rank-player-copy>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-tier-badge{
+  display:inline-flex;align-items:center;gap:4px;width:max-content;max-width:100%;padding:3px 7px;
+  border-radius:999px;font-size:8px!important;font-weight:950!important;font-style:normal!important;line-height:1.25;
+  letter-spacing:.035em;text-transform:uppercase;border:1px solid currentColor;background:#0003;
+}
+.rank-tier-badge.tier-bronze{color:#e5a171}.rank-tier-badge.tier-silver{color:#dbe4ef}.rank-tier-badge.tier-gold{color:#ffd667}.rank-tier-badge.tier-diamond{color:#8edaff}.rank-tier-badge.tier-legend{color:#ffe180;box-shadow:0 0 14px rgba(244,197,72,.12)}
+.ranking-table tbody tr{transition:transform .14s ease,background .14s ease,box-shadow .14s ease}
+.ranking-table tbody tr:hover{transform:translateY(-1px)}
+.ranking-table tr.rank-tier-bronze{box-shadow:inset 3px 0 #9e6848}
+.ranking-table tr.rank-tier-silver{box-shadow:inset 3px 0 #9ba8b8}
+.ranking-table tr.rank-tier-gold{box-shadow:inset 3px 0 #d7ad45}
+.ranking-table tr.rank-tier-diamond{box-shadow:inset 3px 0 #54b5e9}
+.ranking-table tr.rank-tier-legend{background:linear-gradient(90deg,rgba(104,73,16,.38),rgba(11,39,27,.76));box-shadow:inset 4px 0 #edc34f,0 0 24px rgba(236,190,67,.07)}
+.ranking-table tr.ranking-me-row{outline:1px solid rgba(94,211,153,.28);outline-offset:-1px}
+.ranking-table .rank-wins strong{display:inline-grid;place-items:center;min-width:38px;min-height:32px;padding:3px 8px;border-radius:12px;background:linear-gradient(145deg,#50380f,#2a1e0c);border:1px solid #9f792d;box-shadow:0 4px 12px #0004;color:#ffe090}
+.ranking-note{padding-top:2px}
+@media(max-width:700px){
+  .ranking-leagues{grid-template-columns:repeat(5,92px);overflow-x:auto;padding-bottom:3px;scroll-snap-type:x proximity}
+  .ranking-league-card{scroll-snap-align:start;min-height:76px}
+  .ranking-league-icon{font-size:22px}
+  .ranking-table tr{background:linear-gradient(145deg,#091d15,#06130e)}
+  .rank-tier-badge{font-size:7px!important;padding:3px 6px}
+}

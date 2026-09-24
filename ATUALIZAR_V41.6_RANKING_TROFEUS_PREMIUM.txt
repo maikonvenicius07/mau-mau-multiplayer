@@ -1,0 +1,26 @@
+MAU-MAU CANDEIAS — V41.6
+RANKING COM TROFÉUS PREMIUM
+
+Alterações visuais:
+- Nova faixa de troféus Bronze, Prata, Ouro, Diamante e Lenda de Candeias.
+- Cada posição recebe uma faixa visual sem alterar a regra do ranking.
+- Regra preservada: classificação continua sendo somente por vitórias.
+- Empates continuam compartilhando a mesma posição e, por consequência, a mesma faixa visual.
+- Destaques premium para o jogador conectado, vitórias e primeiras posições.
+
+Faixas visuais por posição:
+1º = Lenda de Candeias
+2º = Diamante Lendário
+3º = Ouro Mestre
+4º ao 10º = Prata Competidor
+11º em diante = Bronze Novato
+
+Não alterados:
+- avatares
+- regras do Mau-Mau
+- cálculo do ranking
+- banco de dados
+- login
+- reconexão
+- observador
+- servidor

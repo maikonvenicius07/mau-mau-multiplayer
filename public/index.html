@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v41.5-victory-premium" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v41.6-ranking-premium" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -696,6 +696,13 @@
         <button data-rank-period="history">HISTÓRICO</button>
       </div>
     </div>
+    <div class="ranking-leagues" aria-label="Faixas visuais do ranking">
+      <div class="ranking-league-card tier-bronze"><span class="ranking-league-icon">🥉</span><strong>Bronze</strong><small>Novato</small></div>
+      <div class="ranking-league-card tier-silver"><span class="ranking-league-icon">🥈</span><strong>Prata</strong><small>Competidor</small></div>
+      <div class="ranking-league-card tier-gold"><span class="ranking-league-icon">🏆</span><strong>Ouro</strong><small>Mestre</small></div>
+      <div class="ranking-league-card tier-diamond"><span class="ranking-league-icon">💎</span><strong>Diamante</strong><small>Lendário</small></div>
+      <div class="ranking-league-card tier-legend"><span class="ranking-league-icon">👑</span><strong>Lenda</strong><small>de Candeias</small></div>
+    </div>
     <div id="rankingMine" class="ranking-mine"></div>
     <div class="ranking-table-wrap">
       <table class="ranking-table ranking-table-wins">
@@ -708,6 +715,6 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=40.69.2-v41.5-victory-premium"></script>
+  <script src="app.js?v=40.69.2-v41.6-ranking-premium"></script>
 </body>
 </html>
