@@ -1,7 +1,16 @@
-V41.1 — CORREÇÃO DO BUILD NO RENDER
+MAU-MAU CANDEIAS — V41.2 SPLASH PREMIUM
 
 Substituir no GitHub:
 - public/index.html
+- public/styles.css
 
-O restante da V41 pode permanecer como está.
-Avatares não foram alterados.
+Incluído também:
+- ATUALIZAR_V41.2_SPLASH_PREMIUM.txt
+
+Não foram alterados:
+- avatares
+- regras
+- reconexão
+- ranking
+- login
+- servidor

@@ -1,0 +1,19 @@
+MAU-MAU CANDEIAS — V41.2 SPLASH PREMIUM
+
+Alterações:
+- Nova tela de abertura visual (splash) em verde escuro + dourado.
+- Usa o ícone atual do app como elemento central.
+- Inclui cartas estilizadas e barra de carregamento.
+- Some automaticamente após a abertura.
+
+Arquivos alterados:
+- public/index.html
+- public/styles.css
+
+Não alterado:
+- avatares
+- regras
+- reconexão
+- ranking
+- login
+- servidor

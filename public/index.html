@@ -10,9 +10,23 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v41-premium-visual-1" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v41.2-premium-splash" />
 </head>
 <body>
+  <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
+  <div id="appSplash" class="app-splash" aria-hidden="true">
+    <div class="app-splash-glow"></div>
+    <div class="app-splash-content">
+      <img class="app-splash-logo" src="/assets/app/icon-512.png" alt="" />
+      <div class="app-splash-title">MAU-MAU</div>
+      <div class="app-splash-subtitle">CANDEIAS</div>
+      <div class="app-splash-cards" aria-hidden="true">
+        <span class="red">A♥</span><span>7♣</span><span class="red">J♦</span><span>Q♠</span>
+      </div>
+      <div class="app-splash-loader"><span></span></div>
+      <div class="app-splash-caption">Preparando suas cartas...</div>
+    </div>
+  </div>
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="inviteInbox" class="invite-inbox" aria-live="polite" aria-label="Convites para jogar"></div>
 
