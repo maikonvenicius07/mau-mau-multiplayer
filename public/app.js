@@ -1086,6 +1086,43 @@ function speakJogaBocaAberta(){
     window.speechSynthesis.speak(utterance);
   }catch{}
 }
+
+// V41.7.2 — voz premium para as demais figurinhas sociais.
+// JOGA BOCA ABERTA mantém exatamente o tratamento anterior, que já estava aprovado.
+const socialVoiceCatalog={
+  horn:{text:'Mau-Mau!',rate:.84,pitch:1.08,delay:130},
+  angry:{text:'Queimou!',rate:.78,pitch:.86,delay:120},
+  wow:{text:'Sua vez!',rate:.88,pitch:1.10,delay:120},
+  draw2:{text:'Compra duas cartas!',rate:.86,pitch:.96,delay:140},
+  drum:{text:'Reverso!',rate:.82,pitch:.92,delay:130},
+  victory:{text:'Ganhei!',rate:.82,pitch:1.16,delay:170},
+  laugh:{text:'Tá lento, hein?',rate:.76,pitch:1.04,delay:120},
+  applause:{text:'Boa partida!',rate:.88,pitch:1.02,delay:150}
+};
+function speakSocialReaction(effect){
+  const cfg=socialVoiceCatalog[effect];
+  if(!cfg || !soundOn || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined') return;
+  try{
+    window.speechSynthesis.cancel();
+    const releaseMusicDuck=beginMusicSpeechDuck();
+    const utterance=new SpeechSynthesisUtterance(cfg.text);
+    utterance.onend=utterance.onerror=releaseMusicDuck;
+    utterance.lang='pt-BR';
+    utterance.rate=cfg.rate;
+    utterance.pitch=cfg.pitch;
+    utterance.volume=1;
+    const voices=window.speechSynthesis.getVoices?.()||[];
+    const ptBr=voices.find(v=>String(v.lang||'').toLowerCase()==='pt-br');
+    const pt=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('pt'));
+    if(ptBr||pt) utterance.voice=ptBr||pt;
+    window.speechSynthesis.speak(utterance);
+  }catch{}
+}
+function scheduleSocialReactionVoice(effect){
+  const cfg=socialVoiceCatalog[effect];
+  if(!cfg)return;
+  setTimeout(()=>speakSocialReaction(effect),cfg.delay||120);
+}
 function announceOpponentMauMau(player){
   if(!player || player.id===state?.me?.id) return;
   playGameSound('opponentMau');
@@ -1108,31 +1145,50 @@ function playSocialEffect(effect){
   const ac=audioCtx(); if(!ac)return;
   const t=ac.currentTime+.02;
   if(effect==='applause'){
-    for(let i=0;i<12;i++) noiseBurst(ac,t+i*.045+Math.random()*.018,.055,.018+Math.random()*.014);
+    // Palmas em três ondas: mais cheias, menos metálicas.
+    for(let i=0;i<18;i++) noiseBurst(ac,t+i*.034+Math.random()*.016,.048,.014+Math.random()*.012);
+    [659,784].forEach((f,i)=>tone(ac,f,t+.08+i*.08,.10,'triangle',.018));
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='laugh'){
-    [520,440,540,410,500,370].forEach((f,i)=>tone(ac,f,t+i*.095,.075,'sine',.028));
+    // Risada brincalhona com pequenas subidas e descidas.
+    [520,650,500,630,470,590].forEach((f,i)=>tone(ac,f,t+i*.075,.060,'sine',.027));
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='angry'){
-    [220,205,196,185].forEach((f,i)=>tone(ac,f,t+i*.08,.12,'sawtooth',.040));
-    noiseBurst(ac,t+.02,.07,.018);
-    noiseBurst(ac,t+.18,.09,.022);
+    // Impacto grave + ruído curto para lembrar uma "queimada".
+    [170,145,120].forEach((f,i)=>tone(ac,f,t+i*.085,.15,'sawtooth',.045));
+    noiseBurst(ac,t+.02,.11,.035);noiseBurst(ac,t+.18,.09,.025);
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='horn'){
-    [392,523,659].forEach((f,i)=>tone(ac,f,t+i*.12,.19,'sawtooth',.025));
+    // Fanfarra curta e clara para MAU-MAU.
+    [392,523,659,784].forEach((f,i)=>tone(ac,f,t+i*.09,.15,'triangle',.034));
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='drum'){
-    [0,.18,.36].forEach((off,i)=>{tone(ac,i===2?70:92,t+off,.14,'sine',.055);noiseBurst(ac,t+off,.045,.014)});
+    // Giro sonoro: grave -> agudo -> grave para combinar com REVERSO.
+    [196,294,440,294,196].forEach((f,i)=>tone(ac,f,t+i*.07,.10,'sine',.030));
+    noiseBurst(ac,t+.28,.055,.014);
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='victory'){
-    [523,659,784,1046].forEach((f,i)=>tone(ac,f,t+i*.13,i===3?.34:.16,'triangle',.035));
+    // Pequena fanfarra de vitória mais "campeã".
+    [523,659,784,1046,1318].forEach((f,i)=>tone(ac,f,t+i*.105,i===4?.34:.15,'triangle',.040));
+    noiseBurst(ac,t+.36,.07,.012);
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='wow'){
-    [280,360,470,620].forEach((f,i)=>tone(ac,f,t+i*.07,.12,'sine',.026));
+    // Campainha de chamada para SUA VEZ.
+    [523,659,784].forEach((f,i)=>tone(ac,f,t+i*.085,.12,'sine',.032));
+    tone(ac,1046,t+.27,.18,'triangle',.028);
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='draw2'){
-    [330,440].forEach((f,i)=>tone(ac,f,t+i*.12,.18,'square',.030));
-    noiseBurst(ac,t+.20,.06,.015);
+    // Dois impactos bem separados para reforçar o +2 visual.
+    [330,330].forEach((f,i)=>{tone(ac,f,t+i*.18,.14,'square',.035);tone(ac,f*1.5,t+.04+i*.18,.10,'triangle',.022)});
+    scheduleSocialReactionVoice(effect);
   } else if(effect==='jogaBoca'){
-    // Chamada forte antes da fala para o efeito se destacar na mesa.
+    // Mantido exatamente como aprovado pelo usuário.
     noiseBurst(ac,t,.20,.075);
     [330,440,660,880].forEach((f,i)=>tone(ac,f,t+i*.07,.15,'sawtooth',.060));
     setTimeout(()=>speakJogaBocaAberta(),180);
   }
 }
+
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 
