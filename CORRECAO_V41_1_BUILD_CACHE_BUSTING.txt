@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — V41.1 CORREÇÃO DE BUILD
+
+Correção aplicada:
+- O teste audit-fixes-v40571.test.js exige que index.html mantenha o prefixo
+  styles.css?v=40.69.2 e app.js?v=40.69.2.
+- O visual V41 havia alterado a referência do CSS para v=41-premium-visual-1,
+  fazendo o teste de regressão falhar no Render.
+- Corrigido para: styles.css?v=40.69.2-v41-premium-visual-1
+
+Nenhuma regra do jogo, avatar, ranking, login ou reconexão foi alterada.
