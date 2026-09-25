@@ -32,7 +32,7 @@ const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
   assert.strictEqual(restoreRoomSnapshot(snap,{now:5000,reconnectGraceMs:60000}),null,'snapshot final já gravado não deve voltar');
 
   assert(server.includes("function authIp(req){return String(req.ip"),'rate limit deve usar req.ip com trust proxy');
-  assert(server.includes("const UI_VERSION = '49.10'"),'versão visual V49.10 ausente');
+  assert(server.includes("const UI_VERSION = '49.11'"),'versão visual V49.11 ausente');
   assert(server.includes('rulesVersion:RULES_VERSION')&&server.includes('uiVersion:UI_VERSION'),'health deve expor versões separadas');
   assert(server.includes('auth-session-secret-required'),'produção deve reprovar readiness sem AUTH_SESSION_SECRET');
   assert(server.includes('authFromCookieHeaderVerified'),'sessões devem ser comparadas com versão persistida');

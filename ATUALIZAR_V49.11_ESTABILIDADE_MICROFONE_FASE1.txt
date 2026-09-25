@@ -1,0 +1,27 @@
+MAU-MAU CANDEIAS — V49.11
+
+ESTABILIDADE DO MICROFONE — FASE 1
+
+Objetivo: reduzir voz picotada/cortando sem alterar interface nem regras.
+
+ALTERAÇÕES
+- recuperação dirigida por peer: uma falha A→B não reconstrói todos os participantes;
+- estado disconnected ganha tolerância de 2,4 s antes do reparo;
+- ICE restart real antes de destruir/recriar RTCPeerConnection;
+- peers saudáveis não são desmontados em mudança de rede/retorno do segundo plano;
+- máximo de um inbound ativo por socket remoto;
+- saúde do áudio inbound considera avanço real de bytes/packets RTP;
+- fallback Socket.IO com jitter buffer inicial ~110 ms e adaptação limitada até ~260 ms;
+- VAD do AudioWorklet com 1 frame de pré-roll para não cortar o início das palavras;
+- refresh do receptor possui throttle por par, não global.
+
+NÃO ALTERA
+- regras do Mau-Mau;
+- Queima V49.9.3;
+- ranking;
+- reconexão da partida/AUTO;
+- observador;
+- avatares/figurinhas;
+- interface do microfone;
+- Áudio Rápido;
+- música.

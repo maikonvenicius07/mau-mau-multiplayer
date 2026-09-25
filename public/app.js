@@ -33,8 +33,12 @@ let liveVoiceRtcConfig={
 };
 const liveMicOutboundPeers=new Map(),liveMicInboundPeers=new Map(),liveMicRemoteAudios=new Map(),liveVoiceActivePlayerIds=new Set();
 const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTimers=new Map(),liveMicRetryCounts=new Map(),liveMicRecoveringPeers=new Set();
+// V49.11 — saúde e recuperação por PEER. Evita que uma micro-oscilação de um participante
+// reconstrua toda a malha de voz e mantém um único inbound ativo por socket remoto.
+const liveVoiceInboundRefreshAtByPeer=new Map(),liveVoiceInboundRtpHealth=new Map();
+let liveVoiceInboundRtpHealthTimer=null;
 // V49.10 — recuperação silenciosa do microfone após troca de rede, retorno do segundo plano e encerramento inesperado da trilha.
-let liveMicRestartTimer=null,liveMicRestartAttempts=0,liveVoiceTransportRecoveryTimer=null,liveVoiceHiddenAt=0,liveVoiceInboundRefreshAt=0;
+let liveMicRestartTimer=null,liveMicRestartAttempts=0,liveVoiceTransportRecoveryTimer=null,liveVoiceHiddenAt=0;
 // V40.51 — jogadores E observadores tentam primeiro WebRTC/Opus. O relay leve
 // pelo Socket.IO fica apenas como fallback seletivo para peers que não conectarem.
 const LIVE_VOICE_RTC_MAX_PEERS=6,LIVE_VOICE_CONNECT_TIMEOUT_MS=4500;
@@ -42,10 +46,11 @@ const liveVoiceRelayFallbackPeers=new Set(),liveVoiceConnectTimers=new Map();
 const LIVE_VOICE_RELAY_SAMPLE_RATE=16000;
 const LIVE_VOICE_RELAY_CODEC='mulaw8';
 const LIVE_VOICE_RELAY_VAD_THRESHOLD=.0045;
-const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=40.52';
+const LIVE_VOICE_RELAY_WORKLET_URL='voice-relay-worklet.js?v=49.11';
 let liveVoiceRelaySpeechHangover=0;
 let liveVoiceRelayCapture=null,liveVoiceRelayCaptureStarting=false,liveVoiceRelayWorkletPromise=null,liveVoiceRelayWarned=false;
-const liveVoiceRelayPlaybackNext=new Map();
+const liveVoiceRelayPlaybackNext=new Map(),liveVoiceRelayJitterState=new Map();
+let liveVoiceRelayScriptPreRoll=null;
 // V40.50 — diagnóstico leve de conexão. Mede RTT até o servidor, variação
 // entre sondas, falhas recentes, transporte Socket.IO e estatísticas WebRTC.
 const NETWORK_PROBE_INTERVAL_MS=5000,NETWORK_PROBE_TIMEOUT_MS=3500;
@@ -1755,7 +1760,7 @@ function tuneLiveVoiceSender(pc,sender){
     if(opus.length&&transceiver?.setCodecPreferences)transceiver.setCodecPreferences([...opus,...rest]);
   }catch{}
 }
-function liveVoiceRecoveryDelay(attempt){return Math.min(6000,450*(2**Math.min(4,Math.max(0,Number(attempt||1)-1))))}
+function liveVoiceRecoveryDelay(attempt){return Math.min(6500,900*(2**Math.min(3,Math.max(0,Number(attempt||1)-1))))}
 function cancelOutboundLiveVoiceRecovery(socketId){
   const timer=liveMicRetryTimers.get(socketId);if(timer)clearTimeout(timer);liveMicRetryTimers.delete(socketId);liveMicRecoveringPeers.delete(socketId);
 }
@@ -1768,10 +1773,23 @@ function resumeLiveVoicePlayback(){
     try{if(audio?.paused)audio.play?.().catch?.(()=>{})}catch{}
   }
 }
-function requestLiveVoiceInboundRefresh(reason='resume'){
-  if(!state||!socket.connected)return;
-  const now=Date.now();if(now-liveVoiceInboundRefreshAt<1500)return;liveVoiceInboundRefreshAt=now;
-  socket.emit('liveVoiceReady',{refresh:true,reason:String(reason||'resume').slice(0,40)});
+function requestLiveVoiceInboundRefresh(fromSocketId,reason='resume'){
+  const targetSocketId=String(fromSocketId||'');if(!targetSocketId||!state||!socket.connected)return;
+  const now=Date.now(),last=Number(liveVoiceInboundRefreshAtByPeer.get(targetSocketId)||0);if(now-last<1500)return;
+  liveVoiceInboundRefreshAtByPeer.set(targetSocketId,now);
+  socket.emit('liveVoiceRefreshPeer',{targetSocketId,reason:String(reason||'resume').slice(0,40)});
+}
+function inboundLiveVoiceConnectionHealthyFrom(socketId){
+  const prefix=`${String(socketId||'')}:`;for(const [key,pc] of liveMicInboundPeers)if(key.startsWith(prefix)&&liveVoicePeerHealthy(pc))return true;
+  return false;
+}
+function requestUnhealthyInboundLiveVoiceRefresh(reason='resume'){
+  const seen=new Set();
+  for(const key of liveMicInboundPeers.keys()){
+    const socketId=String(key).split(':')[0];if(!socketId||seen.has(socketId))continue;seen.add(socketId);
+    // Para retomada geral usamos somente estado ICE/WebRTC. RTP sem incremento pode ser silêncio legítimo.
+    if(!inboundLiveVoiceConnectionHealthyFrom(socketId))requestLiveVoiceInboundRefresh(socketId,reason);
+  }
 }
 function clearLiveMicRestartTimer(){if(liveMicRestartTimer)clearTimeout(liveMicRestartTimer);liveMicRestartTimer=null}
 function scheduleLiveMicRestart(reason='capture',delayMs=null){
@@ -1784,41 +1802,66 @@ function scheduleLiveMicRestart(reason='capture',delayMs=null){
     startLiveMic({recovery:true,reason});
   },delay);
 }
-async function recoverLiveVoiceTransport(reason='network',{forcePeers=true,refreshConfig=true}={}){
-  liveVoiceTransportRecoveryTimer=null;resumeLiveVoicePlayback();liveVoiceRelayPlaybackNext.clear();
+async function restartOutboundLiveVoiceIce(socketId,reason='ice-restart'){
+  const pc=liveMicOutboundPeers.get(socketId),peer=liveMicPeerInfo.get(socketId);
+  if(!pc||!peer||pc.signalingState==='closed'||!liveMicOn||!socket.connected)return false;
+  if(pc.signalingState!=='stable')return false;
+  try{
+    if(typeof pc.restartIce==='function')pc.restartIce();
+    const offer=await pc.createOffer({offerToReceiveAudio:false,iceRestart:true});
+    await pc.setLocalDescription(offer);
+    signalLiveVoice(socketId,'offer',{sdp:{type:pc.localDescription.type,sdp:pc.localDescription.sdp},iceRestart:true},liveMicSessionId);
+    scheduleLiveVoiceConnectTimeout(socketId);
+    liveMicRecoveringPeers.add(socketId);updateLiveMicUI();
+    return true;
+  }catch{return false}
+}
+async function recoverLiveVoiceTransport(reason='network',{forcePeers=false,refreshConfig=true}={}){
+  liveVoiceTransportRecoveryTimer=null;resumeLiveVoicePlayback();
   if(!state||!socket.connected){if(liveMicWanted&&!liveMicOn)scheduleLiveMicRestart(reason,350);return;}
-  requestLiveVoiceInboundRefresh(reason);
+  requestUnhealthyInboundLiveVoiceRefresh(reason);
   if(liveMicWanted&&!liveMicOn&&!liveMicStarting){scheduleLiveMicRestart(reason,250);return;}
   if(!liveMicOn)return;
   const sessionId=liveMicSessionId;
   if(refreshConfig)invalidateLiveVoiceRtcConfig();
   if(refreshConfig)await loadLiveVoiceRtcConfig();
   if(!liveMicOn||!socket.connected||sessionId!==liveMicSessionId)return;
-  // Reafirma o remetente no servidor e recebe novamente a lista atual da sala.
+  // Reafirma o remetente, mas NÃO desmonta peers saudáveis. Pequenas mudanças de rede
+  // só acionam reparo nos caminhos que realmente estiverem degradados.
   socket.emit('liveVoiceJoin');
   if(!forcePeers)return;
-  const peers=[...liveMicPeerInfo.values()];
-  for(const peer of peers){
-    const socketId=String(peer?.socketId||'');if(!socketId)continue;
-    setLiveVoiceRelayFallback(socketId,true);
-    closeOutboundLivePeer(socketId,{keepPeer:true,keepRetryCount:false,keepFallback:true});
+  for(const [socketId,pc] of liveMicOutboundPeers){
+    if(liveVoicePeerHealthy(pc))continue;
+    setLiveVoiceRelayFallback(socketId,true);scheduleOutboundLiveVoiceRecovery(socketId,'transport-recovery');
   }
-  for(const peer of peers)createOutboundLivePeer(peer,{recovery:true}).catch(()=>{});
 }
 function scheduleLiveVoiceTransportRecovery(reason='network',options={}){
   if(liveVoiceTransportRecoveryTimer)clearTimeout(liveVoiceTransportRecoveryTimer);
-  liveVoiceTransportRecoveryTimer=setTimeout(()=>recoverLiveVoiceTransport(reason,options).catch(()=>{}),260);
+  liveVoiceTransportRecoveryTimer=setTimeout(()=>recoverLiveVoiceTransport(reason,options).catch(()=>{}),420);
 }
 function scheduleOutboundLiveVoiceRecovery(socketId,reason='network'){
   if(!liveMicOn||!socket.connected||!socketId||liveMicRetryTimers.has(socketId))return;
   const peer=liveMicPeerInfo.get(socketId);if(!peer)return;
   const attempt=(liveMicRetryCounts.get(socketId)||0)+1;liveMicRetryCounts.set(socketId,attempt);liveMicRecoveringPeers.add(socketId);updateLiveMicUI();
-  const timer=setTimeout(()=>{
-    liveMicRetryTimers.delete(socketId);liveMicRecoveringPeers.delete(socketId);
-    if(!liveMicOn||!socket.connected)return updateLiveMicUI();
+  const firstDisconnected=reason==='disconnected'&&attempt===1;
+  const firstFailed=reason==='failed'&&attempt===1;
+  const delay=firstDisconnected?2400:(firstFailed?300:liveVoiceRecoveryDelay(attempt));
+  const timer=setTimeout(async()=>{
+    liveMicRetryTimers.delete(socketId);
+    const pc=liveMicOutboundPeers.get(socketId);
+    if(!liveMicOn||!socket.connected){liveMicRecoveringPeers.delete(socketId);return updateLiveMicUI();}
+    if(liveVoicePeerHealthy(pc)){
+      liveMicRetryCounts.set(socketId,0);liveMicRecoveringPeers.delete(socketId);setLiveVoiceRelayFallback(socketId,false);return updateLiveMicUI();
+    }
+    // Primeiras tentativas: ICE restart real, preservando a RTCPeerConnection.
+    if(attempt<=2&&pc){
+      const restarted=await restartOutboundLiveVoiceIce(socketId,reason);
+      if(restarted){scheduleOutboundLiveVoiceRecovery(socketId,'post-ice-restart');return;}
+    }
+    // Só reconstrói completamente depois de as tentativas menos destrutivas falharem.
     closeOutboundLivePeer(socketId,{keepPeer:true,keepRetryCount:true,keepFallback:true});
     createOutboundLivePeer(peer,{recovery:true}).catch(()=>{});updateLiveMicUI();
-  },liveVoiceRecoveryDelay(attempt));
+  },delay);
   liveMicRetryTimers.set(socketId,timer);
   if(reason==='failed'&&attempt===2)toast('🎙️ A voz oscilou. Tentando recuperar automaticamente...');
 }
@@ -1843,6 +1886,34 @@ function removeLiveRemoteAudio(key){
 }
 function closeInboundLivePeer(key){
   const pc=liveMicInboundPeers.get(key);if(pc)closeLivePeer(pc);liveMicInboundPeers.delete(key);removeLiveRemoteAudio(key);clearLiveVoiceCandidateQueues(`in:${key}:`);
+  const socketId=String(key||'').split(':')[0];if(socketId&&!([...liveMicInboundPeers.keys()].some(k=>String(k).startsWith(`${socketId}:`))))liveVoiceInboundRtpHealth.delete(socketId);
+  syncLiveVoiceInboundRtpHealthMonitor();
+}
+function closeOtherInboundLivePeers(fromSocketId,keepKey=''){
+  const prefix=`${String(fromSocketId||'')}:`;
+  for(const key of [...liveMicInboundPeers.keys()])if(key.startsWith(prefix)&&key!==keepKey)closeInboundLivePeer(key);
+}
+async function sampleLiveVoiceInboundRtpHealth(){
+  const now=Date.now(),totals=new Map();
+  for(const [key,pc] of liveMicInboundPeers){
+    const socketId=String(key).split(':')[0];if(!socketId||!pc?.getStats)continue;
+    try{
+      const stats=await pc.getStats();let bytes=0,packets=0;
+      stats.forEach(r=>{if(r?.type==='inbound-rtp'&&r.kind==='audio'&&!r.isRemote){bytes+=Number(r.bytesReceived||0);packets+=Number(r.packetsReceived||0)}});
+      const rec=totals.get(socketId)||{bytes:0,packets:0};rec.bytes+=bytes;rec.packets+=packets;totals.set(socketId,rec);
+    }catch{}
+  }
+  for(const [socketId,total] of totals){
+    const prev=liveVoiceInboundRtpHealth.get(socketId)||{bytes:0,packets:0,lastIncreaseAt:now,observedAt:0};
+    const increased=total.bytes>prev.bytes||total.packets>prev.packets;
+    liveVoiceInboundRtpHealth.set(socketId,{...total,lastIncreaseAt:increased?now:prev.lastIncreaseAt,observedAt:now});
+  }
+}
+function syncLiveVoiceInboundRtpHealthMonitor(){
+  if(liveMicInboundPeers.size&&!liveVoiceInboundRtpHealthTimer){
+    liveVoiceInboundRtpHealthTimer=setInterval(()=>sampleLiveVoiceInboundRtpHealth().catch(()=>{}),1200);
+    sampleLiveVoiceInboundRtpHealth().catch(()=>{});
+  }else if(!liveMicInboundPeers.size&&liveVoiceInboundRtpHealthTimer){clearInterval(liveVoiceInboundRtpHealthTimer);liveVoiceInboundRtpHealthTimer=null;liveVoiceInboundRtpHealth.clear();}
 }
 function closeOutboundLivePeer(targetSocketId,{keepPeer=false,keepRetryCount=false,keepFallback=false}={}){
   const pc=liveMicOutboundPeers.get(targetSocketId);if(pc)closeLivePeer(pc);liveMicOutboundPeers.delete(targetSocketId);clearLiveVoiceCandidateQueues(`out:${targetSocketId}:`);cancelOutboundLiveVoiceRecovery(targetSocketId);clearLiveVoiceConnectTimer(targetSocketId);
@@ -1855,6 +1926,7 @@ function closeAllLiveVoiceConnections(){
   for(const key of [...liveMicInboundPeers.keys()])closeInboundLivePeer(key);
   for(const timer of liveMicRetryTimers.values())clearTimeout(timer);for(const timer of liveVoiceConnectTimers.values())clearTimeout(timer);
   liveMicRetryTimers.clear();liveMicRetryCounts.clear();liveMicRecoveringPeers.clear();liveVoiceConnectTimers.clear();liveVoiceRelayFallbackPeers.clear();liveMicPeerInfo.clear();clearLiveVoiceCandidateQueues();
+  liveVoiceInboundRefreshAtByPeer.clear();liveVoiceInboundRtpHealth.clear();syncLiveVoiceInboundRtpHealthMonitor();
 }
 function attachLiveRemoteAudio(key,stream,fromName='Jogador'){
   removeLiveRemoteAudio(key);
@@ -1890,6 +1962,8 @@ function bindOutboundLivePeerHealth(pc,peer){
     if(liveVoicePeerHealthy(pc)){
       clearLiveVoiceConnectTimer(socketId);setLiveVoiceRelayFallback(socketId,false);cancelOutboundLiveVoiceRecovery(socketId);liveMicRetryCounts.set(socketId,0);updateLiveMicUI();return;
     }
+    // Fallback entra imediatamente para reduzir silêncio, mas não destruímos a conexão
+    // numa micro-oscilação. 'disconnected' recebe 2,4 s de tolerância antes do ICE restart.
     if(status==='failed'){setLiveVoiceRelayFallback(socketId,true);scheduleOutboundLiveVoiceRecovery(socketId,'failed');}
     else if(status==='disconnected'){setLiveVoiceRelayFallback(socketId,true);scheduleOutboundLiveVoiceRecovery(socketId,'disconnected');}
   };
@@ -1919,7 +1993,7 @@ function muLaw8FromFloatDownsample(input,inputRate,targetRate=LIVE_VOICE_RELAY_S
   return{data:out,rms:Math.sqrt(energy/Math.max(1,outLength))};
 }
 function stopLiveVoiceRelayCapture(){
-  const rec=liveVoiceRelayCapture;liveVoiceRelayCapture=null;liveVoiceRelaySpeechHangover=0;
+  const rec=liveVoiceRelayCapture;liveVoiceRelayCapture=null;liveVoiceRelaySpeechHangover=0;liveVoiceRelayScriptPreRoll=null;
   if(!rec)return;
   try{
     if(rec.kind==='script'&&rec.processor)rec.processor.onaudioprocess=null;
@@ -1941,9 +2015,14 @@ function startLiveVoiceRelayScriptFallback(ac){
     if(!liveVoiceRelayRequired()||!liveMicOn||!socket.connected)return;
     const input=e.inputBuffer?.getChannelData?.(0);if(!input?.length)return;
     const encoded=muLaw8FromFloatDownsample(input,ac.sampleRate,LIVE_VOICE_RELAY_SAMPLE_RATE);if(!encoded.data.length)return;
-    if(encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD)liveVoiceRelaySpeechHangover=4;
-    else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
-    else return;
+    const speaking=encoded.rms>=LIVE_VOICE_RELAY_VAD_THRESHOLD;
+    if(speaking){
+      if(liveVoiceRelaySpeechHangover<=0&&liveVoiceRelayScriptPreRoll?.length){
+        socket.volatile.emit('liveVoiceRelayPcm',{targetSocketIds:liveVoiceRelayTargets(),sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:liveVoiceRelayScriptPreRoll.buffer});
+      }
+      liveVoiceRelaySpeechHangover=4;liveVoiceRelayScriptPreRoll=null;
+    }else if(liveVoiceRelaySpeechHangover>0)liveVoiceRelaySpeechHangover--;
+    else{liveVoiceRelayScriptPreRoll=encoded.data;return;}
     socket.volatile.emit('liveVoiceRelayPcm',{targetSocketIds:liveVoiceRelayTargets(),sampleRate:LIVE_VOICE_RELAY_SAMPLE_RATE,codec:LIVE_VOICE_RELAY_CODEC,pcm:encoded.data.buffer});
   };
   liveVoiceRelayCapture={kind:'script',ac,source,processor,sink};return true;
@@ -1983,12 +2062,17 @@ function liveVoiceRelayBytes(value){
   return null;
 }
 function healthyInboundLiveVoiceFrom(socketId){
-  const prefix=`${String(socketId||'')}:`;for(const [key,pc] of liveMicInboundPeers)if(key.startsWith(prefix)&&['connected','completed'].includes(pc?.connectionState||pc?.iceConnectionState||''))return true;
-  return false;
+  const id=String(socketId||''),prefix=`${id}:`;let connected=false;
+  for(const [key,pc] of liveMicInboundPeers)if(key.startsWith(prefix)&&['connected','completed'].includes(pc?.connectionState||pc?.iceConnectionState||'')){connected=true;break;}
+  if(!connected)return false;
+  const health=liveVoiceInboundRtpHealth.get(id);if(!health||!health.observedAt)return true;
+  // Se o fallback está chegando (há fala), só o descartamos quando RTP realmente
+  // continuou avançando recentemente. Evita silêncio quando connectionState ficou 'connected'
+  // mas a mídia parou de chegar após uma troca de rota.
+  return Date.now()-Number(health.lastIncreaseAt||0)<2600;
 }
 function playLiveVoiceRelayPcm(payload){
   try{
-    // Quando WebRTC já recuperou, descarta quadros residuais do fallback para não duplicar voz.
     if(healthyInboundLiveVoiceFrom(payload?.fromSocketId))return;
     const bytes=liveVoiceRelayBytes(payload?.pcm);if(!bytes||bytes.byteLength<2)return;
     const sampleRate=Math.max(8000,Math.min(24000,Number(payload?.sampleRate)||LIVE_VOICE_RELAY_SAMPLE_RATE));
@@ -2004,12 +2088,17 @@ function playLiveVoiceRelayPcm(payload){
       for(let i=0;i<frames;i++)out[i]=view.getInt16(i*2,true)/32768;
     }
     const source=ac.createBufferSource();source.buffer=buffer;source.connect(ac.destination);
-    const key=String(payload?.fromParticipantId||payload?.fromSocketId||'voice');
-    const now=ac.currentTime,minStart=now+.065;
+    const key=String(payload?.fromParticipantId||payload?.fromSocketId||'voice'),arrival=performance.now()/1000;
+    const jitter=liveVoiceRelayJitterState.get(key)||{lastArrival:0,jitter:0,targetDelay:.11};
+    if(jitter.lastArrival){
+      const delta=Math.abs((arrival-jitter.lastArrival)-buffer.duration);
+      jitter.jitter=.86*jitter.jitter+.14*Math.min(.25,delta);
+      jitter.targetDelay=Math.max(.10,Math.min(.26,.10+jitter.jitter*2.4));
+    }
+    jitter.lastArrival=arrival;liveVoiceRelayJitterState.set(key,jitter);
+    const now=ac.currentTime,minStart=now+jitter.targetDelay;
     let next=Number(liveVoiceRelayPlaybackNext.get(key)||0);
-    // Áudio atrasado não é útil em conversa ao vivo. Limitamos o jitter buffer
-    // para impedir que a voz fique cada vez mais atrasada após uma oscilação.
-    if(next<now-.025||next-now>.32)next=minStart;else next=Math.max(next,minStart);
+    if(next<now-.04||next-now>.48)next=minStart;else next=Math.max(next,minStart);
     source.start(next);liveVoiceRelayPlaybackNext.set(key,next+buffer.duration);
     source.onended=()=>{try{source.disconnect()}catch{}};
   }catch{}
@@ -2040,33 +2129,47 @@ async function createOutboundLivePeer(peer,{recovery=false}={}){
 
 async function acceptInboundLiveOffer(msg){
   const from=String(msg?.fromSocketId||''),sessionId=String(msg?.sessionId||'');if(!from||!sessionId||!msg?.sdp)return;
-  const key=`${from}:${sessionId}`;closeInboundLivePeer(key);await loadLiveVoiceRtcConfig();
-  const pc=newLiveVoicePeer();liveMicInboundPeers.set(key,pc);
+  const key=`${from}:${sessionId}`;
+  // Uma única conexão inbound por socket remoto. Sessões antigas são encerradas antes
+  // de aceitar a nova, evitando eco/áudio duplicado após reconexões ou novo microfone.
+  closeOtherInboundLivePeers(from,key);
+  const existing=liveMicInboundPeers.get(key);
+  if(msg?.iceRestart&&existing&&existing.signalingState!=='closed'){
+    try{
+      await existing.setRemoteDescription(msg.sdp);await flushLiveVoiceCandidates(existing,liveVoiceCandidateKey('in',from,sessionId));
+      const answer=await existing.createAnswer();await existing.setLocalDescription(answer);
+      signalLiveVoice(from,'answer',{sdp:{type:existing.localDescription.type,sdp:existing.localDescription.sdp}},sessionId);
+      return;
+    }catch{closeInboundLivePeer(key)}
+  }else if(existing){
+    // Oferta nova sem marca de ICE restart = RTCPeerConnection do remetente foi recriada.
+    closeInboundLivePeer(key);
+  }
+  await loadLiveVoiceRtcConfig();
+  const pc=newLiveVoicePeer();liveMicInboundPeers.set(key,pc);syncLiveVoiceInboundRtpHealthMonitor();
   let canSendIce=false,disconnectedTimer=null;const queuedIce=[];
   const clearDisconnectedTimer=()=>{if(disconnectedTimer)clearTimeout(disconnectedTimer);disconnectedTimer=null};
   const requestFreshInbound=()=>{
     clearDisconnectedTimer();
     if(liveMicInboundPeers.get(key)!==pc)return;
-    closeInboundLivePeer(key);requestLiveVoiceInboundRefresh('inbound-recovery');
+    requestLiveVoiceInboundRefresh(from,'inbound-recovery');
   };
   const assessInbound=()=>{
     const status=pc.connectionState||pc.iceConnectionState||'';
     if(liveVoicePeerHealthy(pc)){clearDisconnectedTimer();resumeLiveVoicePlayback();return;}
     if(['failed','closed'].includes(status)){requestFreshInbound();return;}
     if(status==='disconnected'&&!disconnectedTimer){
-      // Em celular o estado disconnected pode ser só uma microtroca de antena/rede.
-      // Damos um curto prazo para o ICE se recompor antes de pedir um novo caminho.
       disconnectedTimer=setTimeout(()=>{
         disconnectedTimer=null;
         if(liveMicInboundPeers.get(key)===pc&&!liveVoicePeerHealthy(pc))requestFreshInbound();
-      },1100);
+      },2400);
     }
   };
   pc.onicecandidate=e=>{if(!e.candidate)return;const c=e.candidate.toJSON?e.candidate.toJSON():e.candidate;if(canSendIce)signalLiveVoice(from,'candidate',{candidate:c},sessionId);else queuedIce.push(c)};
   pc.ontrack=e=>{
     const stream=e.streams?.[0]||new MediaStream([e.track]);const voiceName=msg.fromRole==='SPECTATOR'?`Observador ${msg.fromName||''}`.trim():(msg.fromName||'Jogador');
-    try{e.track.onunmute=()=>resumeLiveVoicePlayback();e.track.onended=()=>{if(liveMicInboundPeers.get(key)===pc)requestLiveVoiceInboundRefresh('remote-track-ended')}}catch{}
-    attachLiveRemoteAudio(key,stream,voiceName);
+    try{e.track.onunmute=()=>resumeLiveVoicePlayback();e.track.onended=()=>{if(liveMicInboundPeers.get(key)===pc)requestLiveVoiceInboundRefresh(from,'remote-track-ended')}}catch{}
+    attachLiveRemoteAudio(key,stream,voiceName);sampleLiveVoiceInboundRtpHealth().catch(()=>{});
   };
   pc.onconnectionstatechange=assessInbound;pc.oniceconnectionstatechange=assessInbound;
   try{
@@ -2074,7 +2177,7 @@ async function acceptInboundLiveOffer(msg){
     const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
     signalLiveVoice(from,'answer',{sdp:{type:pc.localDescription.type,sdp:pc.localDescription.sdp}},sessionId);
     canSendIce=true;for(const c of queuedIce)signalLiveVoice(from,'candidate',{candidate:c},sessionId);
-  }catch{clearDisconnectedTimer();closeInboundLivePeer(key);requestLiveVoiceInboundRefresh('inbound-offer-failed')}
+  }catch{clearDisconnectedTimer();closeInboundLivePeer(key);requestLiveVoiceInboundRefresh(from,'inbound-offer-failed')}
 }
 async function handleLiveVoiceSignal(msg){
   try{
@@ -2114,7 +2217,7 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
       };
     }
     refreshQuickAudioMusicDuck();socket.emit('liveVoiceJoin');
-    if(recovery)requestLiveVoiceInboundRefresh('mic-restarted');
+    if(recovery)requestUnhealthyInboundLiveVoiceRefresh('mic-restarted');
     else toast(isSpectatorState()?'🎙️ Microfone ligado. Você pode conversar com a mesa como observador.':'🎙️ Microfone ao vivo ligado com recuperação automática de conexão.');
   }catch(e){
     liveMicOn=false;liveMicSessionId=null;liveMicStream=null;
@@ -2133,7 +2236,7 @@ function stopLiveMic({notify=true,showToast=false,reason='🎙️ Microfone ao v
   if(notify&&socket.connected&&liveMicOn)socket.emit('liveVoiceLeave');
   for(const id of [...new Set([...liveMicOutboundPeers.keys(),...liveMicPeerInfo.keys()])])closeOutboundLivePeer(id);
   liveVoiceRelayFallbackPeers.clear();for(const t of liveVoiceConnectTimers.values())clearTimeout(t);liveVoiceConnectTimers.clear();
-  stopLiveVoiceRelayCapture();liveVoiceRelayPlaybackNext.clear();
+  stopLiveVoiceRelayCapture();liveVoiceRelayPlaybackNext.clear();liveVoiceRelayJitterState.clear();
   try{liveMicStream?.getTracks?.().forEach(t=>{t.onended=null;t.stop()})}catch{}
   liveMicStream=null;liveMicOn=false;liveMicStarting=false;liveMicSessionId=null;
   if(state?.me?.id)liveVoiceActivePlayerIds.delete(state.me.id);
@@ -2165,8 +2268,8 @@ document.addEventListener('visibilitychange',()=>{
 });
 const liveVoiceNetworkConnection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
 liveVoiceNetworkConnection?.addEventListener?.('change',()=>{
-  // Android/iOS podem manter o socket vivo enquanto a rota UDP do WebRTC fica antiga.
-  // Renovar ICE/TURN aqui evita depender de o navegador detectar a falha vários segundos depois.
+  // NetworkInformation pode disparar apenas por alteração estimada de RTT/downlink.
+  // Não derrubamos peers saudáveis; apenas renovamos configuração e inspecionamos os degradados.
   scheduleLiveVoiceTransportRecovery('network-change',{forcePeers:true,refreshConfig:true});
 });
 
@@ -2852,9 +2955,11 @@ socket.on('liveVoicePeers',payload=>{
 socket.on('liveVoicePeerAvailable',peer=>{
   if(!liveMicOn)return;
   const socketId=String(peer?.socketId||'');if(!socketId||socketId===socket.id)return;
+  liveMicPeerInfo.set(socketId,{socketId,participantId:peer.participantId||peer.playerId,playerId:peer.playerId,role:peer.role||'PLAYER',name:peer.name||'Participante'});
   if(peer?.refresh&&liveMicOutboundPeers.has(socketId)){
     setLiveVoiceRelayFallback(socketId,true);
-    closeOutboundLivePeer(socketId,{keepPeer:true,keepRetryCount:false,keepFallback:true});
+    restartOutboundLiveVoiceIce(socketId,'peer-request').then(ok=>{if(!ok)scheduleOutboundLiveVoiceRecovery(socketId,'peer-request')});
+    return;
   }
   createOutboundLivePeer(peer,{recovery:!!peer?.refresh}).catch(()=>{});
 });

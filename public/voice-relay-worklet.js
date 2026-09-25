@@ -1,4 +1,4 @@
-/* Mau-Mau Candeias V40.50 — captura de voz do relay fora da thread principal. */
+/* Mau-Mau Candeias V49.11 — captura de voz do relay com pré-roll fora da thread principal. */
 class MauMauVoiceRelayCaptureProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -14,6 +14,7 @@ class MauMauVoiceRelayCaptureProcessor extends AudioWorkletProcessor {
     this.frame = new Uint8Array(this.frameSize);
     this.frameIndex = 0;
     this.energy = 0;
+    this.preRollFrame = null;
   }
 
   encodeMuLaw8(value) {
@@ -32,12 +33,22 @@ class MauMauVoiceRelayCaptureProcessor extends AudioWorkletProcessor {
     if (this.frameIndex < this.frameSize) return;
 
     const rms = Math.sqrt(this.energy / this.frameSize);
-    if (rms >= this.vadThreshold) this.hangover = this.hangoverFrames;
+    const speaking = rms >= this.vadThreshold;
+    const wasSilent = this.hangover <= 0;
+    if (speaking) this.hangover = this.hangoverFrames;
     else if (this.hangover > 0) this.hangover--;
 
-    if (rms >= this.vadThreshold || this.hangover > 0) {
+    if (speaking && wasSilent && this.preRollFrame) {
+      const pre = this.preRollFrame;
+      this.preRollFrame = null;
+      this.port.postMessage({ type: 'voice-frame', rms: 0, preroll: true, pcm: pre.buffer }, [pre.buffer]);
+    }
+
+    if (speaking || this.hangover > 0) {
       const payload = this.frame;
       this.port.postMessage({ type: 'voice-frame', rms, pcm: payload.buffer }, [payload.buffer]);
+    } else {
+      this.preRollFrame = this.frame;
     }
 
     this.frame = new Uint8Array(this.frameSize);

@@ -24,7 +24,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 const RULES_VERSION = APP_VERSION;
-const UI_VERSION = '49.10';
+const UI_VERSION = '49.11';
 const SERVICE_STARTED_AT = Date.now();
 const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
 const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
@@ -1978,7 +1978,7 @@ function emitPendingInvitesFor(socket){
 
 
 // ========================= V40.34 — MICROFONE AO VIVO / WEBRTC =========================
-// O áudio não passa pelo servidor: o Socket.IO transporta apenas a sinalização WebRTC.
+// O caminho principal é WebRTC. Socket.IO transporta a sinalização e pode carregar o relay seletivo de contingência.
 // Jogadores humanos E observadores podem conversar. Observadores continuam sem receber cartas
 // privadas e sem permissão para executar qualquer ação de jogo.
 const liveVoiceSenders = new Map(); // socketId -> {roomCode, participantId, role, name}
@@ -2051,6 +2051,25 @@ function notifyExistingLiveVoiceSendersAbout(socket, {refresh=false}={}) {
     participantIds:active.map(x=>x.participantId),
     playerIds:active.filter(x=>x.role===ROLE_PLAYER).map(x=>x.participantId),
   });
+}
+
+function liveVoiceTargetRefreshAllowed(socket,targetSocketId){
+  const now=Date.now(),map=socket.data.liveVoiceRefreshPairs instanceof Map?socket.data.liveVoiceRefreshPairs:new Map();
+  socket.data.liveVoiceRefreshPairs=map;const last=Number(map.get(targetSocketId)||0);
+  if(now-last<1500)return false;map.set(targetSocketId,now);
+  if(map.size>24)for(const [key,at] of map)if(now-Number(at)>30000)map.delete(key);
+  return true;
+}
+function notifyLiveVoiceSenderToRefresh(receiverSocket,targetSenderSocketId,reason='recovery'){
+  const receiver=currentVoiceParticipant(receiverSocket);if(!receiver)return false;
+  const senderRec=liveVoiceSenders.get(targetSenderSocketId);if(!senderRec||senderRec.roomCode!==receiver.room.code)return false;
+  const sender=currentVoiceSocketInRoom(receiver.room.code,targetSenderSocketId);if(!sender)return false;
+  if(!liveVoiceTargetRefreshAllowed(receiverSocket,targetSenderSocketId))return false;
+  io.to(targetSenderSocketId).emit('liveVoicePeerAvailable',{
+    socketId:receiverSocket.id,participantId:receiver.actor.id,playerId:receiver.actor.id,
+    role:receiver.actor.role,name:receiver.actor.name,refresh:true,reason:String(reason||'recovery').slice(0,40),
+  });
+  return true;
 }
 function notifyLiveVoicePeerUnavailable(socket){
   const roomCode=String(socket.data.roomCode||'');if(!roomCode)return;
@@ -2184,6 +2203,15 @@ io.on('connection', socket => {
   });
 
 
+  // V49.11 — recuperação dirigida: se B perde apenas A, somente A renegocia com B.
+  socket.on('liveVoiceRefreshPeer', payload => {
+    try{
+      const targetSocketId=String(payload?.targetSocketId||'').slice(0,120);
+      if(!targetSocketId||targetSocketId===socket.id)return;
+      notifyLiveVoiceSenderToRefresh(socket,targetSocketId,String(payload?.reason||'recovery'));
+    }catch(e){err(socket,e);}
+  });
+
   socket.on('liveVoiceReady', payload => {
     try {
       let refresh=!!payload?.refresh;
@@ -2231,6 +2259,7 @@ io.on('connection', socket => {
         const desc=String(sdp.sdp||'');
         if(desc.length<20||desc.length>24000) throw new Error('Descrição de voz fora do limite.');
         out.sdp={type:String(sdp.type),sdp:desc};
+        if(kind==='offer'&&payload?.iceRestart===true)out.iceRestart=true;
       }else{
         const candidate=payload?.candidate;
         if(!candidate) return;

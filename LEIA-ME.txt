@@ -1,43 +1,46 @@
-MAU-MAU CANDEIAS — V49.10
-ESTABILIDADE DO MICROFONE
+MAU-MAU CANDEIAS — V49.11
+ESTABILIDADE DO MICROFONE — FASE 1
 
 OBJETIVO
-Melhorar as falhas/interrupções do microfone observadas em partidas reais, sem criar novos botões e sem mudar a forma simples de usar o microfone.
+Reduzir voz picotada, cortes e reconexões agressivas sem mudar a interface.
+
+PRINCIPAIS MELHORIAS
+- recuperação dirigida por peer: uma falha entre dois participantes não reconstrói toda a sala;
+- tolerância de 2,4 s para estado disconnected antes de reparar;
+- ICE restart real antes de destruir/recriar a conexão WebRTC;
+- mudança de rede/retorno do segundo plano não derruba peers saudáveis;
+- deduplicação: no máximo um inbound por socket remoto;
+- saúde de mídia com getStats()/bytesReceived/packetsReceived;
+- fallback com jitter buffer inicial ~110 ms e adaptação limitada até ~260 ms;
+- VAD com pré-roll de 1 frame para reduzir corte no começo das palavras;
+- throttle de refresh por par de participantes.
 
 ARQUIVOS PARA SUBSTITUIR/ADICIONAR
 - public/app.js
 - public/index.html
+- public/voice-relay-worklet.js
 - server.js
+- tests/v4910-mic-stability.test.js
+- tests/v4911-mic-stability-phase1.test.js
 - tests/v499-security-integrity.test.js
 - tests/v4993-burn-pass-draw.test.js
-- tests/v4910-mic-stability.test.js
-- ATUALIZAR_V49.10_ESTABILIDADE_MICROFONE.txt
-
-MELHORIAS
-- recuperação WebRTC mais rápida após disconnected/failed;
-- atualização de ICE/TURN em troca de Wi-Fi/4G/5G;
-- renovação antecipada de credenciais TURN temporárias;
-- recuperação ao voltar da tela apagada/segundo plano;
-- tentativa automática de retomar áudios remotos pausados pelo navegador;
-- reconstrução do caminho de entrada quando o receptor detecta falha;
-- reinício automático da captura quando o dispositivo encerra inesperadamente a trilha do microfone;
-- fallback seletivo continua funcionando durante a recuperação;
-- limite no servidor para pedidos de reconstrução de voz.
-
-NÃO ALTERA
-- aparência ou botões do microfone;
-- regras do Mau-Mau;
-- Queima/Mau-Mau Batedor V49.9.3;
-- ranking;
-- reconexão da partida;
-- observador;
-- avatares;
-- figurinhas;
-- sons;
-- Áudio Rápido de 15 segundos.
+- ATUALIZAR_V49.11_ESTABILIDADE_MICROFONE_FASE1.txt
 
 VALIDAÇÃO
-- sintaxe server.js: OK
-- sintaxe public/app.js: OK
-- 107 testes executáveis aprovados
-- teste de integração Socket.IO não executado neste ambiente por ausência local de node_modules/socket.io-client.
+- Sintaxe public/app.js: OK
+- Sintaxe server.js: OK
+- Sintaxe voice-relay-worklet.js: OK
+- 108 testes executáveis aprovados
+- 1 teste de integração Socket.IO não executado neste ambiente por ausência local de node_modules/socket.io-client
+
+NÃO ALTERA
+- regras do Mau-Mau
+- Queima V49.9.3
+- ranking
+- reconexão da partida/AUTO
+- observador
+- avatares
+- figurinhas
+- interface do microfone
+- Áudio Rápido
+- música
