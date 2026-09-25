@@ -39,6 +39,9 @@ for(let i=0;i<500;i++){
   assert(E.canBurnMatch(r,paulo).some(c=>c.id===`burn-${i}`));
   E.burnMatch(r,paulo.id,`burn-${i}`);
   assert.equal(r.continuationPlayerId,paulo.id);
+  assert.throws(()=>E.passTurn(r,paulo.id),/obrigatório comprar 1 carta|Compre 1 carta/i);
+  r.deck=[card('4',suits[(i+1)%4],`pass-draw-${i}`)];
+  E.drawAction(r,paulo.id);
   const beforePass=paulo.hand.length;
   E.passTurn(r,paulo.id);
   assert.equal(paulo.hand.length,beforePass);
@@ -91,7 +94,7 @@ for(let i=0;i<500;i++){
   assert.equal(r.continuationPlayerId,null);
 }
 
-console.log('✓ V36 stress: 1.000 cenários de Queima na própria vez com passe/compra passaram.');
+console.log('✓ V49.9.3 stress: 1.000 cenários de Queima com compra obrigatória antes do passe passaram.');
 
 // V18: bot também respeita a nova Queima Flexível e pode guardar um Valete comprado.
 {

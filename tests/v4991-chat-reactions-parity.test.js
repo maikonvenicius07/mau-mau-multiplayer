@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
-assert(/styles\.css\?v=40\.69\.2-v49\.9\.(1-chat-reacoes-iguais|2-round-review-close-fix)/.test(html), 'cache-busting compatível V49.9.1/V49.9.2 ausente');
+assert(/styles\.css\?v=40\.69\.2-v49\.9\.(1-chat-reacoes-iguais|2-round-review-close-fix|3-burn-pass-draw)/.test(html), 'cache-busting compatível V49.9.1/V49.9.2/V49.9.3 ausente');
 assert(css.includes('V49.9.1 — FIGURINHAS DO CHAT IGUAIS AO PAINEL REAÇÕES'), 'bloco V49.9.1 ausente');
 assert(css.includes('#chatView .sticker-effect-grid .sticker-reaction'), 'seletor das figurinhas do chat ausente');
 assert(css.includes('height:76px!important'), 'altura desktop deve acompanhar o painel Reações');

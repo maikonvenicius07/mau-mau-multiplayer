@@ -1,0 +1,39 @@
+MAU-MAU CANDEIAS — V49.9.3
+
+CORREÇÃO ESPECÍFICA APÓS A QUEIMA
+
+REGRA PRESERVADA
+A Queima/Mau-Mau Batedor continua funcionando como antes. A alteração é somente no encerramento da sequência após uma Queima.
+
+NOVA VALIDAÇÃO
+- QUEIMA → PASSAR: BLOQUEADO.
+- QUEIMA → COMPRAR → PASSAR: PERMITIDO.
+- QUEIMA → COMPRAR → JOGAR: PERMITIDO.
+- QUEIMA → CONTINUAR JOGANDO SEM COMPRAR: PERMITIDO.
+
+IMPORTANTE
+O servidor NÃO verifica se existem outras cartas válidas para decidir se o jogador pode comprar ou passar.
+A única condição para liberar PASSAR durante a continuação da Queima é: a compra obrigatória já ocorreu?
+
+DEPOIS DA COMPRA
+A carta comprada pode ser válida e mesmo assim o jogador pode guardá-la e passar.
+A regra V29 já existente foi preservada: após comprar, o motor ainda aceita uma carta válida da mão; nenhuma carta válida é obrigatória.
+
+ARQUIVOS PRINCIPAIS ALTERADOS
+- game-engine.js
+- public/app.js
+- public/index.html
+- server.js (UI_VERSION 49.9.3)
+- testes relacionados à Queima
+
+NÃO ALTERADO
+- cartas especiais;
+- Mau-Mau simples/batendo;
+- Ação Rápida;
+- Carta Dupla;
+- ranking;
+- reconexão;
+- observador;
+- microfone;
+- avatares;
+- sons.

@@ -822,11 +822,12 @@ function canFinishBurn(room, player) {
 // Exceção: a PRIMEIRA carta virada da rodada também pode ser queimada por qualquer
 // jogador com uma cópia normal exatamente igual, mesmo fora da vez. Depois da
 // primeira ação normal, volta a valer a regra comum: fora da vez, use Ação Rápida.
-// Depois da queima, a segunda carta NÃO é mais obrigatória:
-//   • se houver carta compatível, o jogador pode jogá-la OU passar a vez;
-//   • se não houver carta compatível, deve comprar 1 carta;
-//   • após a compra, pode jogar qualquer carta válida da mão OU passar,
-//     mantendo a carta comprada na mão se não quiser usá-la.
+// Depois da queima, a segunda carta NÃO é obrigatória. O jogador pode continuar
+// jogando uma carta legal da mão. Porém, se quiser ENCERRAR a sequência sem
+// jogar outra carta, deve obrigatoriamente comprar 1 carta antes de passar.
+// A compra obrigatória para encerrar independe de existirem outras cartas legais
+// na mão. Depois da compra, pode jogar uma carta válida (inclusive a comprada)
+// ou passar e guardar a carta comprada.
 // V31: cartas especiais A, 7, 8, J, Q e K não podem INICIAR a Queima.
 // Depois que uma carta normal idêntica é queimada, a continuação pode ser uma
 // carta especial legal, e seu efeito será executado normalmente.
@@ -880,12 +881,7 @@ function burnMatch(room, playerId, cardId) {
   room.continuationPlayerId = player.id;
   auditTurn(room,{fromIdx:previousCurrentPlayer,toIdx:idx,card:played,reason:openingBurn && previousCurrentPlayer!==idx?'opening-burn-takeover':'burn-continuation'});
 
-  const followUps = player.hand.filter(c => burnContinuationCardLegal(room,c,player));
-  if (followUps.length) {
-    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${openingBurn ? ' na abertura da rodada, mesmo fora da vez' : ' na própria vez'}. Pode jogar mais uma carta compatível ou passar a vez.`, 'burn');
-  } else {
-    log(room, `${player.name} QUEIMOU ${cardLabel(played)}${openingBurn ? ' na abertura da rodada, mesmo fora da vez' : ' na própria vez'}, mas não possui carta compatível. Deve comprar 1 carta e então poderá jogar uma carta válida ou passar a vez.`, 'burn');
-  }
+  log(room, `${player.name} QUEIMOU ${cardLabel(played)}${openingBurn ? ' na abertura da rodada, mesmo fora da vez' : ' na própria vez'}. Pode continuar jogando uma carta compatível. Se quiser encerrar a sequência, deve comprar 1 carta antes de passar.`, 'burn');
 
   if (before === 2 && player.hand.length === 1 && player.declaration === 'mau-mau') {
     log(room, `${player.name} ficou com uma carta após a queima e havia anunciado Mau-Mau.`, 'mau');
@@ -926,22 +922,19 @@ function drawAction(room, playerId) {
   // Ao iniciar uma compra, encerra-se qualquer janela de reação da jogada anterior.
   closeReaction(room);
 
-  // V18: durante a continuação de uma queima, a compra é obrigatória somente
-  // quando não existe nenhuma carta compatível na mão. Depois de comprar uma,
-  // o jogador pode jogá-la (se for válida) ou passar a vez e guardá-la.
+  // V49.9.3: durante a continuação de uma Queima, o jogador pode continuar
+  // jogando normalmente. Se optar por ENCERRAR a sequência, a compra de 1 carta
+  // é obrigatória antes do passe — independentemente de haver outras cartas
+  // compatíveis na mão. Não inspecionamos a mão para decidir se pode comprar.
   if (room.continuationPlayerId === p.id) {
     if (p.justDrawnCardId) {
-      throw new Error('Você já comprou uma carta após a queima. Jogue qualquer carta válida da mão, se quiser, ou passe a vez.');
-    }
-    const legalFollowUps = p.hand.filter(c => burnContinuationCardLegal(room,c,p));
-    if (legalFollowUps.length) {
-      throw new Error('Depois da queima você já possui carta compatível. Pode jogá-la ou passar a vez sem comprar.');
+      throw new Error('Você já cumpriu a compra obrigatória após a queima. Jogue uma carta válida, se quiser, ou passe a vez.');
     }
     const drawn = drawOne(room);
     p.hand.push(drawn);
     p.justDrawnCardId = drawn.id;
     if (p.declaration === 'batendo') p.declaration = null;
-    log(room, `${p.name} comprou 1 carta após a queima. Pode jogar qualquer carta válida da mão ou passar a vez e guardar a carta comprada.`, 'draw');
+    log(room, `${p.name} comprou 1 carta para encerrar a sequência da queima. A obrigação foi cumprida: pode jogar uma carta válida ou passar a vez e guardar a carta comprada.`, 'draw');
     return;
   }
 
@@ -981,12 +974,13 @@ function drawAction(room, playerId) {
   }
 }
 
-// V18 — PASSAR A VEZ
+// V49.9.3 — PASSAR A VEZ APÓS QUEIMA
 // Regra normal: continua obrigatório comprar 1 carta antes de passar.
-// Exceção da QUEIMA: após queimar, o jogador pode passar sem jogar outra carta.
-// Se não houver nenhuma carta compatível na mão, ele precisa comprar 1 antes;
-// depois da compra, pode jogar qualquer carta válida da mão ou simplesmente
-// guardar a carta comprada e passar a vez.
+// Após uma QUEIMA, o jogador também NÃO pode passar diretamente. Ele pode
+// continuar jogando normalmente; porém, para encerrar a sequência sem jogar,
+// precisa primeiro comprar 1 carta. Depois dessa compra, pode jogar uma carta
+// válida ou simplesmente passar e guardar a carta comprada. A validação do passe
+// depende apenas da compra já ter ocorrido, sem examinar se há jogadas na mão.
 function passTurn(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
@@ -999,13 +993,11 @@ function passTurn(room, playerId) {
 
   if (inBurnContinuation) {
     const hasDrawn = !!p.justDrawnCardId;
-    const legalFollowUps = hasDrawn ? [] : p.hand.filter(c => burnContinuationCardLegal(room,c,p));
-
-    if (!hasDrawn && legalFollowUps.length === 0) {
-      throw new Error('Após a queima, você não possui carta compatível. Compre 1 carta antes de passar a vez.');
+    if (!hasDrawn) {
+      throw new Error('Após a queima, é obrigatório comprar 1 carta do monte antes de passar. Compre 1 carta.');
     }
 
-    const keptCardId = p.justDrawnCardId || null;
+    const keptCardId = p.justDrawnCardId;
     p.justDrawnCardId = null;
     p.declaration = null;
     room.continuationPlayerId = null;
@@ -1025,11 +1017,7 @@ function passTurn(room, playerId) {
     const top = topCard(room);
     if (top && room.status === 'playing') openReaction(room, p.id, top.id);
 
-    if (keptCardId) {
-      log(room, `${p.name} passou a vez após a queima e guardou a carta comprada. Agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
-    } else {
-      log(room, `${p.name} decidiu não jogar uma segunda carta após a queima e passou a vez. Agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
-    }
+    log(room, `${p.name} cumpriu a compra obrigatória após a queima, passou a vez e guardou a carta comprada. Agora é a vez de ${room.players[next]?.name || 'outro jogador'}.`, 'turn');
     return;
   }
 
@@ -1309,9 +1297,11 @@ function roomPublicState(room, viewerId) {
         : [],
       burnSecondRequired: false,
       burnContinuationActive: room.continuationPlayerId === viewer.id,
+      // Compatibilidade de protocolo: burnMustDraw agora significa que a compra
+      // obrigatória necessária para LIBERAR O PASSE após a Queima ainda não ocorreu.
+      // Não depende de examinar cartas compatíveis na mão.
       burnMustDraw: room.continuationPlayerId === viewer.id
-        && !viewer.justDrawnCardId
-        && viewer.hand.filter(c => burnContinuationCardLegal(room,c,viewer)).length === 0,
+        && !viewer.justDrawnCardId,
     } : null,
     log: room.log.slice(-30),
   };

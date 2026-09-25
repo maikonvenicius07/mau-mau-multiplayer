@@ -2428,9 +2428,7 @@ $('#passTurnBtn').onclick=()=>{
   $('#passTurnBtn').textContent='⏳ Passando...';
   const afterBurn=state?.continuationPlayerId===state?.me?.id;
   toast(afterBurn
-    ? (state?.me?.justDrawnCardId
-      ? '⏭️ Passando a vez após a queima. A carta comprada ficará na sua mão.'
-      : '⏭️ Passando a vez após a queima sem jogar outra carta.')
+    ? '⏭️ Passando a vez após cumprir a compra obrigatória da queima. A carta comprada ficará na sua mão.'
     : '⏭️ Passando a vez. A carta comprada ficará na sua mão.');
   socket.emit('passTurn');
 };
@@ -3096,9 +3094,8 @@ function renderCenter(){
       : (current?.id===state.me.id?'✨ SUA VEZ':`🎯 VEZ DE ${current?.name||'Jogador'}`));
   }
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
-    if(state.me?.justDrawnCardId) banner='🔥 Após a queima: jogue qualquer carta válida ou passe e guarde a comprada';
-    else if(state.me?.burnMustDraw) banner='🔥 Após a queima: sem carta compatível — compre 1 carta';
-    else banner='🔥 Após a queima: jogue mais uma carta compatível ou passe a vez';
+    if(state.me?.justDrawnCardId) banner='🔥 Compra obrigatória cumprida: jogue uma carta válida, se quiser, ou passe a vez';
+    else banner='🔥 Após a queima: continue jogando ou, para encerrar, compre 1 carta antes de passar';
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner=state.openingReaction?'🔥 QUEIMA DA ABERTURA! Você pode jogar a carta exatamente igual mesmo fora da vez':'🔥 QUEIMA DISPONÍVEL! Jogue a carta igual e decida se continua ou passa';
@@ -3205,14 +3202,11 @@ function renderHand(){
   const passBlockedBySeven=state.pendingSeven>0;
   const inBurn=state.continuationPlayerId===state.me.id;
   const boughtThisTurn=!!state.me.justDrawnCardId;
-  const legalAfterBurn=(state.me.legalCardIds||[]).length>0;
-
   // Regra normal: só passa depois de comprar.
-  // Regra especial da queima:
-  //   - se já há carta compatível, pode jogar OU passar sem comprar;
-  //   - se não há carta compatível, primeiro compra 1;
-  //   - depois da compra, pode jogar qualquer carta válida OU passar e guardar a comprada.
-  const canPassBurn=!!(inBurn&&(boughtThisTurn||legalAfterBurn));
+  // V49.9.3 — após Queima vale a mesma trava para ENCERRAR a sequência:
+  // o passe só é liberado depois da compra obrigatória, independentemente
+  // de existirem outras cartas válidas na mão.
+  const canPassBurn=!!(inBurn&&boughtThisTurn);
   const canPassNormal=!!(!inBurn&&boughtThisTurn);
   const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&(canPassBurn||canPassNormal));
 
@@ -3221,32 +3215,27 @@ function renderHand(){
   $('#passTurnBtn').textContent=passPending?'⏳ Passando...':'⏭️ Passar a vez';
   $('#passTurnBtn').title=canPassTurn
     ? (inBurn
-      ? (boughtThisTurn
-        ? 'Passar após a queima e guardar a carta comprada.'
-        : 'Passar após a queima sem jogar uma segunda carta.')
+      ? 'Passar após a queima: a compra obrigatória já foi cumprida e a carta comprada ficará na mão.'
       : 'Passar a vez após a compra obrigatória de 1 carta.')
     : passBlockedBySeven
       ? 'Resolva primeiro a cadeia de 7: rebata ou compre a penalidade.'
-      : inBurn&&state.me.burnMustDraw
-        ? 'Você não tem carta compatível após a queima. Compre 1 carta antes de passar.'
+      : inBurn&&!boughtThisTurn
+        ? 'Após a queima, compre 1 carta do monte antes de passar. Você pode continuar jogando sem comprar.'
         : myTurn
           ? 'Para passar a vez normal, primeiro compre 1 carta do monte.'
           : 'Aguarde sua vez.';
 
   // Compra normal: uma carta por turno.
-  // Após a queima, a compra só é habilitada quando não existe carta compatível.
-  const burnDrawBlocked=inBurn&&!boughtThisTurn&&!state.me.burnMustDraw;
+  // V49.9.3 — após a Queima, a compra fica disponível mesmo havendo carta
+  // compatível, porque é ela que libera o PASSAR quando o jogador decide encerrar.
   $('#drawPile').disabled=!!(passPending
-    ||(myTurn&&boughtThisTurn&&!state.pendingSeven)
-    ||(myTurn&&burnDrawBlocked));
+    ||(myTurn&&boughtThisTurn&&!state.pendingSeven));
   $('#drawPile').title=boughtThisTurn
     ? (inBurn
-      ? 'Você já comprou após a queima. Jogue qualquer carta válida ou passe e guarde a comprada.'
+      ? 'Compra obrigatória da queima já cumprida. Jogue uma carta válida, se quiser, ou passe a vez.'
       : 'Você já comprou nesta vez. Jogue qualquer carta válida da mão ou passe a vez.')
     : inBurn
-      ? (state.me.burnMustDraw
-        ? 'Comprar 1 carta porque não há continuação compatível.'
-        : 'Você já tem carta compatível: jogue-a ou passe a vez sem comprar.')
+      ? 'Comprar 1 carta para poder encerrar a sequência da queima e liberar o passe.'
       : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }

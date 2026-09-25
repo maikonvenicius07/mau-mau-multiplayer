@@ -46,7 +46,7 @@ for(const rank of specials){
   rosa.hand=[card('5','diamonds','burn5d-j'),card('J','spades','jsp'),card('2','clubs','left-j')];
   E.burnMatch(r,rosa.id,'burn5d-j');
   let st=E.roomPublicState(r,rosa.id);
-  assert.equal(st.me.burnMustDraw,false,'Valete deve contar como continuação válida após Queima');
+  assert.equal(st.me.burnMustDraw,true,'Mesmo com Valete válido, a compra deve ser exigida apenas se o jogador quiser passar após a Queima');
   assert(st.me.legalCardIds.includes('jsp'),'Valete deve ficar jogável após Queima');
   E.playCard(r,rosa.id,'jsp','clubs');
   assert.equal(r.requestedSuit,'clubs','Valete após Queima deve permitir escolher naipe');

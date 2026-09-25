@@ -1,34 +1,46 @@
-MAU-MAU CANDEIAS — V49.9.2
+MAU-MAU CANDEIAS — V49.9.3
 
-OBJETIVO
-Corrigir o botão X da Conferência da Rodada no celular, para que fique acima do conteúdo e possa ser tocado normalmente.
+CORREÇÃO ESPECÍFICA APÓS A QUEIMA
 
-O QUE FOI FEITO
-- o botão fechar agora fica absoluto no topo direito da conferência;
-- z-index maior para ele não ficar atrás do conteúdo;
-- espaço superior reservado na janela da conferência;
-- ajuste mobile específico para o X permanecer livre.
+REGRA IMPLEMENTADA
+1. QUEIMA → PASSAR: BLOQUEADO.
+2. QUEIMA → COMPRAR 1 CARTA → PASSAR: PERMITIDO.
+3. QUEIMA → COMPRAR 1 CARTA → JOGAR: PERMITIDO.
+4. QUEIMA → CONTINUAR JOGANDO SEM COMPRAR: PERMITIDO.
 
-ARQUIVOS
-- public/index.html
-- public/styles.css
-- server.js
-- tests/v499-security-integrity.test.js
-- tests/v4991-chat-reactions-parity.test.js
-- tests/v4992-round-review-close.test.js
-- ATUALIZAR_V49.9.2_BOTAO_FECHAR_CONFERENCIA.txt
+IMPORTANTE
+- O sistema NÃO examina a mão para decidir se o jogador pode comprar ou passar.
+- Para liberar PASSAR após uma Queima, a única condição é: a compra obrigatória dessa sequência já ocorreu?
+- Mesmo que a carta comprada seja válida, o jogador pode guardá-la e passar.
+- A regra V29 existente foi preservada: depois da compra, o motor continua permitindo jogar uma carta válida da mão; nenhuma carta válida é obrigatória.
+- A validação existe no SERVIDOR/motor (game-engine.js), não apenas na interface.
 
-VALIDAÇÕES
-- node -c server.js: OK
-- node -c public/app.js: OK
-- v499-security-integrity.test.js: OK
-- v4991-chat-reactions-parity.test.js: OK
-- v4992-round-review-close.test.js: OK
+INTERFACE
+- PASSAR fica desabilitado após Queima até a compra.
+- O monte continua habilitado mesmo que existam cartas válidas na mão.
+- Mensagem da mesa orienta: continuar jogando ou comprar 1 para encerrar.
+- Regras visuais foram atualizadas.
 
-NÃO ALTERA
-- regras do jogo;
+PRESERVADO
+- Queima e Mau-Mau Batedor;
+- cartas especiais;
+- Ação Rápida;
+- Carta Dupla;
 - ranking;
+- reconexão;
 - observador;
 - microfone;
 - sons;
-- figurinhas do chat/reações.
+- avatares;
+- figurinhas.
+
+OBSERVAÇÃO
+O public/styles.css está incluído no pacote cumulativo para preservar a correção V49.9.2 do botão X da Conferência da Rodada, caso ela ainda não tenha sido aplicada separadamente.
+
+VALIDAÇÃO
+- Sintaxe game-engine.js: OK
+- Sintaxe bot-player.js: OK
+- Sintaxe server.js: OK
+- Sintaxe public/app.js: OK
+- 106 testes executáveis neste ambiente: APROVADOS
+- 1 teste de integração Socket.IO não executado neste ambiente por ausência local do pacote socket.io-client.

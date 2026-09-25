@@ -6,7 +6,7 @@ const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 
-assert(html.includes('styles.css?v=40.69.2-v49.9.2-round-review-close-fix'),'cache-busting V49.9.2 ausente');
+assert(/styles\.css\?v=40\.69\.2-v49\.9\.(2-round-review-close-fix|3-burn-pass-draw)/.test(html),'cache-busting compatível V49.9.2/V49.9.3 ausente');
 assert(css.includes('V49.9.2 — botão fechar da conferência fica acima do conteúdo no mobile'),'anotação V49.9.2 ausente');
 assert(css.includes('.round-review-modal{position:relative') || css.includes('.round-review-modal{position:relative;'),'round-review modal precisa ser posicionada');
 assert(css.includes('padding-top:58px'),'round-review modal precisa reservar espaço superior para o fechar');
