@@ -58,7 +58,9 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   if (!snapshot || snapshot.snapshotVersion !== SNAPSHOT_VERSION) return null;
   if (!snapshot.code || !Array.isArray(snapshot.players) || !snapshot.players.length) return null;
   if (!['lobby','playing','between-rounds','finished'].includes(snapshot.status)) return null;
-  if (snapshot.status === 'finished') return null;
+  // V49.9 — partida finalizada mas ainda não gravada no ranking pode ser
+  // restaurada apenas para concluir o registro idempotente do resultado.
+  if (snapshot.status === 'finished' && snapshot.rankingRecorded) return null;
   const room = JSON.parse(JSON.stringify(snapshot));
   delete room.snapshotVersion;
   delete room.savedAt;

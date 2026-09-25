@@ -1,17 +1,20 @@
-MAU-MAU CANDEIAS — V41.8.4
+MAU-MAU CANDEIAS — V49.9
 
-FIGURINHAS DO CHAT COM CONTEÚDO MAIOR E MAIS LEGÍVEL
+SUBSTITUIR/ADICIONAR NO GITHUB:
+- server.js
+- auth-identity-store.js
+- room-snapshot-store.js
+- tests/v499-security-integrity.test.js  (NOVO)
 
-Substituir no GitHub:
-- public/index.html
-- public/styles.css
+Também incluído:
+- ATUALIZAR_V49.9_SEGURANCA_INTEGRIDADE.txt
 
-O que mudou:
-- manteve a grade 3x3 compacta;
-- aumentou os emojis/símbolos internos;
-- aumentou e reforçou os textos;
-- +2 e Reverso receberam tamanho visual específico;
-- as reações que aparecem sobre a mesa continuam grandes;
-- sons e vozes continuam iguais.
+ANTES DO COMMIT/DEPLOY:
+1. Abra Render > Environment.
+2. Confirme que AUTH_SESSION_SECRET existe e possui valor.
+3. Se já existir, NÃO troque o valor.
+4. Depois substitua os arquivos e faça o commit.
 
-Não foram alterados: avatares, regras, ranking, reconexão, observador ou servidor.
+IMPORTANTE:
+- NÃO foi alterada a privacidade/política de logs do Modo Observador, conforme solicitado.
+- Regras, avatares, visual, figurinhas, sons e microfone não foram alterados.

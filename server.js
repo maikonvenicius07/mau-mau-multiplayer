@@ -16,13 +16,15 @@ const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
 const RoomGovernance = require('./room-governance');
 const AbuseGuard = require('./abuse-guard');
-const { AuthIdentityStore, normalizeEmail } = require('./auth-identity-store');
+const { AuthIdentityStore, normalizeEmail, normalizeSessionVersion } = require('./auth-identity-store');
 const UniversalAuth = require('./universal-auth');
 const EmailDelivery = require('./email-delivery');
 
 const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
+const RULES_VERSION = APP_VERSION;
+const UI_VERSION = '49.9';
 const SERVICE_STARTED_AT = Date.now();
 const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
 const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
@@ -102,6 +104,7 @@ const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+const criticalSnapshotSignatures = new Map();
 const MAX_ROOMS = RoomGovernance.maxRooms(process.env);
 const MAX_SPECTATORS_PER_ROOM = AbuseGuard.maxSpectatorsPerRoom(process.env);
 let pendingRoomCreations = 0;
@@ -231,6 +234,7 @@ async function requireRoomPersistenceReady(){
 function cleanupRoomResources(room,message='A mesa foi encerrada.'){
   if(!room)return false;
   const code=room.code;
+  criticalSnapshotSignatures.delete(code);
   cancelOfflineRoomExpiry(code,{clearState:false});
   if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
   clearReconnectTimersForRoom(code);
@@ -283,6 +287,7 @@ const APPLE_REDIRECT_URI = String(process.env.APPLE_REDIRECT_URI || '').trim();
 const APPLE_TEAM_ID = String(process.env.APPLE_TEAM_ID || '').trim();
 const APPLE_KEY_ID = String(process.env.APPLE_KEY_ID || '').trim();
 const APPLE_PRIVATE_KEY = String(process.env.APPLE_PRIVATE_KEY || '').trim();
+const AUTH_SESSION_SECRET_CONFIGURED = !!String(process.env.AUTH_SESSION_SECRET || '').trim();
 const AUTH_SESSION_SECRET = String(process.env.AUTH_SESSION_SECRET || '').trim() || crypto.randomBytes(32).toString('hex');
 const AUTH_COOKIE = 'maumau_session';
 const LEGACY_AUTH_COOKIE = 'maumau_google_session';
@@ -338,7 +343,8 @@ function voiceIceServers(session=null){
 if (!GOOGLE_CLIENT_ID) console.warn('[auth] GOOGLE_CLIENT_ID não configurado. O login Google ficará indisponível.');
 if (!EMAIL_RECOVERY_CONFIGURED) console.warn('[auth] RESEND_API_KEY/EMAIL_FROM não configurados. Login por e-mail funciona, mas recuperação de senha por e-mail ficará indisponível.');
 if (!APPLE_CLIENT_ID || !APPLE_REDIRECT_URI || !APPLE_TEAM_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) console.warn('[auth] configuração Sign in with Apple incompleta. O login Apple ficará indisponível.');
-if (!process.env.AUTH_SESSION_SECRET) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
+if (!AUTH_SESSION_SECRET_CONFIGURED) console.warn('[auth] AUTH_SESSION_SECRET não configurado. Foi criada uma chave temporária; sessões serão encerradas quando o servidor reiniciar.');
+if (DATABASE_REQUIRED && !AUTH_SESSION_SECRET_CONFIGURED) console.error('[ready] CRÍTICO: AUTH_SESSION_SECRET ausente em produção. O serviço ficará not-ready até a variável ser configurada.');
 
 function appleLoginConfigured(){return !!(APPLE_CLIENT_ID&&APPLE_REDIRECT_URI&&APPLE_TEAM_ID&&APPLE_KEY_ID&&APPLE_PRIVATE_KEY);}
 function googlePlayerKey(sub) {
@@ -357,7 +363,7 @@ function sessionUser(user,provider=''){
 }
 function signAuthSession(user) {
   const clean=sessionUser(user,user?.provider);
-  const payload = Buffer.from(JSON.stringify({...clean,exp:Date.now() + AUTH_TTL_SECONDS * 1000})).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({...clean,sv:normalizeSessionVersion(user?.sessionVersion),exp:Date.now() + AUTH_TTL_SECONDS * 1000})).toString('base64url');
   const signature = crypto.createHmac('sha256', AUTH_SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -370,7 +376,7 @@ function verifyAuthSession(token) {
     if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) return null;
     const session = JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
     if (!session?.playerKey || !session?.exp || Date.now() >= Number(session.exp)) return null;
-    return sessionUser(session,session.provider);
+    return {...sessionUser(session,session.provider),sessionVersion:normalizeSessionVersion(session.sv)};
   } catch { return null; }
 }
 function parseCookies(header='') {
@@ -387,6 +393,26 @@ function authFromCookieHeader(header) {
   const cookies=parseCookies(header);
   return verifyAuthSession(cookies[AUTH_COOKIE]) || verifyAuthSession(cookies[LEGACY_AUTH_COOKIE]);
 }
+async function authFromCookieHeaderVerified(header) {
+  const session=authFromCookieHeader(header);if(!session)return null;
+  try{
+    if(!await authIdentityReady)return null;
+    let current=await authIdentityStore.getSessionVersion(session.playerKey);
+    if(current===null){
+      const ensured=await authIdentityStore.ensureSessionUser(session);
+      current=normalizeSessionVersion(ensured?.sessionVersion);
+    }
+    return normalizeSessionVersion(current)===normalizeSessionVersion(session.sessionVersion)?session:null;
+  }catch(e){console.warn('[auth] falha ao validar versão da sessão:',e?.message||e);return null;}
+}
+function disconnectStaleAuthSockets(playerKey,exceptSocketId=''){
+  playerKey=String(playerKey||'').slice(0,80);if(!playerKey)return;
+  for(const socket of io.sockets.sockets.values()){
+    if(socket.id===exceptSocketId||socket.data?.auth?.playerKey!==playerKey)continue;
+    try{socket.emit('authSessionRevoked',{message:'Sua senha foi alterada. Entre novamente para continuar.'});}catch{}
+    try{socket.disconnect(true);}catch{}
+  }
+}
 function authCookieLine(req,name,token,maxAge=AUTH_TTL_SECONDS) {
   const forwarded=String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
   const secure=req.secure || forwarded==='https';
@@ -401,7 +427,7 @@ function setAuthCookie(req,res,token,maxAge=AUTH_TTL_SECONDS) {
     authCookieLine(req,LEGACY_AUTH_COOKIE,'',0),
   ]);
 }
-function authIp(req){return String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0].trim().slice(0,80);}
+function authIp(req){return String(req.ip||req.socket?.remoteAddress||'unknown').trim().slice(0,80);}
 async function requireAuthIdentityStore(){if(!await authIdentityReady)throw new Error('Serviço de identidade temporariamente indisponível.');}
 app.set('trust proxy', 1);
 
@@ -478,7 +504,7 @@ app.get('/api/auth/config', (_,res)=>res.json({
   }
 }));
 app.get('/api/auth/me', async (req,res)=>{
-  const session=authFromCookieHeader(req.headers.cookie);
+  const session=await authFromCookieHeaderVerified(req.headers.cookie);
   if(!session) return res.status(401).json({ok:false,message:'Login necessário.'});
   try{
     if(await authIdentityReady)await authIdentityStore.ensureSessionUser(session);
@@ -486,8 +512,8 @@ app.get('/api/auth/me', async (req,res)=>{
   const provider=session.provider || (String(session.playerKey||'').startsWith('g_')?'google':'account');
   res.json({ok:true,user:{...sessionUser(session,provider),provider}});
 });
-app.get('/api/voice/config', (req,res)=>{
-  const session=authFromCookieHeader(req.headers.cookie);
+app.get('/api/voice/config', async (req,res)=>{
+  const session=await authFromCookieHeaderVerified(req.headers.cookie);
   if(!session) return res.status(401).json({ok:false,message:'Login necessário para usar voz.'});
   res.setHeader('Cache-Control','no-store');
   res.json({ok:true,iceServers:voiceIceServers(session),turnConfigured:voiceTurnConfigured(),turnAuthMode:voiceTurnAuthMode(),turnTtlSeconds:VOICE_TURN_SECRET?VOICE_TURN_TTL_SECONDS:null});
@@ -606,6 +632,7 @@ app.post('/api/auth/email-password/recover', async (req,res)=>{
     const user=await authIdentityStore.resetEmailPasswordWithCode({email,code:req.body?.code,newPassword:req.body?.newPassword});user.provider='email_password';
     setAuthCookie(req,res,signAuthSession(user));
     res.json({ok:true,user:sessionUser(user,'email_password'),message:'Senha alterada com sucesso.'});
+    const revokeTimer=setTimeout(()=>disconnectStaleAuthSockets(user.playerKey),250);revokeTimer.unref?.();
   }catch(e){emailPasswordErrorResponse(res,e,'Não foi possível recuperar a conta agora.');}
 });
 // Compatibilidade temporária: clientes antigos ainda abertos podem autenticar contas PIN.
@@ -650,6 +677,8 @@ app.get('/health', (_, res) => {
     ok:true,
     status:'live',
     version:APP_VERSION,
+    rulesVersion:RULES_VERSION,
+    uiVersion:UI_VERSION,
     uptimeSeconds:Math.floor((Date.now()-SERVICE_STARTED_AT)/1000),
     rooms:roomStats.total,
     roomCapacity:{limit:roomStats.limit,available:roomStats.availableSlots,atCapacity:roomStats.atCapacity,pendingCreations:roomStats.pendingCreations},
@@ -673,9 +702,11 @@ app.get('/ready', async (_,res)=>{
   const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,roomSnapshotsReady,env:process.env,timeoutMs:2000});
   let authOk=await authIdentityReady,authReason=authOk?'ok':'identity-store-init-failed';
   if(authOk){try{authOk=await Promise.race([authIdentityStore.healthCheck(),new Promise(resolve=>setTimeout(()=>resolve(false),2000))]);authReason=authOk?'ok':'identity-store-health-failed';}catch(e){authOk=false;authReason='identity-store-health-failed';}}
-  const ok=report.ok&&authOk;
+  const sessionSecretOk=!DATABASE_REQUIRED||AUTH_SESSION_SECRET_CONFIGURED;
+  const ok=report.ok&&authOk&&sessionSecretOk;
   res.status(ok?200:503).json({
-    ok,status:ok?'ready':'not-ready',version:APP_VERSION,databaseRequired:report.databaseRequired,reason:ok?'ok':(!authOk?authReason:report.reason),
+    ok,status:ok?'ready':'not-ready',version:APP_VERSION,rulesVersion:RULES_VERSION,uiVersion:UI_VERSION,databaseRequired:report.databaseRequired,reason:ok?'ok':(!sessionSecretOk?'auth-session-secret-required':(!authOk?authReason:report.reason)),
+    authSessionSecret:{configured:AUTH_SESSION_SECRET_CONFIGURED,required:DATABASE_REQUIRED,ok:sessionSecretOk},
     ranking:{kind:report.ranking.kind,ok:report.ranking.ok,reason:report.ranking.reason},
     roomSnapshots:{kind:report.roomSnapshots.kind,ok:report.roomSnapshots.ok,reason:report.roomSnapshots.reason},
     authIdentities:{kind:authIdentityStore.kind,ok:authOk,reason:authReason},
@@ -724,16 +755,22 @@ function maybeRecordFinished(room) {
   if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
   const record=buildMatchRecord(room);
   const matchSerial=Number(room.matchSerial||1);
-  if (!record.results.length) { room.rankingRecorded=true; return; }
+  if (!record.results.length) { room.rankingRecorded=true; roomSnapshotStore.delete(room.code).catch(()=>{}); return; }
   room.rankingRecording=true;
-  rankingReady.then(ready=>{ if(!ready) throw new Error('Armazenamento do ranking indisponível.'); return rankingStore.recordMatch(record); }).then(inserted=>{
-    // O grupo pode ter iniciado outra partida na mesma sala antes do PostgreSQL
-    // concluir a gravação. Nesse caso, o snapshot antigo ainda é salvo, mas não
-    // altera as flags da partida nova.
+  // V49.9 — primeiro persiste o resultado final ainda pendente. Se o processo cair
+  // antes do COMMIT do ranking, o boot restaura este snapshot e tenta novamente.
+  Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>rankingReady).then(ready=>{
+    if(!ready)throw new Error('Armazenamento do ranking indisponível.');
+    return rankingStore.recordMatch(record);
+  }).then(inserted=>{
     if(Number(room.matchSerial||1)===matchSerial){
       room.rankingRecorded=true;
       room.rankingRecording=false;
       if(inserted) Engine.appendLog(room, `🏆 Vitória registrada no ranking ${record.mode==='official'?'OFICIAL':'TREINO'}.`, 'system');
+      // recordMatch é idempotente por matchId; depois do sucesso o snapshot final
+      // pendente deixa de ser necessário. Uma nova partida na mesma sala é protegida
+      // pelo matchSerial acima.
+      roomSnapshotStore.delete(room.code).catch(e=>console.error('[ranking] falha ao limpar snapshot final',room.code,e?.message||e));
     }
   }).catch(e=>{
     console.error('[ranking] gravação falhou:',e);
@@ -785,7 +822,13 @@ function emitRoom(room) {
   refreshInviteReadiness();
   const presenceSignature=`${room.status}:${room.round}:${room.players.map(p=>`${p.id}:${p.isBot?'b':'h'}`).join(',')}`;
   if(room._presenceSignature!==presenceSignature){room._presenceSignature=presenceSignature;setTimeout(broadcastPresence,0);}
-  roomSnapshotStore.queueSave(room);
+  // V49.9 — transições estruturais (início/fim de rodada, replay e fim da partida)
+  // são persistidas imediatamente; jogadas comuns continuam usando debounce de 250 ms.
+  const criticalSignature=`${room.status}:${Number(room.round||0)}:${Number(room.matchSerial||1)}:${room.rankingRecorded?1:0}`;
+  if(criticalSnapshotSignatures.get(room.code)!==criticalSignature){
+    criticalSnapshotSignatures.set(room.code,criticalSignature);
+    roomSnapshotStore.saveNow(room).catch(e=>console.error('[rooms] falha ao salvar transição crítica',room.code,e?.message||e));
+  }else roomSnapshotStore.queueSave(room);
 }
 
 function reconnectTimerKey(roomCode, playerId) { return `${roomCode}:${playerId}`; }
@@ -2014,10 +2057,11 @@ function notifyLiveVoicePeerUnavailable(socket){
 }
 
 io.use((socket,next)=>{
-  const session=authFromCookieHeader(socket.handshake.headers.cookie);
-  if(!session) return next(new Error('AUTH_REQUIRED'));
-  socket.data.auth=session;
-  next();
+  authFromCookieHeaderVerified(socket.handshake.headers.cookie).then(session=>{
+    if(!session)return next(new Error('AUTH_REQUIRED'));
+    socket.data.auth=session;
+    next();
+  }).catch(()=>next(new Error('AUTH_REQUIRED')));
 });
 
 io.on('connection', socket => {
@@ -2992,6 +3036,7 @@ async function restorePersistedRooms(){
         continue;
       }
       ensureSocial(room);rooms.set(room.code,room);restored++;
+      if(room.status==='finished'&&!room.rankingRecorded)maybeRecordFinished(room);
       Engine.appendLog(room,'♻️ A sala foi restaurada após reinício do servidor. Reconecte para retomar seu lugar.','system');
       for(const p of room.players)scheduleRestoredPlayerGrace(room,p);
       // V40.68.1 — se a sala restaurada estiver sem qualquer humano conectado,

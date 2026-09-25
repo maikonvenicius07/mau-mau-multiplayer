@@ -1,0 +1,79 @@
+MAU-MAU CANDEIAS — V49.9
+SEGURANÇA E INTEGRIDADE
+
+OBJETIVO
+Fortalecer autenticação, persistência e confiabilidade do resultado final sem alterar regras, avatares, aparência, microfone ou comportamento visual do Modo Observador.
+
+ALTERAÇÕES
+
+1. SESSÕES REVOGÁVEIS APÓS TROCA DE SENHA
+- Cada identidade possui sessionVersion persistida.
+- Tokens de sessão passam a carregar a versão da sessão.
+- Após recuperação/troca de senha, sessionVersion é incrementada.
+- Cookies antigos deixam de autenticar novas requisições e novos sockets.
+- Sockets antigos da mesma conta são desconectados após a nova sessão ser entregue ao navegador.
+- A desconexão continua usando o sistema normal de reconexão da partida; a cadeira/mão não é apagada.
+
+2. PERSISTÊNCIA CRÍTICA DAS SALAS
+- Jogadas comuns continuam com debounce de 250 ms.
+- Transições estruturais (status/rodada/replay/fim da partida) usam saveNow imediatamente.
+- Mantém o mecanismo atual de snapshot e não altera regras do jogo.
+
+3. RESULTADO FINAL / RANKING MAIS RESISTENTE A CRASH
+- Antes de gravar o ranking, o estado final pendente é salvo como snapshot.
+- Se o processo cair antes do COMMIT do ranking, o snapshot final pendente pode ser restaurado no boot.
+- O servidor tenta novamente o registro do resultado.
+- recordMatch já é idempotente por matchId, evitando vitória duplicada.
+- Após confirmação do ranking, o snapshot final pendente é removido.
+
+4. RATE LIMIT / IP
+- authIp passa a usar req.ip com app.set('trust proxy', 1).
+- Não altera limites existentes; apenas usa a resolução de proxy do Express.
+
+5. AUTH_SESSION_SECRET EM PRODUÇÃO
+- Desenvolvimento local ainda pode criar secret temporário.
+- Em produção/Render, /ready fica NOT READY se AUTH_SESSION_SECRET não estiver configurado.
+- Evita sessões serem invalidadas a cada reinício por configuração ausente.
+
+ATENÇÃO ANTES DO DEPLOY:
+CONFIRME NO RENDER QUE A VARIÁVEL AUTH_SESSION_SECRET JÁ EXISTE E POSSUI UM VALOR FORTE E ESTÁVEL.
+NÃO TROQUE O VALOR SE ELA JÁ ESTIVER CONFIGURADA, pois trocar o secret invalida as sessões existentes.
+
+6. VERSÕES SEPARADAS NO DIAGNÓSTICO
+- rulesVersion = 40.69.2
+- uiVersion = 49.9
+- /health e /ready passam a informar as duas versões.
+- package.json continua em 40.69.2 para preservar os contratos/testes das regras congeladas.
+
+7. TESTES NOVOS
+- tests/v499-security-integrity.test.js
+- Valida sessionVersion, recuperação de senha, snapshot final pendente, req.ip, readiness e versionamento.
+
+DECISÃO EXPRESSA — NÃO ALTERADO
+- A política/privacidade dos logs do Modo Observador foi mantida exatamente como estava.
+- Nenhuma mudança foi aplicada aos filtros/logs do observador nesta versão.
+
+NÃO ALTERADO
+- regras do Mau-Mau;
+- Ás, 7, 8, Valete, Dama, Rei;
+- Q em dois jogadores;
+- Queimar, Ação Rápida, Carta Dupla;
+- Mau-Mau e Mau-Mau batendo/queimando;
+- avatares;
+- interface visual;
+- figurinhas e sons;
+- microfone/WebRTC;
+- ranking por vitórias;
+- reconexão de 60 segundos e AUTO;
+- comportamento visual do observador.
+
+ARQUIVOS ALTERADOS
+- server.js
+- auth-identity-store.js
+- room-snapshot-store.js
+- tests/v499-security-integrity.test.js (novo)
+
+VALIDAÇÃO LOCAL
+- 103 testes executados e aprovados.
+- 1 teste existente (socketio-integration-v4063.test.js) não pôde ser executado neste ambiente porque node_modules/socket.io-client não está instalado aqui.
+- No Render, npm ci instala essa dependência antes de npm run verify.
