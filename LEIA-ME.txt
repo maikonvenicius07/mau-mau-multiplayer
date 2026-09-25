@@ -1,17 +1,17 @@
-MAU-MAU CANDEIAS — V41.8.3
+MAU-MAU CANDEIAS — V41.8.4
 
-FIGURINHAS DO CHAT EM GRADE COMPACTA 3x3
+FIGURINHAS DO CHAT COM CONTEÚDO MAIOR E MAIS LEGÍVEL
 
 Substituir no GitHub:
 - public/index.html
 - public/styles.css
 
 O que mudou:
-- 9 figurinhas em 3 colunas x 3 linhas;
-- todos os botões com o mesmo tamanho;
-- JOGA BOCA! não ocupa mais a linha inteira dentro do chat;
-- emojis e textos menores, como na referência enviada;
-- reações que aparecem sobre a mesa continuam grandes;
-- sons e vozes permanecem iguais.
+- manteve a grade 3x3 compacta;
+- aumentou os emojis/símbolos internos;
+- aumentou e reforçou os textos;
+- +2 e Reverso receberam tamanho visual específico;
+- as reações que aparecem sobre a mesa continuam grandes;
+- sons e vozes continuam iguais.
 
 Não foram alterados: avatares, regras, ranking, reconexão, observador ou servidor.

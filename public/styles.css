@@ -2210,3 +2210,63 @@ button.bot-primary{
   #chatView .sticker-effect-grid .sticker-reaction span,
   #chatView .sticker-effect-grid .effect-shout span{font-size:5.8px!important}
 }
+
+
+/* =========================================================
+   V41.8.4 — CONTEÚDO DAS FIGURINHAS MAIS LEGÍVEL NO CHAT
+   Mantém a grade compacta 3x3 e aumenta apenas símbolo/texto.
+   Reações exibidas sobre a mesa não são alteradas.
+   ========================================================= */
+#chatView .sticker-effect-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction,
+#chatView .sticker-effect-grid .effect-shout{
+  height:52px!important;
+  min-height:52px!important;
+  padding:3px 3px!important;
+  border-width:2px!important;
+  border-radius:10px!important;
+  gap:2px!important;
+}
+#chatView .sticker-effect-grid .sticker-symbol,
+#chatView .sticker-effect-grid .effect-shout .sticker-symbol{
+  font-size:23px!important;
+  line-height:.9!important;
+  font-weight:1000!important;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+}
+#chatView .sticker-effect-grid .sticker-reaction span,
+#chatView .sticker-effect-grid .effect-shout span{
+  font-size:7.6px!important;
+  line-height:1!important;
+  font-weight:1000!important;
+  letter-spacing:-.01em!important;
+  color:#fff!important;
+  text-shadow:0 1px 2px rgba(0,0,0,.75)!important;
+}
+/* +2 precisa de mais presença visual que um emoji comum */
+#chatView .sticker-effect-grid .sticker-draw2 .sticker-symbol{
+  font-size:27px!important;
+  line-height:.82!important;
+}
+/* Reverso também ganha leitura melhor dentro do cartão compacto */
+#chatView .sticker-effect-grid .sticker-reverse .sticker-symbol{
+  font-size:22px!important;
+}
+@media(max-width:700px){
+  #chatView .sticker-effect-grid{gap:4px!important}
+  #chatView .sticker-effect-grid .sticker-reaction,
+  #chatView .sticker-effect-grid .effect-shout{
+    height:48px!important;
+    min-height:48px!important;
+    padding:2px 2px!important;
+    border-radius:9px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-symbol,
+  #chatView .sticker-effect-grid .effect-shout .sticker-symbol{font-size:21px!important}
+  #chatView .sticker-effect-grid .sticker-draw2 .sticker-symbol{font-size:25px!important}
+  #chatView .sticker-effect-grid .sticker-reaction span,
+  #chatView .sticker-effect-grid .effect-shout span{font-size:7px!important}
+}

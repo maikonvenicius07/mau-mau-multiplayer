@@ -1,0 +1,12 @@
+MAU-MAU CANDEIAS — V41.8.4
+
+FIGURINHAS DO CHAT COM CONTEÚDO MAIOR E MAIS LEGÍVEL
+
+Alterações:
+- Mantém a grade compacta 3x3 aprovada.
+- Aumenta os símbolos/emoji dentro de cada figurinha.
+- Aumenta e reforça os textos para leitura mais fácil.
+- +2 e Reverso recebem tamanho visual específico.
+- As reações que aparecem sobre a mesa permanecem grandes como antes.
+- Sons e vozes não foram alterados.
+- Avatares, regras, ranking, reconexão, observador e servidor não foram alterados.
