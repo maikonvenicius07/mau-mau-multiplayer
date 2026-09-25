@@ -1,0 +1,11 @@
+MAU-MAU CANDEIAS — V41.8.3
+
+FIGURINHAS DO CHAT EM GRADE COMPACTA 3x3
+
+- 9 figurinhas em três colunas e três linhas.
+- Todos os botões passam a ter o mesmo tamanho.
+- JOGA BOCA! deixa de ocupar a linha inteira dentro do CHAT.
+- Emojis e textos ficam compactos, como na referência enviada.
+- As reações exibidas sobre a mesa continuam grandes.
+- Sons e vozes não foram alterados.
+- Avatares, regras, ranking, reconexão, observador e servidor não foram alterados.

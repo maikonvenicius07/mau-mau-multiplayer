@@ -2146,3 +2146,67 @@ button.bot-primary{
     min-height:34px!important;
   }
 }
+
+
+/* =========================================================
+   V41.8.3 — FIGURINHAS DO CHAT EM GRADE 3x3 COMPACTA
+   Referência visual: 9 atalhos iguais, três por linha.
+   Só afeta a aba CHAT; reações sobre a mesa permanecem grandes.
+   ========================================================= */
+#chatView .sticker-effect-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:5px!important;
+  align-items:stretch!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction,
+#chatView .sticker-effect-grid .effect-shout{
+  grid-column:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  height:48px!important;
+  min-height:48px!important;
+  padding:3px 2px!important;
+  border-width:1.5px!important;
+  border-radius:9px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:2px!important;
+  transform:none!important;
+  box-shadow:0 2px 0 rgba(0,0,0,.28),0 4px 8px rgba(0,0,0,.18)!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction:hover,
+#chatView .sticker-effect-grid .effect-shout:hover{
+  transform:translateY(-1px)!important;
+}
+#chatView .sticker-effect-grid .sticker-symbol,
+#chatView .sticker-effect-grid .effect-shout .sticker-symbol{
+  font-size:17px!important;
+  line-height:1!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction span,
+#chatView .sticker-effect-grid .effect-shout span{
+  font-size:6.2px!important;
+  line-height:1!important;
+  letter-spacing:0!important;
+  white-space:normal!important;
+  text-align:center!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+@media(max-width:700px){
+  #chatView .sticker-effect-grid{gap:4px!important}
+  #chatView .sticker-effect-grid .sticker-reaction,
+  #chatView .sticker-effect-grid .effect-shout{
+    height:44px!important;
+    min-height:44px!important;
+    padding:2px 1px!important;
+    border-radius:8px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-symbol,
+  #chatView .sticker-effect-grid .effect-shout .sticker-symbol{font-size:16px!important}
+  #chatView .sticker-effect-grid .sticker-reaction span,
+  #chatView .sticker-effect-grid .effect-shout span{font-size:5.8px!important}
+}
