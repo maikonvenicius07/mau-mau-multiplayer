@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
-assert(html.includes('styles.css?v=40.69.2-v49.9.1-chat-reacoes-iguais'), 'cache-busting V49.9.1 ausente');
+assert(/styles\.css\?v=40\.69\.2-v49\.9\.(1-chat-reacoes-iguais|2-round-review-close-fix)/.test(html), 'cache-busting compatível V49.9.1/V49.9.2 ausente');
 assert(css.includes('V49.9.1 — FIGURINHAS DO CHAT IGUAIS AO PAINEL REAÇÕES'), 'bloco V49.9.1 ausente');
 assert(css.includes('#chatView .sticker-effect-grid .sticker-reaction'), 'seletor das figurinhas do chat ausente');
 assert(css.includes('height:76px!important'), 'altura desktop deve acompanhar o painel Reações');
@@ -17,4 +17,4 @@ assert(css.includes('height:68px!important'), 'altura mobile deve acompanhar o p
 assert(css.includes('font-size:25px!important'), 'símbolos mobile devem acompanhar o painel Reações');
 assert(css.includes('font-size:8px!important'), 'texto mobile deve acompanhar o painel Reações');
 assert(css.includes('grid-column:auto!important'), 'JOGA BOCA deve permanecer dentro da grade 3x3');
-console.log('V49.9.1 chat/reactions parity: OK');
+console.log('V49.9.1/V49.9.2 chat/reactions parity: OK');

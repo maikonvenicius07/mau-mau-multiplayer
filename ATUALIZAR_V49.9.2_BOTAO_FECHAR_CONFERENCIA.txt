@@ -1,0 +1,26 @@
+MAU-MAU CANDEIAS — V49.9.2
+
+CORREÇÃO
+O botão X de fechar a Conferência da Rodada estava ficando encoberto/competindo com o conteúdo no celular.
+
+O QUE FOI FEITO
+- botão fechar reposicionado para ficar absoluto no topo direito;
+- z-index aumentado para ficar acima do conteúdo;
+- espaço superior reservado dentro da janela da conferência;
+- ajuste específico para mobile, deixando o X livre para toque.
+
+ARQUIVOS ALTERADOS
+- public/index.html
+- public/styles.css
+- server.js
+- tests/v499-security-integrity.test.js
+- tests/v4992-round-review-close.test.js
+
+NÃO ALTERA
+- regras;
+- ranking;
+- observador;
+- microfone;
+- sons;
+- chat;
+- figurinhas.

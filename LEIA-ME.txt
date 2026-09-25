@@ -1,41 +1,34 @@
-MAU-MAU CANDEIAS — V49.9.1
-CORREÇÃO DAS FIGURINHAS DO CHAT
+MAU-MAU CANDEIAS — V49.9.2
 
 OBJETIVO
-Deixar as 9 figurinhas de "EFEITOS PARA A MESA" dentro do CHAT com a mesma
-aparência e proporção do painel flutuante "REAÇÕES".
+Corrigir o botão X da Conferência da Rodada no celular, para que fique acima do conteúdo e possa ser tocado normalmente.
 
-ARQUIVOS PARA SUBSTITUIR/ADICIONAR
+O QUE FOI FEITO
+- o botão fechar agora fica absoluto no topo direito da conferência;
+- z-index maior para ele não ficar atrás do conteúdo;
+- espaço superior reservado na janela da conferência;
+- ajuste mobile específico para o X permanecer livre.
+
+ARQUIVOS
 - public/index.html
 - public/styles.css
 - server.js
 - tests/v499-security-integrity.test.js
 - tests/v4991-chat-reactions-parity.test.js
+- tests/v4992-round-review-close.test.js
+- ATUALIZAR_V49.9.2_BOTAO_FECHAR_CONFERENCIA.txt
 
-O QUE MUDOU
-- mesma grade 3x3;
-- mesma altura visual do painel REAÇÕES;
-- mesmas bordas arredondadas e espessura;
-- símbolos maiores;
-- textos maiores e mais legíveis;
-- JOGA BOCA! continua ocupando apenas uma célula da grade;
-- cache do CSS atualizado;
-- UI_VERSION atualizada para 49.9.1.
+VALIDAÇÕES
+- node -c server.js: OK
+- node -c public/app.js: OK
+- v499-security-integrity.test.js: OK
+- v4991-chat-reactions-parity.test.js: OK
+- v4992-round-review-close.test.js: OK
 
-NÃO FOI ALTERADO
-- regras;
-- sons/vozes;
-- microfone;
+NÃO ALTERA
+- regras do jogo;
 - ranking;
-- reconexão;
-- AUTO/bots;
 - observador;
-- avatares;
-- segurança/persistência da V49.9.
-
-VALIDAÇÃO
-- server.js: sintaxe OK
-- public/app.js: sintaxe OK
-- 104 testes aprovados
-- 1 teste de integração não executado neste ambiente por ausência local
-  do pacote socket.io-client; nenhum teste executado falhou.
+- microfone;
+- sons;
+- figurinhas do chat/reações.
