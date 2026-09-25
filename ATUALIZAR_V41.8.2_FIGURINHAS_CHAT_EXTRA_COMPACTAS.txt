@@ -1,0 +1,22 @@
+MAU-MAU CANDEIAS — V41.8.2
+
+FIGURINHAS DO CHAT EXTRA COMPACTAS
+
+Alterações:
+- Redução adicional das figurinhas dentro da aba CHAT.
+- Altura menor, ícones menores, textos menores e espaçamento reduzido.
+- JOGA BOCA! também ficou mais compacto dentro do chat.
+- As reações que aparecem sobre a mesa continuam grandes e destacadas.
+- Sons e vozes não foram alterados.
+
+Arquivos alterados:
+- public/index.html
+- public/styles.css
+
+Não alterado:
+- avatares
+- regras
+- ranking
+- reconexão
+- observador
+- servidor

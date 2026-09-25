@@ -2086,3 +2086,63 @@ button.bot-primary{
   #chatView .sticker-effect-grid .sticker-symbol{font-size:18px!important}
   #chatView .sticker-effect-grid .sticker-reaction span{font-size:6.5px!important}
 }
+
+/* =========================================================
+   V41.8.2 — FIGURINHAS DO CHAT EXTRA COMPACTAS
+   Reduz somente os atalhos sociais dentro da aba CHAT.
+   Reações exibidas sobre a mesa continuam grandes.
+   ========================================================= */
+#chatView .sticker-effect-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:4px!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction{
+  height:42px!important;
+  min-height:42px!important;
+  padding:2px 2px!important;
+  border-width:1.5px!important;
+  border-radius:9px!important;
+  gap:1px!important;
+  box-shadow:0 2px 0 rgba(0,0,0,.28),0 4px 8px rgba(0,0,0,.18)!important;
+  transform:none!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction:hover{
+  transform:translateY(-1px)!important;
+}
+#chatView .sticker-effect-grid .sticker-symbol{
+  font-size:15px!important;
+  line-height:1!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction span{
+  font-size:5.8px!important;
+  line-height:.95!important;
+  letter-spacing:0!important;
+}
+#chatView .sticker-effect-grid .effect-shout{
+  min-height:38px!important;
+  height:38px!important;
+  flex-direction:row!important;
+  gap:5px!important;
+  padding:2px 6px!important;
+}
+#chatView .sticker-effect-grid .effect-shout .sticker-symbol{
+  font-size:15px!important;
+}
+#chatView .sticker-effect-grid .effect-shout span{
+  font-size:6.2px!important;
+}
+@media(max-width:700px){
+  #chatView .sticker-effect-grid{gap:3px!important}
+  #chatView .sticker-effect-grid .sticker-reaction{
+    height:38px!important;
+    min-height:38px!important;
+    padding:2px 1px!important;
+    border-radius:8px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-symbol{font-size:14px!important}
+  #chatView .sticker-effect-grid .sticker-reaction span{font-size:5.4px!important}
+  #chatView .sticker-effect-grid .effect-shout{
+    height:34px!important;
+    min-height:34px!important;
+  }
+}
