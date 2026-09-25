@@ -1,0 +1,28 @@
+MAU-MAU CANDEIAS — V49.10
+ESTABILIDADE DO MICROFONE
+
+OBJETIVO
+Melhorar falhas/interrupções do microfone em partidas reais sem criar novos botões nem tornar a interface mais complicada.
+
+MELHORIAS INTERNAS
+- recuperação mais rápida quando o WebRTC entra em disconnected/failed;
+- renovação automática das credenciais TURN temporárias antes de expirarem;
+- renovação ICE/TURN na troca de Wi-Fi/4G/5G;
+- recuperação ao voltar do segundo plano/tela apagada;
+- retomada automática dos áudios remotos pausados pelo navegador;
+- reconstrução do caminho de entrada quando o receptor detecta áudio quebrado;
+- recuperação automática se a trilha física do microfone for encerrada pelo dispositivo;
+- fallback seletivo continua ativo enquanto o WebRTC se recupera;
+- limite no servidor para impedir spam de pedidos de reconstrução de voz.
+
+NÃO FOI ALTERADO
+- interface do microfone;
+- regras do jogo;
+- Queima/Mau-Mau Batedor;
+- ranking;
+- reconexão da partida;
+- observador;
+- avatares;
+- figurinhas;
+- Áudio Rápido de 15 segundos;
+- sons e reações.

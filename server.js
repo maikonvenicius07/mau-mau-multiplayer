@@ -24,7 +24,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 const RULES_VERSION = APP_VERSION;
-const UI_VERSION = '49.9.3';
+const UI_VERSION = '49.10';
 const SERVICE_STARTED_AT = Date.now();
 const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
 const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
@@ -2031,7 +2031,7 @@ function clearLiveVoiceSender(socket, {broadcast=true}={}) {
   io.to(rec.roomCode).emit('liveVoiceStatus', {participantId:rec.participantId,playerId:rec.participantId,role:rec.role,name:rec.name,on:false});
   io.to(rec.roomCode).emit('liveVoiceSenderStopped', {socketId:socket.id,participantId:rec.participantId,playerId:rec.participantId,role:rec.role});
 }
-function notifyExistingLiveVoiceSendersAbout(socket) {
+function notifyExistingLiveVoiceSendersAbout(socket, {refresh=false}={}) {
   const current = currentVoiceParticipant(socket);
   if (!current) return;
   const {room,actor} = current;
@@ -2043,6 +2043,7 @@ function notifyExistingLiveVoiceSendersAbout(socket) {
       playerId:actor.id,
       role:actor.role,
       name:actor.name,
+      refresh:!!refresh,
     });
   }
   const active=[...liveVoiceSenders.values()].filter(x=>x.roomCode===room.code);
@@ -2183,8 +2184,16 @@ io.on('connection', socket => {
   });
 
 
-  socket.on('liveVoiceReady', () => {
-    try { notifyExistingLiveVoiceSendersAbout(socket); } catch(e) { err(socket,e); }
+  socket.on('liveVoiceReady', payload => {
+    try {
+      let refresh=!!payload?.refresh;
+      if(refresh){
+        const now=Date.now(),last=Number(socket.data.lastLiveVoiceRefreshAt||0);
+        refresh=now-last>=4000;
+        if(refresh)socket.data.lastLiveVoiceRefreshAt=now;
+      }
+      notifyExistingLiveVoiceSendersAbout(socket,{refresh});
+    } catch(e) { err(socket,e); }
   });
 
   socket.on('liveVoiceJoin', () => {

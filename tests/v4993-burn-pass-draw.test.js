@@ -46,7 +46,7 @@ const root=path.resolve(__dirname,'..');
 const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 assert(html.includes('styles.css?v=40.69.2-v49.9.3-burn-pass-draw'),'cache-busting CSS V49.9.3 ausente');
-assert(html.includes('app.js?v=40.69.2-v49.9.3-burn-pass-draw'),'cache-busting JS V49.9.3 ausente');
+assert(/app\.js\?v=40\.69\.2-v49\.(9\.3-burn-pass-draw|10-mic-stability)/.test(html),'cache-busting JS compatível V49.9.3/V49.10 ausente');
 assert(html.includes('não pode passar diretamente'),'regra visual deve informar que QUEIMA → PASSAR é proibido');
 assert(app.includes('const canPassBurn=!!(inBurn&&boughtThisTurn)'),'frontend só deve liberar PASSAR após compra na Queima');
 assert(!app.includes('const burnDrawBlocked=inBurn'),'frontend não deve bloquear a compra por existir carta válida na mão');
