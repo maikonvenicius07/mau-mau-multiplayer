@@ -1,20 +1,41 @@
-MAU-MAU CANDEIAS — V49.9
+MAU-MAU CANDEIAS — V49.9.1
+CORREÇÃO DAS FIGURINHAS DO CHAT
 
-SUBSTITUIR/ADICIONAR NO GITHUB:
+OBJETIVO
+Deixar as 9 figurinhas de "EFEITOS PARA A MESA" dentro do CHAT com a mesma
+aparência e proporção do painel flutuante "REAÇÕES".
+
+ARQUIVOS PARA SUBSTITUIR/ADICIONAR
+- public/index.html
+- public/styles.css
 - server.js
-- auth-identity-store.js
-- room-snapshot-store.js
-- tests/v499-security-integrity.test.js  (NOVO)
+- tests/v499-security-integrity.test.js
+- tests/v4991-chat-reactions-parity.test.js
 
-Também incluído:
-- ATUALIZAR_V49.9_SEGURANCA_INTEGRIDADE.txt
+O QUE MUDOU
+- mesma grade 3x3;
+- mesma altura visual do painel REAÇÕES;
+- mesmas bordas arredondadas e espessura;
+- símbolos maiores;
+- textos maiores e mais legíveis;
+- JOGA BOCA! continua ocupando apenas uma célula da grade;
+- cache do CSS atualizado;
+- UI_VERSION atualizada para 49.9.1.
 
-ANTES DO COMMIT/DEPLOY:
-1. Abra Render > Environment.
-2. Confirme que AUTH_SESSION_SECRET existe e possui valor.
-3. Se já existir, NÃO troque o valor.
-4. Depois substitua os arquivos e faça o commit.
+NÃO FOI ALTERADO
+- regras;
+- sons/vozes;
+- microfone;
+- ranking;
+- reconexão;
+- AUTO/bots;
+- observador;
+- avatares;
+- segurança/persistência da V49.9.
 
-IMPORTANTE:
-- NÃO foi alterada a privacidade/política de logs do Modo Observador, conforme solicitado.
-- Regras, avatares, visual, figurinhas, sons e microfone não foram alterados.
+VALIDAÇÃO
+- server.js: sintaxe OK
+- public/app.js: sintaxe OK
+- 104 testes aprovados
+- 1 teste de integração não executado neste ambiente por ausência local
+  do pacote socket.io-client; nenhum teste executado falhou.

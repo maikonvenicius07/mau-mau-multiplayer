@@ -24,7 +24,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 const RULES_VERSION = APP_VERSION;
-const UI_VERSION = '49.9';
+const UI_VERSION = '49.9.1';
 const SERVICE_STARTED_AT = Date.now();
 const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
 const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')

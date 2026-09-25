@@ -2270,3 +2270,89 @@ button.bot-primary{
   #chatView .sticker-effect-grid .sticker-reaction span,
   #chatView .sticker-effect-grid .effect-shout span{font-size:7px!important}
 }
+
+/* =========================================================
+   V49.9.1 — FIGURINHAS DO CHAT IGUAIS AO PAINEL REAÇÕES
+   Correção visual isolada: o bloco "EFEITOS PARA A MESA" dentro
+   do CHAT passa a usar as mesmas dimensões e proporções do painel
+   flutuante "REAÇÕES". Sons e comportamento não são alterados.
+   ========================================================= */
+#chatView .sticker-effect-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:9px!important;
+  align-items:stretch!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction,
+#chatView .sticker-effect-grid .effect-shout{
+  grid-column:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  height:76px!important;
+  min-height:76px!important;
+  padding:7px 5px!important;
+  border-width:3px!important;
+  border-radius:16px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  box-shadow:0 5px 0 rgba(0,0,0,.36),0 9px 18px rgba(0,0,0,.28),0 0 0 2px rgba(0,0,0,.20)!important;
+  transform:rotate(-1.2deg)!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction:nth-child(even),
+#chatView .sticker-effect-grid .effect-shout:nth-child(even){
+  transform:rotate(1.2deg)!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction:hover,
+#chatView .sticker-effect-grid .effect-shout:hover{
+  transform:translateY(-2px) scale(1.04)!important;
+  filter:saturate(1.16) brightness(1.06)!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction:active,
+#chatView .sticker-effect-grid .effect-shout:active{
+  transform:scale(.96)!important;
+}
+#chatView .sticker-effect-grid .sticker-symbol,
+#chatView .sticker-effect-grid .effect-shout .sticker-symbol,
+#chatView .sticker-effect-grid .sticker-draw2 .sticker-symbol,
+#chatView .sticker-effect-grid .sticker-reverse .sticker-symbol{
+  font-size:29px!important;
+  line-height:1!important;
+  font-weight:1000!important;
+  filter:drop-shadow(0 2px 2px #0007)!important;
+}
+#chatView .sticker-effect-grid .sticker-reaction span,
+#chatView .sticker-effect-grid .effect-shout span{
+  font-size:9px!important;
+  line-height:1.05!important;
+  color:#fff!important;
+  font-weight:1000!important;
+  letter-spacing:.025em!important;
+  white-space:normal!important;
+  text-align:center!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  max-width:100%!important;
+}
+@media(max-width:700px){
+  #chatView .sticker-effect-grid{gap:7px!important}
+  #chatView .sticker-effect-grid .sticker-reaction,
+  #chatView .sticker-effect-grid .effect-shout{
+    height:68px!important;
+    min-height:68px!important;
+    padding:5px 3px!important;
+    border-radius:16px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-symbol,
+  #chatView .sticker-effect-grid .effect-shout .sticker-symbol,
+  #chatView .sticker-effect-grid .sticker-draw2 .sticker-symbol,
+  #chatView .sticker-effect-grid .sticker-reverse .sticker-symbol{
+    font-size:25px!important;
+  }
+  #chatView .sticker-effect-grid .sticker-reaction span,
+  #chatView .sticker-effect-grid .effect-shout span{
+    font-size:8px!important;
+  }
+}

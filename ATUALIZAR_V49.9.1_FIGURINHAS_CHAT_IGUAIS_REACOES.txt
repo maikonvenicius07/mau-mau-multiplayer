@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V49.9.1
+CORREÇÃO VISUAL: FIGURINHAS DO CHAT IGUAIS AO PAINEL REAÇÕES
+
+ALTERAÇÃO:
+- O bloco "EFEITOS PARA A MESA" dentro da aba CHAT passa a usar as mesmas
+  dimensões, bordas, cantos, símbolos e textos do painel flutuante "REAÇÕES".
+- Mantida a grade 3x3.
+- JOGA BOCA! permanece como um dos nove cartões, sem ocupar uma linha inteira.
+- As cores e os nove efeitos continuam os mesmos.
+
+NÃO ALTERADO:
+- regras do jogo;
+- sons/vozes das reações;
+- microfone;
+- ranking;
+- reconexão;
+- AUTO/bots;
+- observador;
+- avatares;
+- autenticação e segurança da V49.9.
