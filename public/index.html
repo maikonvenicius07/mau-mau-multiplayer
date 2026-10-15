@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.1" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.2" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -287,8 +287,8 @@
          Fica fora do felt para nunca ser recortado pelo overflow da mesa, inclusive no Modo Observador. -->
     <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone estável. Arraste para mover." aria-label="Microfone ao vivo estável: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
     <!-- Camera de video opcional: video efemero, sem gravacao, nao usa Socket.IO. -->
-    <button id="liveCameraBtn" class="live-camera-btn hidden" type="button" title="Ativar câmera ao vivo" aria-label="Ativar câmera ao vivo">📷 <span id="liveCameraLabel">LIGAR CÂMERA</span></button>
-    <div id="cameraSelfPreview" class="camera-self-preview hidden" aria-label="Prévia da própria câmera"></div>
+    <button id="liveCameraBtn" class="live-camera-btn hidden" type="button" title="Clique para ligar/desligar a câmera. Arraste para mover." aria-label="Câmera ao vivo: clique para ligar ou desligar, arraste para mover"><span class="camera-btn-drag-handle" aria-hidden="true">⠿</span><span aria-hidden="true">📷</span><span id="liveCameraLabel">LIGAR CÂMERA</span></button>
+    <div id="cameraSelfPreview" class="camera-self-preview hidden" aria-label="Prévia da própria câmera. Arraste para posicionar." title="Arraste sua imagem para onde quiser."><span class="camera-preview-drag" aria-hidden="true">⠿</span></div>
 
     <!-- V40.69.1f: controle global fora do felt. Assim o arraste não depende da mesa,
          do overflow nem da quantidade/posição dos jogadores. -->
@@ -721,7 +721,8 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="camera-video.js?v=50.1-camera-opcional"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.1"></script>
+  <script src="camera-floating.js?v=50.2-arraste-camera"></script>
+  <script src="camera-video.js?v=50.2-camera-flutuante"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2"></script>
 </body>
 </html>

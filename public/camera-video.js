@@ -1,4 +1,4 @@
-/* MAU-MAU CANDEIAS V50.1 - câmeras opcionais e EFÊMERAS.
+/* MAU-MAU CANDEIAS V50.2 - câmeras opcionais e EFÊMERAS.
  * Não grava, fotografa, envia frames pelo Socket.IO, nem persiste mídia.
  * Só carrega o SDK externo quando uma câmera é ligada/visualizada.
  */
@@ -30,6 +30,7 @@
     if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':isSpectator()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(publishing?'DESLIGAR CÂMERA':'LIGAR CÂMERA');
     button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':publishing?'Desligar câmera e voltar ao avatar.':'Ligar câmera ao vivo; a câmera não é gravada.';
     button.setAttribute('aria-label',button.title);
+    if(active)window.MauCameraFloating?.reclamp('button');
   }
   function removeVideo(id){
     const element=videoNodes.get(id);if(!element)return;
@@ -72,8 +73,11 @@
     const holder=document.getElementById('cameraSelfPreview');
     const myId=String(me()?.id||''),myVideo=videoNodes.get(myId);
     if(holder){
-      const visible=!!publishing&&!!myVideo&&window.innerWidth<=900;
+      // V50.2: prévia independente e arrastável em celular E computador.
+      // O posicionamento é gerenciado por camera-floating.js, sem alterar a mídia.
+      const visible=!!publishing&&!!myVideo;
       holder.classList.toggle('hidden',!visible);
+      if(visible)window.MauCameraFloating?.reclamp('preview');
       if(visible&&myVideo?.srcObject){
         if(!localPreview){localPreview=document.createElement('video');localPreview.className='camera-video';localPreview.muted=true;localPreview.autoplay=true;localPreview.playsInline=true;holder.appendChild(localPreview);}
         localPreview.srcObject=myVideo.srcObject;localPreview.play().catch(()=>{});
