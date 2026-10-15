@@ -1,0 +1,26 @@
+'use strict';
+// Contratos de integração da câmera opcional. Não testa serviços LiveKit externos.
+const fs=require('fs');const path=require('path');const assert=require('assert');
+const root=path.join(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const client=fs.readFileSync(path.join(root,'public','camera-video.js'),'utf8');
+const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+assert(server.includes("camera=(self)"),'a câmera deve ser permitida pelo Permissions-Policy');
+assert(server.includes("socket.on('cameraToken'") && server.includes('socialActorForSocket(room,socket)'),'token exige membro autenticado da sala');
+assert(server.includes("canPublishSources=['camera']"),'token somente publica câmera, nunca microfone');
+assert(server.includes("allowPublish=actor.role===ROLE_PLAYER"),'observador não pode publicar');
+assert(server.includes("crypto.createHmac('sha256',LIVEKIT_API_SECRET)"),'JWT deve ser assinado no servidor');
+assert(server.includes("exp:now+600"),'token de câmera deve expirar');
+assert(server.includes('forgetCameraSocket(socket);'),'câmera deve limpar presença ao sair');
+assert(server.includes("cameraPublishers.delete(code)"),'encerramento da sala deve limpar presença');
+assert(client.includes("frameRate:FRAME_RATE") && client.includes("MAX_WIDTH=320"),'vídeo com banda reduzida');
+assert(client.includes('setCameraEnabled(false)'),'câmera deve poder desligar');
+assert(!/MediaRecorder|localStorage|indexedDB|captureStream\(|canvas\.toDataURL|\.upload\(/.test(client),'o controlador de câmera não deve gravar mídia');
+assert(!/socket\.emit\('cameraFrame'/.test(client),'vídeo não deve trafegar no Socket.IO');
+assert(client.includes("getState()?.viewerRole==='SPECTATOR'"),'observadores devem ser identificados');
+assert(client.includes('renderIntoSeats()') && app.includes('window.MauCamera?.renderIntoSeats()'),'o vídeo deve sobreviver aos renders');
+assert(app.includes('window.MauCamera?.stop();'),'o vídeo deve parar ao sair/desconectar');
+assert(html.includes('camera-video.js?v=50.1-camera-opcional'),'o controlador deve ser servido ao navegador');
+assert(html.includes('id="liveCameraBtn"'),'botão de câmera ausente');
+console.log('✓ V50.1: contratos de câmera opcional, autorização, privacidade e integração verificados.');

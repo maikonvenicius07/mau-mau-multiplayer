@@ -25,6 +25,40 @@ const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
+// Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
+const LIVEKIT_URL=String(process.env.LIVEKIT_URL||'').trim();
+const LIVEKIT_API_KEY=String(process.env.LIVEKIT_API_KEY||'').trim();
+const LIVEKIT_API_SECRET=String(process.env.LIVEKIT_API_SECRET||'').trim();
+const CAMERA_ENABLED=(()=>{
+  try{const u=new URL(LIVEKIT_URL);return u.protocol==='wss:' && !!u.hostname && !!LIVEKIT_API_KEY && LIVEKIT_API_SECRET.length>=16;}catch{return false;}
+})();
+const cameraPublishers=new Map(); // sala -> Map(socket.id -> playerId); NÃO persistido.
+function cameraPresenceFor(code){return [...new Set([...(cameraPublishers.get(code)?.values()||[])])];}
+function sendCameraPresence(roomCode,target=null){
+  const payload={code:roomCode,playerIds:cameraPresenceFor(roomCode)};
+  if(target)target.emit('cameraPresence',payload);else io.to(roomCode).emit('cameraPresence',payload);
+}
+function forgetCameraSocket(socket){
+  for(const [code,active] of cameraPublishers){
+    if(active.delete(socket.id)){
+      if(active.size===0)cameraPublishers.delete(code);
+      sendCameraPresence(code);
+    }
+  }
+  socket.data.cameraTokenAt=0;
+}
+function cameraTokenJWT({room,identity,allowPublish}){
+  const now=Math.floor(Date.now()/1000);
+  const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url');
+  const video={room,roomJoin:true,canSubscribe:true,canPublish:allowPublish,canPublishData:false};
+  if(allowPublish)video.canPublishSources=['camera'];
+  const header=encode({alg:'HS256',typ:'JWT'});
+  const body=encode({iss:LIVEKIT_API_KEY,sub:identity,iat:now,nbf:now-5,exp:now+600,jti:crypto.randomUUID(),video});
+  const content=`${header}.${body}`;
+  const signature=crypto.createHmac('sha256',LIVEKIT_API_SECRET).update(content).digest('base64url');
+  return `${content}.${signature}`;
+}
+
 const SERVICE_STARTED_AT = Date.now();
 const MONITOR_HTTP_LOGS = String(process.env.MAUMAU_HTTP_LOGS || '') === '1';
 const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
@@ -234,6 +268,7 @@ async function requireRoomPersistenceReady(){
 function cleanupRoomResources(room,message='A mesa foi encerrada.'){
   if(!room)return false;
   const code=room.code;
+  cameraPublishers.delete(code); // Mídia não persiste após encerramento da sala.
   criticalSnapshotSignatures.delete(code);
   cancelOfflineRoomExpiry(code,{clearState:false});
   if(room.botTimer){clearTimeout(room.botTimer);room.botTimer=null;}
@@ -443,18 +478,18 @@ app.use((req,res,next)=>{
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('X-Frame-Options','DENY');
   res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy','camera=(), geolocation=(), payment=(), usb=(), microphone=(self)');
+  res.setHeader('Permissions-Policy',"camera=(self), geolocation=(), payment=(), usb=(), microphone=(self)");
   res.setHeader('Content-Security-Policy',[
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "script-src 'self' https://accounts.google.com https://appleid.cdn-apple.com",
+    "script-src 'self' https://accounts.google.com https://appleid.cdn-apple.com https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
     "media-src 'self' data: blob:",
-    "connect-src 'self' ws: wss: https://accounts.google.com https://appleid.apple.com",
+    "connect-src 'self' ws: wss: https://accounts.google.com https://appleid.apple.com" + (CAMERA_ENABLED ? ` ${new URL(LIVEKIT_URL).origin} ${new URL(LIVEKIT_URL).origin.replace(/^wss:/,'https:')}` : ''),
     "frame-src https://accounts.google.com https://appleid.apple.com",
     "worker-src 'self' blob:",
     "form-action 'self'",
@@ -512,6 +547,7 @@ app.get('/api/auth/me', async (req,res)=>{
   const provider=session.provider || (String(session.playerKey||'').startsWith('g_')?'google':'account');
   res.json({ok:true,user:{...sessionUser(session,provider),provider}});
 });
+app.get('/api/camera/config', (_req,res)=>res.json({enabled:CAMERA_ENABLED,recording:false}));
 app.get('/api/voice/config', async (req,res)=>{
   const session=await authFromCookieHeaderVerified(req.headers.cookie);
   if(!session) return res.status(401).json({ok:false,message:'Login necessário para usar voz.'});
@@ -1240,6 +1276,7 @@ function retireReplacedSocket(socketId,{roomCode=null}={}){
   if(!oldId)return false;
   const stale=io.sockets.sockets.get(oldId);
   if(!stale)return false;
+  forgetCameraSocket(stale);
   notifyLiveVoicePeerUnavailable(stale);
   clearLiveVoiceSender(stale);
   liveVoiceRelayRate.delete(stale.id);
@@ -1610,6 +1647,7 @@ async function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, r
 }
 
 async function prepareForRoomSwitch(socket, exceptCode=null) {
+  forgetCameraSocket(socket);
   const currentCode=String(socket.data.roomCode||'');
   if(socket.data.role===ROLE_SPECTATOR&&currentCode&&currentCode!==exceptCode){
     const currentRoom=rooms.get(currentCode);
@@ -2102,6 +2140,41 @@ io.on('connection', socket => {
   emitPendingInvitesFor(socket);
   setTimeout(broadcastPresence,0);
 
+  // Câmera: somente usuários autenticados que estejam realmente na sala.
+  // Nenhum frame, foto ou gravação trafega pelo Socket.IO.
+  socket.on('cameraToken', (_request,ack) => {
+    const answer=(obj)=>{if(typeof ack==='function')ack(obj);};
+    try{
+      if(!CAMERA_ENABLED)return answer({ok:false,message:'Câmera ainda não configurada no Render.'});
+      const code=socket.data.roomCode,room=rooms.get(code);
+      const actor=room&&socialActorForSocket(room,socket);
+      if(!actor || (actor.role!==ROLE_PLAYER && actor.role!==ROLE_SPECTATOR))return answer({ok:false,message:'Entre em uma sala para usar a câmera.'});
+      const now=Date.now();
+      if(now-Number(socket.data.cameraLastTokenRequestAt||0)<2500)return answer({ok:false,message:'Aguarde antes de reconectar a câmera.'});
+      socket.data.cameraLastTokenRequestAt=now;
+      socket.data.cameraTokenAt=now;
+      const allowPublish=actor.role===ROLE_PLAYER;
+      const identity=`${allowPublish?'p':'s'}_${actor.id}`;
+      return answer({ok:true,url:LIVEKIT_URL,token:cameraTokenJWT({room:`mmc-${code}`,identity,allowPublish}),identity,allowPublish});
+    }catch(e){return answer({ok:false,message:'Não foi possível conectar à câmera.'});}
+  });
+  socket.on('cameraPresenceRequest',()=>{
+    const code=socket.data.roomCode,room=rooms.get(code);
+    if(room&&socialActorForSocket(room,socket))sendCameraPresence(code,socket);
+  });
+  socket.on('cameraPublishState', payload=>{
+    const code=socket.data.roomCode,room=rooms.get(code);
+    const actor=room&&socialActorForSocket(room,socket);
+    if(!actor || actor.role!==ROLE_PLAYER)return;
+    const active=!!payload?.active;
+    if(active && (!CAMERA_ENABLED || Date.now()-Number(socket.data.cameraTokenAt||0)>600000))return;
+    let publishers=cameraPublishers.get(code);
+    if(!publishers){publishers=new Map();cameraPublishers.set(code,publishers);}
+    if(active)publishers.set(socket.id,actor.id);else publishers.delete(socket.id);
+    if(!publishers.size)cameraPublishers.delete(code);
+    sendCameraPresence(code);
+  });
+
   socket.on('presenceProfile', payload => {
     updatePresenceFromSocket(socket,payload||{});broadcastPresence();
   });
@@ -2578,6 +2651,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('leaveRoom', async (ack) => {
+    forgetCameraSocket(socket);
     const confirmLeave=(payload={})=>{try{if(typeof ack==='function')ack({ok:true,...payload})}catch{}};
     try {
       notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
@@ -2907,6 +2981,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('disconnect', () => {
+    forgetCameraSocket(socket);
     notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);liveVoiceRelayRate.delete(socket.id);
     const presenceKey=socket.data.auth?.playerKey;
     queueMicrotask(()=>{

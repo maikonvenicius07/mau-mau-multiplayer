@@ -2838,6 +2838,7 @@ socket.on('joined',data=>{
   socket.emit('liveVoiceReady');
   if(resumeLiveMic)setTimeout(()=>startLiveMic(),350);
   updateLiveMicUI();
+  window.MauCamera?.onJoined(data?.code);
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
   else if(data?.source==='auto-resume')toast('🟢 Partida encontrada. Você voltou automaticamente para sua vaga.');
 });
@@ -3013,6 +3014,7 @@ socket.on('gameError',e=>{
   playGameSound('error');toast(e.message);render();
 });
 socket.on('leftRoom',data=>{
+  window.MauCamera?.stop();
   leaveRoomPending=false;
   const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
   // V40.59 — leftRoom é uma saída voluntária confirmada: nunca preserva token
@@ -3041,7 +3043,7 @@ socket.on('resumeActiveSeatResult',info=>{
   accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();
   if(info?.reason==='error'&&info?.message)toast(info.message);
 });
-socket.on('sessionReplaced',()=>{resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
+socket.on('sessionReplaced',()=>{window.MauCamera?.stop();resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
 socket.on('connect',()=>{
   setConnection('online');startNetworkDiagnostics();
   syncPresenceProfile();
@@ -3092,7 +3094,7 @@ socket.on('connect',()=>{
   requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
@@ -3184,7 +3186,7 @@ function render(){
   $('#handPanel')?.classList.toggle('hidden',spectator);
   $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
   renderSpectatorLivePanel();
-  renderPlayers();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
+  renderPlayers();window.MauCamera?.onState();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
 }
 function playerDisplayOrderFromMe(){
   const players=Array.isArray(state?.players)?state.players:[];
@@ -3278,7 +3280,7 @@ function renderPlayers(){
   orderedPlayers.forEach((p,i)=>{
     const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
     const spot=fixedPlayerSpot(p,mobile);
-    d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';
+    d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';d.dataset.cameraPlayerId=String(p.id);
     const isCurrent=state.status==='playing'&&!state.paused&&state.currentPlayerId===p.id;
     const active=isCurrent?' active':'';
     const waitingReconnect=!p.isBot&&!p.connected&&!p.autoControlled;
@@ -3305,6 +3307,7 @@ function renderPlayers(){
     d.innerHTML=`${currentTurnIndicator}${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"${isCurrent?' aria-current="true"':''}><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
+  window.MauCamera?.renderIntoSeats();
 }
 function renderScore(){
   const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
@@ -3610,3 +3613,6 @@ window.addEventListener('orientationchange',()=>setTimeout(()=>{if(state)renderP
 
 // V40.69.1: o jogo só conecta ao Socket.IO depois que uma sessão autenticada foi validada.
 initializeAuth();
+
+// V50.1 - controlador de camera independente de regras, voz e estado das cartas.
+window.MauCamera?.init(socket, {getState:()=>state, toast:(message)=>toast(message)});
