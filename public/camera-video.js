@@ -1,4 +1,4 @@
-/* MAU-MAU CANDEIAS V50.2 - câmeras opcionais e EFÊMERAS.
+/* MAU-MAU CANDEIAS V50.3 - câmera flutuante com troca frontal/traseira e webcams.
  * Não grava, fotografa, envia frames pelo Socket.IO, nem persiste mídia.
  * Só carrega o SDK externo quando uma câmera é ligada/visualizada.
  */
@@ -11,6 +11,27 @@
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
   let localPreview=null;
+  let cameraFacing='user'; // apenas estado em memória; NÃO é armazenado.
+  const captureOptions=()=>({resolution:{width:MAX_WIDTH,height:MAX_HEIGHT},frameRate:FRAME_RATE});
+  function onPhone(){
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'') ||
+      !!(window.matchMedia?.('(pointer:coarse)').matches && window.innerWidth<=900);
+  }
+  function localCameraTrack(){
+    const publication=room?.localParticipant?.getTrackPublication(window.LivekitClient?.Track?.Source?.Camera);
+    return publication?.track||publication?.videoTrack||null;
+  }
+  function updateSwitchButton(){
+    const control=document.getElementById('cameraSwitchBtn');
+    if(control){
+      const show=enabled&&publishing&&!isSpectator()&&!!localCameraTrack();
+      control.classList.toggle('hidden',!show);
+      control.disabled=busy||!socket?.connected;
+      control.title=onPhone()?'Alternar câmera frontal e traseira':'Trocar webcam ou câmera conectada';
+      control.setAttribute('aria-label',control.title);
+    }
+    document.getElementById('cameraSelfPreview')?.classList.toggle('camera-rear',cameraFacing==='environment');
+  }
 
   function me(){return getState()?.me||null;}
   function code(){return String(joinedRoomCode||getState()?.code||'');}
@@ -31,6 +52,7 @@
     button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':publishing?'Desligar câmera e voltar ao avatar.':'Ligar câmera ao vivo; a câmera não é gravada.';
     button.setAttribute('aria-label',button.title);
     if(active)window.MauCameraFloating?.reclamp('button');
+    updateSwitchButton();
   }
   function removeVideo(id){
     const element=videoNodes.get(id);if(!element)return;
@@ -41,6 +63,7 @@
     for(const id of [...videoNodes.keys()])removeVideo(id);
     if(localPreview){try{localPreview.pause();localPreview.srcObject=null;localPreview.remove()}catch{}localPreview=null;}
     document.getElementById('cameraSelfPreview')?.classList.add('hidden');
+    updateSwitchButton();
   }
   function createVideo(id,track){
     if(!track?.mediaStreamTrack)return;
@@ -56,8 +79,9 @@
   function updateLocalVideo(){
     const localId=String(me()?.id||'');
     const track=room?.localParticipant?.getTrackPublication(window.LivekitClient?.Track?.Source?.Camera)?.track;
-    if(!publishing||!track?.mediaStreamTrack||!localId){removeVideo(localId);return;}
+    if(!publishing||!track?.mediaStreamTrack||!localId){removeVideo(localId);updateSwitchButton();return;}
     createVideo(localId,track);
+    updateSwitchButton();
   }
   function renderIntoSeats(){
     const ring=document.getElementById('playersRing');
@@ -83,6 +107,7 @@
         localPreview.srcObject=myVideo.srcObject;localPreview.play().catch(()=>{});
       }else if(localPreview){localPreview.pause();localPreview.srcObject=null;localPreview.remove();localPreview=null;}
     }
+    updateSwitchButton();
   }
   function loadSDK(){
     if(window.LivekitClient?.Room)return Promise.resolve(window.LivekitClient);
@@ -156,7 +181,7 @@
     if(old){try{old.disconnect()}catch{}}
   }
   function stop(){
-    generation++;publishing=false;watchedIds.clear();busy=false;joinedRoomCode='';
+    generation++;publishing=false;watchedIds.clear();busy=false;joinedRoomCode='';cameraFacing='user';
     if(socket?.connected)socket.emit('cameraPublishState',{active:false});
     closeRoom();updateButton();
   }
@@ -174,7 +199,8 @@
       const current=await ensureConnected();
       if(!current)return;
       // Somente vídeo da câmera. Nenhum microfone é criado nesta implementação.
-      await current.localParticipant.setCameraEnabled(true,{resolution:{width:MAX_WIDTH,height:MAX_HEIGHT},frameRate:FRAME_RATE});
+      await current.localParticipant.setCameraEnabled(true,captureOptions());
+      cameraFacing=localCameraTrack()?.mediaStreamTrack?.getSettings?.()?.facingMode==='environment'?'environment':'user';
       publishing=true;updateLocalVideo();
       socket.emit('cameraPublishState',{active:true});
       notice('📷 Câmera ligada. Sua imagem é transmitida ao vivo, sem gravação pelo jogo.');
@@ -185,6 +211,73 @@
       else notice('Não foi possível ligar a câmera: '+String(e?.message||'verifique a conexão').slice(0,90));
       if(!watchedIds.size)closeRoom();
     }finally{busy=false;updateButton();}
+  }
+  // V50.3: troca de dispositivo SEM criar uma segunda transmissão e SEM gravar.
+  // LiveKit reinicia/substitui a mesma faixa de vídeo publicada, preservando a sala e o microfone.
+  async function switchCamera(){
+    if(busy||!enabled||!publishing||isSpectator()||!socket?.connected)return;
+    const activeRoom=room;
+    const seq=generation;
+    const track=localCameraTrack();
+    if(!track?.restartTrack)return notice('Esta câmera não oferece troca de dispositivo.');
+    busy=true;updateButton();
+    const previousFacing=cameraFacing;
+    const original=track.mediaStreamTrack?.getSettings?.()||{};
+    let changed=false;
+    let lastError=null;
+    try{
+      let devices=[];
+      try{
+        devices=(await navigator.mediaDevices?.enumerateDevices?.()||[])
+          .filter(device=>device.kind==='videoinput'&&device.deviceId);
+      }catch{} // A lista pode ser incompleta em navegadores móveis.
+      const currentId=original.deviceId||await track.getDeviceId?.();
+      const desiredFacing=(original.facingMode==='environment'? 'user':
+                           original.facingMode==='user'? 'environment':
+                           cameraFacing==='user'?'environment':'user');
+      if(onPhone()){
+        try{
+          await track.restartTrack({...captureOptions(),facingMode:desiredFacing});
+          const result=track.mediaStreamTrack?.getSettings?.()||{};
+          // Alguns aparelhos aceitam facingMode sem de fato mudar de câmera.
+          changed=result.facingMode===desiredFacing ||
+            (!!result.deviceId&&!!currentId&&result.deviceId!==currentId) ||
+            (!result.facingMode&&!result.deviceId&&devices.length<2);
+          if(changed)cameraFacing=desiredFacing;
+        }catch(error){lastError=error;}
+      }
+      if(!changed){
+        if(devices.length<2){
+          if(!onPhone())throw new Error('Só uma câmera foi encontrada neste dispositivo.');
+          throw lastError||new Error('Não foi possível alternar entre as câmeras deste celular.');
+        }
+        const currentIndex=devices.findIndex(d=>d.deviceId===currentId);
+        // Preferir câmera traseira/frontal conforme o nome quando disponível.
+        const words=desiredFacing==='environment'?/back|rear|traseir|ambiente|environment/i:/front|frontal|facetime|selfie|user/i;
+        const preferred=devices.find(d=>d.deviceId!==currentId&&words.test(d.label||''));
+        const next=preferred||devices[(currentIndex>=0?currentIndex+1:0)%devices.length];
+        if(!next||next.deviceId===currentId)throw new Error('Não foi encontrada outra câmera disponível.');
+        await track.restartTrack({...captureOptions(),deviceId:{exact:next.deviceId}});
+        const result=track.mediaStreamTrack?.getSettings?.()||{};
+        if(result.deviceId&&result.deviceId===currentId)
+          throw new Error('O aparelho manteve a câmera anterior.');
+        cameraFacing=result.facingMode==='environment'?'environment':
+          result.facingMode==='user'?'user':desiredFacing;
+        changed=true;
+      }
+      if(seq!==generation||activeRoom!==room||!publishing||!socket?.connected)return;
+      updateLocalVideo(); // a nova MediaStreamTrack precisa atualizar a prévia após restartTrack().
+      notice('📷 Câmera alterada.');
+    }catch(error){
+      cameraFacing=previousFacing;
+      if(seq===generation&&activeRoom===room&&publishing){
+        // Não troca o estado público da câmera. Se o aparelho falhou, o jogador pode religar.
+        updateLocalVideo();
+        notice('Não foi possível trocar a câmera: '+String(error?.message||'dispositivo indisponível').slice(0,105));
+      }
+    }finally{
+      if(seq===generation){busy=false;updateButton();updateSwitchButton();}
+    }
   }
   function onPresence(payload){
     if(!payload||payload.code!==code())return;
@@ -202,6 +295,12 @@
     socket.on('cameraPresence',onPresence);
     window.addEventListener('pagehide',stop);
     document.getElementById('liveCameraBtn')?.addEventListener('click',toggle);
+    const switchBtn=document.getElementById('cameraSwitchBtn');
+    // Impede que o botão 🔄 também arraste a janela flutuante.
+    for(const type of ['pointerdown','pointermove','pointerup','pointercancel','click']){
+      switchBtn?.addEventListener(type,event=>event.stopPropagation());
+    }
+    switchBtn?.addEventListener('click',switchCamera);
     try{
       const response=await fetch('/api/camera/config',{credentials:'same-origin',cache:'no-store'});
       enabled=!!(await response.json())?.enabled;
@@ -209,5 +308,5 @@
     updateButton();
     if(code()&&socket.connected)socket.emit('cameraPresenceRequest');
   }
-  window.MauCamera={init,onJoined,onState,onPresence,renderIntoSeats,stop};
+  window.MauCamera={init,onJoined,onState,onPresence,renderIntoSeats,stop,switchCamera};
 })();

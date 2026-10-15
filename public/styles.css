@@ -2401,3 +2401,21 @@ button.bot-primary{
   .camera-btn-drag-handle{font-size:13px}
   .camera-preview-drag{width:20px;height:20px;font-size:13px}
 }
+
+/* V50.3 - troca de câmera frontal/traseira e seleção de webcams.
+   Apenas controle da faixa WebRTC já publicada, sem captura/gravação local. */
+.camera-switch-btn{
+  position:absolute;right:3px;bottom:3px;z-index:6;
+  display:grid;place-items:center;width:30px;height:30px;
+  padding:0;border:1px solid #84dcb4;border-radius:50%;
+  background:#12372bec;color:#fff;font-size:16px;line-height:1;
+  cursor:pointer;touch-action:manipulation;pointer-events:auto;
+  -webkit-tap-highlight-color:transparent;
+}
+.camera-switch-btn:hover{background:#226449}
+.camera-switch-btn:focus-visible{outline:2px solid #ffe18a;outline-offset:1px}
+.camera-switch-btn:disabled{opacity:.6;cursor:progress}
+.camera-self-preview.camera-rear .camera-video{transform:none}
+@media(max-width:900px){
+  .camera-switch-btn{width:25px;height:25px;right:1px;bottom:1px;font-size:14px}
+}

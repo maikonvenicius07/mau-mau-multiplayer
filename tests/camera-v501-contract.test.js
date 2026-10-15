@@ -21,6 +21,6 @@ assert(!/socket\.emit\('cameraFrame'/.test(client),'vídeo não deve trafegar no
 assert(client.includes("getState()?.viewerRole==='SPECTATOR'"),'observadores devem ser identificados');
 assert(client.includes('renderIntoSeats()') && app.includes('window.MauCamera?.renderIntoSeats()'),'o vídeo deve sobreviver aos renders');
 assert(app.includes('window.MauCamera?.stop();'),'o vídeo deve parar ao sair/desconectar');
-assert(html.includes('camera-video.js?v=50.2-camera-flutuante'),'o controlador deve ser servido ao navegador');
+assert(html.includes('camera-video.js?v=50.3-trocar-camera'),'o controlador deve ser servido ao navegador');
 assert(html.includes('id="liveCameraBtn"'),'botão de câmera ausente');
 console.log('✓ V50.1: contratos de câmera opcional, autorização, privacidade e integração verificados.');

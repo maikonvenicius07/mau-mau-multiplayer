@@ -11,7 +11,7 @@ const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
 
 assert(html.includes('id="liveCameraBtn"')&&html.includes('id="cameraSelfPreview"'));
 assert(html.includes('camera-floating.js?v=50.2-arraste-camera'));
-assert(html.includes('camera-video.js?v=50.2-camera-flutuante'));
+assert(html.includes('camera-video.js?v=50.3-trocar-camera'));
 assert(/const visible=!!publishing&&!!myVideo;/.test(videoSource), 'prévia local no celular e computador');
 assert(css.includes('.live-camera-btn.dragging') && css.includes('.camera-self-preview.dragging'),'feedback de arraste');
 assert(css.includes('touch-action:none'),'arraste por toque');
