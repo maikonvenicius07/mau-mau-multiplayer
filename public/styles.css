@@ -2419,3 +2419,82 @@ button.bot-primary{
 @media(max-width:900px){
   .camera-switch-btn{width:25px;height:25px;right:1px;bottom:1px;font-size:14px}
 }
+
+
+/* V50.4 REFEITA SOBRE O ZIP DO USUARIO (V50.3).
+   Amplia APENAS o video ao vivo dos adversarios: avatares, cartas e botoes
+   permanecem com o dimensionamento original quando a camera esta desligada. */
+#game .player-card.camera-seat{min-width:0;padding:7px;gap:6px;}
+#game .player-card.camera-seat .player-meta{min-width:0;max-width:60px;}
+#game .player-card.camera-seat .player-name{max-width:60px;overflow:hidden;text-overflow:ellipsis;}
+#game .player-card.camera-seat .card-count-badge{min-width:43px;width:43px;}
+#game .player-card.camera-seat .avatar.camera-streaming{
+  width:96px;height:96px;flex:0 0 96px;
+  border:2px solid #62d9a5;border-radius:50%;
+  background:#03160f;box-shadow:0 0 0 2px #0b3024,0 5px 18px #0009;
+  cursor:zoom-in;pointer-events:auto;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+#game .player-card.camera-seat .avatar.camera-streaming:focus-visible{
+  outline:3px solid #f5d177;outline-offset:3px;
+}
+#game .player-card.camera-seat .avatar.camera-streaming .camera-video{
+  border-radius:50%;object-fit:cover;
+}
+/* Reduz o restante do cartao apenas quando houver transmissao de video,
+   para preservar o contador de cartas e nao expandir a mesa excessivamente. */
+@media(max-width:900px){
+  #game .player-card.camera-seat{gap:5px;padding:5px 6px;max-width:none;}
+  #game .player-card.camera-seat .avatar.camera-streaming{
+    width:66px;height:66px;flex:0 0 66px;
+  }
+  #game .player-card.camera-seat .player-meta{display:none!important;}
+  #game .player-card.camera-seat .card-count-badge{width:35px;min-width:35px;}
+  #game .player-seat.camera-visible::after{
+    content:attr(data-player-name);position:absolute;top:calc(100% + 2px);left:50%;
+    transform:translateX(-50%);max-width:110px;padding:2px 5px;
+    font-size:9px;font-weight:850;color:#e9f8ef;background:#062319db;
+    border-radius:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    pointer-events:none;
+  }
+}
+@media(max-width:520px){
+  #game .player-card.camera-seat{gap:4px;padding:4px;}
+  #game .player-card.camera-seat .avatar.camera-streaming{
+    width:60px;height:60px;flex:0 0 60px;
+  }
+  #game .player-card.camera-seat .card-count-badge{width:33px;min-width:33px;}
+}
+/* Assentos das extremidades nao podem perder o contador nas bordas da mesa. */
+#game .player-seat.camera-visible.camera-edge-left{transform:translate(-35%,-50%)}
+#game .player-seat.camera-visible.camera-edge-right{transform:translate(-65%,-50%)}
+/* Amplia a mesma MediaStream em uma visualizacao temporaria, sem abrir
+   uma nova conexao, sem gravar e sem guardar imagens no navegador/servidor. */
+.camera-opponent-overlay{
+  position:fixed;inset:0;z-index:275;
+  display:flex;align-items:center;justify-content:center;
+  padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+          calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  background:#000c;backdrop-filter:blur(5px);
+}
+.camera-opponent-panel{
+  position:relative;display:flex;flex-direction:column;gap:9px;
+  width:min(400px,92vw);max-height:85svh;
+  padding:13px;border-radius:18px;
+  border:2px solid #57cb95;background:#071c13;
+  box-shadow:0 22px 70px #000b;
+}
+.camera-opponent-heading{
+  display:block;padding-right:50px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;color:#f1d58d;font-weight:900;font-size:14px;
+}
+.camera-opponent-expanded-video{
+  width:100%;max-height:65svh;aspect-ratio:4 / 3;object-fit:contain;
+  background:#000;border-radius:12px;
+}
+.camera-opponent-close{
+  position:absolute;top:6px;right:7px;min-width:44px;min-height:44px;
+  border:1px solid #829586;border-radius:50%;background:#204e39;
+  color:#fff;font-size:24px;line-height:1;z-index:1;
+}
+.camera-opponent-close:focus-visible{outline:3px solid #f5d177;outline-offset:2px;}

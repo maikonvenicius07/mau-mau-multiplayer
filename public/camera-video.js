@@ -1,4 +1,4 @@
-/* MAU-MAU CANDEIAS V50.3 - câmera flutuante com troca frontal/traseira e webcams.
+/* MAU-MAU CANDEIAS V50.4 (base V50.3) - câmera flutuante com troca frontal/traseira e webcams.
  * Não grava, fotografa, envia frames pelo Socket.IO, nem persiste mídia.
  * Só carrega o SDK externo quando uma câmera é ligada/visualizada.
  */
@@ -11,6 +11,45 @@
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
   let localPreview=null;
+  let expandedPlayerId=null;
+  let lastExpandedTrigger=null;
+  function closeExpanded(restoreFocus=false){
+    const panel=document.getElementById('cameraOpponentOverlay');
+    const video=document.getElementById('cameraOpponentExpandedVideo');
+    if(video){try{video.pause();video.srcObject=null;}catch{}}
+    panel?.classList.add('hidden');
+    expandedPlayerId=null;
+    if(restoreFocus && lastExpandedTrigger?.isConnected)lastExpandedTrigger.focus?.();
+    lastExpandedTrigger=null;
+  }
+  function syncExpanded(){
+    if(!expandedPlayerId)return;
+    const source=videoNodes.get(expandedPlayerId);
+    if(!source?.srcObject){closeExpanded();return;}
+    const dest=document.getElementById('cameraOpponentExpandedVideo');
+    if(dest && dest.srcObject!==source.srcObject){
+      dest.srcObject=source.srcObject;
+      dest.play().catch(()=>{});
+    }
+  }
+  function openExpanded(playerId,sourceElement){
+    const id=String(playerId||'');
+    if(!id||id===String(me()?.id||''))return;
+    const video=videoNodes.get(id);
+    const overlay=document.getElementById('cameraOpponentOverlay');
+    const enlarged=document.getElementById('cameraOpponentExpandedVideo');
+    if(!video?.srcObject||!overlay||!enlarged)return;
+    expandedPlayerId=id;
+    lastExpandedTrigger=sourceElement||null;
+    const seat=document.querySelectorAll('.player-seat');
+    const player=[...seat].find(el=>el.dataset.cameraPlayerId===id);
+    const title=document.getElementById('cameraOpponentName');
+    if(title)title.textContent=player?.dataset.playerName||'Adversário';
+    enlarged.srcObject=video.srcObject;
+    overlay.classList.remove('hidden');
+    enlarged.play().catch(()=>{});
+    document.getElementById('cameraOpponentClose')?.focus?.();
+  }
   let cameraFacing='user'; // apenas estado em memória; NÃO é armazenado.
   const captureOptions=()=>({resolution:{width:MAX_WIDTH,height:MAX_HEIGHT},frameRate:FRAME_RATE});
   function onPhone(){
@@ -55,11 +94,20 @@
     updateSwitchButton();
   }
   function removeVideo(id){
+    if(String(id)===expandedPlayerId)closeExpanded();
     const element=videoNodes.get(id);if(!element)return;
+    const avatar=element.parentElement;
+    if(avatar?.classList?.contains('avatar')){
+      avatar.classList.remove('camera-streaming');
+      avatar.removeAttribute('role');avatar.removeAttribute('aria-label');avatar.removeAttribute('tabindex');
+      avatar.closest?.('.player-card')?.classList.remove('camera-seat');
+      avatar.closest?.('.player-seat')?.classList.remove('camera-visible','camera-edge-left','camera-edge-right');
+    }
     try{element.pause();element.srcObject=null;element.remove();}catch{}
     videoNodes.delete(id);
   }
   function clearVideo(){
+    closeExpanded();
     for(const id of [...videoNodes.keys()])removeVideo(id);
     if(localPreview){try{localPreview.pause();localPreview.srcObject=null;localPreview.remove()}catch{}localPreview=null;}
     document.getElementById('cameraSelfPreview')?.classList.add('hidden');
@@ -74,6 +122,7 @@
     video.srcObject=new MediaStream([track.mediaStreamTrack]);
     videoNodes.set(id,video);
     renderIntoSeats();
+    syncExpanded();
     video.play().catch(()=>{});
   }
   function updateLocalVideo(){
@@ -92,7 +141,29 @@
       const seats=[...ring.querySelectorAll('.player-seat')];
       const seat=seats.find(el=>el.dataset.cameraPlayerId===id);
       const avatar=seat?.querySelector('.player-card .avatar');
-      if(avatar){avatar.classList.add('camera-streaming');if(video.parentElement!==avatar)avatar.appendChild(video);}
+      if(avatar){
+        avatar.classList.add('camera-streaming');
+        seat.classList?.add('camera-visible');
+        const seatLeft=parseFloat(seat.style?.left||'50');
+        if(seatLeft<22)seat.classList?.add('camera-edge-left');
+        else if(seatLeft>78)seat.classList?.add('camera-edge-right');
+        avatar.closest?.('.player-card')?.classList.add('camera-seat');
+        if(video.parentElement!==avatar)avatar.appendChild(video);
+        if(id!==String(me()?.id||'')){
+          avatar.setAttribute('role','button');
+          avatar.tabIndex=0;
+          avatar.setAttribute('aria-label','Ampliar câmera de '+String(seat.dataset.playerName||'adversário'));
+          // Os assentos sao reconstruidos nas atualizacoes da partida. Instala
+          // os handlers apenas no elemento atual e nao no video WebRTC.
+          if(!avatar.dataset.cameraExpandReady){
+            avatar.dataset.cameraExpandReady='1';
+            avatar.addEventListener('click',()=>openExpanded(id,avatar));
+            avatar.addEventListener('keydown',event=>{
+              if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpanded(id,avatar);}
+            });
+          }
+        }
+      }
     }
     const holder=document.getElementById('cameraSelfPreview');
     const myId=String(me()?.id||''),myVideo=videoNodes.get(myId);
@@ -107,6 +178,7 @@
         localPreview.srcObject=myVideo.srcObject;localPreview.play().catch(()=>{});
       }else if(localPreview){localPreview.pause();localPreview.srcObject=null;localPreview.remove();localPreview=null;}
     }
+    syncExpanded();
     updateSwitchButton();
   }
   function loadSDK(){
@@ -295,6 +367,13 @@
     socket.on('cameraPresence',onPresence);
     window.addEventListener('pagehide',stop);
     document.getElementById('liveCameraBtn')?.addEventListener('click',toggle);
+    document.getElementById('cameraOpponentClose')?.addEventListener('click',()=>closeExpanded(true));
+    document.getElementById('cameraOpponentOverlay')?.addEventListener('click',event=>{
+      if(event.target.id==='cameraOpponentOverlay')closeExpanded(true);
+    });
+    document.addEventListener?.('keydown',event=>{
+      if(event.key==='Escape'&&expandedPlayerId)closeExpanded(true);
+    });
     const switchBtn=document.getElementById('cameraSwitchBtn');
     // Impede que o botão 🔄 também arraste a janela flutuante.
     for(const type of ['pointerdown','pointermove','pointerup','pointercancel','click']){
