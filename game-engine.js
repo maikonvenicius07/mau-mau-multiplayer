@@ -390,10 +390,9 @@ function startRound(room) {
   room.currentPlayer = (flipper - 1 + room.players.length) % room.players.length;
   auditTurn(room,{fromIdx:flipper,toIdx:room.currentPlayer,reason:'round-start'});
 
-  // QUEIMA DA ABERTURA: a carta inicial não foi jogada por um participante,
-  // portanto qualquer jogador que tenha uma carta NORMAL exatamente igual pode
-  // queimá-la antes da primeira ação normal, mesmo fora da vez. A primeira Queima
-  // válida fecha esta janela e transfere a jogada para quem queimou.
+  // ABERTURA: a primeira carta ainda não foi jogada por um participante.
+  // Quem estiver FORA da vez pode reagir com Ação Rápida (carta normal idêntica),
+  // sem roubar o turno. Somente quem já está na vez pode usar Queima com continuação.
   room.openingReaction = true;
   room.burnTopCardId = starter.id;
   room.reactionTopCardId = starter.id;
@@ -484,10 +483,8 @@ function declare(room, playerId, type) {
   const p = room.players[idx];
   if (!['mau-mau','batendo'].includes(type)) throw new Error('Declaração inválida.');
 
-  // Regra geral: Queima com continuação acontece na vez normal do jogador.
-  // Exceção: enquanto a primeira carta virada ainda não recebeu nenhuma ação,
-  // qualquer jogador pode queimá-la se tiver uma carta normal exatamente igual.
-  // Fora dessa abertura, a intervenção fora da vez continua sendo Ação Rápida.
+  // Queima com continuação só acontece na vez normal do jogador.
+  // Na abertura e nas demais reações, quem está fora da vez só pode usar Ação Rápida.
   const isTurn = room.players[room.currentPlayer]?.id === p.id;
   const hasBurnOpportunity = canBurnMatch(room,p).length > 0;
   const hasQuickOpportunity = canQuickAction(room,p).length > 0;
@@ -816,12 +813,10 @@ function canFinishBurn(room, player) {
   );
 }
 
-// QUEIMA — REGRA NORMAL + EXCEÇÃO DA ABERTURA
-// Na regra normal, quando chega a sua vez e você possui exatamente a mesma carta
-// da mesa (mesmo valor + mesmo naipe), pode queimá-la e ganhar o direito à continuação.
-// Exceção: a PRIMEIRA carta virada da rodada também pode ser queimada por qualquer
-// jogador com uma cópia normal exatamente igual, mesmo fora da vez. Depois da
-// primeira ação normal, volta a valer a regra comum: fora da vez, use Ação Rápida.
+// QUEIMA — SOMENTE NA PRÓPRIA VEZ
+// Quando chega a sua vez e você possui exatamente a mesma carta da mesa
+// (mesmo valor + mesmo naipe), pode queimá-la e ganhar direito à continuação.
+// Na abertura, uma carta idêntica jogada FORA da vez é Ação Rápida, nunca Queima.
 // Depois da queima, a segunda carta NÃO é obrigatória. O jogador pode continuar
 // jogando uma carta legal da mão. Porém, se quiser ENCERRAR a sequência sem
 // jogar outra carta, deve obrigatoriamente comprar 1 carta antes de passar.
@@ -844,9 +839,8 @@ function burnMatch(room, playerId, cardId) {
   if (!playerAvailable(player) || player.finishedRound) throw new Error('Jogador não pode realizar a queima agora.');
 
   const top = topCard(room);
-  const openingBurn = !!(room.openingReaction && top && room.reactionTopCardId === top.id);
-  if (idx !== room.currentPlayer && !openingBurn) {
-    throw new Error('A Queima com direito à segunda carta só pode ser feita na sua vez normal, exceto sobre a primeira carta virada da rodada. Fora disso, use Ação Rápida.');
+  if (idx !== room.currentPlayer) {
+    throw new Error('A Queima com direito à continuação só pode ser feita na sua vez normal. Fora da vez, inclusive na abertura, use Ação Rápida.');
   }
 
   const first = player.hand.find(c => c.id === cardId);
@@ -879,9 +873,9 @@ function burnMatch(room, playerId, cardId) {
   const previousCurrentPlayer = room.currentPlayer;
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
-  auditTurn(room,{fromIdx:previousCurrentPlayer,toIdx:idx,card:played,reason:openingBurn && previousCurrentPlayer!==idx?'opening-burn-takeover':'burn-continuation'});
+  auditTurn(room,{fromIdx:previousCurrentPlayer,toIdx:idx,card:played,reason:'burn-continuation'});
 
-  log(room, `${player.name} QUEIMOU ${cardLabel(played)}${openingBurn ? ' na abertura da rodada, mesmo fora da vez' : ' na própria vez'}. Pode continuar jogando uma carta compatível. Se quiser encerrar a sequência, deve comprar 1 carta antes de passar.`, 'burn');
+  log(room, `${player.name} QUEIMOU ${cardLabel(played)} na própria vez. Pode continuar jogando uma carta compatível. Se quiser encerrar a sequência, deve comprar 1 carta antes de passar.`, 'burn');
 
   if (before === 2 && player.hand.length === 1 && player.declaration === 'mau-mau') {
     log(room, `${player.name} ficou com uma carta após a queima e havia anunciado Mau-Mau.`, 'mau');
@@ -1132,18 +1126,16 @@ function canBurnMatch(room, player) {
 
   const top = topCard(room);
   const current = room.players[room.currentPlayer];
-  const openingBurn = !!(room.openingReaction && top && room.reactionTopCardId === top.id);
-  // Fora da abertura, a Queima com continuação pertence somente à vez normal.
-  // Na abertura, qualquer jogador pode queimar a carta inicial exatamente igual.
-  if (!current || (current.id !== player.id && !openingBurn)) return [];
+  // Queima com continuação pertence sempre à vez normal, inclusive na abertura.
+  if (!current || current.id !== player.id) return [];
 
   if (!top || isSpecial(top)) return [];
   return player.hand.filter(first => !isSpecial(first) && sameCard(first, top));
 }
 
 // V17 — AÇÃO RÁPIDA
-// Um jogador que NÃO seria o próximo da vez pode descartar imediatamente uma carta
-// exatamente igual à recém-jogada. É uma intervenção de uma única carta: não toma a vez,
+// Um jogador que NÃO está na vez pode descartar imediatamente uma carta
+// exatamente igual à recém-jogada OU à carta inicial da rodada. Não toma a vez,
 // não altera o sentido e não dispara novamente o efeito especial da carta. A ordem normal
 // continua com quem já seria o próximo. A primeira reação aceita pelo servidor fecha a janela.
 function canQuickAction(room, player) {
@@ -1151,7 +1143,10 @@ function canQuickAction(room, player) {
   if (room.pendingSeven > 0 || room.continuationPlayerId) return [];
   if (!playerAvailable(player) || player.finishedRound) return [];
   const top = topCard(room);
-  if (!top || room.reactionTopCardId !== top.id || !room.reactionSourcePlayerId || !room.reactionNextPlayerId) return [];
+  if (!top || room.reactionTopCardId !== top.id || !room.reactionNextPlayerId) return [];
+  // Na abertura não existe jogador de origem (reactionSourcePlayerId === null).
+  // Essa ausência é válida SOMENTE enquanto a janela da abertura estiver ativa.
+  if (!room.reactionSourcePlayerId && !room.openingReaction) return [];
   if (room.reactionSourcePlayerId === player.id) return [];
   if (room.reactionNextPlayerId === player.id) return []; // pela regra, quem já seria o próximo não usa Ação Rápida
   if (isSpecial(top)) return []; // V30: especial nunca entra em Ação Rápida
@@ -1174,7 +1169,7 @@ function quickAction(room, playerId, cardId) {
   }
   const allowed = canQuickAction(room, player);
   if (!allowed.some(c => c.id === cardId)) {
-    throw new Error('Ação Rápida indisponível: use apenas carta normal exatamente igual à recém-jogada e somente fora da vez do próximo jogador.');
+    throw new Error('Ação Rápida indisponível: use apenas carta normal idêntica à carta da mesa, fora da vez do jogador atual.');
   }
 
   const normalNextId = room.reactionNextPlayerId;

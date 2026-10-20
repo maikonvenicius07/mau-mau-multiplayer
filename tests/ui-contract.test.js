@@ -23,8 +23,8 @@ assert(html.includes('AÇÃO RÁPIDA') || html.includes('Ação Rápida'),'regra
 assert(html.includes('id="floatingQuickBtn"'),'HTML precisa conter o botão flutuante de Ação Rápida');
 assert(html.includes('>VER REGRAS<'),'atalho de regras deve usar somente o texto VER REGRAS');
 assert(!html.includes('Ver regras desta versão'),'atalho de regras não deve exibir texto técnico de versão');
-assert(html.includes('Queima — própria vez + primeira carta da rodada'),'regras visuais devem explicar a Queima normal e a exceção da abertura');
-assert(html.includes('Exceção da abertura'),'regras visuais devem explicar que a primeira carta pode ser queimada fora da vez');
+assert(html.includes('Queima — somente na própria vez'),'regras visuais devem explicar que a Queima é exclusiva da própria vez');
+assert(html.includes('Na abertura:') && html.includes('Ação Rápida'),'regras visuais devem explicar que a primeira carta permite Ação Rápida sem roubar a vez');
 assert(app.includes('const canPassBurn=!!(inBurn&&boughtThisTurn)'),'cliente precisa liberar PASSAR após Queima somente depois da compra obrigatória');
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
 assert(engine.includes('é obrigatório comprar 1 carta do monte antes de passar'),'motor deve bloquear QUEIMA → PASSAR sem compra');

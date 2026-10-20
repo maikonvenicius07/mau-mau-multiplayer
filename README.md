@@ -664,7 +664,7 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - O pequeno botão de chama foi substituído por um botão maior **🔥 QUEIMAR** sobre a própria carta.
 - Um aviso **QUEIMA DISPONÍVEL** aparece junto à mão enquanto a oportunidade estiver aberta.
 - Ao surgir uma Queima em uma mão grande, a interface centraliza automaticamente a primeira carta queimável.
-- Na Queima da abertura, quando a Queima é a única ação disponível naquela carta, tocar na própria carta também executa a Queima.
+- Na primeira carta da rodada, tocar numa carta normal idêntica FORA da vez executa Ação Rápida, preservando o turno original; Queima permanece exclusiva da própria vez.
 - A regra do jogo não foi alterada; a mudança é apenas de usabilidade e visibilidade.
 
 
@@ -708,7 +708,7 @@ Botão 🎙️ na mesa para conversa de voz em tempo real entre os jogadores da 
 - Os dois botões podem ser arrastados com mouse ou dedo e cada posição fica salva localmente no navegador.
 - As cartas válidas continuam destacadas na mão e o foco automático continua funcionando em mãos grandes.
 - Se houver mais de uma Carta Dupla possível, o botão ×2 abre um seletor compacto para escolher qual dupla jogar.
-- A Queima da abertura mantém o toque direto na carta destacada como atalho adicional.
+- Na abertura, o toque direto na carta idêntica de quem estiver fora da vez é um atalho de Ação Rápida, sem transferência de turno.
 - Nenhuma regra do motor de Queima ou Carta Dupla foi alterada.
 
 

@@ -1,3 +1,11 @@
+## V50.5 — Ação Rápida na abertura sem roubar a vez (20/10/2026)
+
+- Corrigido o descarte de carta idêntica fora da vez sobre a carta inicial: agora é **Ação Rápida**, preservando o turno original.
+- Eliminada a exceção antiga `opening-burn-takeover`, que transferia a vez para quem reagia.
+- Queima com continuação continua permitida na própria vez, inclusive na abertura.
+- Botão flutuante ⚡ e toque direto na carta executam Ação Rápida fora da vez.
+- Bot automático, instruções e testes de integridade atualizados; sem mudanças na câmera, microfone ou dados do jogo.
+
 ## Pré-APK Passo 3 — documentação alinhada
 - Documentação operacional atualizada para Google + e-mail/senha de 6–60 caracteres e recuperação por código enviado por e-mail via Resend.
 - `.env.example` alinhado ao ambiente atual, sem referências de configuração Apple na superfície Pré-APK.

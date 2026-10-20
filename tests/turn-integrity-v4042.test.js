@@ -130,14 +130,16 @@ for(const n of [3,4,5]){
   E.quickAction(r,reactor.id,'copy');assert.equal(r.currentPlayer,expected,'Ação Rápida não pode roubar/pular a vez');
 }
 
-// Queima da PRIMEIRA carta continua sendo a exceção intencional já existente:
-// ela transfere a jogada a quem queimou, mas não executa dois avanços.
+// Na primeira carta, fora da vez só existe Ação Rápida: quem iria começar
+// mantém a vez. Não pode haver continuação nem avanço duplo.
 {
-  const r=makeRoom(4,-1),burner=r.players[1];r.currentPlayer=3;
+  const r=makeRoom(4,-1),reactor=r.players[1];r.currentPlayer=3;
   const top=card('5','hearts','opening-top');r.discard=[top];r.openingReaction=true;r.reactionTopCardId=top.id;r.reactionSourcePlayerId=null;r.reactionNextPlayerId=r.players[3].id;
-  burner.hand=[card('5','hearts','opening-copy'),card('9','hearts','opening-follow'),card('2','clubs','left')];
-  E.burnMatch(r,burner.id,'opening-copy');assert.equal(r.currentPlayer,1);assert.equal(r.continuationPlayerId,burner.id);
-  E.playCard(r,burner.id,'opening-follow');assert.equal(r.currentPlayer,0,'após a continuação, anda uma vez a partir de quem queimou');
+  reactor.hand=[card('5','hearts','opening-copy'),card('9','hearts','opening-follow'),card('2','clubs','left')];
+  assert.equal(E.canBurnMatch(r,reactor).length,0);
+  assert(E.canQuickAction(r,reactor).some(c=>c.id==='opening-copy'));
+  E.quickAction(r,reactor.id,'opening-copy');assert.equal(r.currentPlayer,3);assert.equal(r.continuationPlayerId,null);
+  assert.throws(()=>E.playCard(r,reactor.id,'opening-follow'),/Não é a sua vez/);
 }
 
 // Frontend não é autoridade do turno.

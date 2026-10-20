@@ -61,4 +61,4 @@ for(let i=0;i<250;i++){
   assert.equal(r.currentPlayer,3);
 }
 
-console.log('✓ V40.3 regressão: Queima na vez + exceção da abertura, Ação Rápida fora da vez e Carta Dupla passaram.');
+console.log('✓ V40.3 regressão: Queima na própria vez, Ação Rápida fora da vez e Carta Dupla passaram.');

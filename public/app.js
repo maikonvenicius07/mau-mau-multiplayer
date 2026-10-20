@@ -2579,7 +2579,7 @@ function updateFloatingGameActions(){
   const quickAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.quickActionCardIds||[]).length);
   const burnWasHidden=burnBtn.classList.contains('hidden'),doubleWasHidden=doubleBtn.classList.contains('hidden'),quickWasHidden=quickBtn.classList.contains('hidden');
   burnBtn.classList.toggle('hidden',!burnAvailable);doubleBtn.classList.toggle('hidden',!doubleAvailable);quickBtn.classList.toggle('hidden',!quickAvailable);
-  if(burnAvailable){burnBtn.classList.toggle('opening-action',!!state.openingReaction);burnBtn.title=state.openingReaction?'QUEIMA DA ABERTURA disponível. Clique para queimar ou arraste para mover.':'Queima disponível. Clique para queimar ou arraste para mover.';if(burnWasHidden)restoreFloatingActionPosition('burn')}
+  if(burnAvailable){burnBtn.classList.toggle('opening-action',!!state.openingReaction);burnBtn.title='Queima na sua vez disponível. Clique para queimar ou arraste para mover.';if(burnWasHidden)restoreFloatingActionPosition('burn')}
   if(doubleAvailable){const n=(state.me.doublePairs||[]).length;doubleBtn.title=n>1?`Carta Dupla: ${n} opções disponíveis. Clique para escolher ou arraste para mover.`:'Carta Dupla disponível. Clique para jogar ou arraste para mover.';if(doubleWasHidden)restoreFloatingActionPosition('double')}
   if(quickAvailable){quickBtn.title='Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover.';if(quickWasHidden)restoreFloatingActionPosition('quick')}
   if(!doubleAvailable)hideFloatingActionChooser();
@@ -3327,8 +3327,8 @@ function renderCenter(){
     else banner='🔥 Após a queima: continue jogando ou, para encerrar, compre 1 carta antes de passar';
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
-  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner=state.openingReaction?'🔥 QUEIMA DA ABERTURA! Você pode jogar a carta exatamente igual mesmo fora da vez':'🔥 QUEIMA DISPONÍVEL! Jogue a carta igual e decida se continua ou passa';
-  else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner='⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL NA SUA VEZ! Jogue a carta igual e decida se continua ou passa';
+  else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner=state.openingReaction?'⚡ AÇÃO RÁPIDA NA ABERTURA! Descarte a carta igual sem tomar a vez':'⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
@@ -3372,12 +3372,12 @@ function renderHand(){
     if(canBurn) el.classList.add('burnable');
     if(canQuick) el.classList.add('quickable');
     el.dataset.cardId=card.id;
-    // Na abertura, quando a Queima é a única jogada disponível para esta carta,
-    // tocar na própria carta também executa a Queima. Na vez normal, o toque na
-    // carta continua sendo a jogada comum e o botão laranja escolhe a Queima.
-    if(canBurn&&!ok&&!canQuick){
-      el.classList.add('burn-direct');
-      el.onclick=()=>play(card,true);
+    // Fora da vez (inclusive na abertura), tocar na carta idêntica executa
+    // somente Ação Rápida. Na própria vez, tocar executa a jogada comum;
+    // o botão de Queima continua oferecendo a continuação especial.
+    if(canQuick&&!ok){
+      el.classList.add('quick-direct');
+      el.onclick=()=>playQuick(card);
     }else if(ok){
       el.onclick=()=>play(card,false);
     }
