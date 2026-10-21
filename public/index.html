@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.1" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.1.1" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -226,7 +226,12 @@
         <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
         <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">🎮 Entrar</button></div>
       </div>
-      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
+      <div class="landing-links">
+        <button id="rankingOpen" class="ranking-link-btn" type="button">🏆 Ranking</button>
+        <button id="tournamentOpenHome" class="tournament-home-btn" type="button" aria-haspopup="dialog" aria-controls="tournamentDialog">🏆 Torneios</button>
+        <button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button>
+        <button id="rulesOpen" class="link-btn" type="button">VER REGRAS</button>
+      </div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
     </div>
   </section>
@@ -758,7 +763,6 @@
     </div>
     <div id="rankingMine" class="ranking-mine"></div>
     <button id="profileStatsOpenRanking" type="button" class="ranking-link-btn profile-rank-link">📊 Abrir Meu Perfil</button>
-    <button id="tournamentOpenRanking" type="button" class="ranking-link-btn tournament-rank-link">🏆 Torneios</button>
     <div class="ranking-table-wrap">
       <p class="ranking-profile-tip">Toque em <strong>Ver perfil</strong> para consultar as estatísticas do jogador.</p>
       <table class="ranking-table ranking-table-wins">
@@ -766,6 +770,10 @@
         <tbody id="rankingBody"><tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr></tbody>
       </table>
     </div>
+    <details id="tournamentResultsInfo" class="ranking-tournament-results">
+      <summary>🏅 Resultados dos torneios</summary>
+      <p>Os resultados de campeonatos aparecerão aqui após a implantação da disputa e da classificação oficial. Ainda não há resultados de torneios registrados.</p>
+    </details>
     <div class="ranking-note"><strong>Temporada 1.</strong> A conta autenticada é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
   </dialog>
 
@@ -786,6 +794,6 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.1"></script>
+  <script src="tournament-ui.js?v=51.1.1"></script>
 </body>
 </html>

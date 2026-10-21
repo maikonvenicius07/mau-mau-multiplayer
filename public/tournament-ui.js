@@ -1,7 +1,7 @@
 'use strict';
-// V51.1 — inscrição simples, independente das regras da partida.
+// V51.1.1 — inscrição simples acessível pelo menu inicial, sem alterar as regras.
 (() => {
-  const button=document.getElementById('tournamentOpenRanking');
+  const button=document.getElementById('tournamentOpenHome');
   const dialog=document.getElementById('tournamentDialog');
   const close=document.getElementById('tournamentClose');
   const name=document.getElementById('tournamentName');
