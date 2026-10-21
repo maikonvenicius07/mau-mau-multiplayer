@@ -762,6 +762,24 @@ app.get('/api/ranking', async (req,res)=>{
   }
 });
 
+// V51.0 — perfil individual autenticado, somente agregações dos resultados já existentes.
+app.get('/api/me/stats', async (req,res)=>{
+  try {
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta para ver seu perfil.'});
+    const period=normalizePeriod(req.query.period||'season');
+    const mode=normalizeMode(req.query.mode);
+    if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
+    const stats=await rankingStore.getDetailedPlayerStats({playerKey:session.playerKey,period,mode,limit:10});
+    res.setHeader('Cache-Control','private, no-store');
+    res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats:{...stats,
+      name:stats?.name||session.name}});
+  }catch(e){
+    console.error('[ranking] perfil estatístico falhou:',e);
+    res.status(500).json({ok:false,message:'Não foi possível carregar suas estatísticas.'});
+  }
+});
+
 app.get('/api/profile', async (req,res)=>{
   try {
     const playerKey=String(req.query.playerKey||'').trim().slice(0,80);

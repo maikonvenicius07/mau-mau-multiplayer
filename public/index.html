@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -226,7 +226,7 @@
         <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
         <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">🎮 Entrar</button></div>
       </div>
-      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
+      <div class="landing-links"><button id="rankingOpen" class="ranking-link-btn">🏆 Ranking</button><button id="profileStatsOpen" class="ranking-link-btn profile-open-btn" type="button">📊 Meu Perfil</button><button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button><button id="rulesOpen" class="link-btn">VER REGRAS</button></div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
     </div>
   </section>
@@ -687,6 +687,45 @@
   </dialog>
 
 
+  <!-- V51.0: estatísticas básicas, exclusivamente de partidas já registradas. -->
+  <dialog id="profileStatsDialog" class="modal profile-stats-modal" aria-labelledby="profileStatsTitle">
+    <button class="close" id="profileStatsClose" type="button" aria-label="Fechar perfil">×</button>
+    <div class="profile-stats-header">
+      <div class="profile-stats-avatar" id="profileStatsAvatar" aria-hidden="true">👤</div>
+      <div class="profile-stats-ident">
+        <h2 id="profileStatsTitle">Meu Perfil</h2>
+        <div id="profileStatsName" class="profile-stats-name">Carregando...</div>
+        <div id="profileStatsRank" class="profile-stats-rank">Estatísticas de partidas concluídas</div>
+      </div>
+    </div>
+    <div class="profile-stats-filters" aria-label="Filtros de estatísticas">
+      <div class="profile-stats-filter-row">
+        <button type="button" data-profile-mode="official" class="active">Oficial</button>
+        <button type="button" data-profile-mode="training">Treino</button>
+      </div>
+      <div class="profile-stats-filter-row">
+        <button type="button" data-profile-period="day">Hoje</button>
+        <button type="button" data-profile-period="week">Semana</button>
+        <button type="button" data-profile-period="month">Mês</button>
+        <button type="button" data-profile-period="season" class="active">Temporada</button>
+      </div>
+    </div>
+    <div id="profileStatsFeedback" class="profile-stats-feedback" role="status" aria-live="polite"></div>
+    <div class="profile-stats-grid" id="profileStatsGrid">
+      <div><strong>—</strong><span>Partidas concluídas</span></div>
+      <div><strong>—</strong><span>Vitórias</span></div>
+      <div><strong>—</strong><span>Aproveitamento</span></div>
+      <div><strong>—</strong><span>Partidas sem vitória</span></div>
+      <div><strong>—</strong><span>Colocação média</span></div>
+      <div><strong>—</strong><span>Média de pontos</span></div>
+    </div>
+    <div class="profile-stats-history">
+      <h3>Últimas partidas</h3>
+      <div id="profileStatsRecent" class="profile-stats-recent">Carregando...</div>
+    </div>
+    <p class="profile-stats-note">Somente partidas concluídas e registradas. Pontuação menor é melhor. Dados anteriores já salvos são aproveitados.</p>
+  </dialog>
+
   <dialog id="rankingDialog" class="modal ranking-modal">
     <button class="close" id="rankingClose">×</button>
     <div class="ranking-head">
@@ -718,6 +757,7 @@
       <div class="ranking-league-card tier-legend"><span class="ranking-league-icon">👑</span><strong>Lenda</strong><small>de Candeias</small></div>
     </div>
     <div id="rankingMine" class="ranking-mine"></div>
+    <button id="profileStatsOpenRanking" type="button" class="ranking-link-btn profile-rank-link">📊 Abrir Meu Perfil</button>
     <div class="ranking-table-wrap">
       <table class="ranking-table ranking-table-wins">
         <thead><tr><th>#</th><th>Jogador</th><th>Vitórias</th></tr></thead>
@@ -731,6 +771,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0"></script>
 </body>
 </html>

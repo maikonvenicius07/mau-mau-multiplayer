@@ -133,6 +133,29 @@ class JsonBackend {
     const ranked=denseRankByWins(rows);
     return ranked.find(r=>r.playerKey===playerKey)||null;
   }
+  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now(),limit=10}={}) {
+    if (!playerKey) return null;
+    period=normalizePeriod(period); mode=normalizeMode(mode);
+    if (period==='history') return null;
+    const matches=this.filtered(period,mode,now);
+    const entries=[];
+    for(const match of matches){
+      const result=(match.results||[]).find(r=>r.playerKey===playerKey);
+      if(!result)continue;
+      entries.push({name:result.name,avatar:result.avatar,finishedAt:match.finishedAt,
+        position:Number(result.position)||0,score:Number(result.score)||0,won:!!result.won});
+    }
+    entries.sort((a,b)=>(Date.parse(b.finishedAt)||0)-(Date.parse(a.finishedAt)||0));
+    const games=entries.length;
+    const wins=entries.reduce((n,r)=>n+(r.won?1:0),0);
+    const ranking=await this.getPlayerStats({playerKey,period,mode,now});
+    return {name:ranking?.name||entries[0]?.name||'',avatar:ranking?.avatar||entries[0]?.avatar||'macaco',
+      rank:ranking?.rank||null,games,wins,nonWins:games-wins,
+      winRate:games?Number((100*wins/games).toFixed(1)):0,
+      averagePosition:games?Number((entries.reduce((n,r)=>n+r.position,0)/games).toFixed(1)):null,
+      averageScore:games?Number((entries.reduce((n,r)=>n+r.score,0)/games).toFixed(1)):null,
+      recentMatches:entries.slice(0,Math.max(1,Math.min(10,Number(limit)||10)))};
+  }
   async getRecentPlayers({playerKey,limit=12}={}) {
     if(!playerKey)return [];
     const recent=new Map();
@@ -319,6 +342,40 @@ class PostgresBackend {
     );
     return rows[0]||null;
   }
+  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now(),limit=10}={}) {
+    if(!playerKey)return null;
+    period=normalizePeriod(period);mode=normalizeMode(mode);
+    if(period==='history')return null;
+    const start=periodStart(period,now);
+    const params=[playerKey,mode,start,CURRENT_SEASON_ID];
+    // Dados já persistidos: não registra cartas, ações ou novos eventos.
+    const {rows}=await this.pool.query(`
+      SELECT COUNT(*)::int AS games,
+             COUNT(*) FILTER (WHERE r.won)::int AS wins,
+             ROUND(AVG(r.position)::numeric,1)::float AS "averagePosition",
+             ROUND(AVG(r.score)::numeric,1)::float AS "averageScore"
+      FROM mm_match_results r
+      JOIN mm_matches m ON m.match_id=r.match_id
+      WHERE r.player_key=$1 AND m.mode=$2 AND m.season_id=$4
+        AND ($3::timestamptz IS NULL OR m.finished_at >= $3::timestamptz)`,params);
+    const summary=rows[0]||{};
+    const games=Number(summary.games)||0, wins=Number(summary.wins)||0;
+    const ranking=games?await this.getPlayerStats({playerKey,period,mode,now}):null;
+    const recent=await this.pool.query(`
+      SELECT m.finished_at AS "finishedAt",r.position,r.score,r.won
+      FROM mm_match_results r
+      JOIN mm_matches m ON m.match_id=r.match_id
+      WHERE r.player_key=$1 AND m.mode=$2 AND m.season_id=$4
+        AND ($3::timestamptz IS NULL OR m.finished_at >= $3::timestamptz)
+      ORDER BY m.finished_at DESC,m.match_id DESC
+      LIMIT $5`,[...params,Math.max(1,Math.min(10,Number(limit)||10))]);
+    return {name:ranking?.name||'',avatar:ranking?.avatar||'macaco',rank:ranking?.rank||null,
+      games,wins,nonWins:games-wins,winRate:games?Number((100*wins/games).toFixed(1)):0,
+      averagePosition:games?Number(summary.averagePosition):null,
+      averageScore:games?Number(summary.averageScore):null,
+      recentMatches:recent.rows.map(r=>({finishedAt:r.finishedAt,position:Number(r.position),
+        score:Number(r.score),won:!!r.won}))};
+  }
   async getRecentPlayers({playerKey,limit=12}={}) {
     if(!playerKey)return [];
     const safeLimit=Math.max(1,Math.min(30,Number(limit)||12));
@@ -348,6 +405,7 @@ class RankingStore {
   async getLeaderboard(opts){ return this.backend.getLeaderboard(opts); }
   async getPlayerStats(opts){ return this.backend.getPlayerStats(opts); }
   async getRecentPlayers(opts){ return this.backend.getRecentPlayers(opts); }
+  async getDetailedPlayerStats(opts){ return this.backend.getDetailedPlayerStats(opts); }
 }
 
 function buildMatchRecord(room) {

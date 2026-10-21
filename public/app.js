@@ -1264,6 +1264,68 @@ $('#rankingOpen').onclick=openRanking;
 $('#rankingOpen2').onclick=openRanking;
 $('#rankingClose').onclick=()=>$('#rankingDialog').close();
 
+// V51.0 — Meu Perfil: métricas de partidas concluídas, sem contadores de jogadas.
+let profileStatsPeriod='season',profileStatsMode='official',profileStatsRequest=0;
+const profileStatsNumber=(value,decimals=0)=>value==null?'—':Number(value).toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+function profileStatsDate(value){
+  const d=new Date(value);
+  if(!Number.isFinite(d.getTime()))return 'Data indisponível';
+  return d.toLocaleDateString('pt-BR',{timeZone:'America/Porto_Velho',day:'2-digit',month:'2-digit',year:'numeric'});
+}
+async function loadProfileStats(){
+  const dialog=$('#profileStatsDialog');if(!dialog?.open)return;
+  const request=++profileStatsRequest;
+  $('#profileStatsFeedback').textContent='Carregando estatísticas...';
+  $('#profileStatsRecent').textContent='Carregando...';
+  try{
+    const response=await fetch(`/api/me/stats?period=${encodeURIComponent(profileStatsPeriod)}&mode=${encodeURIComponent(profileStatsMode)}`,{credentials:'same-origin'});
+    const data=await response.json();
+    if(request!==profileStatsRequest||!dialog.open)return;
+    if(!response.ok||!data.ok)throw new Error(data.message||'Não foi possível carregar o perfil.');
+    const r=data.stats||{};
+    $('#profileStatsName').textContent=r.name||authUser?.name||'Jogador';
+    $('#profileStatsAvatar').innerHTML=avatarHTML(r.avatar||'macaco','md');
+    $('#profileStatsRank').textContent=r.games&&r.rank?`🏆 ${r.rank}º lugar na ${data.seasonName||'Temporada 1'}`:'Nenhuma partida registrada neste filtro';
+    const cells=[
+      [profileStatsNumber(r.games||0),'Partidas concluídas'],
+      [profileStatsNumber(r.wins||0),'Vitórias'],
+      [profileStatsNumber(r.winRate||0,1)+'%','Aproveitamento'],
+      [profileStatsNumber(r.nonWins||0),'Partidas sem vitória'],
+      [profileStatsNumber(r.averagePosition,1),'Colocação média'],
+      [profileStatsNumber(r.averageScore,1),'Média de pontos']
+    ];
+    $('#profileStatsGrid').innerHTML=cells.map(([number,label])=>`<div><strong>${esc(number)}</strong><span>${esc(label)}</span></div>`).join('');
+    const recent=Array.isArray(r.recentMatches)?r.recentMatches:[];
+    $('#profileStatsRecent').innerHTML=recent.length?recent.map(m=>
+      `<div class="profile-stats-game"><span>${esc(profileStatsDate(m.finishedAt))}</span><strong>${m.won?'🏆 Vitória':esc(String(m.position||'—')+'º lugar')}</strong><span>${esc(profileStatsNumber(m.score))} pontos</span></div>`
+    ).join(''):'Nenhuma partida concluída neste período e modalidade.';
+    $('#profileStatsFeedback').textContent='';
+  }catch(e){
+    if(request!==profileStatsRequest||!dialog.open)return;
+    $('#profileStatsFeedback').textContent=e.message||'Não foi possível carregar o perfil.';
+    $('#profileStatsRecent').textContent='';
+  }
+}
+function openProfileStats(){
+  if(!authUser)return showAuthGate('Entre na sua conta para ver suas estatísticas.');
+  const ranking=$('#rankingDialog');if(ranking?.open)ranking.close();
+  const dialog=$('#profileStatsDialog');if(!dialog?.open)dialog.showModal();
+  loadProfileStats();
+}
+$('#profileStatsOpen').onclick=openProfileStats;
+$('#profileStatsOpenRanking').onclick=openProfileStats;
+$('#profileStatsClose').onclick=()=>$('#profileStatsDialog').close();
+$$('[data-profile-mode]').forEach(button=>button.onclick=()=>{
+  profileStatsMode=button.dataset.profileMode;
+  $$('[data-profile-mode]').forEach(b=>b.classList.toggle('active',b===button));
+  loadProfileStats();
+});
+$$('[data-profile-period]').forEach(button=>button.onclick=()=>{
+  profileStatsPeriod=button.dataset.profilePeriod;
+  $$('[data-profile-period]').forEach(b=>b.classList.toggle('active',b===button));
+  loadProfileStats();
+});
+
 // ========================= V40.1 — JOGADORES ONLINE + CONVITES =========================
 const onlineStatusOrder={available:0,searching:1,reconnecting:2,bot:3,multiplayer:4};
 function renderOnlinePresence(){
