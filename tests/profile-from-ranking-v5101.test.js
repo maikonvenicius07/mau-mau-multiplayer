@@ -28,7 +28,7 @@ const {RankingStore}=require('../ranking-store');
     const block=server.slice(server.indexOf("app.get('/api/players/stats'"),server.indexOf("app.get('/api/profile'"));
     assert(block.includes('authFromCookieHeaderVerified(req.headers.cookie)'));
     assert(block.includes("String(req.query.playerKey||'').trim()"));
-    assert(block.includes('getDetailedPlayerStats({playerKey,period,mode,limit:10})'));
+    assert(block.includes('getDetailedPlayerStats({playerKey,period,mode})'));
     assert(block.includes("'Cache-Control','private, no-store'"));
     assert(client.includes('data-rank-player-index'));
     assert(client.includes('rankingPlayerRows[index]'));

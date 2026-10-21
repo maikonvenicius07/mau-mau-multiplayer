@@ -1313,8 +1313,8 @@ async function loadProfileStats(){
     $('#profileStatsGrid').innerHTML=cells.map(([number,label])=>`<div><strong>${esc(number)}</strong><span>${esc(label)}</span></div>`).join('');
     const recent=Array.isArray(r.recentMatches)?r.recentMatches:[];
     $('#profileStatsRecent').innerHTML=recent.length?recent.map(m=>
-      `<div class="profile-stats-game"><span>${esc(profileStatsDate(m.finishedAt))}</span><strong>${m.won?'🏆 Vitória':esc(String(m.position||'—')+'º lugar')}</strong><span>${esc(profileStatsNumber(m.score))} pontos</span></div>`
-    ).join(''):'Nenhuma partida concluída neste período e modalidade.';
+      `<div class="profile-stats-game"><span>${esc(profileStatsDate(m.finishedAt))}</span><strong>🏆 Vitória</strong><span>${esc(profileStatsNumber(m.score))} pontos</span></div>`
+    ).join(''):'Nenhuma vitória registrada neste período e modalidade.';
     $('#profileStatsFeedback').textContent='';
   }catch(e){
     if(request!==profileStatsRequest||!dialog.open)return;

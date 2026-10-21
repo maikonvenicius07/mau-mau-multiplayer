@@ -31,7 +31,7 @@ const {RankingStore}=require('../ranking-store');
     assert.deepEqual([stats.games,stats.wins,stats.nonWins,stats.winRate],[2,1,1,50]);
     assert.equal(stats.averagePosition,1.5);
     assert.equal(stats.averageScore,20);
-    assert.deepEqual(stats.recentMatches.map(x=>x.score),[30,10]);
+    assert.deepEqual(stats.recentMatches.map(x=>x.score),[10]);
     assert.equal(stats.rank,1); // empate em vitórias não divide posição artificialmente.
     const day=await store.getDetailedPlayerStats({playerKey:'p1',period:'day',mode:'official',now});
     assert.deepEqual([day.games,day.wins,day.averageScore],[1,0,30]);

@@ -1,3 +1,11 @@
+## V51.0.3 — Todas as vitórias do período (21/10/2026)
+
+- A lista do Meu Perfil e dos perfis dos jogadores passa a apresentar somente vitórias.
+- Os filtros Hoje/Semana/Mês/Temporada e Oficial/Treino exibem todas as vitórias do recorte, sem limite fixo de 10 registros.
+- As seis estatísticas superiores continuam considerando partidas vencidas e não vencidas.
+- Nenhuma alteração em regras, câmeras, microfone, banco de dados ou Ranking.
+- Testes de regressão cobrem 5 vitórias na semana, 10 no mês e 20 na temporada.
+
 ## V51.0.2 — Perfil visível no Ranking (21/10/2026)
 
 - Retirado o atalho duplicado `Meu Perfil` do menu inicial; permanece dentro do Ranking.

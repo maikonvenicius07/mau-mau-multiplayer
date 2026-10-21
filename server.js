@@ -770,7 +770,7 @@ app.get('/api/me/stats', async (req,res)=>{
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
     if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
-    const stats=await rankingStore.getDetailedPlayerStats({playerKey:session.playerKey,period,mode,limit:10});
+    const stats=await rankingStore.getDetailedPlayerStats({playerKey:session.playerKey,period,mode});
     res.setHeader('Cache-Control','private, no-store');
     res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats:{...stats,
       name:stats?.name||session.name}});
@@ -792,7 +792,7 @@ app.get('/api/players/stats', async (req,res)=>{
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
     if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
-    const stats=await rankingStore.getDetailedPlayerStats({playerKey,period,mode,limit:10});
+    const stats=await rankingStore.getDetailedPlayerStats({playerKey,period,mode});
     res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats});
   }catch(e){
     console.error('[ranking] consulta de jogador falhou:',e);

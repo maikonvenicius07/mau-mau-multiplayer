@@ -133,7 +133,7 @@ class JsonBackend {
     const ranked=denseRankByWins(rows);
     return ranked.find(r=>r.playerKey===playerKey)||null;
   }
-  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now(),limit=10}={}) {
+  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now()}={}) {
     if (!playerKey) return null;
     period=normalizePeriod(period); mode=normalizeMode(mode);
     if (period==='history') return null;
@@ -154,7 +154,7 @@ class JsonBackend {
       winRate:games?Number((100*wins/games).toFixed(1)):0,
       averagePosition:games?Number((entries.reduce((n,r)=>n+r.position,0)/games).toFixed(1)):null,
       averageScore:games?Number((entries.reduce((n,r)=>n+r.score,0)/games).toFixed(1)):null,
-      recentMatches:entries.slice(0,Math.max(1,Math.min(10,Number(limit)||10)))};
+      recentMatches:entries.filter(entry=>entry.won)};
   }
   async getRecentPlayers({playerKey,limit=12}={}) {
     if(!playerKey)return [];
@@ -342,7 +342,7 @@ class PostgresBackend {
     );
     return rows[0]||null;
   }
-  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now(),limit=10}={}) {
+  async getDetailedPlayerStats({playerKey,period='season',mode='official',now=Date.now()}={}) {
     if(!playerKey)return null;
     period=normalizePeriod(period);mode=normalizeMode(mode);
     if(period==='history')return null;
@@ -366,9 +366,9 @@ class PostgresBackend {
       FROM mm_match_results r
       JOIN mm_matches m ON m.match_id=r.match_id
       WHERE r.player_key=$1 AND m.mode=$2 AND m.season_id=$4
+        AND r.won=TRUE
         AND ($3::timestamptz IS NULL OR m.finished_at >= $3::timestamptz)
-      ORDER BY m.finished_at DESC,m.match_id DESC
-      LIMIT $5`,[...params,Math.max(1,Math.min(10,Number(limit)||10))]);
+      ORDER BY m.finished_at DESC,m.match_id DESC`,params);
     return {name:ranking?.name||'',avatar:ranking?.avatar||'macaco',rank:ranking?.rank||null,
       games,wins,nonWins:games-wins,winRate:games?Number((100*wins/games).toFixed(1)):0,
       averagePosition:games?Number(summary.averagePosition):null,
