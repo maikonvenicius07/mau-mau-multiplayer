@@ -1235,7 +1235,7 @@ async function loadRanking(){
     if(!rank.rows?.length){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há vitórias neste ranking.</td></tr>';
     }else{
-      body.innerHTML=rank.rows.map((r,i)=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small></div></button></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
+      body.innerHTML=rank.rows.map((r,i)=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}" aria-label="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small><span class="rank-profile-cta" aria-hidden="true">👤 Ver perfil <span class="rank-profile-chevron">›</span></span></div></button></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
@@ -1273,6 +1273,7 @@ $('#rankingBody').addEventListener('click',event=>{
   if(!Number.isSafeInteger(index)||index<0)return;
   const player=rankingPlayerRows[index];
   if(player?.playerKey)openProfileStatsForPlayer(player.playerKey);
+  else toast('Perfil indisponível para este jogador.');
 });
 
 // V51.0 — Meu Perfil: métricas de partidas concluídas, sem contadores de jogadas.
@@ -1348,7 +1349,6 @@ function openProfileStatsForPlayer(playerKey){
   const dialog=$('#profileStatsDialog');if(!dialog?.open)dialog.showModal();
   loadProfileStats();
 }
-$('#profileStatsOpen').onclick=openProfileStats;
 $('#profileStatsOpenRanking').onclick=openProfileStats;
 $('#profileStatsClose').onclick=()=>$('#profileStatsDialog').close();
 $('#profileStatsDialog').addEventListener('close',()=>{

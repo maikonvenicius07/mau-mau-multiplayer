@@ -37,7 +37,7 @@ const {RankingStore}=require('../ranking-store');
     assert(client.includes('profileStatsReturnToRanking'));
     assert(client.includes('statsEndpoint=profileStatsTargetKey'));
     assert(client.includes('/api/me/stats?period='));
-    assert(html.includes('Toque no nome de um jogador'));
+    assert(html.includes('Ver perfil</strong> para consultar as estatísticas do jogador.'));
     assert(!client.includes('Jogadas Rápidas válidas'),'não adicionar contadores descartados');
     console.log('✓ V51.0.1: leitura de perfis, histórico, filtros, autorização e acesso via ranking aprovados.');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}

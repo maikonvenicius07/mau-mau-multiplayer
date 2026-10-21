@@ -2500,7 +2500,6 @@ button.bot-primary{
 .camera-opponent-close:focus-visible{outline:3px solid #f5d177;outline-offset:2px;}
 
 /* V51.0 — Perfil Estatístico Básico: apenas resultados já registrados. */
-.profile-open-btn{background:linear-gradient(180deg,#1b5a4a,#12392e);border-color:#63b99c;color:#e5fff6}
 .profile-rank-link{display:block;margin:0 0 14px auto;font-size:12px}
 .profile-stats-modal{width:min(700px,94vw);max-width:700px;max-height:90svh;overflow-y:auto;background:#101713;color:#f7faf8;border:1px solid #365747;border-radius:18px;padding:22px;box-shadow:0 24px 80px #000a}
 .profile-stats-modal::backdrop{background:#000b;backdrop-filter:blur(5px)}
@@ -2541,3 +2540,20 @@ button.bot-primary{
 .ranking-table .rank-profile-trigger .rank-player-copy span{overflow-wrap:anywhere}
 
 .ranking-profile-tip{font-size:11px;color:#b6cbbd;margin:4px 0 8px}
+
+/* V51.0.2 — acesso visível ao perfil de cada jogador, sem nova coluna. */
+.ranking-table .rank-profile-trigger{min-height:54px;padding:6px 4px;touch-action:manipulation}
+.ranking-table .rank-profile-trigger:hover .rank-profile-cta,
+.ranking-table .rank-profile-trigger:focus-visible .rank-profile-cta{border-color:#f4ce7b;background:#7a5920;color:#fff4cc}
+.ranking-table .rank-profile-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  width:max-content;min-height:22px;padding:3px 9px;
+  margin-top:4px;background:#263a2d;color:#f6d687;
+  border:1px solid #785d2a;border-radius:999px;
+  font-size:10px;font-weight:800;line-height:1.2;
+}
+.ranking-table .rank-profile-chevron{font-size:15px;line-height:10px}
+@media(max-width:650px){
+  .ranking-table .rank-profile-trigger{min-height:62px;padding:7px 2px}
+  .ranking-table .rank-profile-cta{font-size:11px;min-height:25px}
+}

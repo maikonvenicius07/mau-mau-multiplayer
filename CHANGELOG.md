@@ -1,3 +1,11 @@
+## V51.0.2 — Perfil visível no Ranking (21/10/2026)
+
+- Retirado o atalho duplicado `Meu Perfil` do menu inicial; permanece dentro do Ranking.
+- Adicionada a indicação `👤 Ver perfil` na própria linha de cada jogador do Ranking.
+- Mantidos os filtros, as seis estatísticas básicas, o histórico e o retorno ao Ranking ao fechar o perfil.
+- Atualizados os parâmetros de cache CSS/JS; sem mudanças no banco, nas regras, no áudio ou no vídeo.
+- Testes específicos atualizados e novo teste contra regressão visual do menu.
+
 ## V50.5 — Ação Rápida na abertura sem roubar a vez (20/10/2026)
 
 - Corrigido o descarte de carta idêntica fora da vez sobre a carta inicial: agora é **Ação Rápida**, preservando o turno original.

@@ -47,7 +47,7 @@ const {RankingStore}=require('../ranking-store');
     const route=server.slice(server.indexOf("app.get('/api/me/stats'"),server.indexOf("app.get('/api/profile'"));
     assert(route.includes('authFromCookieHeaderVerified(req.headers.cookie)'),'endpoint deve validar cookie autenticado');
     assert(route.includes('playerKey:session.playerKey'),'nunca usar playerKey arbitrário enviado pelo navegador');
-    for(const id of ['profileStatsOpen','profileStatsDialog','profileStatsGrid','profileStatsRecent','profileStatsClose'])
+    for(const id of ['profileStatsOpenRanking','profileStatsDialog','profileStatsGrid','profileStatsRecent','profileStatsClose'])
       assert(html.includes(`id="${id}"`),`faltou ${id}`);
     assert(client.includes('/api/me/stats?period='),'cliente deve consultar a própria conta');
     assert(!html.includes('Jogadas Rápidas válidas'),'não colocar contadores rejeitados');
