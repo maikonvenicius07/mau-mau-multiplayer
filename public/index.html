@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.1" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -758,6 +758,7 @@
     </div>
     <div id="rankingMine" class="ranking-mine"></div>
     <button id="profileStatsOpenRanking" type="button" class="ranking-link-btn profile-rank-link">📊 Abrir Meu Perfil</button>
+    <button id="tournamentOpenRanking" type="button" class="ranking-link-btn tournament-rank-link">🏆 Torneios</button>
     <div class="ranking-table-wrap">
       <p class="ranking-profile-tip">Toque em <strong>Ver perfil</strong> para consultar as estatísticas do jogador.</p>
       <table class="ranking-table ranking-table-wins">
@@ -768,10 +769,23 @@
     <div class="ranking-note"><strong>Temporada 1.</strong> A conta autenticada é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
   </dialog>
 
+  <dialog id="tournamentDialog" class="modal tournament-modal" aria-labelledby="tournamentName">
+    <button id="tournamentClose" class="close" type="button" aria-label="Fechar torneios">×</button>
+    <div class="eyebrow">MAU-MAU CANDEIAS</div>
+    <h2 id="tournamentName">🏆 Torneios</h2>
+    <p id="tournamentStatus" role="status" aria-live="polite">Carregando inscrições...</p>
+    <p id="tournamentDate" class="tournament-date"></p>
+    <h3>Jogadores inscritos</h3>
+    <ol id="tournamentPlayers" class="tournament-players"></ol>
+    <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
+    <p class="tournament-note">Inscrição gratuita e vinculada à sua conta. As mesas e regras do torneio serão definidas antes do campeonato. Nenhum resultado de partida é alterado.</p>
+  </dialog>
+
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
+  <script src="tournament-ui.js?v=51.1"></script>
 </body>
 </html>

@@ -1,3 +1,9 @@
+## V51.1 — Preparação para Torneios (inscrições)
+- Área Torneios dentro do Ranking; sem botão redundante no menu inicial.
+- Inscrição/cancelamento por conta autenticada, vagas limitadas, lista de inscritos e data opcional.
+- Registro independente `mm_tournament_signups`, criado de forma aditiva; inscrições fechadas por padrão.
+- Nenhuma mudança nas regras, na classificação, nas câmeras ou no microfone.
+
 ## V51.0.4 — Histórico de vitórias organizado (21/10/2026)
 
 - O cabeçalho do perfil informa quantas vitórias foram encontradas no período e modalidade escolhidos.
