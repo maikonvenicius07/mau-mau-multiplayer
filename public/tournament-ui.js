@@ -1,5 +1,5 @@
 'use strict';
-// V51.2 — administração de torneios no menu inicial, sem alterar o motor do jogo.
+// V51.3 — sorteio de mesas e administração de torneios no menu inicial, sem alterar o motor do jogo.
 (() => {
   const byId=id=>document.getElementById(id);
   const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
@@ -9,11 +9,13 @@
   const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart');
   const create=byId('tournamentAdminCreate'),save=byId('tournamentAdminSave');
   const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),message=byId('tournamentAdminMessage');
+  const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
-  let pending=false,config=null,items=[];
+  let pending=false,config=null,items=[],drawnTables=[];
   const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
-  function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value;for(const btn of [save,toggle,cancel])btn.disabled=value||!config||config.status==='cancelled';}
+  function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value;for(const btn of [save,toggle,cancel])btn.disabled=value||!config||config.status==='cancelled';
+    if(drawButton)drawButton.disabled=value||!config||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
   function setFields(t){
     adminName.value=t.name||'';capacity.value=t.capacity||20;
     if(t.startAt){const d=new Date(t.startAt);const inRO=new Date(d.getTime()-4*60*60*1000);start.value=inRO.toISOString().slice(0,16);}
@@ -29,10 +31,18 @@
     action.textContent=config.registered?'Cancelar minha inscrição':'Inscrever-me';
     if(!config.registrationOpen)action.textContent='Inscrições indisponíveis';
     else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
+    drawnTables=result.tables||[];
+    if(adminHint)adminHint.hidden=Boolean(result.isAdmin);
+    if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
+      for(const t of drawnTables){const card=document.createElement('div');card.className='tournament-table-card';
+        const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
+        const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);tablesList.append(card);}
+    }
     panel.hidden=!result.isAdmin;
     if(result.isAdmin){setFields(config);toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
       toggle.disabled=pending||config.status==='cancelled';save.disabled=pending||config.status==='cancelled';cancel.disabled=pending||config.status==='cancelled';}
     action.disabled=pending||!config.registrationOpen||(!config.registered&&config.spotsRemaining===0);
+    if(drawButton)drawButton.disabled=pending||!result.isAdmin||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;
   }
   async function request(url,options={}){
     const res=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
@@ -45,6 +55,7 @@
     if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
     picker.value=items.some(t=>t.id===selectId)?selectId:(items[0]?.id||'');
     panel.hidden=!response.isAdmin;
+    if(adminHint)adminHint.hidden=Boolean(response.isAdmin);
     if(!picker.value){config=null;name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;return;}
     await loadSelected();
   }
@@ -81,6 +92,14 @@
       body:JSON.stringify({action:config.registered?'leave':'join',tournamentId:config.id})});render(data);}
     catch(e){state.textContent=e.message;}
     finally{setBusy(false);}
+  });
+  if(drawButton)drawButton.addEventListener('click',async()=>{
+    if(pending||panel.hidden||!config||config.status!=='closed'||config.enrolled<2||drawnTables.length)return;
+    if(!confirm('Sortear as mesas agora? O sorteio não poderá ser repetido neste torneio.'))return;
+    setBusy(true);message.textContent='Sorteando mesas...';
+    try{await request('/api/tournaments/'+encodeURIComponent(config.id)+'/draw',{method:'POST'});
+      await loadSelected();message.textContent='Mesas sorteadas e salvas.';}
+    catch(e){message.textContent=e.message;}finally{setBusy(false);}
   });
   create.addEventListener('click',()=>adminRequest('create'));
   save.addEventListener('click',()=>adminRequest('save'));

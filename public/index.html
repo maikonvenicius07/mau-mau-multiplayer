@@ -802,10 +802,21 @@
         <button id="tournamentAdminCancel" type="button" class="tournament-danger">Cancelar torneio</button>
       </div>
       <p id="tournamentAdminMessage" role="status" aria-live="polite"></p>
+      <div class="tournament-draw-admin">
+        <h3>🎲 Sorteio das mesas</h3>
+        <p>Depois de inscrever os participantes, encerre as inscrições. O sorteio é realizado uma única vez.</p>
+        <button id="tournamentDrawButton" type="button" disabled>Sortear mesas</button>
+      </div>
     </section>
+    <p id="tournamentAdminHint" class="tournament-admin-hint" hidden>Os controles de criar e administrar campeonatos aparecem somente para a conta administradora autorizada no Render.</p>
     <h3>Jogadores inscritos</h3>
     <ol id="tournamentPlayers" class="tournament-players"></ol>
     <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
+    <section id="tournamentTables" class="tournament-tables" hidden aria-label="Mesas sorteadas">
+      <h3>🎲 Mesas sorteadas</h3>
+      <div id="tournamentTableList"></div>
+      <p class="tournament-note">O sorteio apenas organiza os grupos. As partidas ainda não começam automaticamente.</p>
+    </section>
     <p class="tournament-note">Inscrição gratuita e vinculada à sua conta. As mesas e regras do torneio serão definidas antes do campeonato. Nenhum resultado de partida é alterado.</p>
   </dialog>
 
@@ -814,6 +825,6 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.2"></script>
+  <script src="tournament-ui.js?v=51.2-v51.3"></script>
 </body>
 </html>

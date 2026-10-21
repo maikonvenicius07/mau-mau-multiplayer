@@ -2612,3 +2612,15 @@ button.bot-primary{
 .tournament-admin-actions button:disabled{opacity:.45;cursor:not-allowed}
 #tournamentAdminMessage{min-height:16px}
 @media(max-width:560px){.tournament-form-grid{grid-template-columns:1fr}.tournament-admin{padding:11px}.tournament-admin-actions button{flex:1 1 45%}}
+
+/* V51.3: informação de administração e grupos sorteados */
+.tournament-admin-hint{background:#14281d;border:1px solid #375441;padding:10px 12px;border-radius:10px;line-height:1.5}
+.tournament-draw-admin{border-top:1px solid #365540;margin-top:13px;padding-top:10px}
+.tournament-draw-admin h3{margin:6px 0 8px}
+.tournament-draw-admin button{background:#af862e;color:#1f1b10;border:1px solid #efc76c;border-radius:10px;padding:10px 15px;font-weight:800;cursor:pointer}
+.tournament-draw-admin button:disabled{opacity:.5;cursor:not-allowed}
+.tournament-tables{margin-top:18px;padding-top:4px;border-top:1px solid #345341}
+.tournament-table-card{background:#11271e;border:1px solid #3c654c;border-radius:12px;padding:12px;margin:10px 0}
+.tournament-table-card h4{margin:0 0 7px;color:#eed48d;font-size:15px}
+.tournament-table-card ol{margin:0;padding-left:22px}
+.tournament-table-card li{font-size:13px;padding:5px 0;color:#f1f3e7}

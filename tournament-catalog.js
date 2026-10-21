@@ -94,6 +94,10 @@ class TournamentCatalog {
         const current=await conn.query('SELECT status FROM mm_tournaments WHERE id=$1 FOR UPDATE',[id]);
         if(!current.rowCount)throw fail('Torneio não encontrado.',404);
         if(current.rows[0].status==='cancelled')throw fail('Torneio cancelado não pode ser editado.',409);
+        if(status==='open'){
+          const drawn=await conn.query('SELECT 1 FROM mm_tournament_table_seats WHERE tournament_id=$1 LIMIT 1',[id]);
+          if(drawn.rowCount)throw fail('Não é possível reabrir inscrições após o sorteio das mesas.',409);
+        }
         const n=await conn.query('SELECT COUNT(*)::int AS n FROM mm_tournament_signups WHERE tournament_id=$1',[id]);
         if(fields.capacity<Number(n.rows[0].n))throw fail('O número de vagas não pode ser menor que os inscritos.',409);
         await conn.query('UPDATE mm_tournaments SET name=$2,capacity=$3,start_at=$4,status=$5,updated_at=NOW() WHERE id=$1',[id,fields.name,fields.capacity,fields.startAt,status]);
@@ -104,6 +108,11 @@ class TournamentCatalog {
       let signupCount=0;
       try{const signups=JSON.parse(fs.readFileSync(this.signupsFilePath,'utf8'));signupCount=signups.filter(x=>x.tournamentId===id).length;}catch(e){if(e.code!=='ENOENT')throw e;}
       if(fields.capacity<signupCount)throw fail('O número de vagas não pode ser menor que os inscritos.',409);
+      if(status==='open'){
+        try{const draws=JSON.parse(fs.readFileSync(path.join(path.dirname(this.filePath),'tournament-draws.json'),'utf8'));
+          if(draws[id]?.length)throw fail('Não é possível reabrir inscrições após o sorteio das mesas.',409);
+        }catch(e){if(e.code!=='ENOENT')throw e;}
+      }
       const row=this.local.find(x=>x.id===id);row.name=fields.name;row.capacity=fields.capacity;row.startAt=fields.startAt;row.status=status;this.save();
     }
     return {...existing,...fields,status,registrationOpen:status==='open'};

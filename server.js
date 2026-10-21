@@ -21,6 +21,7 @@ const UniversalAuth = require('./universal-auth');
 const EmailDelivery = require('./email-delivery');
 const { TournamentStore, tournamentConfig } = require('./tournament-store');
 const { TournamentCatalog } = require('./tournament-catalog');
+const { TournamentDraw } = require('./tournament-draw');
 
 const app = express();
 const server = http.createServer(app);
@@ -256,6 +257,8 @@ const tournamentStore = new TournamentStore();
 const tournamentReady = tournamentStore.init().then(()=>true).catch(e=>{console.error('[tournament] inicialização falhou:',e);return false;});
 const tournamentCatalog = new TournamentCatalog({pool:tournamentStore.pool||null,databaseUrl:''});
 const tournamentCatalogReady = tournamentReady.then(ok=>ok?tournamentCatalog.init().then(()=>true).catch(e=>{console.error('[tournament] catálogo falhou:',e);return false;}):false);
+const tournamentDraw = new TournamentDraw({pool:tournamentStore.pool||null,databaseUrl:''});
+const tournamentDrawReady = tournamentCatalogReady.then(ok=>ok?tournamentDraw.init().then(()=>true).catch(e=>{console.error('[tournament] sorteios indisponíveis:',e);return false;}):false);
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
@@ -778,7 +781,9 @@ app.get('/api/tournament', async(req,res)=>{
     const config=await tournamentCatalog.get(id);
     if(!config)return res.status(404).json({ok:false,message:'Torneio não encontrado.'});
     const result=await tournamentStore.get({config,playerKey:session?.playerKey||''});
-    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...result});
+    if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
+    const tables=await tournamentDraw.get(config.id);
+    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...result,tables});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
@@ -819,13 +824,30 @@ app.patch('/api/tournaments/:id', async(req,res)=>{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
     if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem administrar torneios.'});
-    if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
+    if(!await tournamentCatalogReady||!await tournamentDrawReady)throw new Error('Catálogo indisponível.');
     const tournament=await tournamentCatalog.update({id:req.params.id,data:req.body});
     res.json({ok:true,tournament});
   }catch(e){
     const status=[400,403,404,409].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] edição falhou:',e.message);
     res.status(status).json({ok:false,message:status===503?'Não foi possível atualizar o torneio.':e.message});
+  }
+});
+
+// V51.3 - sorteio administrativo persistente, sem iniciar as salas reais.
+app.post('/api/tournaments/:id/draw', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
+    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem sortear mesas.'});
+    if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
+    const tables=await tournamentDraw.draw(req.params.id);
+    res.json({ok:true,tables});
+  }catch(e){
+    const status=[400,403,404,409].includes(e.status)?e.status:503;
+    if(status===503)console.error('[tournament] sorteio falhou:',e.message);
+    res.status(status).json({ok:false,message:status===503?'Não foi possível sortear as mesas.':e.message});
   }
 });
 

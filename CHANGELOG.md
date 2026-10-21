@@ -1,3 +1,8 @@
+## V51.3 — Sorteio das mesas (2026-10-21)
+- Sorteio persistente de mesas equilibradas de 2–5 inscritos após fechamento de inscrições; não cria partidas automáticas.
+- Controles administrativos protegidos no servidor e aviso de autorização não configurada.
+- PostgreSQL: nova tabela aditiva para mesas; inscrições e ranking preservados.
+
 ## V51.2 — Criação e administração de torneios (21/10/2026)
 - Administração via menu Torneios com acesso restrito a contas autorizadas no Render.
 - Criação, edição, abertura/fechamento de inscrições, cancelamento e escolha do torneio.
