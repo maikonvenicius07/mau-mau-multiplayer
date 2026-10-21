@@ -49,9 +49,14 @@ class TournamentDraw{
       catch(e){if(e.code!=='ENOENT')throw e;}
     }
   }
+  reloadLocal(){
+    if(this.pool)return;
+    try{const data=JSON.parse(fs.readFileSync(this.filePath,'utf8'));this.local=data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
+    catch(e){if(e.code==='ENOENT')this.local={};else throw e;}
+  }
   async get(id){
     if(typeof id!=='string'||!id||id.length>64)return [];
-    if(!this.pool)return publicTables(this.local[id]||[]);
+    if(!this.pool){this.reloadLocal();return publicTables(this.local[id]||[]);}
     const {rows}=await this.pool.query(`SELECT table_number AS "tableNumber", seat_number AS "seatNumber",display_name AS name
       FROM mm_tournament_table_seats WHERE tournament_id=$1 ORDER BY table_number,seat_number`,[id]);
     const groups=[];
@@ -82,6 +87,7 @@ class TournamentDraw{
       }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
     }
     // Armazenamento JSON apenas para testes/desenvolvimento local.
+    this.reloadLocal();
     if(this.local[id]?.length)throw fail('As mesas desse torneio já foram sorteadas.');
     const catalogPath=path.join(path.dirname(this.filePath),'tournaments.json');
     let events=[];try{events=JSON.parse(fs.readFileSync(catalogPath,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}

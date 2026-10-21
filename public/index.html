@@ -786,7 +786,8 @@
     <label class="tournament-field" for="tournamentPicker">Selecionar campeonato</label>
     <select id="tournamentPicker" class="tournament-select" aria-label="Selecionar campeonato"></select>
     <section id="tournamentAdminPanel" class="tournament-admin" hidden aria-label="Administração de torneios">
-      <h3>⚙️ Administrar torneios</h3>
+      <h3>🏆 Criar e administrar torneios</h3>
+      <p class="tournament-note">Qualquer jogador com conta pode criar. Só o criador pode editar, sortear e excluir seu torneio.</p>
       <label class="tournament-field" for="tournamentAdminName">Nome do campeonato</label>
       <input id="tournamentAdminName" type="text" maxlength="70" autocomplete="off" placeholder="Ex.: Copa Candeias" />
       <div class="tournament-form-grid">
@@ -800,6 +801,7 @@
         <button id="tournamentAdminSave" type="button">Salvar alterações</button>
         <button id="tournamentAdminToggle" type="button">Abrir inscrições</button>
         <button id="tournamentAdminCancel" type="button" class="tournament-danger">Cancelar torneio</button>
+        <button id="tournamentAdminDelete" type="button" class="tournament-danger">🗑 Excluir meu torneio</button>
       </div>
       <p id="tournamentAdminMessage" role="status" aria-live="polite"></p>
       <div class="tournament-draw-admin">
@@ -808,7 +810,7 @@
         <button id="tournamentDrawButton" type="button" disabled>Sortear mesas</button>
       </div>
     </section>
-    <p id="tournamentAdminHint" class="tournament-admin-hint" hidden>Os controles de criar e administrar campeonatos aparecem somente para a conta administradora autorizada no Render.</p>
+    <p id="tournamentAdminHint" class="tournament-admin-hint" hidden>Entre na sua conta para criar um torneio. A edição, o sorteio e a exclusão ficam disponíveis ao criador.</p>
     <h3>Jogadores inscritos</h3>
     <ol id="tournamentPlayers" class="tournament-players"></ol>
     <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
@@ -825,6 +827,6 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.2-v51.3"></script>
+  <script src="tournament-ui.js?v=51.3.1"></script>
 </body>
 </html>

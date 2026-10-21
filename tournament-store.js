@@ -42,13 +42,18 @@ class TournamentStore {
       catch(e){if(e.code!=='ENOENT')throw e;}
     }
   }
+  reloadLocal(){
+    if(this.pool)return;
+    try{const data=JSON.parse(fs.readFileSync(this.filePath,'utf8'));this.local=Array.isArray(data)?data:[];}
+    catch(e){if(e.code==='ENOENT')this.local=[];else throw e;}
+  }
   async get({config=tournamentConfig(),playerKey='' }={}){
     let rows;
     if(this.pool){
       const result=await this.pool.query(`SELECT player_key AS "playerKey",display_name AS name,joined_at AS "joinedAt"
         FROM mm_tournament_signups WHERE tournament_id=$1 ORDER BY joined_at ASC,player_key ASC`,[config.id]);
       rows=result.rows;
-    }else rows=this.local.filter(x=>x.tournamentId===config.id).sort((a,b)=>String(a.joinedAt).localeCompare(String(b.joinedAt)));
+    }else {this.reloadLocal();rows=this.local.filter(x=>x.tournamentId===config.id).sort((a,b)=>String(a.joinedAt).localeCompare(String(b.joinedAt)));}
     return publicList(rows,config,playerKey);
   }
   async change({action,playerKey,name,config=tournamentConfig()}={}){
@@ -77,6 +82,7 @@ class TournamentStore {
         await client.query('COMMIT');
       }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
     }else{
+      this.reloadLocal();
       const existing=this.local.some(x=>x.tournamentId===config.id&&x.playerKey===playerKey);
       if(action==='join'&&!existing){
         if(this.local.filter(x=>x.tournamentId===config.id).length>=config.capacity)throw Object.assign(new Error('Todas as vagas estão preenchidas.'),{status:409});

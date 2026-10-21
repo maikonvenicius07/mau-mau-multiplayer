@@ -1,3 +1,8 @@
+## V51.3.1 — Torneios por qualquer jogador (21/10/2026)
+- Qualquer conta autenticada pode criar torneios; o criador pode editar, gerir inscrições, sortear e excluir os próprios.
+- Exclusão definitiva de torneio + inscrições + grupos associados, protegida pela conta criadora no servidor.
+- Controles administrativos anteriores não são requisito para criação. Nenhuma alteração nas regras do jogo.
+
 ## V51.3 — Sorteio das mesas (2026-10-21)
 - Sorteio persistente de mesas equilibradas de 2–5 inscritos após fechamento de inscrições; não cria partidas automáticas.
 - Controles administrativos protegidos no servidor e aviso de autorização não configurada.

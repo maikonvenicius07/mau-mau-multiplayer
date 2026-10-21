@@ -262,6 +262,7 @@ const tournamentDrawReady = tournamentCatalogReady.then(ok=>ok?tournamentDraw.in
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
+async function tournamentCanManage(session,id){return !!(session?.playerKey&&(tournamentIsAdmin(session)||await tournamentCatalog.isOwner(id,session.playerKey)));}
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 // V40.69.1 — identidade universal. O playerKey continua sendo a chave canônica do ranking
 // e agora pode ser resolvido por Google, Apple ou e-mail verificado.
@@ -768,7 +769,7 @@ app.get('/api/tournaments', async(req,res)=>{
   try{
     if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
-    res.json({ok:true,isAdmin:tournamentIsAdmin(session),tournaments:await tournamentCatalog.list()});
+    res.json({ok:true,canCreate:!!session?.playerKey,tournaments:await tournamentCatalog.list({actor:session?.playerKey||'',isAdmin:tournamentIsAdmin(session)})});
   }catch(e){console.error('[tournament] listagem falhou:',e.message);res.status(503).json({ok:false,message:'Torneios indisponíveis.'});}
 });
 app.get('/api/tournament', async(req,res)=>{
@@ -778,12 +779,12 @@ app.get('/api/tournament', async(req,res)=>{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     const list=await tournamentCatalog.list();
     const id=String(req.query.id||list[0]?.id||'');
-    const config=await tournamentCatalog.get(id);
+    const config=await tournamentCatalog.get(id,{actor:session?.playerKey||'',isAdmin:tournamentIsAdmin(session)});
     if(!config)return res.status(404).json({ok:false,message:'Torneio não encontrado.'});
     const result=await tournamentStore.get({config,playerKey:session?.playerKey||''});
     if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
     const tables=await tournamentDraw.get(config.id);
-    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...result,tables});
+    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
@@ -793,10 +794,10 @@ app.post('/api/tournament/registration', async(req,res)=>{
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta para se inscrever.'});
     if(!(await tournamentCatalogReady))throw new Error('Inscrições indisponíveis.');
     const id=String(req.body?.tournamentId||'');
-    const config=await tournamentCatalog.get(id);
+    const config=await tournamentCatalog.get(id,{actor:session.playerKey,isAdmin:tournamentIsAdmin(session)});
     if(!config)return res.status(404).json({ok:false,message:'Torneio não encontrado.'});
     const data=await tournamentStore.change({action:req.body?.action,playerKey:session.playerKey,name:session.name,config});
-    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...data});
+    res.json({ok:true,canCreate:true,...data});
   }catch(e){
     const status=[400,401,404,409].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] inscrição falhou:',e.message);
@@ -808,7 +809,6 @@ app.post('/api/tournaments', async(req,res)=>{
   try{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
-    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem criar torneios.'});
     if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
     const tournament=await tournamentCatalog.create({data:req.body,actor:session.playerKey});
     res.status(201).json({ok:true,tournament});
@@ -823,7 +823,7 @@ app.patch('/api/tournaments/:id', async(req,res)=>{
   try{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
-    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem administrar torneios.'});
+    if(!await tournamentCanManage(session,req.params.id))return res.status(403).json({ok:false,message:'Somente o criador pode administrar este torneio.'});
     if(!await tournamentCatalogReady||!await tournamentDrawReady)throw new Error('Catálogo indisponível.');
     const tournament=await tournamentCatalog.update({id:req.params.id,data:req.body});
     res.json({ok:true,tournament});
@@ -834,13 +834,29 @@ app.patch('/api/tournaments/:id', async(req,res)=>{
   }
 });
 
-// V51.3 - sorteio administrativo persistente, sem iniciar as salas reais.
+// V51.3.1 — exclusão do torneio e dos dados associados pelo criador.
+app.delete('/api/tournaments/:id', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
+    if(!await tournamentCatalogReady||!await tournamentDrawReady)throw new Error('Catálogo indisponível.');
+    const result=await tournamentCatalog.delete({id:req.params.id,actor:session.playerKey,isAdmin:tournamentIsAdmin(session)});
+    res.json({ok:true,...result});
+  }catch(e){
+    const status=[400,401,403,404,409].includes(e.status)?e.status:503;
+    if(status===503)console.error('[tournament] exclusão falhou:',e.message);
+    res.status(status).json({ok:false,message:status===503?'Não foi possível excluir o torneio.':e.message});
+  }
+});
+
+// V51.3 - sorteio persistente, sem iniciar as salas reais.
 app.post('/api/tournaments/:id/draw', async(req,res)=>{
   res.setHeader('Cache-Control','private, no-store');
   try{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
-    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem sortear mesas.'});
+    if(!await tournamentCanManage(session,req.params.id))return res.status(403).json({ok:false,message:'Somente o criador pode sortear mesas.'});
     if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
     const tables=await tournamentDraw.draw(req.params.id);
     res.json({ok:true,tables});

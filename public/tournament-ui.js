@@ -1,5 +1,5 @@
 'use strict';
-// V51.3 — sorteio de mesas e administração de torneios no menu inicial, sem alterar o motor do jogo.
+// V51.3.1 — torneios podem ser criados por qualquer conta; só o criador gerencia ou exclui.
 (() => {
   const byId=id=>document.getElementById(id);
   const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
@@ -8,14 +8,15 @@
   const panel=byId('tournamentAdminPanel'),adminName=byId('tournamentAdminName');
   const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart');
   const create=byId('tournamentAdminCreate'),save=byId('tournamentAdminSave');
-  const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),message=byId('tournamentAdminMessage');
+  const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
-  let pending=false,config=null,items=[],drawnTables=[];
+  let pending=false,config=null,items=[],drawnTables=[],canCreate=false;
   const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
-  function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value;for(const btn of [save,toggle,cancel])btn.disabled=value||!config||config.status==='cancelled';
-    if(drawButton)drawButton.disabled=value||!config||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
+  function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
+    if(remove)remove.disabled=value||!config?.canManage;
+    if(drawButton)drawButton.disabled=value||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
   function setFields(t){
     adminName.value=t.name||'';capacity.value=t.capacity||20;
     if(t.startAt){const d=new Date(t.startAt);const inRO=new Date(d.getTime()-4*60*60*1000);start.value=inRO.toISOString().slice(0,16);}
@@ -32,31 +33,40 @@
     if(!config.registrationOpen)action.textContent='Inscrições indisponíveis';
     else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
     drawnTables=result.tables||[];
-    if(adminHint)adminHint.hidden=Boolean(result.isAdmin);
+    canCreate=Boolean(result.canCreate);
+    if(adminHint)adminHint.hidden=canCreate;
     if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
       for(const t of drawnTables){const card=document.createElement('div');card.className='tournament-table-card';
         const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
         const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);tablesList.append(card);}
     }
-    panel.hidden=!result.isAdmin;
-    if(result.isAdmin){setFields(config);toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
-      toggle.disabled=pending||config.status==='cancelled';save.disabled=pending||config.status==='cancelled';cancel.disabled=pending||config.status==='cancelled';}
+    panel.hidden=!canCreate;
+    if(canCreate){
+      if(config.canManage)setFields(config);
+      else {adminName.value='';capacity.value=20;start.value='';}
+      toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
+      toggle.disabled=pending||!config.canManage||config.status==='cancelled';save.disabled=pending||!config.canManage||config.status==='cancelled';cancel.disabled=pending||!config.canManage||config.status==='cancelled';
+      if(remove)remove.disabled=pending||!config.canManage;
+      for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=!config.canManage;
+      if(drawButton?.parentElement)drawButton.parentElement.hidden=!config.canManage;
+      create.disabled=pending;
+    }
     action.disabled=pending||!config.registrationOpen||(!config.registered&&config.spotsRemaining===0);
-    if(drawButton)drawButton.disabled=pending||!result.isAdmin||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;
+    if(drawButton)drawButton.disabled=pending||!config.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;
   }
   async function request(url,options={}){
     const res=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
     const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível concluir a operação.');return data;
   }
   async function loadList(selectId=''){
-    const response=await request('/api/tournaments');items=response.tournaments||[];
+    const response=await request('/api/tournaments');items=response.tournaments||[];canCreate=Boolean(response.canCreate);
     picker.replaceChildren();
     for(const t of items){const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name+' — '+(statusText[t.status]||t.status);picker.append(opt);}
     if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
     picker.value=items.some(t=>t.id===selectId)?selectId:(items[0]?.id||'');
-    panel.hidden=!response.isAdmin;
-    if(adminHint)adminHint.hidden=Boolean(response.isAdmin);
-    if(!picker.value){config=null;name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;return;}
+    panel.hidden=!canCreate;create.disabled=!canCreate;
+    if(adminHint)adminHint.hidden=canCreate;
+    if(!picker.value){config=null;name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
     await loadSelected();
   }
   async function loadSelected(){if(!picker.value)return;
@@ -72,13 +82,15 @@
     if(pending||panel.hidden)return;
     if(!config&&kind!=='create')return;
     if(kind==='cancel'&&!confirm('Cancelar este torneio? Ele continuará no histórico, mas as inscrições serão encerradas.'))return;
-    const payload=kind==='create'?fields():kind==='save'?fields():{status:kind==='cancel'?'cancelled':config.status==='open'?'closed':'open'};
+    if(kind==='delete'&&!confirm('Excluir DEFINITIVAMENTE este torneio, todas as inscrições e as mesas sorteadas? Esta ação não pode ser desfeita.'))return;
+    const payload=kind==='create'?fields():kind==='save'?fields():kind==='delete'?null:{status:kind==='cancel'?'cancelled':config.status==='open'?'closed':'open'};
     setBusy(true);message.textContent='Salvando...';
     try{
       const data=await request(kind==='create'?'/api/tournaments':'/api/tournaments/'+encodeURIComponent(config.id),{
-        method:kind==='create'?'POST':'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      message.textContent=kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
-      await loadList(data.tournament.id);
+        method:kind==='create'?'POST':kind==='delete'?'DELETE':'PATCH',
+        ...(payload===null?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})});
+      await loadList(kind==='delete'?'':data.tournament.id);
+      message.textContent=kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
     }catch(e){message.textContent=e.message;}
     finally{setBusy(false);}
   }
@@ -94,7 +106,7 @@
     finally{setBusy(false);}
   });
   if(drawButton)drawButton.addEventListener('click',async()=>{
-    if(pending||panel.hidden||!config||config.status!=='closed'||config.enrolled<2||drawnTables.length)return;
+    if(pending||panel.hidden||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length)return;
     if(!confirm('Sortear as mesas agora? O sorteio não poderá ser repetido neste torneio.'))return;
     setBusy(true);message.textContent='Sorteando mesas...';
     try{await request('/api/tournaments/'+encodeURIComponent(config.id)+'/draw',{method:'POST'});
@@ -105,4 +117,5 @@
   save.addEventListener('click',()=>adminRequest('save'));
   toggle.addEventListener('click',()=>adminRequest('toggle'));
   cancel.addEventListener('click',()=>adminRequest('cancel'));
+  if(remove)remove.addEventListener('click',()=>adminRequest('delete'));
 })();
