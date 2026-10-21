@@ -61,11 +61,16 @@ class TournamentStore {
       try{
         await client.query('BEGIN');
         await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`tournament:${config.id}`]);
+        // Use o estado persistido sob o mesmo lock da administração.
+        // Impede inscrição simultânea com o fechamento do torneio ou redução de vagas.
+        const active=await client.query('SELECT status,capacity FROM mm_tournaments WHERE id=$1',[config.id]);
+        if(!active.rowCount||active.rows[0].status!=='open')throw Object.assign(new Error('As inscrições estão fechadas.'),{status:409});
+        const actualCapacity=Number(active.rows[0].capacity);
         if(action==='join'){
           const existing=await client.query('SELECT 1 FROM mm_tournament_signups WHERE tournament_id=$1 AND player_key=$2',[config.id,playerKey]);
           if(!existing.rowCount){
             const count=await client.query('SELECT COUNT(*)::int AS n FROM mm_tournament_signups WHERE tournament_id=$1',[config.id]);
-            if(Number(count.rows[0].n)>=config.capacity)throw Object.assign(new Error('Todas as vagas estão preenchidas.'),{status:409});
+            if(Number(count.rows[0].n)>=actualCapacity)throw Object.assign(new Error('Todas as vagas estão preenchidas.'),{status:409});
             await client.query('INSERT INTO mm_tournament_signups(tournament_id,player_key,display_name) VALUES ($1,$2,$3)',[config.id,playerKey,name]);
           }
         }else await client.query('DELETE FROM mm_tournament_signups WHERE tournament_id=$1 AND player_key=$2',[config.id,playerKey]);

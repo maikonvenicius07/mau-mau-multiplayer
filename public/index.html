@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.1.1" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.2" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -783,6 +783,26 @@
     <h2 id="tournamentName">🏆 Torneios</h2>
     <p id="tournamentStatus" role="status" aria-live="polite">Carregando inscrições...</p>
     <p id="tournamentDate" class="tournament-date"></p>
+    <label class="tournament-field" for="tournamentPicker">Selecionar campeonato</label>
+    <select id="tournamentPicker" class="tournament-select" aria-label="Selecionar campeonato"></select>
+    <section id="tournamentAdminPanel" class="tournament-admin" hidden aria-label="Administração de torneios">
+      <h3>⚙️ Administrar torneios</h3>
+      <label class="tournament-field" for="tournamentAdminName">Nome do campeonato</label>
+      <input id="tournamentAdminName" type="text" maxlength="70" autocomplete="off" placeholder="Ex.: Copa Candeias" />
+      <div class="tournament-form-grid">
+        <div><label class="tournament-field" for="tournamentAdminCapacity">Vagas (2 a 100)</label>
+          <input id="tournamentAdminCapacity" type="number" min="2" max="100" value="20" /></div>
+        <div><label class="tournament-field" for="tournamentAdminStart">Data e horário</label>
+          <input id="tournamentAdminStart" type="datetime-local" /></div>
+      </div>
+      <div class="tournament-admin-actions">
+        <button id="tournamentAdminCreate" type="button">+ Criar torneio</button>
+        <button id="tournamentAdminSave" type="button">Salvar alterações</button>
+        <button id="tournamentAdminToggle" type="button">Abrir inscrições</button>
+        <button id="tournamentAdminCancel" type="button" class="tournament-danger">Cancelar torneio</button>
+      </div>
+      <p id="tournamentAdminMessage" role="status" aria-live="polite"></p>
+    </section>
     <h3>Jogadores inscritos</h3>
     <ol id="tournamentPlayers" class="tournament-players"></ol>
     <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
@@ -794,6 +814,6 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.1.1"></script>
+  <script src="tournament-ui.js?v=51.2"></script>
 </body>
 </html>

@@ -1,3 +1,10 @@
+## V51.2 — Criação e administração de torneios (21/10/2026)
+- Administração via menu Torneios com acesso restrito a contas autorizadas no Render.
+- Criação, edição, abertura/fechamento de inscrições, cancelamento e escolha do torneio.
+- Catálogo persistido em nova tabela `mm_tournaments`, preservando inscrições da V51.1.
+- Inscrições novas são validadas pelo estado persistido em transação PostgreSQL, sob bloqueio por torneio.
+- Nenhuma alteração no motor, ranking, câmeras, microfone ou regras das cartas.
+
 ## V51.1 — Preparação para Torneios (inscrições)
 - Área Torneios dentro do Ranking; sem botão redundante no menu inicial.
 - Inscrição/cancelamento por conta autenticada, vagas limitadas, lista de inscritos e data opcional.

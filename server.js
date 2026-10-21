@@ -20,6 +20,7 @@ const { AuthIdentityStore, normalizeEmail, normalizeSessionVersion } = require('
 const UniversalAuth = require('./universal-auth');
 const EmailDelivery = require('./email-delivery');
 const { TournamentStore, tournamentConfig } = require('./tournament-store');
+const { TournamentCatalog } = require('./tournament-catalog');
 
 const app = express();
 const server = http.createServer(app);
@@ -253,6 +254,11 @@ const rankingStore = new RankingStore();
 // V51.1 — inscrições independentes do ranking e do motor do jogo.
 const tournamentStore = new TournamentStore();
 const tournamentReady = tournamentStore.init().then(()=>true).catch(e=>{console.error('[tournament] inicialização falhou:',e);return false;});
+const tournamentCatalog = new TournamentCatalog({pool:tournamentStore.pool||null,databaseUrl:''});
+const tournamentCatalogReady = tournamentReady.then(ok=>ok?tournamentCatalog.init().then(()=>true).catch(e=>{console.error('[tournament] catálogo falhou:',e);return false;}):false);
+const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
+const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
+function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 // V40.69.1 — identidade universal. O playerKey continua sendo a chave canônica do ranking
 // e agora pode ser resolvido por Google, Apple ou e-mail verificado.
@@ -753,28 +759,73 @@ app.get('/ready', async (_,res)=>{
   });
 });
 
-// V51.1 — inscrições de torneio por conta autenticada. Sem modificar as partidas.
-app.get('/api/tournament', async(req,res)=>{
+// V51.2 — Torneios administrados pela interface, com autorização somente no servidor.
+app.get('/api/tournaments', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
   try{
-    res.setHeader('Cache-Control','private, no-store');
+    if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
-    if(!(await tournamentReady))throw new Error('Inscrições indisponíveis.');
-    const result=await tournamentStore.get({config:tournamentConfig(),playerKey:session?.playerKey||''});
-    res.json({ok:true,...result});
+    res.json({ok:true,isAdmin:tournamentIsAdmin(session),tournaments:await tournamentCatalog.list()});
+  }catch(e){console.error('[tournament] listagem falhou:',e.message);res.status(503).json({ok:false,message:'Torneios indisponíveis.'});}
+});
+app.get('/api/tournament', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    if(!await tournamentCatalogReady)throw new Error('Torneios indisponíveis.');
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    const list=await tournamentCatalog.list();
+    const id=String(req.query.id||list[0]?.id||'');
+    const config=await tournamentCatalog.get(id);
+    if(!config)return res.status(404).json({ok:false,message:'Torneio não encontrado.'});
+    const result=await tournamentStore.get({config,playerKey:session?.playerKey||''});
+    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...result});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
   try{
-    res.setHeader('Cache-Control','private, no-store');
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta para se inscrever.'});
-    if(!(await tournamentReady))throw new Error('Inscrições indisponíveis.');
-    const data=await tournamentStore.change({action:req.body?.action,playerKey:session.playerKey,name:session.name,config:tournamentConfig()});
-    res.json({ok:true,...data});
+    if(!(await tournamentCatalogReady))throw new Error('Inscrições indisponíveis.');
+    const id=String(req.body?.tournamentId||'');
+    const config=await tournamentCatalog.get(id);
+    if(!config)return res.status(404).json({ok:false,message:'Torneio não encontrado.'});
+    const data=await tournamentStore.change({action:req.body?.action,playerKey:session.playerKey,name:session.name,config});
+    res.json({ok:true,isAdmin:tournamentIsAdmin(session),...data});
   }catch(e){
-    const status=[400,401,409].includes(e.status)?e.status:503;
+    const status=[400,401,404,409].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] inscrição falhou:',e.message);
     res.status(status).json({ok:false,message:status===503?'Inscrições temporariamente indisponíveis.':e.message});
+  }
+});
+app.post('/api/tournaments', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
+    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem criar torneios.'});
+    if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
+    const tournament=await tournamentCatalog.create({data:req.body,actor:session.playerKey});
+    res.status(201).json({ok:true,tournament});
+  }catch(e){
+    const status=[400,403].includes(e.status)?e.status:503;
+    if(status===503)console.error('[tournament] criação falhou:',e.message);
+    res.status(status).json({ok:false,message:status===503?'Não foi possível criar o torneio.':e.message});
+  }
+});
+app.patch('/api/tournaments/:id', async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
+    if(!tournamentIsAdmin(session))return res.status(403).json({ok:false,message:'Apenas administradores podem administrar torneios.'});
+    if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
+    const tournament=await tournamentCatalog.update({id:req.params.id,data:req.body});
+    res.json({ok:true,tournament});
+  }catch(e){
+    const status=[400,403,404,409].includes(e.status)?e.status:503;
+    if(status===503)console.error('[tournament] edição falhou:',e.message);
+    res.status(status).json({ok:false,message:status===503?'Não foi possível atualizar o torneio.':e.message});
   }
 });
 

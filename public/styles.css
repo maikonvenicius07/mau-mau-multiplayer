@@ -2598,3 +2598,17 @@ button.bot-primary{
 .tournament-join:disabled{opacity:.52;cursor:not-allowed}
 .tournament-modal .tournament-note{font-size:11px;margin-top:16px}
 @media(max-width:650px){.tournament-modal{padding:18px 12px}}
+
+/* V51.2 — administração compacta dos torneios, sem novo botão no menu. */
+.tournament-field{display:block;color:#ead59a;font-size:12px;font-weight:700;margin:11px 0 5px}
+.tournament-select,.tournament-admin input{width:100%;min-height:42px;border:1px solid #517461;border-radius:10px;background:#11291f;color:#f9f4e5;padding:9px 12px;font:inherit;box-sizing:border-box}
+.tournament-admin{margin:16px 0;padding:14px;background:#10271d;border:1px solid #406849;border-radius:13px}
+.tournament-admin[hidden]{display:none}
+.tournament-admin h3{margin:0 0 12px}
+.tournament-form-grid{display:grid;grid-template-columns:1fr 1.35fr;gap:12px}
+.tournament-admin-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.tournament-admin-actions button{background:#9a7429;color:#fff6e1;border:1px solid #c29b42;border-radius:10px;min-height:39px;padding:8px 12px;font-weight:700;cursor:pointer}
+.tournament-admin-actions button.tournament-danger{background:#582923;border-color:#995348}
+.tournament-admin-actions button:disabled{opacity:.45;cursor:not-allowed}
+#tournamentAdminMessage{min-height:16px}
+@media(max-width:560px){.tournament-form-grid{grid-template-columns:1fr}.tournament-admin{padding:11px}.tournament-admin-actions button{flex:1 1 45%}}
