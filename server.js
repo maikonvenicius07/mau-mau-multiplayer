@@ -780,6 +780,26 @@ app.get('/api/me/stats', async (req,res)=>{
   }
 });
 
+// V51.0.1 — perfil público de resultados de jogador do ranking, apenas para contas autenticadas.
+// Nunca retorna mãos, cartas ou outros dados privados de partida.
+app.get('/api/players/stats', async (req,res)=>{
+  try {
+    res.setHeader('Cache-Control','private, no-store');
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta para consultar perfis.'});
+    const playerKey=String(req.query.playerKey||'').trim();
+    if(!playerKey||playerKey.length>80)return res.status(400).json({ok:false,message:'Jogador inválido.'});
+    const period=normalizePeriod(req.query.period||'season');
+    const mode=normalizeMode(req.query.mode);
+    if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
+    const stats=await rankingStore.getDetailedPlayerStats({playerKey,period,mode,limit:10});
+    res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats});
+  }catch(e){
+    console.error('[ranking] consulta de jogador falhou:',e);
+    res.status(500).json({ok:false,message:'Não foi possível carregar o perfil do jogador.'});
+  }
+});
+
 app.get('/api/profile', async (req,res)=>{
   try {
     const playerKey=String(req.query.playerKey||'').trim().slice(0,80);

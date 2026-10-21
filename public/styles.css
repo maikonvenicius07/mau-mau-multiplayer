@@ -2528,3 +2528,16 @@ button.bot-primary{
 .profile-stats-game span:last-child{text-align:right}
 .profile-stats-note{font-size:11px;color:#8fa699;margin:14px 0 0}
 @media(max-width:550px){.profile-stats-modal{width:calc(100vw - 14px);max-height:calc(100svh - 14px);padding:16px 13px}.profile-stats-grid{gap:9px 13px}.profile-stats-grid strong{font-size:24px}.profile-stats-filters{display:block}.profile-stats-filter-row{margin-bottom:8px}.profile-stats-game{font-size:11px}.profile-stats-game strong{font-size:11px}}
+
+/* V51.0.1 — abrir o perfil dos jogadores pelo nome no ranking. */
+.ranking-table .rank-profile-trigger{
+  display:flex;align-items:center;gap:9px;text-align:left;
+  width:100%;padding:5px 2px;border:0;background:transparent;
+  color:inherit;font:inherit;cursor:pointer;border-radius:10px;
+}
+.ranking-table .rank-profile-trigger:hover{background:rgba(255,214,122,.08)}
+.ranking-table .rank-profile-trigger:focus-visible{outline:2px solid #e5b64d;outline-offset:2px}
+.ranking-table .rank-profile-trigger .rank-player-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ranking-table .rank-profile-trigger .rank-player-copy span{overflow-wrap:anywhere}
+
+.ranking-profile-tip{font-size:11px;color:#b6cbbd;margin:4px 0 8px}

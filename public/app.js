@@ -1199,6 +1199,7 @@ function playSocialEffect(effect){
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 
+let rankingPlayerRows=[]; // Apenas jogadores recebidos na tabela do ranking atual.
 const rankPeriodLabel={day:'Hoje',week:'Semana',month:'Mês',season:'Temporada',history:'Histórico'};
 const rankModeLabel={official:'Oficial',training:'Treino'};
 function rankMedal(rank){return rank===1?'👑':rank===2?'💎':rank===3?'🏆':String(rank)}
@@ -1223,6 +1224,7 @@ async function loadRanking(){
     ]);
     const rank=await rankRes.json(), prof=await profileRes.json();
     if(!rank.ok) throw new Error(rank.message||'Ranking indisponível.');
+    rankingPlayerRows=Array.isArray(rank.rows)?rank.rows:[];
     const seasonName=rank.seasonName||'Temporada 1';
     $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]} • ${seasonName}`;
     if(rankingPeriod==='history'){
@@ -1233,7 +1235,7 @@ async function loadRanking(){
     if(!rank.rows?.length){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há vitórias neste ranking.</td></tr>';
     }else{
-      body.innerHTML=rank.rows.map(r=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><div class="rank-player">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small></div></div></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
+      body.innerHTML=rank.rows.map((r,i)=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small></div></button></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
@@ -1263,9 +1265,19 @@ $$('[data-rank-mode]').forEach(btn=>btn.onclick=()=>{
 $('#rankingOpen').onclick=openRanking;
 $('#rankingOpen2').onclick=openRanking;
 $('#rankingClose').onclick=()=>$('#rankingDialog').close();
+// V51.0.1: abre perfil de outro jogador sem alterar a classificação por vitórias.
+$('#rankingBody').addEventListener('click',event=>{
+  const button=event.target.closest('button[data-rank-player-index]');
+  if(!button)return;
+  const index=Number(button.dataset.rankPlayerIndex);
+  if(!Number.isSafeInteger(index)||index<0)return;
+  const player=rankingPlayerRows[index];
+  if(player?.playerKey)openProfileStatsForPlayer(player.playerKey);
+});
 
 // V51.0 — Meu Perfil: métricas de partidas concluídas, sem contadores de jogadas.
 let profileStatsPeriod='season',profileStatsMode='official',profileStatsRequest=0;
+let profileStatsTargetKey=null,profileStatsReturnToRanking=false;
 const profileStatsNumber=(value,decimals=0)=>value==null?'—':Number(value).toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
 function profileStatsDate(value){
   const d=new Date(value);
@@ -1278,12 +1290,15 @@ async function loadProfileStats(){
   $('#profileStatsFeedback').textContent='Carregando estatísticas...';
   $('#profileStatsRecent').textContent='Carregando...';
   try{
-    const response=await fetch(`/api/me/stats?period=${encodeURIComponent(profileStatsPeriod)}&mode=${encodeURIComponent(profileStatsMode)}`,{credentials:'same-origin'});
+    const statsEndpoint=profileStatsTargetKey
+      ? `/api/players/stats?playerKey=${encodeURIComponent(profileStatsTargetKey)}&period=${encodeURIComponent(profileStatsPeriod)}&mode=${encodeURIComponent(profileStatsMode)}`
+      : `/api/me/stats?period=${encodeURIComponent(profileStatsPeriod)}&mode=${encodeURIComponent(profileStatsMode)}`;
+    const response=await fetch(statsEndpoint,{credentials:'same-origin'});
     const data=await response.json();
     if(request!==profileStatsRequest||!dialog.open)return;
     if(!response.ok||!data.ok)throw new Error(data.message||'Não foi possível carregar o perfil.');
     const r=data.stats||{};
-    $('#profileStatsName').textContent=r.name||authUser?.name||'Jogador';
+    $('#profileStatsName').textContent=r.name||(profileStatsTargetKey?'Jogador':authUser?.name)||'Jogador';
     $('#profileStatsAvatar').innerHTML=avatarHTML(r.avatar||'macaco','md');
     $('#profileStatsRank').textContent=r.games&&r.rank?`🏆 ${r.rank}º lugar na ${data.seasonName||'Temporada 1'}`:'Nenhuma partida registrada neste filtro';
     const cells=[
@@ -1306,8 +1321,29 @@ async function loadProfileStats(){
     $('#profileStatsRecent').textContent='';
   }
 }
+function syncProfileStatsFilterButtons(){
+  $$('[data-profile-mode]').forEach(b=>b.classList.toggle('active',b.dataset.profileMode===profileStatsMode));
+  $$('[data-profile-period]').forEach(b=>b.classList.toggle('active',b.dataset.profilePeriod===profileStatsPeriod));
+}
 function openProfileStats(){
   if(!authUser)return showAuthGate('Entre na sua conta para ver suas estatísticas.');
+  profileStatsTargetKey=null;
+  profileStatsReturnToRanking=!!$('#rankingDialog')?.open;
+  $('#profileStatsTitle').textContent='Meu Perfil';
+  const ranking=$('#rankingDialog');if(ranking?.open)ranking.close();
+  const dialog=$('#profileStatsDialog');if(!dialog?.open)dialog.showModal();
+  loadProfileStats();
+}
+function openProfileStatsForPlayer(playerKey){
+  if(!authUser)return showAuthGate('Entre na sua conta para ver perfis de jogadores.');
+  if(!playerKey)return;
+  if(playerKey===permanentPlayerKey())return openProfileStats();
+  profileStatsTargetKey=playerKey;
+  profileStatsReturnToRanking=!!$('#rankingDialog')?.open;
+  profileStatsPeriod=rankingPeriod==='history'?'season':rankingPeriod;
+  profileStatsMode=rankingMode;
+  syncProfileStatsFilterButtons();
+  $('#profileStatsTitle').textContent='Perfil do Jogador';
   const ranking=$('#rankingDialog');if(ranking?.open)ranking.close();
   const dialog=$('#profileStatsDialog');if(!dialog?.open)dialog.showModal();
   loadProfileStats();
@@ -1315,6 +1351,14 @@ function openProfileStats(){
 $('#profileStatsOpen').onclick=openProfileStats;
 $('#profileStatsOpenRanking').onclick=openProfileStats;
 $('#profileStatsClose').onclick=()=>$('#profileStatsDialog').close();
+$('#profileStatsDialog').addEventListener('close',()=>{
+  ++profileStatsRequest; // descarta respostas atrasadas de outro jogador
+  profileStatsTargetKey=null;
+  if(profileStatsReturnToRanking){
+    profileStatsReturnToRanking=false;
+    openRanking();
+  }
+});
 $$('[data-profile-mode]').forEach(button=>button.onclick=()=>{
   profileStatsMode=button.dataset.profileMode;
   $$('[data-profile-mode]').forEach(b=>b.classList.toggle('active',b===button));
