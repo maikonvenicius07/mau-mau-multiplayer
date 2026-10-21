@@ -1,3 +1,11 @@
+## V51.0.4 — Histórico de vitórias organizado (21/10/2026)
+
+- O cabeçalho do perfil informa quantas vitórias foram encontradas no período e modalidade escolhidos.
+- No filtro Temporada, quando existem vitórias em vários meses, o histórico fica agrupado por mês, com o número de vitórias por mês.
+- Nenhuma vitória é escondida, filtrada por limite ou paginada. Hoje/Semana/Mês mantêm a apresentação simples.
+- Indicadores superiores continuam considerando todas as partidas; ranking, regras, câmera, microfone e PostgreSQL não foram alterados.
+- A atualização não implementa os contadores de Queimas, Jogadas Rápidas ou penalidades que foram descartados.
+
 ## V51.0.3 — Todas as vitórias do período (21/10/2026)
 
 - A lista do Meu Perfil e dos perfis dos jogadores passa a apresentar somente vitórias.

@@ -2521,6 +2521,12 @@ button.bot-primary{
 .profile-stats-feedback{min-height:16px;font-size:12px;color:#edc97b;margin:7px 0}
 .profile-stats-history{border-top:1px solid #344639;padding-top:14px;margin-top:10px}
 .profile-stats-history h3{font-size:16px;margin:0 0 11px;color:#f5e2ac}
+.profile-stats-history-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.profile-stats-history-title h3{margin:0}
+#profileStatsWinsCount{color:#eed391;font-size:12px;font-weight:750;font-variant-numeric:tabular-nums}
+.profile-stats-month{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 4px 7px;margin-top:9px;border-bottom:1px solid #536049;color:#f1d996;font-size:12px;font-weight:750}
+.profile-stats-month span:last-child{color:#b8cbbd;font-size:11px;font-weight:600}
+
 .profile-stats-recent{font-size:12px;color:#aabcb1}
 .profile-stats-game{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #26392d}
 .profile-stats-game strong{font-size:12px;text-align:center;color:#e6f3e9}

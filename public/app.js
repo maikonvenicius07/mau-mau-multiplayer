@@ -1285,11 +1285,36 @@ function profileStatsDate(value){
   if(!Number.isFinite(d.getTime()))return 'Data indisponível';
   return d.toLocaleDateString('pt-BR',{timeZone:'America/Porto_Velho',day:'2-digit',month:'2-digit',year:'numeric'});
 }
+// V51.0.4: organiza a lista sem ocultar nenhuma vitória do período.
+function profileStatsWinMonthInfo(value){
+  const date=new Date(value);
+  if(!Number.isFinite(date.getTime()))return {key:'unknown',title:'Data indisponível'};
+  const opts={timeZone:'America/Porto_Velho'};
+  const key=new Intl.DateTimeFormat('pt-BR',{...opts,year:'numeric',month:'2-digit'}).format(date);
+  const title=new Intl.DateTimeFormat('pt-BR',{...opts,year:'numeric',month:'long'}).format(date);
+  return {key,title:title.charAt(0).toUpperCase()+title.slice(1)};
+}
+function profileStatsWinEntries(matches,period){
+  if(!matches.length)return 'Nenhuma vitória registrada neste período e modalidade.';
+  const winRow=m=>`<div class="profile-stats-game"><span>${esc(profileStatsDate(m.finishedAt))}</span><strong>🏆 Vitória</strong><span>${esc(profileStatsNumber(m.score))} pontos</span></div>`;
+  if(period!=='season')return matches.map(winRow).join('');
+  const groups=[];
+  for(const match of matches){
+    const month=profileStatsWinMonthInfo(match.finishedAt);
+    let group=groups.find(g=>g.key===month.key);
+    if(!group){group={...month,matches:[]};groups.push(group);}
+    group.matches.push(match);
+  }
+  // Com somente um mês, não acrescentar uma divisória desnecessária.
+  if(groups.length===1)return matches.map(winRow).join('');
+  return groups.map(group=>`<div class="profile-stats-month"><span>${esc(group.title)}</span><span>${profileStatsNumber(group.matches.length)} ${group.matches.length===1?'vitória':'vitórias'}</span></div>${group.matches.map(winRow).join('')}`).join('');
+}
 async function loadProfileStats(){
   const dialog=$('#profileStatsDialog');if(!dialog?.open)return;
   const request=++profileStatsRequest;
   $('#profileStatsFeedback').textContent='Carregando estatísticas...';
   $('#profileStatsRecent').textContent='Carregando...';
+  $('#profileStatsWinsCount').textContent='';
   try{
     const statsEndpoint=profileStatsTargetKey
       ? `/api/players/stats?playerKey=${encodeURIComponent(profileStatsTargetKey)}&period=${encodeURIComponent(profileStatsPeriod)}&mode=${encodeURIComponent(profileStatsMode)}`
@@ -1312,14 +1337,14 @@ async function loadProfileStats(){
     ];
     $('#profileStatsGrid').innerHTML=cells.map(([number,label])=>`<div><strong>${esc(number)}</strong><span>${esc(label)}</span></div>`).join('');
     const recent=Array.isArray(r.recentMatches)?r.recentMatches:[];
-    $('#profileStatsRecent').innerHTML=recent.length?recent.map(m=>
-      `<div class="profile-stats-game"><span>${esc(profileStatsDate(m.finishedAt))}</span><strong>🏆 Vitória</strong><span>${esc(profileStatsNumber(m.score))} pontos</span></div>`
-    ).join(''):'Nenhuma vitória registrada neste período e modalidade.';
+    $('#profileStatsWinsCount').textContent=`${profileStatsNumber(recent.length)} ${recent.length===1?'vitória':'vitórias'}`;
+    $('#profileStatsRecent').innerHTML=profileStatsWinEntries(recent,profileStatsPeriod);
     $('#profileStatsFeedback').textContent='';
   }catch(e){
     if(request!==profileStatsRequest||!dialog.open)return;
     $('#profileStatsFeedback').textContent=e.message||'Não foi possível carregar o perfil.';
     $('#profileStatsRecent').textContent='';
+    $('#profileStatsWinsCount').textContent='';
   }
 }
 function syncProfileStatsFilterButtons(){
