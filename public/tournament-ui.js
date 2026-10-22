@@ -1,5 +1,5 @@
 'use strict';
-// V51.4 — mesas jogáveis somente para as contas sorteadas, sem gravar cartas.
+// V51.5 — fases automáticas por sorteio e classificação, sem modificar o motor das cartas.
 (() => {
   const byId=id=>document.getElementById(id);
   const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
@@ -11,7 +11,7 @@
   const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
-  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={};
+  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
   const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
   function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
@@ -34,6 +34,16 @@
     else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
     drawnTables=result.tables||[];
     myTable=result.myTable??null;gameStates=result.games||{};
+    bracket=result.bracket||null;currentStage=bracket?.currentStage||'qualifier';
+    const stagesLabel={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
+    if(tablesPanel){const heading=tablesPanel.querySelector('h3');if(heading)heading.textContent='🎲 '+(stagesLabel[currentStage]||'Mesas sorteadas');}
+    const progress=document.getElementById('tournamentProgress');
+    if(progress){progress.replaceChildren();
+      if(bracket?.champion){const t=document.createElement('strong');t.className='tournament-champion';
+        t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
+      else if(bracket?.stages?.length){const p=document.createElement('p');
+        p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será sorteada automaticamente quando todas as mesas terminarem.';progress.append(p);}
+    }
     canCreate=Boolean(result.canCreate);
     if(adminHint)adminHint.hidden=canCreate;
     if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
@@ -54,7 +64,7 @@
           join.disabled=pending;join.addEventListener('click',()=>{
             if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se ao jogo para entrar na mesa.';return;}
             join.disabled=true;message.textContent='Conectando à sua mesa...';
-            socket.emit('enterTournamentTable',{tournamentId:config.id,tableNumber:t.number});
+            socket.emit('enterTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number});
             setTimeout(()=>{join.disabled=false;},2500);
           });card.append(join);
         }else{
@@ -130,6 +140,18 @@
     });
   }
   button.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();loadList().catch(e=>state.textContent=e.message);});
+  const champions=document.getElementById('tournamentResultsInfo');
+  if(champions)champions.addEventListener('toggle',async()=>{
+    if(!champions.open)return;
+    const target=document.getElementById('tournamentChampionsList');if(!target)return;
+    target.textContent='Consultando campeonatos...';
+    try{const response=await request('/api/tournaments/champions');target.replaceChildren();
+      if(!response.completed?.length){target.textContent='Nenhum torneio concluído até o momento.';return;}
+      for(const cup of response.completed){const item=document.createElement('p');
+        item.textContent='🏆 '+cup.name+' — '+cup.champion.names.map(p=>p.name).join(', ');target.append(item);
+        const podium=document.createElement('small');podium.textContent='Classificação: '+(cup.champion.standings||[]).slice(0,5).map(p=>p.position+'º '+p.name+' ('+p.score+' pts)').join(' · ');target.append(podium);}
+    }catch(e){target.textContent='Não foi possível consultar os campeões.';}
+  });
   close.addEventListener('click',()=>dialog.close());
   picker.addEventListener('change',()=>loadSelected().catch(e=>state.textContent=e.message));
   action.addEventListener('click',async()=>{

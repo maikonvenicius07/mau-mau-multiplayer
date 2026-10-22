@@ -2631,3 +2631,10 @@ button.bot-primary{
 .tournament-table-result{background:#183c2a;border:1px solid #446b4b;border-radius:10px;padding:10px 12px;margin-top:10px}
 .tournament-table-result strong{color:#f3d78e}
 .tournament-table-result p{margin:5px 0;font-size:13px;color:#e2ede2}
+
+/* V51.5 — acompanhamento de fases e campeões, sem novas telas. */
+.tournament-progress{margin:14px 0;color:#e2d29b;font-size:12px;line-height:1.5}
+.tournament-progress p{margin:6px 0}
+.tournament-champion{display:block;background:#34421e;border:1px solid #aa8737;border-radius:12px;padding:13px;color:#f7da80;font-size:15px}
+.ranking-tournament-champions p{margin:8px 0;padding:10px 12px;border-bottom:1px solid #39543c;color:#f4d486}
+.ranking-tournament-champions small{display:block;color:#b9cbb9;font-size:11px;line-height:1.5;margin:0 12px 12px}

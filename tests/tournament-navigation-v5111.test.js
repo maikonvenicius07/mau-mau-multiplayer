@@ -19,5 +19,5 @@ assert.match(js,/byId\('tournamentOpenHome'\)/);
 assert.match(js,/\/api\/tournament\/registration/);
 assert.match(css,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
-assert.match(html,/tournament-ui\.js\?v=51\.4/);
+assert.match(html,/tournament-ui\.js\?v=51\.5/);
 console.log('✓ V51.1.1: acesso aos torneios no início, resultados reservados no Ranking e cadastro preservado.');

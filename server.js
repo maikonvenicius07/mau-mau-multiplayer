@@ -23,6 +23,7 @@ const { TournamentStore, tournamentConfig } = require('./tournament-store');
 const { TournamentCatalog } = require('./tournament-catalog');
 const { TournamentDraw } = require('./tournament-draw');
 const { TournamentGames } = require('./tournament-games');
+const { TournamentBracket } = require('./tournament-bracket');
 
 const app = express();
 const server = http.createServer(app);
@@ -262,6 +263,8 @@ const tournamentDraw = new TournamentDraw({pool:tournamentStore.pool||null,datab
 const tournamentDrawReady = tournamentCatalogReady.then(ok=>ok?tournamentDraw.init().then(()=>true).catch(e=>{console.error('[tournament] sorteios indisponíveis:',e);return false;}):false);
 const tournamentGames = new TournamentGames({pool:tournamentStore.pool||null,databaseUrl:''});
 const tournamentGamesReady=tournamentDrawReady.then(ok=>ok?tournamentGames.init().then(()=>true).catch(e=>{console.error('[tournament] jogos indisponíveis:',e);return false;}):false);
+const tournamentBracket=new TournamentBracket({pool:tournamentStore.pool||null,databaseUrl:'',draw:tournamentDraw});
+const tournamentBracketReady=tournamentGamesReady.then(ok=>ok?tournamentBracket.init().then(()=>true).catch(e=>{console.error('[tournament] fases indisponíveis:',e);return false;}):false);
 const tournamentTableJoinLocks=new Set();
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
@@ -788,11 +791,21 @@ app.get('/api/tournament', async(req,res)=>{
     const result=await tournamentStore.get({config,playerKey:session?.playerKey||''});
     if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
     const tables=await tournamentDraw.get(config.id);
-    const games=await tournamentGamesReady?tournamentGames.statuses(config.id,tables.map(t=>t.number)):{};
-    // Apenas o indicador de mesa do jogador autenticado é exposto.
+    const bracket=await tournamentBracketReady?tournamentBracket.summary(config.id,tables):{currentStage:'qualifier',stages:[],champion:null};
+    const currentStage=bracket.currentStage;
+    const stageData=bracket.stages.find(x=>x.stage===currentStage);
+    const displayTables=currentStage==='qualifier'?tables:(stageData?.tables||[]);
+    const games=currentStage==='qualifier'?
+      (await tournamentGamesReady?tournamentGames.statuses(config.id,tables.map(t=>t.number)):{}):
+      Object.fromEntries(displayTables.map(t=>[t.number,{created:t.created,finished:t.finished,result:t.result}]));
+    // Apenas a mesa do titular autenticado; identificações privadas nunca retornam.
     let myTable=null;
-    if(session?.playerKey)for(const t of tables){if(await tournamentDraw.seatFor(config.id,t.number,session.playerKey)){myTable=t.number;break;}}
-    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables,games,myTable});
+    if(session?.playerKey)for(const t of displayTables){
+      const allowed=currentStage==='qualifier'?await tournamentDraw.seatFor(config.id,t.number,session.playerKey):
+        await tournamentBracket.seatFor(config.id,currentStage,t.number,session.playerKey);
+      if(allowed){myTable=t.number;break;}
+    }
+    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables:displayTables,games,myTable,bracket});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
@@ -855,12 +868,30 @@ app.delete('/api/tournaments/:id', async(req,res)=>{
       return res.status(409).json({ok:false,message:'Encerre as partidas ativas antes de excluir este torneio.'});
     const result=await tournamentCatalog.delete({id:req.params.id,actor:session.playerKey,isAdmin:tournamentIsAdmin(session)});
     await tournamentGames.clearLocal(req.params.id);
+    await tournamentBracket.clearLocal(req.params.id);
     res.json({ok:true,...result});
   }catch(e){
     const status=[400,401,403,404,409].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] exclusão falhou:',e.message);
     res.status(status).json({ok:false,message:status===503?'Não foi possível excluir o torneio.':e.message});
   }
+});
+
+// V51.5 — Lista pública de campeões. Resultados nunca afetam o Ranking Oficial.
+app.get('/api/tournaments/champions', async(req,res)=>{
+  res.setHeader('Cache-Control','public, max-age=30');
+  try{
+    if(!await tournamentBracketReady)throw new Error('Fases indisponíveis.');
+    const tournaments=await tournamentCatalog.list();
+    const completed=[];
+    for(const cup of tournaments){
+      const initial=await tournamentDraw.get(cup.id);
+      if(!initial.length)continue;
+      const bracket=await tournamentBracket.summary(cup.id,initial);
+      if(bracket.champion)completed.push({id:cup.id,name:cup.name,champion:bracket.champion});
+    }
+    res.json({ok:true,completed});
+  }catch(e){console.error('[tournament] campeões indisponíveis:',e);res.status(503).json({ok:false,message:'Resultados indisponíveis.'});}
 });
 
 // V51.3 - sorteio persistente, sem iniciar as salas reais.
@@ -962,9 +993,17 @@ function maybeRecordFinished(room) {
   const matchSerial=Number(room.matchSerial||1);
   if(room.tournament){
     room.rankingRecording=true;
-    Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>tournamentGamesReady).then(ok=>{
+    Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>tournamentBracketReady).then(async ok=>{
       if(!ok)throw new Error('Resultados do torneio indisponíveis.');
-      return tournamentGames.finish({id:room.tournament.id,number:room.tournament.tableNumber,roomCode:room.code,result:record,expectedPlayers:room.tournament.rosterKeys.length});
+      const phase=room.tournament.phase||'qualifier';
+      const roster=room.tournament.rosterKeys.map(playerKey=>{
+        const p=room.players.find(x=>x.playerKey===playerKey);
+        return {playerKey,name:p?.name||record.results.find(x=>x.playerKey===playerKey)?.name||'Jogador'};
+      });
+      if(phase==='qualifier')await tournamentGames.finish({id:room.tournament.id,number:room.tournament.tableNumber,roomCode:room.code,result:record,expectedPlayers:roster.length});
+      await tournamentBracket.recordResult({id:room.tournament.id,stage:phase,number:room.tournament.tableNumber,roomCode:room.code,result:record,players:roster});
+      const initial=await tournamentDraw.get(room.tournament.id);
+      await tournamentBracket.advance(room.tournament.id,initial);
     }).then(()=>{
       if(Number(room.matchSerial||1)===matchSerial){room.rankingRecorded=true;room.rankingRecording=false;
         Engine.appendLog(room,'🏆 Resultado da mesa registrado no torneio, sem alterar o Ranking Oficial.','system');
@@ -2611,19 +2650,24 @@ io.on('connection', socket => {
   socket.on('enterTournamentTable', async payload=>{
     const id=String(payload?.tournamentId||'').trim();
     const number=Number(payload?.tableNumber);
-    const lockKey=`${id}:${number}`;
+    const phase=String(payload?.stage||'qualifier');
+    const lockKey=`${id}:${phase}:${number}`;
     try{
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do modo observador antes de entrar na mesa.');
-      if(!await tournamentGamesReady)throw new Error('Mesas do torneio temporariamente indisponíveis.');
+      if(!await tournamentBracketReady)throw new Error('Mesas do torneio temporariamente indisponíveis.');
       if(!/^[-a-z0-9]{3,64}$/i.test(id)||!Number.isInteger(number)||number<1)throw new Error('Mesa inválida.');
-      const seat=await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey);
+      const initial=await tournamentDraw.get(id);
+      const bracket=await tournamentBracket.summary(id,initial);
+      if(phase!==bracket.currentStage||bracket.champion)throw new Error('Esta fase já foi concluída ou ainda não começou.');
+      const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
+        await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
       const event=await tournamentCatalog.get(id);
       if(!event||event.status!=='closed')throw new Error('O torneio deve estar com as inscrições encerradas.');
       if(tournamentTableJoinLocks.has(lockKey))throw new Error('A mesa está sendo preparada. Tente entrar novamente.');
       tournamentTableJoinLocks.add(lockKey);
       try{
-        let binding=await tournamentGames.get(id,number);
+        let binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
         let room=binding?rooms.get(binding.roomCode):null;
         if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
         if(binding&&!room)throw new Error('A sala desta mesa está em recuperação ou expirou. O organizador deverá verificar a situação.');
@@ -2632,10 +2676,10 @@ io.on('connection', socket => {
           const code=roomCode();
           const candidate=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),
             name:cleanPresenceName(socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
-          candidate.tournament={id,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey)};
+          candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey)};
           candidate.isPublic=false;ensureSocial(candidate);
           await prepareForRoomSwitch(socket,code);
-          binding=await tournamentGames.claim(id,number,code);
+          binding=phase==='qualifier'?await tournamentGames.claim(id,number,code):await tournamentBracket.claim(id,phase,number,code);
           if(binding.roomCode!==code)throw new Error('Esta mesa já foi criada em outra instância. Tente novamente.');
           rooms.set(code,candidate);room=candidate;
           removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Você entrou no torneio.',notify:true});

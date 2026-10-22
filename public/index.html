@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.4" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.5" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -772,7 +772,7 @@
     </div>
     <details id="tournamentResultsInfo" class="ranking-tournament-results">
       <summary>🏅 Resultados dos torneios</summary>
-      <p>Os resultados de campeonatos aparecerão aqui após a implantação da disputa e da classificação oficial. Ainda não há resultados de torneios registrados.</p>
+      <div id="tournamentChampionsList" class="ranking-tournament-champions" aria-live="polite">Abra esta seção para consultar os campeões dos torneios concluídos.</div>
     </details>
     <div class="ranking-note"><strong>Temporada 1.</strong> A conta autenticada é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
   </dialog>
@@ -814,10 +814,11 @@
     <h3>Jogadores inscritos</h3>
     <ol id="tournamentPlayers" class="tournament-players"></ol>
     <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
+    <div id="tournamentProgress" class="tournament-progress" aria-live="polite"></div>
     <section id="tournamentTables" class="tournament-tables" hidden aria-label="Mesas sorteadas">
       <h3>🎲 Mesas sorteadas</h3>
       <div id="tournamentTableList"></div>
-      <p class="tournament-note">Cada inscrito entra na própria mesa pelo botão. A partida começa quando todos estiverem presentes e o anfitrião iniciar a rodada.</p>
+      <p class="tournament-note">Cada inscrito entra na própria mesa pelo botão. A partida começa quando todos estiverem presentes. O avanço é automático após todas as mesas terminarem. Em empate pela última vaga, o desempate é por sorteio automático.</p>
     </section>
     <p class="tournament-note">Inscrição gratuita e vinculada à sua conta. Os jogos usam as regras normais. Resultados de torneios não alteram o Ranking Oficial.</p>
   </dialog>
@@ -827,6 +828,6 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.4"></script>
+  <script src="tournament-ui.js?v=51.5"></script>
 </body>
 </html>
