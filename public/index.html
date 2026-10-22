@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.5" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -815,6 +815,13 @@
     <ol id="tournamentPlayers" class="tournament-players"></ol>
     <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
     <div id="tournamentProgress" class="tournament-progress" aria-live="polite"></div>
+    <section id="tournamentOverview" class="tournament-overview" hidden aria-label="Acompanhamento das fases">
+      <div class="tournament-overview-head">
+        <h3>📊 Acompanhamento do torneio</h3>
+        <button id="tournamentRefresh" type="button" aria-label="Atualizar andamento e resultados">↻ Atualizar</button>
+      </div>
+      <div id="tournamentStages" class="tournament-stages" aria-live="polite"></div>
+    </section>
     <section id="tournamentTables" class="tournament-tables" hidden aria-label="Mesas sorteadas">
       <h3>🎲 Mesas sorteadas</h3>
       <div id="tournamentTableList"></div>
@@ -828,6 +835,7 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
   <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
-  <script src="tournament-ui.js?v=51.5"></script>
+  <script src="tournament-dashboard.js?v=51.6"></script>
+  <script src="tournament-ui.js?v=51.6"></script>
 </body>
 </html>

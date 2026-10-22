@@ -10,10 +10,14 @@ function fail(s,status=409){return Object.assign(new Error(s),{status});}
 function validate(id,phase,number){
   if(!/^[-a-z0-9]{3,64}$/i.test(id||'')||!STAGES.includes(phase)||!Number.isInteger(number)||number<1||number>30)throw fail('Mesa inválida.',400);
 }
-function publicStage(row){
+function publicStage(row,advancedKeys=null){
+  // Never expose playerKey: compare private identifiers exclusively on the server.
   return {stage:row.stage,number:row.number,players:row.players.map(p=>({name:p.name,seat:p.seat})),
     created:!!row.roomCode,finished:!!row.result,
-    result:row.result?{complete:true,results:row.result.results.map(p=>({name:p.name,position:p.position,score:p.score,won:p.won}))}:null};
+    result:row.result?{complete:true,results:row.result.results.map(p=>({
+      name:p.name,position:p.position,score:p.score,won:p.won,
+      ...(advancedKeys?{advanced:advancedKeys.has(p.playerKey)}:{})
+    }))}:null};
 }
 function candidatesFromStage(rows,quota){
   const candidates=[];
@@ -130,7 +134,11 @@ class TournamentBracket{
   }
   async summary(id,initialTables=[]){
     const rows=await this.rows(id);
-    const stages=STAGES.map(stage=>({stage,label:LABELS[stage],tables:rows.filter(r=>r.stage===stage).map(publicStage)})).filter(s=>s.tables.length);
+    const stages=STAGES.map((stage,index)=>{
+      const next=STAGES.slice(index+1).find(candidate=>rows.some(r=>r.stage===candidate));
+      const advancedKeys=next?new Set(rows.filter(r=>r.stage===next).flatMap(r=>r.players.map(p=>p.playerKey))):null;
+      return {stage,label:LABELS[stage],tables:rows.filter(r=>r.stage===stage).map(row=>publicStage(row,advancedKeys))};
+    }).filter(s=>s.tables.length);
     const latest=stages.at(-1);let champion=null;
     if(latest&&latest.tables.length===1&&latest.tables[0].finished){
       const winners=latest.tables[0].result.results.filter(p=>p.won).map(p=>({name:p.name,score:p.score}));

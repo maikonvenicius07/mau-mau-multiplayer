@@ -795,9 +795,25 @@ app.get('/api/tournament', async(req,res)=>{
     const currentStage=bracket.currentStage;
     const stageData=bracket.stages.find(x=>x.stage===currentStage);
     const displayTables=currentStage==='qualifier'?tables:(stageData?.tables||[]);
-    const games=currentStage==='qualifier'?
+    const recordedGames=currentStage==='qualifier'?
       (await tournamentGamesReady?tournamentGames.statuses(config.id,tables.map(t=>t.number)):{}):
       Object.fromEntries(displayTables.map(t=>[t.number,{created:t.created,finished:t.finished,result:t.result}]));
+    // Status in memory, without private cards, room codes, tokens or identifiers.
+    // After a Render restart, fall back to the recorded state rather than claiming a live game.
+    const liveTableStatus=new Map();
+    for(const room of rooms.values()){
+      if(room.tournament?.id!==config.id||room.tournament?.phase!==currentStage)continue;
+      const n=room.tournament.tableNumber;
+      if(!displayTables.some(t=>t.number===n))continue;
+      liveTableStatus.set(n,{
+        liveStatus:room.status,
+        connectedPlayers:room.players.filter(p=>!p.isBot&&p.connected).length,
+        expectedPlayers:room.tournament.rosterKeys.length
+      });
+    }
+    const games=Object.fromEntries(displayTables.map(t=>[
+      t.number,{...(recordedGames[t.number]||{}),...(liveTableStatus.get(t.number)||{})}
+    ]));
     // Apenas a mesa do titular autenticado; identificações privadas nunca retornam.
     let myTable=null;
     if(session?.playerKey)for(const t of displayTables){

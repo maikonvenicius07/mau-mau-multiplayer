@@ -1,5 +1,5 @@
 'use strict';
-// V51.5 — fases automáticas por sorteio e classificação, sem modificar o motor das cartas.
+// V51.6 — acompanhamento visual de fases sem alterar as regras do jogo.
 (() => {
   const byId=id=>document.getElementById(id);
   const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
@@ -21,6 +21,49 @@
     adminName.value=t.name||'';capacity.value=t.capacity||20;
     if(t.startAt){const d=new Date(t.startAt);const inRO=new Date(d.getTime()-4*60*60*1000);start.value=inRO.toISOString().slice(0,16);}
     else start.value='';
+  }
+  const overview=byId('tournamentOverview'),stageList=byId('tournamentStages'),refresh=byId('tournamentRefresh');
+  function renderOverview(){
+    if(!overview||!stageList)return;
+    stageList.replaceChildren();
+    const dashboard=window.MauMauTournamentDashboard;
+    const stages=dashboard?.summarize({bracket,currentStage,currentTables:drawnTables,games:gameStates})||[];
+    overview.hidden=!stages.length;
+    for(const stage of stages){
+      const details=document.createElement('details');details.className='tournament-stage-overview';
+      const heading=document.createElement('summary');
+      const label=document.createElement('strong');label.textContent=stage.label;
+      const stat=document.createElement('span');stat.textContent=stage.finished+' de '+stage.total+' mesas concluídas';
+      heading.append(label,stat);details.append(heading);
+      const cards=document.createElement('div');cards.className='tournament-stage-cards';
+      for(const table of stage.tables){
+        const entry=document.createElement('div');entry.className='tournament-stage-table';
+        const line=document.createElement('div');line.className='tournament-stage-table-line';
+        const title=document.createElement('strong');title.textContent='Mesa '+table.number;
+        const status=document.createElement('span');status.className='tournament-state tournament-state-'+table.status;
+        status.textContent=table.label;
+        line.append(title,status);entry.append(line);
+        if(table.expectedPlayers!=null&&table.status!=='finished'){
+          const connected=document.createElement('small');
+          connected.textContent=table.connectedPlayers+' de '+table.expectedPlayers+' jogadores conectados';entry.append(connected);
+        }
+        if(table.result?.results?.length){
+          const standings=document.createElement('ul');standings.className='tournament-stage-standings';
+          for(const p of table.result.results){
+            const li=document.createElement('li');
+            let note='';
+            if(p.advanced===true)note=' · Classificado';
+            else if(p.advanced===false)note=' · Eliminado';
+            li.textContent=p.position+'º '+p.name+' · '+p.score+' pontos'+note;
+            if(p.advanced===true)li.className='tournament-advanced';
+            standings.append(li);
+          }
+          entry.append(standings);
+        }
+        cards.append(entry);
+      }
+      details.append(cards);stageList.append(details);
+    }
   }
   function render(result){
     config=result.tournament;name.textContent='🏆 '+config.name;
@@ -44,6 +87,7 @@
       else if(bracket?.stages?.length){const p=document.createElement('p');
         p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será sorteada automaticamente quando todas as mesas terminarem.';progress.append(p);}
     }
+    renderOverview();
     canCreate=Boolean(result.canCreate);
     if(adminHint)adminHint.hidden=canCreate;
     if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
@@ -100,7 +144,7 @@
     picker.value=items.some(t=>t.id===selectId)?selectId:(items[0]?.id||'');
     panel.hidden=!canCreate;create.disabled=!canCreate;
     if(adminHint)adminHint.hidden=canCreate;
-    if(!picker.value){config=null;name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
+    if(!picker.value){config=null;if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
     await loadSelected();
   }
   async function loadSelected(){if(!picker.value)return;
@@ -151,6 +195,13 @@
         item.textContent='🏆 '+cup.name+' — '+cup.champion.names.map(p=>p.name).join(', ');target.append(item);
         const podium=document.createElement('small');podium.textContent='Classificação: '+(cup.champion.standings||[]).slice(0,5).map(p=>p.position+'º '+p.name+' ('+p.score+' pts)').join(' · ');target.append(podium);}
     }catch(e){target.textContent='Não foi possível consultar os campeões.';}
+  });
+  if(refresh)refresh.addEventListener('click',async()=>{
+    if(pending||!picker.value)return;
+    refresh.disabled=true;refresh.textContent='Atualizando...';
+    try{await loadSelected();}
+    catch(e){state.textContent=e.message;}
+    finally{refresh.disabled=false;refresh.textContent='↻ Atualizar';}
   });
   close.addEventListener('click',()=>dialog.close());
   picker.addEventListener('change',()=>loadSelected().catch(e=>state.textContent=e.message));

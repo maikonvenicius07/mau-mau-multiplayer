@@ -2638,3 +2638,27 @@ button.bot-primary{
 .tournament-champion{display:block;background:#34421e;border:1px solid #aa8737;border-radius:12px;padding:13px;color:#f7da80;font-size:15px}
 .ranking-tournament-champions p{margin:8px 0;padding:10px 12px;border-bottom:1px solid #39543c;color:#f4d486}
 .ranking-tournament-champions small{display:block;color:#b9cbb9;font-size:11px;line-height:1.5;margin:0 12px 12px}
+
+
+/* V51.6 — painel compacto de acompanhamento; cada fase pode ser expandida. */
+.tournament-overview{margin:14px 0;padding:12px;border:1px solid #41684e;border-radius:13px;background:#10261c}
+.tournament-overview[hidden]{display:none}
+.tournament-overview-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tournament-overview-head h3{margin:0;color:#f1cf81}
+.tournament-overview-head button{background:#836328;color:#fff1c6;border:1px solid #b98d40;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer;min-height:38px}
+.tournament-overview-head button:disabled{opacity:.5}
+.tournament-stage-overview{border:1px solid #3a6247;border-radius:10px;margin-top:10px;overflow:hidden}
+.tournament-stage-overview summary{display:flex;justify-content:space-between;gap:10px;padding:12px;cursor:pointer;align-items:center;color:#e6e9d9;font-size:13px}
+.tournament-stage-overview summary span{font-size:11px;color:#bad0bf;text-align:right}
+.tournament-stage-overview[open] summary{border-bottom:1px solid #3a6247}
+.tournament-stage-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding:9px}
+.tournament-stage-table{background:#162f22;border:1px solid #345944;border-radius:9px;padding:10px;font-size:12px;color:#e9eddf;min-width:0}
+.tournament-stage-table-line{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tournament-stage-table small{display:block;color:#b7cebe;margin-top:5px}
+.tournament-state{font-size:10px;line-height:1.3;color:#e7d6a1;text-align:right}
+.tournament-state-finished{color:#9ae0ae}
+.tournament-state-playing{color:#f6d680}
+.tournament-stage-standings{margin:7px 0 0;padding-left:18px;color:#ccd8cb}
+.tournament-stage-standings li{margin:3px 0;overflow-wrap:anywhere}
+.tournament-stage-standings .tournament-advanced{color:#9ae0ae;font-weight:700}
+@media(max-width:500px){.tournament-overview{padding:9px}.tournament-stage-cards{grid-template-columns:1fr}.tournament-overview-head button{flex-shrink:0}}
