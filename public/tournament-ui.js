@@ -1,5 +1,5 @@
 'use strict';
-// V51.3.1 — torneios podem ser criados por qualquer conta; só o criador gerencia ou exclui.
+// V51.4 — mesas jogáveis somente para as contas sorteadas, sem gravar cartas.
 (() => {
   const byId=id=>document.getElementById(id);
   const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
@@ -11,7 +11,7 @@
   const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
-  let pending=false,config=null,items=[],drawnTables=[],canCreate=false;
+  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={};
   const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
   function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
@@ -33,12 +33,36 @@
     if(!config.registrationOpen)action.textContent='Inscrições indisponíveis';
     else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
     drawnTables=result.tables||[];
+    myTable=result.myTable??null;gameStates=result.games||{};
     canCreate=Boolean(result.canCreate);
     if(adminHint)adminHint.hidden=canCreate;
     if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
-      for(const t of drawnTables){const card=document.createElement('div');card.className='tournament-table-card';
+      for(const t of drawnTables){
+        const card=document.createElement('div');card.className='tournament-table-card';
         const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
-        const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);tablesList.append(card);}
+        const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);
+        const game=gameStates[t.number];
+        if(game?.finished){
+          const result=document.createElement('div');result.className='tournament-table-result';
+          const h=document.createElement('strong');h.textContent=game.result?.complete===false?'⚠️ Resultado parcial (participante ausente)':'🏆 Resultado da mesa';result.append(h);
+          for(const p of game.result?.results||[]){const line=document.createElement('p');
+            line.textContent=`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
+          card.append(result);
+        }else if(t.number===myTable){
+          const join=document.createElement('button');join.type='button';join.className='tournament-enter-table';
+          join.textContent=game?.created?'🎮 Voltar à minha mesa':'🎮 Entrar na minha mesa';
+          join.disabled=pending;join.addEventListener('click',()=>{
+            if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se ao jogo para entrar na mesa.';return;}
+            join.disabled=true;message.textContent='Conectando à sua mesa...';
+            socket.emit('enterTournamentTable',{tournamentId:config.id,tableNumber:t.number});
+            setTimeout(()=>{join.disabled=false;},2500);
+          });card.append(join);
+        }else{
+          const note=document.createElement('p');note.className='tournament-note';
+          note.textContent=game?.created?'Mesa em andamento.':'Aguardando entrada dos participantes sorteados.';card.append(note);
+        }
+        tablesList.append(card);
+      }
     }
     panel.hidden=!canCreate;
     if(canCreate){
@@ -93,6 +117,17 @@
       message.textContent=kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
     }catch(e){message.textContent=e.message;}
     finally{setBusy(false);}
+  }
+  if(typeof socket!=='undefined'){
+    socket.on('joined',data=>{if(data?.source==='tournament'&&dialog.open)dialog.close();});
+    socket.on('gameError',data=>{
+      if(dialog.open&&message.textContent==='Conectando à sua mesa...')message.textContent=data?.message||'Não foi possível entrar na mesa.';
+    });
+    socket.on('tournamentTableResume',data=>{
+      if(!data?.code)return;
+      if(dialog.open)dialog.close();
+      socket.emit('joinRoom',{code:data.code,resumeIntent:'tournament'});
+    });
   }
   button.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();loadList().catch(e=>state.textContent=e.message);});
   close.addEventListener('click',()=>dialog.close());

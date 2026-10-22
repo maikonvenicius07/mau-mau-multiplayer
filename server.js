@@ -22,6 +22,7 @@ const EmailDelivery = require('./email-delivery');
 const { TournamentStore, tournamentConfig } = require('./tournament-store');
 const { TournamentCatalog } = require('./tournament-catalog');
 const { TournamentDraw } = require('./tournament-draw');
+const { TournamentGames } = require('./tournament-games');
 
 const app = express();
 const server = http.createServer(app);
@@ -259,6 +260,9 @@ const tournamentCatalog = new TournamentCatalog({pool:tournamentStore.pool||null
 const tournamentCatalogReady = tournamentReady.then(ok=>ok?tournamentCatalog.init().then(()=>true).catch(e=>{console.error('[tournament] catálogo falhou:',e);return false;}):false);
 const tournamentDraw = new TournamentDraw({pool:tournamentStore.pool||null,databaseUrl:''});
 const tournamentDrawReady = tournamentCatalogReady.then(ok=>ok?tournamentDraw.init().then(()=>true).catch(e=>{console.error('[tournament] sorteios indisponíveis:',e);return false;}):false);
+const tournamentGames = new TournamentGames({pool:tournamentStore.pool||null,databaseUrl:''});
+const tournamentGamesReady=tournamentDrawReady.then(ok=>ok?tournamentGames.init().then(()=>true).catch(e=>{console.error('[tournament] jogos indisponíveis:',e);return false;}):false);
+const tournamentTableJoinLocks=new Set();
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
@@ -784,7 +788,11 @@ app.get('/api/tournament', async(req,res)=>{
     const result=await tournamentStore.get({config,playerKey:session?.playerKey||''});
     if(!await tournamentDrawReady)throw new Error('Sorteio indisponível.');
     const tables=await tournamentDraw.get(config.id);
-    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables});
+    const games=await tournamentGamesReady?tournamentGames.statuses(config.id,tables.map(t=>t.number)):{};
+    // Apenas o indicador de mesa do jogador autenticado é exposto.
+    let myTable=null;
+    if(session?.playerKey)for(const t of tables){if(await tournamentDraw.seatFor(config.id,t.number,session.playerKey)){myTable=t.number;break;}}
+    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables,games,myTable});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
@@ -825,6 +833,8 @@ app.patch('/api/tournaments/:id', async(req,res)=>{
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
     if(!await tournamentCanManage(session,req.params.id))return res.status(403).json({ok:false,message:'Somente o criador pode administrar este torneio.'});
     if(!await tournamentCatalogReady||!await tournamentDrawReady)throw new Error('Catálogo indisponível.');
+    if(req.body?.status==='cancelled' && await tournamentGames.hasStarted(req.params.id))
+      return res.status(409).json({ok:false,message:'Não cancele o torneio depois que as mesas começaram a jogar.'});
     const tournament=await tournamentCatalog.update({id:req.params.id,data:req.body});
     res.json({ok:true,tournament});
   }catch(e){
@@ -841,7 +851,10 @@ app.delete('/api/tournaments/:id', async(req,res)=>{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
     if(!await tournamentCatalogReady||!await tournamentDrawReady)throw new Error('Catálogo indisponível.');
+    if([...rooms.values()].some(r=>r.tournament?.id===req.params.id&&r.status!=='finished'))
+      return res.status(409).json({ok:false,message:'Encerre as partidas ativas antes de excluir este torneio.'});
     const result=await tournamentCatalog.delete({id:req.params.id,actor:session.playerKey,isAdmin:tournamentIsAdmin(session)});
+    await tournamentGames.clearLocal(req.params.id);
     res.json({ok:true,...result});
   }catch(e){
     const status=[400,401,403,404,409].includes(e.status)?e.status:503;
@@ -947,6 +960,18 @@ function maybeRecordFinished(room) {
   if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
   const record=buildMatchRecord(room);
   const matchSerial=Number(room.matchSerial||1);
+  if(room.tournament){
+    room.rankingRecording=true;
+    Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>tournamentGamesReady).then(ok=>{
+      if(!ok)throw new Error('Resultados do torneio indisponíveis.');
+      return tournamentGames.finish({id:room.tournament.id,number:room.tournament.tableNumber,roomCode:room.code,result:record,expectedPlayers:room.tournament.rosterKeys.length});
+    }).then(()=>{
+      if(Number(room.matchSerial||1)===matchSerial){room.rankingRecorded=true;room.rankingRecording=false;
+        Engine.appendLog(room,'🏆 Resultado da mesa registrado no torneio, sem alterar o Ranking Oficial.','system');
+        roomSnapshotStore.delete(room.code).catch(e=>console.error('[tournament] snapshot',e));}
+    }).catch(e=>{console.error('[tournament] gravação de resultado falhou',e);room.rankingRecording=false;});
+    return;
+  }
   if (!record.results.length) { room.rankingRecorded=true; roomSnapshotStore.delete(room.code).catch(()=>{}); return; }
   room.rankingRecording=true;
   // V49.9 — primeiro persiste o resultado final ainda pendente. Se o processo cair
@@ -1998,6 +2023,7 @@ function releaseReservation(room,playerKey,inviteId=null) {
 }
 function roomHasInviteCapacity(room,playerKey=null) {
   if(!room||room.status==='finished')return false;
+  if(room.tournament&&(!playerKey||!room.tournament.rosterKeys.includes(playerKey)))return false;
   const existing=playerKey&&room.players.some(p=>!p.isBot&&p.playerKey===playerKey);
   if(existing)return true;
   const map=ensureInviteReservations(room);
@@ -2113,6 +2139,7 @@ async function createRoomForSocket(socket,profileData={}) {
 }
 async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
+  if(room.tournament && !room.tournament.rosterKeys.includes(key))throw new Error('Mesa restrita aos sorteados.');
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   await prepareForRoomSwitch(socket,room.code);
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
@@ -2580,6 +2607,56 @@ io.on('connection', socket => {
     }catch(e){err(socket,e);}
   });
 
+  // V51.4: entrada autenticada na mesa atribuída pelo sorteio, sem aceitar código de terceiros.
+  socket.on('enterTournamentTable', async payload=>{
+    const id=String(payload?.tournamentId||'').trim();
+    const number=Number(payload?.tableNumber);
+    const lockKey=`${id}:${number}`;
+    try{
+      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do modo observador antes de entrar na mesa.');
+      if(!await tournamentGamesReady)throw new Error('Mesas do torneio temporariamente indisponíveis.');
+      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!Number.isInteger(number)||number<1)throw new Error('Mesa inválida.');
+      const seat=await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey);
+      if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
+      const event=await tournamentCatalog.get(id);
+      if(!event||event.status!=='closed')throw new Error('O torneio deve estar com as inscrições encerradas.');
+      if(tournamentTableJoinLocks.has(lockKey))throw new Error('A mesa está sendo preparada. Tente entrar novamente.');
+      tournamentTableJoinLocks.add(lockKey);
+      try{
+        let binding=await tournamentGames.get(id,number);
+        let room=binding?rooms.get(binding.roomCode):null;
+        if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
+        if(binding&&!room)throw new Error('A sala desta mesa está em recuperação ou expirou. O organizador deverá verificar a situação.');
+        if(!room){
+          enforceActionRate(socket,'createRoom','Aguarde antes de criar outra mesa.');
+          const code=roomCode();
+          const candidate=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),
+            name:cleanPresenceName(socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
+          candidate.tournament={id,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey)};
+          candidate.isPublic=false;ensureSocial(candidate);
+          await prepareForRoomSwitch(socket,code);
+          binding=await tournamentGames.claim(id,number,code);
+          if(binding.roomCode!==code)throw new Error('Esta mesa já foi criada em outra instância. Tente novamente.');
+          rooms.set(code,candidate);room=candidate;
+          removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Você entrou no torneio.',notify:true});
+          const p=room.players[0];socket.data.roomCode=code;socket.data.playerId=p.id;
+          socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
+          updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
+          socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'tournament'});
+          emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+        }else{
+          if(room.status==='finished')throw new Error('A partida desta mesa já terminou.');
+          if(room.status!=='lobby'){
+            // Durante uma rodada, a retomada usa o vínculo persistente e a reconexão existente.
+            socket.emit('tournamentTableResume',{code:room.code});
+            return;
+          }
+          await joinSocketIntoRoom(socket,room);
+        }
+      }finally{tournamentTableJoinLocks.delete(lockKey);}
+    }catch(e){err(socket,e);}
+  });
+
   socket.on('createRoom', async payload => {
     let releaseRoomSlot=null;
     try {
@@ -2620,6 +2697,7 @@ io.on('connection', socket => {
   });
 
   socket.on('setRoomPublic', payload => withRoom(socket,(room,p)=>{
+    if(room.tournament)throw new Error('A visibilidade da mesa de torneio não pode ser alterada.');
     if(!p.host) throw new Error('Somente o anfitrião pode alterar a visibilidade da sala.');
     room.isPublic=!!payload?.isPublic;
     Engine.appendLog(room,room.isPublic?'👁️ Sala pública: pode ser encontrada por observadores.':'🔒 Sala privada: removida da Central de Partidas ao Vivo.','system');
@@ -2634,6 +2712,8 @@ io.on('connection', socket => {
       const legitimateSavedResume=!!(payload?.resumeIntent==='saved-session'&&room&&requestedToken&&room.players.some(x=>!x.isBot&&x.token===requestedToken&&x.playerKey===socket.data.auth.playerKey));
       if(!legitimateSavedResume)enforceActionRate(socket,'joinRoom','Muitas tentativas de entrada por código em pouco tempo.');
       if(!room) throw new Error('Sala não encontrada.');
+      if(room.tournament && !room.tournament.rosterKeys.includes(socket.data.auth?.playerKey))
+        throw new Error('Somente os participantes sorteados podem ocupar vagas nesta mesa.');
       ensureSocial(room);
 
       let p=null;
@@ -2707,6 +2787,7 @@ io.on('connection', socket => {
       // Durante uma rodada, a pessoa pode apenas observar; entre rodadas, pode entrar
       // como novo jogador enquanto a regra de entrada tardia ainda permitir.
       if(!p){
+        if(room.tournament&&room.round>0)throw new Error('Não é permitido entrar na mesa após o início do torneio.');
         const lateJoinClosed=room.status==='between-rounds'&&Number(room.round||0)>=Number(room.rules?.allowLateJoinUntilRound||0);
         if(room.status==='playing'||lateJoinClosed){
           socket.emit('spectatorOffer',{code:room.code,round:room.round,rounds:room.rules.rounds,playerCount:room.players.length,status:room.status});
@@ -2785,6 +2866,7 @@ io.on('connection', socket => {
   });
 
   socket.on('addBot', () => withRoom(socket,(room,p)=>{
+    if(room.tournament)throw new Error('Máquinas não podem ocupar vagas em torneios.');
     if(!p.host) throw new Error('Somente o anfitrião pode adicionar uma máquina.');
     if(room.status==='playing') throw new Error('Adicione máquinas somente fora de uma rodada.');
     if(!roomHasInviteCapacity(room,null)) throw new Error('Há vaga reservada por convite; não é possível adicionar outra máquina agora.');
@@ -2793,6 +2875,7 @@ io.on('connection', socket => {
   }));
 
   socket.on('removeBot', () => withRoom(socket,(room,p)=>{
+    if(room.tournament)throw new Error('Mesas de torneio não permitem manipular máquinas.');
     if(!p.host) throw new Error('Somente o anfitrião pode remover uma máquina.');
     if(room.status==='playing') throw new Error('Remova máquinas somente fora de uma rodada.');
     const bot = [...room.players].reverse().find(x => x.isBot);
@@ -2860,6 +2943,7 @@ io.on('connection', socket => {
   });
 
   socket.on('playAgain', () => withRoom(socket,(room,p)=>{
+    if(room.tournament)throw new Error('Uma mesa de torneio disputa somente uma partida.');
     if(!replayEligible(room)) throw new Error('Jogar de novo está disponível somente após uma partida entre jogadores humanos.');
     if(p.isBot || !p.connected) throw new Error('Jogador não disponível para continuar.');
     if(!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
@@ -2884,6 +2968,11 @@ io.on('connection', socket => {
       Engine.appendLog(room, `${p.name} assumiu como anfitrião da sala.`, 'system');
     }
 
+    if(room.tournament && room.round===0){
+      if(room.players.length!==room.tournament.rosterKeys.length ||
+         room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
+        throw new Error('Aguarde todos os participantes sorteados antes de iniciar a primeira rodada.');
+    }
     Engine.startRound(room);
     broadcastPresence();
   }));

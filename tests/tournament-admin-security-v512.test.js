@@ -19,6 +19,6 @@ assert.match(html,/id="tournamentAdminDelete"/);
 assert.match(ui,/panel.hidden=!canCreate/);
 assert.match(ui,/config.canManage/);
 assert.match(ui,/tournamentId:config.id/);
-assert.match(html,/tournament-ui\.js\?v=51\.3\.1/);
+assert.match(html,/tournament-ui\.js\?v=51\.4/);
 assert.doesNotMatch(ui,/localStorage|sessionStorage/);
 console.log('✓ V51.3.1 criar autenticado; gerenciar/excluir restrito ao criador e validado no servidor.');

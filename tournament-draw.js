@@ -64,6 +64,17 @@ class TournamentDraw{
       group.players.push({name:x.name,seat:x.seatNumber});}
     return groups;
   }
+  // Retorna identidade privada apenas ao servidor; nunca expor chaves aos clientes.
+  async seatFor(id,number,playerKey){
+    if(typeof id!=='string'||!id||id.length>64||!Number.isInteger(number)||number<1||!playerKey)return null;
+    if(this.pool){
+      const {rows}=await this.pool.query(`SELECT player_key AS "playerKey", display_name AS name, seat_number AS seat
+        FROM mm_tournament_table_seats WHERE tournament_id=$1 AND table_number=$2 ORDER BY seat_number`,[id,number]);
+      return rows.some(p=>p.playerKey===playerKey)?{players:rows,number}:null;
+    }
+    this.reloadLocal();const group=(this.local[id]||[]).find(t=>t.number===number);
+    return group?.players.some(p=>p.playerKey===playerKey)?{number,players:group.players}:null;
+  }
   save(){const temp=this.filePath+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.local,null,2));fs.renameSync(temp,this.filePath);}
   async draw(id){
     if(typeof id!=='string'||!id||id.length>64)throw fail('Torneio inválido.',400);

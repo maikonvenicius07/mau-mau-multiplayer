@@ -2624,3 +2624,10 @@ button.bot-primary{
 .tournament-table-card h4{margin:0 0 7px;color:#eed48d;font-size:15px}
 .tournament-table-card ol{margin:0;padding-left:22px}
 .tournament-table-card li{font-size:13px;padding:5px 0;color:#f1f3e7}
+
+/* V51.4: entrar na própria mesa e consultar resultado, sem colunas extras */
+.tournament-enter-table{margin-top:12px;background:#bd9140;border:1px solid #f0d080;border-radius:10px;color:#181e13;padding:11px 15px;font-weight:800;cursor:pointer;min-height:42px;max-width:100%}
+.tournament-enter-table:disabled{opacity:.55;cursor:not-allowed}
+.tournament-table-result{background:#183c2a;border:1px solid #446b4b;border-radius:10px;padding:10px 12px;margin-top:10px}
+.tournament-table-result strong{color:#f3d78e}
+.tournament-table-result p{margin:5px 0;font-size:13px;color:#e2ede2}
