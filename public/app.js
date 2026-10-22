@@ -21,6 +21,48 @@ let leaveRoomPending=false;
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=250*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
 const playingVoiceAudios=new Set();
+// V51.6.1 — Canal exclusivo dos sons do jogo. NUNCA suspendemos o AudioContext:
+// o mesmo contexto pode estar sendo usado pelo microfone/WebRTC e pelo relay de voz.
+function gameSoundOutput(ac){
+  if(!gameSoundOutput.master || gameSoundOutput.context!==ac){
+    const master=ac.createGain();
+    master.gain.value=soundOn?1:0;
+    master.connect(ac.destination);
+    gameSoundOutput.master=master;
+    gameSoundOutput.context=ac;
+  }
+  return gameSoundOutput.master;
+}
+function updateGameSoundButtons(){
+  const title=soundOn?'Silenciar os sons do jogo':'Ativar os sons do jogo';
+  const label=soundOn?'Som ligado':'Jogo silenciado';
+  for(const id of ['soundBtn','soundHomeBtn']){
+    const btn=document.getElementById(id);
+    if(!btn)continue;
+    btn.querySelector('.game-sound-icon')?.replaceChildren(document.createTextNode(soundOn?'🔊':'🔇'));
+    const text=btn.querySelector('.game-sound-label');if(text)text.textContent=label;
+    btn.setAttribute('aria-label',title+'. Não afeta microfone, conversa e música pessoal.');
+    btn.setAttribute('aria-pressed',String(!soundOn));
+    btn.title=title+' (microfone e música não são alterados)';
+    btn.classList.toggle('game-sound-muted',!soundOn);
+  }
+}
+function toggleGameSound(){
+  soundOn=!soundOn;
+  localStorage.setItem('maumauSound',soundOn?'on':'off');
+  // Corta inclusive os efeitos já agendados, sem interferir nos canais da voz ao vivo.
+  if(gameSoundOutput.master)gameSoundOutput.master.gain.value=soundOn?1:0;
+  if(!soundOn){
+    try{window.speechSynthesis?.cancel()}catch{}
+    // Alguns navegadores não disparam onend após cancel(). Não deixar a música
+    // pessoal travada pela pausa automática que acompanha a narração do jogo.
+    localMusicSpeechDuckCount=0;
+    syncLocalMusicVoiceState();
+  }
+  updateGameSoundButtons();
+  toast(soundOn?'🔊 Sons do jogo ativados.':'🔇 Sons do jogo silenciados.');
+}
+
 // V40.48 — MINHA MÚSICA LOCAL. O arquivo permanece somente neste navegador/aparelho.
 let localMusicObjectUrl='',localMusicUserWantsPlay=false,localMusicPausedForVoice=false,localMusicInternalPause=false,localMusicSpeechDuckCount=0;
 // V40.33 — microfone ao vivo WebRTC estabilizado. O áudio continua P2P; Socket.IO carrega somente a sinalização.
@@ -946,7 +988,7 @@ function tone(ac,freq,start,dur,type='sine',gain=.035){
   const o=ac.createOscillator(),g=ac.createGain();
   o.type=type;o.frequency.setValueAtTime(freq,start);
   g.gain.setValueAtTime(gain,start);g.gain.exponentialRampToValueAtTime(.001,start+dur);
-  o.connect(g).connect(ac.destination);o.start(start);o.stop(start+dur+.02);
+  o.connect(g).connect(gameSoundOutput(ac));o.start(start);o.stop(start+dur+.02);
 }
 function noiseBurst(ac,start,dur=.08,gain=.025){
   if(!ac)return;
@@ -955,7 +997,7 @@ function noiseBurst(ac,start,dur=.08,gain=.025){
   for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*(1-i/len);
   const src=ac.createBufferSource(),g=ac.createGain(),filter=ac.createBiquadFilter();
   src.buffer=buffer;filter.type='bandpass';filter.frequency.value=1500;filter.Q.value=.7;
-  g.gain.value=gain;src.connect(filter).connect(g).connect(ac.destination);src.start(start);
+  g.gain.value=gain;src.connect(filter).connect(g).connect(gameSoundOutput(ac));src.start(start);
 }
 function playGameSound(type='play'){
   if(!soundOn) return;
@@ -1771,8 +1813,9 @@ initDraggablePileSide();
 updateHandSortButton();
 $('#sortHandBtn').onclick=toggleHandSort;
 
-$('#soundBtn').textContent=soundOn?'🔊':'🔇';
-$('#soundBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('maumauSound',soundOn?'on':'off');$('#soundBtn').textContent=soundOn?'🔊':'🔇';toast(soundOn?'🔊 Efeitos sonoros ativados.':'🔇 Efeitos sonoros desativados.');if(soundOn){audioCtx();playGameSound('yourTurn')}};
+updateGameSoundButtons();
+$('#soundBtn').onclick=toggleGameSound;
+$('#soundHomeBtn').onclick=toggleGameSound;
 updateVibrationUI();
 $('#vibrationBtn').onclick=()=>{
   turnVibrationOn=!turnVibrationOn;

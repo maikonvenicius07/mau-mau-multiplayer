@@ -2662,3 +2662,17 @@ button.bot-primary{
 .tournament-stage-standings li{margin:3px 0;overflow-wrap:anywhere}
 .tournament-stage-standings .tournament-advanced{color:#9ae0ae;font-weight:700}
 @media(max-width:500px){.tournament-overview{padding:9px}.tournament-stage-cards{grid-template-columns:1fr}.tournament-overview-head button{flex-shrink:0}}
+
+/* V51.6.1 — Som do jogo: controle legível, leve e acessível em computador/celular. */
+.game-sound-home-control{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.game-sound-home-control small{font-size:10px;color:#9db6aa;max-width:390px;line-height:1.35}
+.game-sound-toggle{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer}
+.game-sound-home-control .game-sound-toggle{border:1px solid rgba(220,184,99,.45);border-radius:10px;background:#153628;color:#f6dfad;padding:9px 14px;min-height:38px;font-weight:850;font-size:12px}
+.game-sound-home-control .game-sound-toggle:hover{filter:brightness(1.13)}
+#game .topbar .game-sound-top-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;min-width:76px;font-size:12px;font-weight:900}
+#game .game-sound-muted,.game-sound-home-control .game-sound-muted{background:#302323!important;border-color:rgba(209,116,94,.65)!important;color:#f8d0c9!important}
+@media(max-width:600px){
+  .game-sound-home-control{flex-direction:column;gap:5px}
+  .game-sound-home-control small{text-align:center;padding:0 10px}
+  #game .topbar .game-sound-top-btn{min-width:71px;min-height:34px;padding:5px 7px;gap:3px;font-size:10px}
+}

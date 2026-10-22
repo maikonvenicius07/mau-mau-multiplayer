@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.1" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -232,6 +232,10 @@
         <button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button>
         <button id="rulesOpen" class="link-btn" type="button">VER REGRAS</button>
       </div>
+      <div class="game-sound-home-control">
+        <button id="soundHomeBtn" class="game-sound-toggle" type="button" aria-pressed="false" title="Silenciar os sons do jogo"><span class="game-sound-icon" aria-hidden="true">🔊</span><span class="game-sound-label">Som ligado</span></button>
+        <small>Silencia efeitos e avisos do jogo, sem desligar microfone, conversas ou Minha Música.</small>
+      </div>
       <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
     </div>
   </section>
@@ -246,7 +250,7 @@
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
       <button id="onlinePlayersOpen2" class="icon-btn online-top-btn" title="Jogadores Online" aria-label="Abrir jogadores online">👥<span id="onlineTopBadge" class="online-top-badge">0</span></button>
       <button id="chatToggleBtn" class="icon-btn chat-top-btn" title="Chat">💬<span id="chatTopBadge" class="chat-badge hidden">0</span></button>
-      <button id="soundBtn" class="icon-btn" title="Ativar/desativar efeitos sonoros">🔊</button>
+      <button id="soundBtn" class="icon-btn game-sound-toggle game-sound-top-btn" type="button" aria-label="Silenciar sons do jogo" aria-pressed="false" title="Silenciar os sons do jogo"><span class="game-sound-icon" aria-hidden="true">🔊</span><span class="game-sound-label">Som ligado</span></button>
       <button id="localMusicOpen2" class="icon-btn local-music-top-btn" type="button" title="Minha Música" aria-label="Escolher música do próprio aparelho">🎵</button>
       <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
@@ -382,7 +386,7 @@
             <button data-effect="laugh" class="sticker-reaction sticker-slow" title="TÁ LENTO HEIN..."><b class="sticker-symbol">🐌</b><span>TÁ LENTO!</span></button>
             <button data-effect="applause" class="sticker-reaction sticker-good" title="BOA PARTIDA!"><b class="sticker-symbol">👍</b><span>BOA PARTIDA!</span></button>
           </div>
-          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊 controla efeitos e vozes; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. O botão 🎵 Minha Música permite escolher um arquivo de áudio do próprio aparelho. O arquivo não é enviado ao servidor.</div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊/🔇 silencia os efeitos e anúncios falados do jogo, sem desligar microfone ou Minha Música; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. O botão 🎵 Minha Música permite escolher um arquivo de áudio do próprio aparelho. O arquivo não é enviado ao servidor.</div>
         </div>
       </aside>
       <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
@@ -834,7 +838,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.1"></script>
   <script src="tournament-dashboard.js?v=51.6"></script>
   <script src="tournament-ui.js?v=51.6"></script>
 </body>
