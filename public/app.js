@@ -36,7 +36,7 @@ function gameSoundOutput(ac){
 function updateGameSoundButtons(){
   const title=soundOn?'Silenciar os sons do jogo':'Ativar os sons do jogo';
   const label=soundOn?'Som ligado':'Jogo silenciado';
-  for(const id of ['soundBtn','soundHomeBtn']){
+  for(const id of ['soundBtn']){
     const btn=document.getElementById(id);
     if(!btn)continue;
     btn.querySelector('.game-sound-icon')?.replaceChildren(document.createTextNode(soundOn?'🔊':'🔇'));
@@ -1815,7 +1815,7 @@ $('#sortHandBtn').onclick=toggleHandSort;
 
 updateGameSoundButtons();
 $('#soundBtn').onclick=toggleGameSound;
-$('#soundHomeBtn').onclick=toggleGameSound;
+
 updateVibrationUI();
 $('#vibrationBtn').onclick=()=>{
   turnVibrationOn=!turnVibrationOn;

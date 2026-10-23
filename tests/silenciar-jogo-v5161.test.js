@@ -7,18 +7,18 @@ const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
-assert(html.includes('id="soundHomeBtn"'),'falta controle da tela inicial');
+assert(!html.includes('id="soundHomeBtn"'),'controle duplicado não deve aparecer na tela inicial');
 assert(html.includes('id="soundBtn"'),'falta controle na partida');
 assert(html.includes('aria-pressed="false"'),'botão precisa expor estado acessível');
-assert(html.includes('mute51.6.1'),'atualização dos arquivos estáticos deve invalidar cache');
-assert(css.includes('.game-sound-home-control')&&css.includes('.game-sound-top-btn'),'botões precisam de aparência legível');
-assert(app.includes("$('#soundHomeBtn').onclick=toggleGameSound"),'botão inicial deve estar ativo');
+assert(html.includes('mute51.6.2-home-clean'),'atualização dos arquivos estáticos deve invalidar cache');
+assert(css.includes('.game-sound-top-btn'),'estilo do botão de jogo deve permanecer');
+assert(!app.includes('soundHomeBtn'),'referências ao botão removido não devem permanecer');
 assert(app.includes("$('#soundBtn').onclick=toggleGameSound"),'botão da sala deve usar mesmo estado');
 assert(app.includes('gameSoundOutput(ac)'), 'áudio do jogo deve usar um canal dedicado');
 assert(app.includes('const audio=document.createElement(\'audio\');audio.autoplay=true'),'voz ao vivo deve permanecer inalterada');
 const snippet=app.slice(app.indexOf('function gameSoundOutput(ac)'),app.indexOf('// V40.48 — MINHA MÚSICA LOCAL'));
 assert(snippet.includes('function toggleGameSound()'),'funções de volume não localizadas');
-const buttons=Object.fromEntries(['soundBtn','soundHomeBtn'].map(id=>{
+const buttons=Object.fromEntries(['soundBtn'].map(id=>{
  const label={textContent:''};const icon={value:'',replaceChildren(v){this.value=String(v)}};
  const attrs={};const classes={};
  return [id,{label,icon,attrs,classes,title:'',querySelector(sel){return sel==='.game-sound-icon'?icon:sel==='.game-sound-label'?label:null},setAttribute(k,v){attrs[k]=v},classList:{toggle(k,v){classes[k]=v}}}];
@@ -62,4 +62,4 @@ for(const button of Object.values(buttons)){
  assert.equal(button.icon.value,'🔊');
 }
 assert.equal(notices.length,2);
-console.log('✓ V51.6.1: botões sincronizados, preferência persistida e silêncio imediato, sem alterar voz ao vivo.');
+console.log('✓ V51.6.1: botão da partida funcional, preferência persistida e silêncio imediato, sem alterar voz ao vivo.');
