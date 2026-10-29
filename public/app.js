@@ -3670,7 +3670,7 @@ function renderSpectatorLivePanel(){
     seatBtn.disabled=spectatorSeatRequested||!socket.connected||full;
     seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':full?'Mesa completa':'＋ Entrar na partida';}
   if(seatNote){seatNote.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
-    seatNote.textContent=spectatorSeatRequested?'Aguarde o fim da rodada.':full?'As 5 cadeiras estão ocupadas (incluindo vagas reservadas para reconexão).':'Solicite agora; a entrada ocorre no intervalo entre rodadas, se houver vaga.';}
+    seatNote.textContent=spectatorSeatRequested?'Pedido registrado. Você continua assistindo até a próxima rodada.':full?'Sem vaga livre. Cadeiras de jogadores desconectados continuam reservadas.':'Entrada no intervalo entre rodadas, somente com vaga confirmada.';}
   const people=$('#spectatorPeople');
   if(people){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];

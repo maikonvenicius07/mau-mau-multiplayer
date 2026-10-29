@@ -1,13 +1,15 @@
-MAU-MAU CANDEIAS — V40.46 PERFORMANCE MOBILE
+MAU-MAU CANDEIAS — refinamento visual do painel Observador
+Base: ZIP (15)(1) enviado pelo usuário.
+ALTERADOS: public/app.js e public/styles.css.
 
-Este pacote contém somente os arquivos alterados/adicionados em relação à V40.45 estável.
+Atualização GitHub: copie public/app.js e public/styles.css para as mesmas pastas do repositório, substituindo os arquivos existentes.
+Projeto completo: contém todos os arquivos da base com estes dois substituídos.
 
-Substitua/adicone os arquivos mantendo a mesma estrutura de pastas.
+Mudanças: painel organizado em 4 áreas no desktop, 2 no tablet e 1 no celular; controle de vaga compacto e acessível; mensagens mais claras.
+NÃO houve alteração no servidor, motor, regras ou permissões de entrada.
 
-Backup importante:
-Os avatares originais NÃO estão dentro deste pacote para não aumentar o peso do deploy.
-Guarde separadamente: MAU-MAU_V40.45_Backup_Avatares_Originais.zip
+Atenção: quando há 5 cadeiras ocupadas, o botão aparece desabilitado; uma cadeira em AUTO/reconexão não está livre.
+Durante a rodada 5, entrada não é permitida por não haver próxima rodada.
 
-Se não gostar dos avatares otimizados, restaure somente public/assets/avatars/ usando o backup.
-
-Nenhuma regra do jogo foi alterada.
+Validação: node --check nos 3 JS principais e teste spectator-seat-visibility.test.js aprovados.
+Ainda é necessário testar o layout em celulares e a entrada com jogadores reais.
