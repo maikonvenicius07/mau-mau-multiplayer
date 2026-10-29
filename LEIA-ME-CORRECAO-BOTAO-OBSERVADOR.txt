@@ -1,0 +1,11 @@
+MAU-MAU CANDEIAS — Correção do botão de entrada do observador
+
+Esta atualização é cumulativa sobre a versão de entrada até a quinta rodada.
+
+Durante as rodadas 1 a 4 (ou respectivos intervalos), o controle de entrada aparece no painel do Observador em mesas comuns. Se as cinco cadeiras estiverem ocupadas, aparece desabilitado com a mensagem "Mesa completa", em vez de simplesmente sumir. Uma cadeira de jogador desconectado continua ocupada. Reservas por convite são validadas pelo servidor quando o observador pede entrada; o servidor pode recusar mesmo que visualmente existam menos de cinco jogadores.
+
+Para a atualização do GitHub: copie public/app.js para a pasta public/ do projeto (substitua o existente). Opcionalmente, adicione o teste em tests/. Não é necessário alterar banco de dados, server.js ou game-engine.js.
+
+Após o deploy, force atualização da página nos aparelhos (Ctrl+F5 em computador; reabra a página no celular).
+
+Se o controle permanecer ausente, envie foto do painel completo de observador e quantos jogadores aparecem na mesa. Confirme que o último deploy do Render está Live.

@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const ui=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
+const segment=ui.slice(ui.indexOf('function renderSpectatorLivePanel(){'),ui.indexOf('const people=',ui.indexOf('function renderSpectatorLivePanel(){')));
+assert(segment.includes('state.round<Number(state.rules?.rounds||5)'));
+assert(!segment.includes('&& state.players.length<5'));
+assert(segment.includes("full?'Mesa completa'"));
+assert(segment.includes('seatBtn.disabled=spectatorSeatRequested||!socket.connected||full'));
+assert(segment.includes("classList.toggle('hidden',!eligible&&!spectatorSeatRequested)"));
+console.log('OK: botão visível nas rodadas 1 a 4 e aviso de mesa completa');

@@ -3660,13 +3660,17 @@ function renderSpectatorLivePanel(){
   $('#spectatorLiveRound').textContent=`${state.round}/${state.rounds}`;
   $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
   const seatBtn=$('#spectatorSeatBtn'),seatNote=$('#spectatorSeatNote');
+  // Mostrar o controle também quando a mesa estiver cheia: antes a condição
+  // players.length<5 ocultava o botão sem explicar o motivo ao observador.
+  // A capacidade final (inclusive convites e reconexões) é sempre validada no servidor.
   const eligible=!state.tournament && ['playing','between-rounds'].includes(state.status)
-    && state.round>0 && state.round<Number(state.rules?.rounds||5)
-    && state.players.length<5;
-  if(seatBtn){seatBtn.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);seatBtn.disabled=spectatorSeatRequested||!socket.connected;
-    seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':'＋ Entrar na partida';}
+    && state.round>0 && state.round<Number(state.rules?.rounds||5);
+  const full=Array.isArray(state.players)&&state.players.length>=5;
+  if(seatBtn){seatBtn.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
+    seatBtn.disabled=spectatorSeatRequested||!socket.connected||full;
+    seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':full?'Mesa completa':'＋ Entrar na partida';}
   if(seatNote){seatNote.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
-    seatNote.textContent=spectatorSeatRequested?'Aguarde o fim da rodada.':'Entrada somente no intervalo entre rodadas.';}
+    seatNote.textContent=spectatorSeatRequested?'Aguarde o fim da rodada.':full?'As 5 cadeiras estão ocupadas (incluindo vagas reservadas para reconexão).':'Solicite agora; a entrada ocorre no intervalo entre rodadas, se houver vaga.';}
   const people=$('#spectatorPeople');
   if(people){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];
