@@ -2676,3 +2676,9 @@ button.bot-primary{
   .game-sound-home-control small{text-align:center;padding:0 10px}
   #game .topbar .game-sound-top-btn{min-width:71px;min-height:34px;padding:5px 7px;gap:3px;font-size:10px}
 }
+
+/* Conversão discreta de observador para jogador */
+.spectator-seat-area{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin:5px 0}
+.spectator-seat-btn{font-size:12px;padding:5px 10px;border-radius:18px;border:1px solid rgba(160,170,190,.45);background:rgba(100,115,140,.15);color:inherit;cursor:pointer}
+.spectator-seat-btn:disabled{opacity:.62;cursor:default}
+.spectator-seat-note{font-size:11px;opacity:.8}

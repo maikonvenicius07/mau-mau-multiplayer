@@ -1070,7 +1070,32 @@ function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
   }
 }
 
+function processSpectatorSeatRequests(room){
+    if(room.status!=='between-rounds'||room.tournament)return;
+    const requests=Array.isArray(room.spectatorSeatRequests)?room.spectatorSeatRequests.splice(0):[];
+    for(const request of requests){
+      const spectator=ensureSpectators(room).find(s=>s.id===request.spectatorId&&s.playerKey===request.playerKey);
+      if(!spectator||!spectator.connected||!spectator.socketId)continue;
+      const target=io.sockets.sockets.get(spectator.socketId);
+      if(!target||target.data.role!==ROLE_SPECTATOR||target.data.spectatorId!==spectator.id||target.data.roomCode!==room.code||target.data.auth?.playerKey!==spectator.playerKey)continue;
+      if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey)||!roomHasInviteCapacity(room,spectator.playerKey)){
+        target.emit('spectatorSeatStatus',{status:'rejected',message:'A vaga não está mais disponível.'});continue;
+      }
+      let player;
+      try{player=Engine.addPlayer(room,{socketId:target.id,token:crypto.randomUUID(),name:spectator.name,avatar:spectator.avatar,playerKey:spectator.playerKey});}
+      catch(e){target.emit('spectatorSeatStatus',{status:'rejected',message:e.message});continue;}
+      removeSpectator(room,spectator,{announce:false});
+      target.data.role=ROLE_PLAYER;target.data.playerId=player.id;target.data.spectatorId=null;
+      updatePresenceFromSocket(target,{name:player.name,avatar:player.avatar});
+      target.emit('joined',{code:room.code,playerId:player.id,token:player.token,role:ROLE_PLAYER,source:'spectator-promotion'});
+      target.emit('spectatorSeatStatus',{status:'accepted',message:'Você entrou como jogador na próxima rodada.'});
+      Engine.appendLog(room,`👤 ${player.name} passou de observador a jogador.`, 'system');
+    }
+  }
+
+
 function emitRoom(room) {
+  if(room.status==='between-rounds'&&Array.isArray(room.spectatorSeatRequests)&&room.spectatorSeatRequests.length)processSpectatorSeatRequests(room);
   maybeRecordFinished(room);
   // V40.68.1 — toda partida ativa sem nenhum humano conectado recebe apenas
   // 5 minutos de reserva. O marco é salvo no snapshot e não reinicia após deploy.
@@ -2923,6 +2948,27 @@ io.on('connection', socket => {
       emitRoom(room);broadcastPresence();
     }catch(e){err(socket,e);}
     finally{if(releaseSpectatorSlot)releaseSpectatorSlot();}
+  });
+
+  // Entrada de observadores: pedidos em ordem de chegada, somente em mesas comuns.
+  socket.on('requestSpectatorSeat', () => {
+    try {
+      const room=rooms.get(socket.data.roomCode);
+      if(!room||socket.data.role!==ROLE_SPECTATOR)throw new Error('Entre como observador primeiro.');
+      const spectator=spectatorForSocket(room,socket);
+      if(!spectator||!spectator.connected||spectator.socketId!==socket.id)throw new Error('Observador não está conectado nesta sala.');
+      if(room.tournament)throw new Error('Não é possível entrar em torneios como observador.');
+      if(!['playing','between-rounds'].includes(room.status)||room.round<=0||room.round>=room.rules.allowLateJoinUntilRound)
+        throw new Error('A entrada de observadores está encerrada nesta partida.');
+      if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey))throw new Error('Você já tem uma cadeira nesta sala.');
+      if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');
+      if(!Array.isArray(room.spectatorSeatRequests))room.spectatorSeatRequests=[];
+      if(!room.spectatorSeatRequests.some(x=>x.spectatorId===spectator.id))
+        room.spectatorSeatRequests.push({spectatorId:spectator.id,playerKey:spectator.playerKey,at:Date.now()});
+      socket.emit('spectatorSeatStatus',{status:'queued',message:'Pedido registrado. Aguarde o fim da rodada.'});
+      if(room.status==='between-rounds')processSpectatorSeatRequests(room);
+      emitRoom(room);
+    }catch(e){err(socket,e);}
   });
 
   socket.on('addBot', () => withRoom(socket,(room,p)=>{

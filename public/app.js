@@ -2994,6 +2994,7 @@ socket.on('joined',data=>{
   chatMessages=[];unreadChat=0;
   for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}
   refreshQuickAudioMusicDuck();renderChat();renderChatBadge();
+  spectatorSeatRequested=false;
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   const resumeLiveMic=!!liveMicWanted;
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
@@ -3642,12 +3643,30 @@ function renderHand(){
       : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
 }
+let spectatorSeatRequested=false;
+$('#spectatorSeatBtn')?.addEventListener('click',()=>{
+  if(!isSpectatorState()||spectatorSeatRequested||!socket.connected)return;
+  socket.emit('requestSpectatorSeat');
+});
+socket.on('spectatorSeatStatus',info=>{
+  spectatorSeatRequested=info?.status==='queued';
+  if(info?.message)toast(info.message);
+  renderSpectatorLivePanel();
+});
 function renderSpectatorLivePanel(){
   const spectator=isSpectatorState(),panel=$('#spectatorLivePanel');if(!panel)return;
   panel.classList.toggle('hidden',!spectator);if(!spectator||!state)return;
   $('#spectatorLivePlayers').textContent=state.players.length;
   $('#spectatorLiveRound').textContent=`${state.round}/${state.rounds}`;
   $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
+  const seatBtn=$('#spectatorSeatBtn'),seatNote=$('#spectatorSeatNote');
+  const eligible=!state.tournament && ['playing','between-rounds'].includes(state.status)
+    && state.round>0 && state.round<Number(state.rules?.allowLateJoinUntilRound||3)
+    && state.players.length<5;
+  if(seatBtn){seatBtn.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);seatBtn.disabled=spectatorSeatRequested||!socket.connected;
+    seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':'＋ Entrar na partida';}
+  if(seatNote){seatNote.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
+    seatNote.textContent=spectatorSeatRequested?'Aguarde o fim da rodada.':'Entrada somente no intervalo entre rodadas.';}
   const people=$('#spectatorPeople');
   if(people){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];

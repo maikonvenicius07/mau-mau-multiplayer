@@ -1,0 +1,24 @@
+MAU-MAU CANDEIAS — Observador entra na próxima rodada
+Origem: mau-mau-multiplayer-main (15).zip
+
+ATUALIZAÇÃO PELO GITHUB
+1. Faça backup da versão atual.
+2. Extraia o ZIP de arquivos alterados.
+3. Copie server.js na raiz, public/app.js, public/index.html e public/styles.css nas respectivas pastas.
+4. Envie o commit ao GitHub. Confira o deploy no Render.
+5. Teste em sala comum (não torneio) antes de usar em partidas reais.
+
+REGRAS
+- Botão discreto aparece para observador quando há vaga aparente e entrada tardia permitida.
+- Pedido em rodada ativa aguarda a transição para between-rounds; se já houver intervalo, é processado imediatamente.
+- Primeiro pedido válido tem prioridade. Vagas reservadas e cadeiras em reconexão não são tomadas.
+- Rodadas a partir da terceira não admitem novas entradas, conforme regra já existente.
+- Torneios permanecem bloqueados para entrada tardia de observador.
+- Conversão mantém conexão Socket.IO e cria token individual de reconexão para jogador.
+
+VERIFICAÇÕES
+- node --check nos arquivos JS: passou.
+- scripts/check-lockfile.js: passou.
+- npm test: interrompido pela falta de socket.io-client neste ambiente; é necessário executar a suíte no ambiente com npm ci.
+
+ATENÇÃO: Esta é uma nova funcionalidade multiplayer e precisa ser validada na prática com 2+ navegadores, inclusive corrida pela última vaga, antes de ser considerada pronta para produção.
