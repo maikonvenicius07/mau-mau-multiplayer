@@ -3661,7 +3661,7 @@ function renderSpectatorLivePanel(){
   $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
   const seatBtn=$('#spectatorSeatBtn'),seatNote=$('#spectatorSeatNote');
   const eligible=!state.tournament && ['playing','between-rounds'].includes(state.status)
-    && state.round>0 && state.round<Number(state.rules?.allowLateJoinUntilRound||3)
+    && state.round>0 && state.round<Number(state.rules?.rounds||5)
     && state.players.length<5;
   if(seatBtn){seatBtn.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);seatBtn.disabled=spectatorSeatRequested||!socket.connected;
     seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':'＋ Entrar na partida';}
@@ -3735,7 +3735,7 @@ function renderControls(){
     if(me?.host){
       const botBar=document.createElement('div');botBar.className='bot-controls';
       const addBot=document.createElement('button');addBot.className='bot-control-btn';addBot.textContent='🤖 Adicionar máquina';
-      addBot.disabled=!socket.connected||state.players.length>=5||(state.status==='between-rounds'&&state.round>=3);
+      addBot.disabled=!socket.connected||state.players.length>=5||(state.status==='between-rounds'&&state.round>=Number(state.rules?.rounds||5));
       addBot.onclick=()=>socket.emit('addBot');
       botBar.appendChild(addBot);
       if(bots.length){
@@ -3762,7 +3762,7 @@ function renderControls(){
     else if(!me?.host) info.textContent='O anfitrião está desconectado. Você pode assumir a sala e iniciar.';
     else info.textContent=`${connected} jogador(es) conectado(s). Pronto para iniciar.`;
     box.appendChild(info);
-    if(state.status==='between-rounds'&&state.round<3){const s=document.createElement('div');s.className='wait';s.textContent='Novos jogadores ainda podem entrar antes do início da próxima rodada.';box.appendChild(s)}
+    if(state.status==='between-rounds'&&state.round<Number(state.rules?.rounds||5)){const s=document.createElement('div');s.className='wait';s.textContent='Novos jogadores ainda podem entrar antes do início da próxima rodada.';box.appendChild(s)}
   } else if(state.status==='lobby') {
     const hostName=host?`${avatarHTML(host.avatar,'xs')} ${esc(host.name)}`:'outro jogador';
     box.innerHTML=`<div class="wait">Aguardando o anfitrião ★ ${hostName} iniciar a partida.<br><small>O jogador marcado com ★ controla o início da rodada.</small></div>`;

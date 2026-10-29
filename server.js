@@ -2112,8 +2112,8 @@ function roomHasInviteCapacity(room,playerKey=null) {
 }
 function roomAllowsInviteEventually(room,playerKey=null) {
   if(!room||room.status==='finished'||!roomHasInviteCapacity(room,playerKey))return false;
-  if(room.status==='between-rounds'&&room.round>=room.rules.allowLateJoinUntilRound)return false;
-  if(room.status==='playing'&&room.round>=room.rules.allowLateJoinUntilRound)return false;
+  if(room.status==='between-rounds'&&room.round>=room.rules.rounds)return false;
+  if(room.status==='playing'&&room.round>=room.rules.rounds)return false;
   return true;
 }
 function roomJoinableNow(room,playerKey=null) {
@@ -2870,10 +2870,10 @@ io.on('connection', socket => {
 
       // 3) Entrada normal por código/link depois de saída voluntária ou troca de sala.
       // Durante uma rodada, a pessoa pode apenas observar; entre rodadas, pode entrar
-      // como novo jogador enquanto a regra de entrada tardia ainda permitir.
+      // como novo jogador enquanto ainda houver uma próxima rodada.
       if(!p){
         if(room.tournament&&room.round>0)throw new Error('Não é permitido entrar na mesa após o início do torneio.');
-        const lateJoinClosed=room.status==='between-rounds'&&Number(room.round||0)>=Number(room.rules?.allowLateJoinUntilRound||0);
+        const lateJoinClosed=room.status==='between-rounds'&&Number(room.round||0)>=Number(room.rules?.rounds||5);
         if(room.status==='playing'||lateJoinClosed){
           socket.emit('spectatorOffer',{code:room.code,round:room.round,rounds:room.rules.rounds,playerCount:room.players.length,status:room.status});
           return;
@@ -2958,7 +2958,7 @@ io.on('connection', socket => {
       const spectator=spectatorForSocket(room,socket);
       if(!spectator||!spectator.connected||spectator.socketId!==socket.id)throw new Error('Observador não está conectado nesta sala.');
       if(room.tournament)throw new Error('Não é possível entrar em torneios como observador.');
-      if(!['playing','between-rounds'].includes(room.status)||room.round<=0||room.round>=room.rules.allowLateJoinUntilRound)
+      if(!['playing','between-rounds'].includes(room.status)||room.round<=0||room.round>=room.rules.rounds)
         throw new Error('A entrada de observadores está encerrada nesta partida.');
       if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey))throw new Error('Você já tem uma cadeira nesta sala.');
       if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');

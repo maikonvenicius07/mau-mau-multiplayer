@@ -13,7 +13,7 @@ const DEFAULT_RULES = {
   cardsPerPlayer: 6,
   mauMauPenalty: 2,
   safeStarter: true,
-  allowLateJoinUntilRound: 3,
+  allowLateJoinUntilRound: 5,
   burnEnabled: true,
   quickActionEnabled: true,
   doubleCardEnabled: true,
@@ -225,8 +225,8 @@ function addPlayer(room, info) {
   if (room.players.length >= 5) throw new Error('A sala já possui 5 jogadores.');
   if (room.status === 'playing') throw new Error('Não é permitido entrar durante uma rodada.');
   if (room.status === 'finished') throw new Error('A partida já terminou.');
-  if (room.round >= room.rules.allowLateJoinUntilRound && room.status === 'between-rounds') {
-    throw new Error('Novos jogadores só podem entrar até o início da 3ª rodada.');
+  if (room.round >= room.rules.rounds && room.status === 'between-rounds') {
+    throw new Error('Não é possível entrar após a última rodada.');
   }
   const p = makePlayer(info);
   if (room.round > 0) {

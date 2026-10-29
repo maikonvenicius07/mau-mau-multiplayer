@@ -1,0 +1,10 @@
+MAU-MAU CANDEIAS — Entrada de novos jogadores até a 5ª rodada
+
+Substitua no GitHub apenas os arquivos das pastas originais fornecidos no ZIP de atualização.
+
+Novidade: após a 3ª ou 4ª rodada, observadores, entradas por código e convites podem ocupar vagas livres antes da próxima rodada.
+O observador pode pedir durante uma rodada e será promovido apenas quando ela terminar.
+Entradas por código durante uma rodada continuam recebendo oferta para observar; convites aguardam o intervalo.
+Nenhuma entrada após o encerramento da 5ª rodada. Cadeiras reservadas para reconexão não são vagas livres. Torneios não mudam.
+
+Teste: node tests/late-join-final-rounds.test.js
