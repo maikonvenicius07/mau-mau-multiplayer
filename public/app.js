@@ -3703,11 +3703,18 @@ function renderHand(){
 let spectatorSeatRequested=false;
 $('#spectatorSeatBtn')?.addEventListener('click',()=>{
   if(!isSpectatorState()||spectatorSeatRequested||!socket.connected)return;
+  if(state?.spectatorSeat && !state.spectatorSeat.canRequest)return;
   socket.emit('requestSpectatorSeat');
 });
 socket.on('spectatorSeatStatus',info=>{
   spectatorSeatRequested=info?.status==='queued';
   if(info?.message)toast(info.message);
+  renderSpectatorLivePanel();
+});
+socket.on('spectatorSeatAvailability',info=>{
+  if(!isSpectatorState()||!state||!info)return;
+  state.spectatorSeat=info;
+  spectatorSeatRequested=info.status==='queued';
   renderSpectatorLivePanel();
 });
 function renderSpectatorLivePanel(){
@@ -3717,17 +3724,35 @@ function renderSpectatorLivePanel(){
   $('#spectatorLiveRound').textContent=`${state.round}/${state.rounds}`;
   $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
   const seatBtn=$('#spectatorSeatBtn'),seatNote=$('#spectatorSeatNote');
-  // Mostrar o controle também quando a mesa estiver cheia: antes a condição
-  // players.length<5 ocultava o botão sem explicar o motivo ao observador.
-  // A capacidade final (inclusive convites e reconexões) é sempre validada no servidor.
-  const eligible=!state.tournament && ['playing','between-rounds'].includes(state.status)
+  // Desde a Etapa 2 o servidor é a única fonte de vagas e posição na fila.
+  // A indicação vem no estado do observador e é recuperada ao reconectar.
+  const seat=state.spectatorSeat;
+  const requested=seat ? seat.status==='queued' : spectatorSeatRequested;
+  const eligible=seat ? !!seat.eligible : !state.tournament
+    && ['playing','between-rounds'].includes(state.status)
     && state.round>0 && state.round<Number(state.rules?.rounds||5);
-  const full=Array.isArray(state.players)&&state.players.length>=5;
-  if(seatBtn){seatBtn.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
-    seatBtn.disabled=spectatorSeatRequested||!socket.connected||full;
-    seatBtn.textContent=spectatorSeatRequested?'✓ Entrada solicitada':full?'Mesa completa':'＋ Entrar na partida';}
-  if(seatNote){seatNote.classList.toggle('hidden',!eligible&&!spectatorSeatRequested);
-    seatNote.textContent=spectatorSeatRequested?'Pedido registrado. Você continua assistindo até a próxima rodada.':full?'Sem vaga livre. Cadeiras de jogadores desconectados continuam reservadas.':'Entrada no intervalo entre rodadas, somente com vaga confirmada.';}
+  const available=seat ? Number(seat.availableSeats||0) : Math.max(0,5-(state.players?.length||0));
+  const canRequest=seat ? !!seat.canRequest : available>0;
+  spectatorSeatRequested=requested;
+  if(seatBtn){
+    seatBtn.classList.toggle('hidden',!eligible&&!requested);
+    seatBtn.disabled=requested||!socket.connected||!canRequest;
+    seatBtn.textContent=requested
+      ? `✓ ${seat?.queuePosition ? `${seat.queuePosition}º na fila` : 'Entrada solicitada'}`
+      : available>0?'＋ Entrar na partida':'Sem vagas';
+    seatBtn.title=requested?'Pedido confirmado pelo servidor. Aguarde o intervalo entre rodadas.':
+      available>0?'Solicitar uma cadeira para a próxima rodada.':'Nenhuma cadeira livre após considerar convites e reconexões.';
+  }
+  if(seatNote){
+    seatNote.classList.toggle('hidden',!eligible&&!requested);
+    const waiting=Number(seat?.queueLength||0);
+    const vacancy=`${available} vaga${available===1?'':'s'} livre${available===1?'':'s'}`;
+    seatNote.textContent=requested
+      ? `Pedido confirmado · ${vacancy} · aguarde o intervalo`
+      : available>0 ? `${vacancy} · entre no intervalo${waiting?` · ${waiting} na fila`:''}`
+      : 'Sem vagas: cadeiras e convites reservados';
+    seatNote.title=seat?.message||'O servidor confere novamente as vagas quando a rodada terminar.';
+  }
   const people=$('#spectatorPeople');
   if(people){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];

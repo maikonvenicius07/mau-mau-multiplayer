@@ -25,5 +25,5 @@ assert(ui.includes("const panelOpen=isSpectatorState()?spectatorDrawerActive==='
 assert(css.includes('#game.spectator-mode .table-shell{padding-right:12px!important'),'mesa do observador não ganha espaço');
 assert(css.includes('#game .spectator-compact-drawer'),'CSS da gaveta ausente');
 assert(css.includes('@media(max-width:700px)'),'adaptação mobile ausente');
-assert(html.includes('observer-compact-v1'),'query anti-cache ausente');
+assert(html.includes('observer-compact-v2-seatqueue'),'query anti-cache da Etapa 2 ausente');
 console.log('OK: painel compacto recolhível, sem duplicar placar/chat e com restauração ao virar jogador.');

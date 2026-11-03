@@ -2845,3 +2845,6 @@ button.bot-primary{
 }
 #game.spectator-mode #spectatorDrawerScore .score-row .round-score{display:block!important}
 #game.spectator-mode #spectatorDrawerScore .score-row strong{justify-self:end}
+
+/* V40.69.2 — Observador etapa 2: aviso de vagas legível sem aumentar a barra. */
+#game #spectatorLivePanel .spectator-seat-note{max-width:220px;line-height:1.3}

@@ -17,7 +17,7 @@ const MIN_LIFECYCLE_TTL_MS = 24 * 60 * 60 * 1000;
 function buildRoomSnapshot(room) {
   if (!room || !room.code || !Array.isArray(room.players)) return {snapshot:null,avatarAssets:new Map()};
   const snapshot = {};
-  const skip = new Set(['botTimer','inviteReservations','spectators','_presenceSignature']);
+  const skip = new Set(['botTimer','inviteReservations','spectators','spectatorSeatRequests','_presenceSignature']);
   for (const [key,value] of Object.entries(room)) {
     if (skip.has(key)) continue;
     if (key === 'rankingRecording') { snapshot[key] = false; continue; }
@@ -67,6 +67,7 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   room.botTimer = null;
   room.inviteReservations = new Map();
   room.spectators = [];
+  room.spectatorSeatRequests = []; // pedidos temporários não sobrevivem ao reinício do servidor
   room._presenceSignature = null;
   room.rankingRecording = false;
   // V40.62 — snapshots novos já carregam a categoria congelada. Para uma

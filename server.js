@@ -2,6 +2,7 @@
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
+const SpectatorSeatAdmission = require('./spectator-seat-admission');
 const express = require('express');
 const { Server } = require('socket.io');
 const { OAuth2Client } = require('google-auth-library');
@@ -1070,31 +1071,80 @@ function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
   }
 }
 
+// Processamento síncrono: a verificação e a ocupação da cadeira são atômicas
+// dentro do event loop Node. Uma queda breve não elimina o pedido da fila;
+// a vaga só é atribuída a um observador efetivamente conectado.
 function processSpectatorSeatRequests(room){
-    if(room.status!=='between-rounds'||room.tournament)return;
-    const requests=Array.isArray(room.spectatorSeatRequests)?room.spectatorSeatRequests.splice(0):[];
-    for(const request of requests){
-      const spectator=ensureSpectators(room).find(s=>s.id===request.spectatorId&&s.playerKey===request.playerKey);
-      if(!spectator||!spectator.connected||!spectator.socketId)continue;
-      const target=io.sockets.sockets.get(spectator.socketId);
-      if(!target||target.data.role!==ROLE_SPECTATOR||target.data.spectatorId!==spectator.id||target.data.roomCode!==room.code||target.data.auth?.playerKey!==spectator.playerKey)continue;
-      if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey)||!roomHasInviteCapacity(room,spectator.playerKey)){
-        target.emit('spectatorSeatStatus',{status:'rejected',message:'A vaga não está mais disponível.'});continue;
-      }
-      let player;
-      try{player=Engine.addPlayer(room,{socketId:target.id,token:crypto.randomUUID(),name:spectator.name,avatar:spectator.avatar,playerKey:spectator.playerKey});}
-      catch(e){target.emit('spectatorSeatStatus',{status:'rejected',message:e.message});continue;}
-      removeSpectator(room,spectator,{announce:false});
-      target.data.role=ROLE_PLAYER;target.data.playerId=player.id;target.data.spectatorId=null;
-      updatePresenceFromSocket(target,{name:player.name,avatar:player.avatar});
-      target.emit('joined',{code:room.code,playerId:player.id,token:player.token,role:ROLE_PLAYER,source:'spectator-promotion'});
-      target.emit('spectatorSeatStatus',{status:'accepted',message:'Você entrou como jogador na próxima rodada.'});
-      Engine.appendLog(room,`👤 ${player.name} passou de observador a jogador.`, 'system');
+  if(room.status!=='between-rounds'||room.tournament||!Array.isArray(room.spectatorSeatRequests))return;
+  const requests=room.spectatorSeatRequests.splice(0);
+  const awaitingReconnect=[];
+  const promotedKeys=[];
+  for(const request of requests){
+    const spectator=ensureSpectators(room).find(s=>s.id===request.spectatorId&&s.playerKey===request.playerKey);
+    if(!spectator)continue;
+    if(!spectator.connected||!spectator.socketId){awaitingReconnect.push(request);continue;}
+    const target=io.sockets.sockets.get(spectator.socketId);
+    if(!target||target.data.role!==ROLE_SPECTATOR||target.data.spectatorId!==spectator.id
+        ||target.data.roomCode!==room.code||target.data.auth?.playerKey!==spectator.playerKey){
+      awaitingReconnect.push(request);continue;
     }
+    if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey)||!roomHasInviteCapacity(room,spectator.playerKey)){
+      target.emit('spectatorSeatStatus',{status:'rejected',message:'A vaga não está mais disponível.'});continue;
+    }
+    let player;
+    try{player=Engine.addPlayer(room,{socketId:target.id,token:crypto.randomUUID(),name:spectator.name,avatar:spectator.avatar,playerKey:spectator.playerKey});}
+    catch(e){target.emit('spectatorSeatStatus',{status:'rejected',message:e.message});continue;}
+    removeSpectator(room,spectator,{announce:false});
+    // A confirmação definitiva e o emitRoom seguinte atualizarão as vagas;
+    // evitar emitir uma situação transitória enquanto a fila é processada.
+    ensureInviteReservations(room).delete(spectator.playerKey);
+    promotedKeys.push(spectator.playerKey);
+    target.data.role=ROLE_PLAYER;target.data.playerId=player.id;target.data.spectatorId=null;
+    updatePresenceFromSocket(target,{name:player.name,avatar:player.avatar});
+    target.emit('joined',{code:room.code,playerId:player.id,token:player.token,role:ROLE_PLAYER,source:'spectator-promotion'});
+    target.emit('spectatorSeatStatus',{status:'accepted',message:'Você entrou como jogador na próxima rodada.'});
+    Engine.appendLog(room,`👤 ${player.name} passou de observador a jogador.`, 'system');
   }
+  // Preserva a ordem original dos pedidos de quem ainda está no prazo de reconexão.
+  // Não reserva uma cadeira: observadores conectados continuam podendo disputar
+  // vagas livres, com validação efetiva ao entrar.
+  room.spectatorSeatRequests.unshift(...awaitingReconnect);
+  for(const key of promotedKeys){
+    // Convite aceito para a mesma sala não pode permanecer como se ainda
+    // houvesse uma cadeira reservada depois da conversão do observador.
+    const invite=[...invitations.values()].find(i=>i.toKey===key&&i.targetRoomCode===room.code&&['accepted-waiting','ready'].includes(i.status));
+    if(invite)completeInvite(invite,'✅ Você entrou na mesa como jogador.');
+  }
+}
 
+// A fila é efêmera: quando já não existe próxima rodada, os pedidos
+// restantes são cancelados e não ficam presos na interface.
+function clearClosedSpectatorSeatRequests(room){
+  if(SpectatorSeatAdmission.isEligibleRound(room)||!Array.isArray(room.spectatorSeatRequests)||!room.spectatorSeatRequests.length)return;
+  const pending=room.spectatorSeatRequests.splice(0);
+  for(const req of pending){
+    const spectator=ensureSpectators(room).find(s=>s.id===req.spectatorId&&s.playerKey===req.playerKey);
+    const target=spectator?.socketId&&io.sockets.sockets.get(spectator.socketId);
+    if(target?.data?.role===ROLE_SPECTATOR&&target.data.spectatorId===spectator.id)
+      target.emit('spectatorSeatStatus',{status:'rejected',message:'A partida não tem mais rodadas disponíveis para novas entradas.'});
+  }
+}
+
+// Envia apenas a situação individual da vaga quando um convite é reservado
+// ou liberado; não precisa reenviar o histórico, cartas ou estado inteiro.
+function notifySpectatorsSeatAvailability(room){
+  if(!room)return;
+  ensureInviteReservations(room);
+  for(const spectator of ensureSpectators(room)){
+    if(!spectator.connected||!spectator.socketId)continue;
+    const target=io.sockets.sockets.get(spectator.socketId);
+    if(target?.data?.role!==ROLE_SPECTATOR||target.data.spectatorId!==spectator.id)continue;
+    target.emit('spectatorSeatAvailability',SpectatorSeatAdmission.seatStatus(room,spectator));
+  }
+}
 
 function emitRoom(room) {
+  clearClosedSpectatorSeatRequests(room);
   if(room.status==='between-rounds'&&Array.isArray(room.spectatorSeatRequests)&&room.spectatorSeatRequests.length)processSpectatorSeatRequests(room);
   maybeRecordFinished(room);
   // V40.68.1 — toda partida ativa sem nenhum humano conectado recebe apenas
@@ -1113,7 +1163,10 @@ function emitRoom(room) {
     const target=io.sockets.sockets.get(spectator.socketId);
     if (!target) continue;
     emitRoomAvatarAssets(target,room);
-    target.emit('state', AvatarWire.leanStateAvatars(Engine.roomSpectatorState(room,spectator)));
+    const spectatorState=Engine.roomSpectatorState(room,spectator);
+    ensureInviteReservations(room);
+    spectatorState.spectatorSeat=SpectatorSeatAdmission.seatStatus(room,spectator);
+    target.emit('state', AvatarWire.leanStateAvatars(spectatorState));
   }
   scheduleBotTurn(room);
   refreshInviteReadiness();
@@ -1556,6 +1609,7 @@ function appendSystemChat(room,text){
 function removeSpectator(room,spectator,{announce=true}={}){
   ensureSpectators(room);cancelSpectatorReconnectTimer(room.code,spectator.id);
   room.spectators=room.spectators.filter(s=>s.id!==spectator.id);
+  SpectatorSeatAdmission.removeRequestForSpectator(room,spectator.id);
   if(announce)appendSystemChat(room,`👁️ ${spectator.name} saiu da sala.`);
 }
 function scheduleSpectatorRemoval(room,spectator){
@@ -1576,6 +1630,7 @@ function closeSpectatorsForRoom(room,message='A mesa foi encerrada.'){
     sock.leave(room.code);sock.data.roomCode=null;sock.data.spectatorId=null;sock.data.role=null;sock.emit('leftRoom',{message});
   }
   room.spectators=[];
+  room.spectatorSeatRequests=[];
 }
 function cleanChatText(value) { return InputSafety.cleanChatText(value); }
 function emitChatHistory(socket, room) {
@@ -2099,16 +2154,18 @@ function ensureInviteReservations(room) {
 }
 function releaseReservation(room,playerKey,inviteId=null) {
   if(!room)return;const map=ensureInviteReservations(room),cur=map.get(playerKey);
-  if(cur&&(!inviteId||cur.inviteId===inviteId))map.delete(playerKey);
+  if(cur&&(!inviteId||cur.inviteId===inviteId)){
+    map.delete(playerKey);
+    notifySpectatorsSeatAvailability(room);
+  }
 }
 function roomHasInviteCapacity(room,playerKey=null) {
   if(!room||room.status==='finished')return false;
   if(room.tournament&&(!playerKey||!room.tournament.rosterKeys.includes(playerKey)))return false;
   const existing=playerKey&&room.players.some(p=>!p.isBot&&p.playerKey===playerKey);
   if(existing)return true;
-  const map=ensureInviteReservations(room);
-  let reserved=0;for(const key of map.keys())if(key!==playerKey)reserved++;
-  return room.players.length+reserved<5;
+  ensureInviteReservations(room);
+  return SpectatorSeatAdmission.countAvailableSeats(room,playerKey)>0;
 }
 function roomAllowsInviteEventually(room,playerKey=null) {
   if(!room||room.status==='finished'||!roomHasInviteCapacity(room,playerKey))return false;
@@ -2238,7 +2295,9 @@ async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
 }
 function reserveInviteSeat(invite) {
   const room=rooms.get(invite.targetRoomCode);if(!room||!roomAllowsInviteEventually(room,invite.toKey))return false;
-  const map=ensureInviteReservations(room);map.set(invite.toKey,{inviteId:invite.id,expiresAt:invite.expiresAt});return true;
+  const map=ensureInviteReservations(room);map.set(invite.toKey,{inviteId:invite.id,expiresAt:invite.expiresAt});
+  notifySpectatorsSeatAvailability(room);
+  return true;
 }
 function senderStillInDestination(invite,room){return !!room?.players.some(p=>!p.isBot&&p.playerKey===invite.fromKey);}
 function setInviteWaiting(invite,reason,message) {
@@ -2961,11 +3020,17 @@ io.on('connection', socket => {
       if(!['playing','between-rounds'].includes(room.status)||room.round<=0||room.round>=room.rules.rounds)
         throw new Error('A entrada de observadores está encerrada nesta partida.');
       if(room.players.some(p=>!p.isBot&&p.playerKey===spectator.playerKey))throw new Error('Você já tem uma cadeira nesta sala.');
-      if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');
+      ensureInviteReservations(room);
       if(!Array.isArray(room.spectatorSeatRequests))room.spectatorSeatRequests=[];
-      if(!room.spectatorSeatRequests.some(x=>x.spectatorId===spectator.id))
+      // Solicitações repetidas não alteram a posição nem falham por uma vaga
+      // que tenha sido reservada DEPOIS do primeiro pedido legítimo.
+      const existing=room.spectatorSeatRequests.some(x=>x.spectatorId===spectator.id||x.playerKey===spectator.playerKey);
+      if(!existing){
+        if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');
         room.spectatorSeatRequests.push({spectatorId:spectator.id,playerKey:spectator.playerKey,at:Date.now()});
-      socket.emit('spectatorSeatStatus',{status:'queued',message:'Pedido registrado. Aguarde o fim da rodada.'});
+      }
+      const seat=SpectatorSeatAdmission.seatStatus(room,spectator);
+      socket.emit('spectatorSeatStatus',{status:'queued',position:seat.queuePosition,message:seat.message});
       if(room.status==='between-rounds')processSpectatorSeatRequests(room);
       emitRoom(room);
     }catch(e){err(socket,e);}
