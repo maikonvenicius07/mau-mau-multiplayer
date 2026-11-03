@@ -1,0 +1,20 @@
+MAU-MAU CANDEIAS — V52.5
+
+Objetivo desta rodada:
+- voltar a mesa ao formato antigo no celular;
+- deixar a mesa mais bonita visualmente no mobile;
+- manter as cartas da mão grandes e mais legíveis.
+
+O que foi alterado:
+1. A mesa voltou a um formato mais oval/clássico.
+2. A altura da mesa foi reduzida para diminuir o espaço vazio.
+3. O visual da mesa recebeu ajuste de gradiente, borda e brilho interno.
+4. As cartas da mão continuam grandes e com melhor leitura.
+5. O painel inferior da mão foi refinado para combinar com a nova proporção.
+
+Arquivo alterado:
+- public/styles.css
+
+Como instalar:
+- Substitua o arquivo public/styles.css no projeto.
+- Faça o deploy normalmente.

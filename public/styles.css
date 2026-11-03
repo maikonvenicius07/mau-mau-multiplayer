@@ -3190,3 +3190,90 @@ button.bot-primary{
   #game .back-card .back-m{width:49px!important;height:49px!important;font-size:34px!important}
   #game .hand-panel{max-height:min(240px,45svh)!important}
 }
+
+/* V52.5 — celular vertical: voltar a mesa ao formato antigo (mais oval)
+   e deixá-la visualmente mais bonita, preservando as cartas maiores da mão. */
+@media (max-width: 560px) and (orientation: portrait){
+  #game .table-shell{
+    padding-left:6px!important;
+    padding-right:6px!important;
+    padding-bottom:250px!important;
+  }
+  #game .felt{
+    height:clamp(300px,39svh,352px)!important;
+    margin-top:clamp(10px,2.2svh,20px)!important;
+    border-width:8px!important;
+    border-radius:36% / 24%!important;
+    background:
+      radial-gradient(circle at 50% 34%,rgba(72,210,150,.17),transparent 23%),
+      radial-gradient(circle at 50% 55%,rgba(20,120,82,.18),transparent 40%),
+      radial-gradient(ellipse at center,#167a54 0%,#0d5f41 54%,#073827 100%)!important;
+    box-shadow:
+      inset 0 0 0 3px #b98344,
+      inset 0 0 0 5px rgba(255,225,150,.08),
+      inset 0 0 78px rgba(0,0,0,.42),
+      0 16px 36px rgba(0,0,0,.48),
+      0 0 0 1px rgba(255,228,165,.12)!important;
+  }
+  #game .felt:before{
+    inset:15px!important;
+    border-radius:inherit!important;
+    border:1px solid rgba(246,216,140,.14)!important;
+    box-shadow:inset 0 0 20px rgba(242,206,110,.04)!important;
+  }
+  #game .felt:after{
+    inset:11px!important;
+    border-radius:inherit!important;
+  }
+  #game .center-zone{
+    padding:36px 6px 26px!important;
+  }
+  #game .piles{gap:12px!important}
+  #game .pile{width:86px!important;height:124px!important}
+  #game #discardPile .playing-card{width:83px!important;height:120px!important}
+  #game .back-card .back-m{width:54px!important;height:54px!important;font-size:37px!important}
+
+  /* mão continua maior, com leve ganho de destaque */
+  #game .hand-panel{
+    max-height:min(295px,48svh)!important;
+    border-radius:18px 18px 12px 12px!important;
+    box-shadow:0 -10px 28px rgba(0,0,0,.28)!important;
+  }
+  #game .hand{
+    min-height:166px!important;
+    padding:8px 10px 7px!important;
+  }
+  #game .hand .playing-card{
+    width:clamp(90px,24.5vw,102px)!important;
+    height:clamp(132px,36vw,150px)!important;
+    flex:0 0 clamp(90px,24.5vw,102px)!important;
+  }
+  #game .hand .playing-card:not(:first-child){margin-left:-12px!important}
+  #game .hand .playing-card .corner-rank{font-size:19px!important}
+  #game .hand .playing-card .corner-suit{font-size:12px!important}
+  #game .hand .playing-card .suit-big{font-size:46px!important}
+}
+
+@media (max-width: 390px) and (orientation: portrait){
+  #game .felt{
+    height:clamp(292px,38svh,336px)!important;
+    border-radius:35% / 23%!important;
+  }
+  #game .center-zone{padding:33px 4px 23px!important}
+  #game .piles{gap:10px!important}
+  #game .pile{width:81px!important;height:117px!important}
+  #game #discardPile .playing-card{width:79px!important;height:114px!important}
+  #game .back-card .back-m{width:51px!important;height:51px!important;font-size:35px!important}
+  #game .hand-panel{max-height:min(288px,48svh)!important}
+  #game .hand{min-height:160px!important}
+  #game .hand .playing-card{
+    width:clamp(86px,24.5vw,94px)!important;
+    height:clamp(126px,35vw,138px)!important;
+    flex-basis:clamp(86px,24.5vw,94px)!important;
+  }
+  #game .hand .playing-card .suit-big{font-size:42px!important}
+}
+
+@media (max-width: 560px) and (max-height: 720px) and (orientation: portrait){
+  #game .felt{height:clamp(285px,37svh,330px)!important}
+}
