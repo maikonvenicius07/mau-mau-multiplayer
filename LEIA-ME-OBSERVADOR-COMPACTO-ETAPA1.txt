@@ -1,0 +1,43 @@
+MAU-MAU CANDEIAS — OBSERVADOR COMPACTO | ETAPA 1
+====================================================
+
+BASE UTILIZADA
+Projeto completo da última atualização de ocultar painéis do Observador,
+originada do ZIP mau-mau-multiplayer-main (16).zip.
+
+ALTERAÇÕES
+- Barra compacta do Observador: número de jogadores, rodada, assistindo e botão Entrar na partida.
+- Acesso por botões pequenos a Placar, Eventos, Chat e Pessoas.
+- Painéis recolhidos por padrão e abertos como gaveta sobre a mesa.
+- O histórico superior duplicado deixa de ser exibido; os acontecimentos completos permanecem em Eventos.
+- Placar e Mesa/Chat originais são reaproveitados no Observador e restaurados no modo jogador.
+- Adaptação para computador e celular. CSS e JS com parâmetro de atualização para evitar cache antigo.
+- Nenhuma alteração no servidor, no motor do jogo, no ranking ou nas regras das rodadas.
+
+ATUALIZAÇÃO NO GITHUB
+1. Extraia MAU-MAU-CANDEIAS_ATUALIZACAO_OBSERVADOR_COMPACTO_ETAPA1.zip.
+2. Abra seu repositório no GitHub e mantenha a mesma estrutura de pastas.
+3. Substitua SOMENTE os arquivos: public/index.html, public/app.js, public/styles.css,
+   tests/spectator-hide-panels.test.js.
+4. Faça Commit changes e verifique se o Render publicou o deploy com sucesso.
+5. Atualize a página do jogo (Ctrl+F5) e teste o Modo Observador.
+
+ATENÇÃO: Estes arquivos são baseados na última versão que já tinha o recurso de
+entrada após a 3ª e 4ª rodadas. Não misture com ZIPs antigos.
+
+VALIDAÇÃO LOCAL
+- Checagem de sintaxe: aprovada.
+- Teste específico do painel compacto: aprovado.
+- Simulação em Chromium para computador e celular: gaveta, quatro opções,
+  fechamento e retorno ao modo jogador aprovados.
+- Suíte automatizada: 131 de 132 testes aprovados; um teste de integração Socket.IO
+  não pôde ser executado por ausência local da dependência socket.io-client.
+- Verificação do package-lock.json: aprovada.
+- Ainda faltam validações com participantes conectados em uma partida real.
+
+TESTE RECOMENDADO APÓS O DEPLOY
+- Entre como observador e abra Placar, Eventos, Chat e Pessoas.
+- Confirme que o histórico continua sendo atualizado.
+- Faça um pedido de entrada no intervalo após a quarta rodada quando houver vaga.
+- Confirme que, ao se tornar jogador, a mesa e os controles de jogador retornam.
+- Teste também com celular e confirme o botão de fechamento da gaveta.

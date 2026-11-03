@@ -2716,25 +2716,132 @@ button.bot-primary{
 }
 
 
-/* Painéis opcionais do Observador: o histórico continua recebendo os eventos. */
-#game .spectator-visibility-controls{display:flex;flex-wrap:wrap;gap:5px;margin-left:auto;align-items:center;justify-content:flex-end}
-#game .spectator-visibility-controls button{border:1px solid #416751;border-radius:999px;padding:5px 9px;min-height:28px;background:#15382b;color:#d2e9db;font-size:10px;font-weight:750;white-space:nowrap}
-#game .spectator-visibility-controls button:hover,#game .spectator-visibility-controls button:focus-visible{background:#28533e;outline-offset:2px}
-#game.spectator-feed-collapsed #spectatorLivePanel .spectator-feed-wrap{display:none!important}
-#game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(180px,.7fr) minmax(165px,.65fr) minmax(170px,.85fr)}
-#game.spectator-sidebar-collapsed #sidePanel{display:none!important}
-/* Mantém o placar, mas libera a largura da mesa quando o histórico lateral é ocultado. */
-@media(min-width:901px){
-  #game.spectator-sidebar-collapsed .table-shell{padding-right:14px}
-  #game.spectator-sidebar-collapsed .scoreboard{position:relative;top:auto;right:auto;width:min(290px,100%);margin:0 0 12px auto}
+
+/* V40.69.2 — Observador compacto: única barra e gaveta opcional de informações. */
+#game .spectator-compact-toolbar{display:none}
+#game.spectator-mode .spectator-compact-toolbar{
+  display:flex;align-items:center;flex-wrap:wrap;gap:0;min-height:54px;
+  border-bottom:1px solid #305b45;background:#09251b;position:relative;z-index:42;
 }
-@media(max-width:1150px){
-  #game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+#game .spectator-compact-toolbar .spectator-mode-banner{
+  position:static;top:auto;width:auto;z-index:auto;flex:0 0 auto;
+  min-height:52px;margin:0;padding:7px 12px;box-shadow:none;
+  background:transparent;border:0;backdrop-filter:none;gap:8px;
+}
+#game .spectator-compact-toolbar .spectator-mode-icon{
+  width:28px;height:28px;flex-basis:28px;font-size:15px;
+}
+#game .spectator-compact-toolbar .spectator-mode-copy{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+}
+#game .spectator-compact-toolbar .spectator-mode-copy strong{font-size:11px;letter-spacing:.06em}
+#game .spectator-compact-toolbar .spectator-mode-copy small{font-size:9.5px;max-width:190px;line-height:1.25}
+#game #spectatorLivePanel.spectator-live-panel{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex:1 1 650px;min-width:0;padding:6px 12px 6px 8px;
+  background:transparent;border:0;box-shadow:none;
+}
+#game #spectatorLivePanel.spectator-live-panel.hidden{display:none!important}
+#game #spectatorLivePanel .spectator-live-stats{
+  flex:0 0 auto;display:flex;align-items:center;gap:7px;
+}
+#game #spectatorLivePanel .spectator-live-stats>div{
+  display:flex;align-items:center;gap:4px;padding:5px 7px;
+  border-radius:8px;min-width:0;min-height:32px;
+}
+#game #spectatorLivePanel .spectator-live-stats strong{font-size:12px}
+#game #spectatorLivePanel .spectator-live-stats span{font-size:9px;letter-spacing:0}
+#game #spectatorLivePanel .spectator-seat-area{
+  display:flex;align-items:center;flex-direction:row;gap:6px;flex:0 1 auto;
+  margin:0;padding:0;border:0;background:transparent;
+}
+#game #spectatorLivePanel .spectator-seat-btn{
+  min-height:36px;font-size:11px;padding:7px 11px;white-space:nowrap;
+}
+#game #spectatorLivePanel .spectator-seat-note{
+  font-size:10px;max-width:175px;line-height:1.25;
+}
+#game .spectator-compact-actions{
+  display:flex;gap:5px;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex:0 0 auto;
+}
+#game .spectator-compact-actions button{
+  border:1px solid #46725a;border-radius:9px;min-height:36px;padding:6px 9px;
+  background:#123428;color:#d2e8da;font-size:11px;font-weight:750;cursor:pointer;
+}
+#game .spectator-compact-actions button.active,
+#game .spectator-compact-actions button:hover{
+  background:#2b5540;border-color:#acdcba;color:#fff;
+}
+#game .spectator-compact-actions button:focus-visible,
+#game #spectatorDrawerClose:focus-visible{outline:2px solid #e7c46e;outline-offset:2px}
+#game.spectator-mode .table-shell{padding-right:12px!important;padding-left:12px!important;padding-top:12px}
+#game .spectator-compact-drawer{
+  position:fixed;right:12px;top:124px;bottom:12px;width:min(370px,calc(100vw - 24px));
+  max-height:calc(100dvh - 136px);z-index:142;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:11px;
+  background:linear-gradient(160deg,#0b3023,#061e16);border:1px solid #658c67;
+  border-radius:16px;box-shadow:0 22px 55px #000a;
+}
+#game .spectator-compact-drawer.hidden{display:none!important}
+#game .spectator-drawer-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:0 2px 9px;margin-bottom:8px;border-bottom:1px solid #44634d;
+}
+#game .spectator-drawer-head strong{font-size:13px;color:#e7d092}
+#game #spectatorDrawerClose{
+  display:grid;place-items:center;width:35px;height:35px;flex:0 0 35px;
+  border:1px solid #507861;border-radius:9px;background:#214935;color:white;
+  font-size:23px;cursor:pointer;
+}
+#game .spectator-drawer-content{flex:1 1 auto;min-height:0;overflow:auto}
+#game.spectator-mode #spectatorDrawerScore .scoreboard{
+  display:block!important;position:static!important;inset:auto!important;width:100%!important;
+  min-width:0!important;margin:0!important;padding:10px!important;box-shadow:none!important;
+}
+#game.spectator-mode #spectatorDrawerActivity .log-panel{
+  display:flex!important;position:static!important;inset:auto!important;width:100%!important;
+  height:100%!important;max-height:none!important;min-width:0!important;
+  margin:0!important;box-shadow:none!important;padding:8px!important;
+}
+#game.spectator-mode #spectatorDrawerActivity .side-close{display:none!important}
+#game .spectator-compact-drawer .log-item{font-size:13px;line-height:1.45;padding:9px 3px}
+#game .spectator-compact-drawer .chat-bubble{font-size:13px;line-height:1.4}
+#game .spectator-compact-drawer .spectator-watchers-wrap{min-height:75px;padding:12px}
+#game .spectator-compact-drawer .spectator-watchers-wrap>strong{font-size:12px;margin-bottom:12px}
+#game .spectator-compact-drawer .spectator-people{flex-wrap:wrap;overflow:visible;gap:8px}
+#game .spectator-compact-drawer .spectator-person{padding:6px 9px}
+#game .spectator-compact-drawer .spectator-person b{font-size:12px}
+#game .spectator-compact-drawer .spectator-person .avatar-img{width:27px!important;height:27px!important}
+@media(max-width:1190px){
+  #game #spectatorLivePanel.spectator-live-panel{flex-wrap:wrap;justify-content:flex-start}
+  #game .spectator-compact-actions{margin-left:auto}
+  #game #spectatorLivePanel .spectator-seat-note{max-width:210px}
 }
 @media(max-width:700px){
-  #game .spectator-visibility-controls{margin-left:0;justify-content:flex-start;width:100%}
-  #game .spectator-visibility-controls button{min-height:32px}
-  #game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(0,1fr)}
+  #game .spectator-compact-toolbar .spectator-mode-banner{min-height:39px;padding:5px 9px}
+  #game .spectator-compact-toolbar .spectator-mode-copy small{display:none}
+  #game #spectatorLivePanel.spectator-live-panel{flex:1 1 100%;padding:5px 8px;gap:6px}
+  #game #spectatorLivePanel .spectator-live-stats{gap:3px}
+  #game #spectatorLivePanel .spectator-live-stats>div{padding:4px 5px;min-height:28px}
+  #game #spectatorLivePanel .spectator-live-stats strong{font-size:11px}
+  #game #spectatorLivePanel .spectator-live-stats span{font-size:8px}
+  #game #spectatorLivePanel .spectator-seat-area{flex:1 1 100%;justify-content:space-between}
+  #game #spectatorLivePanel .spectator-seat-note{flex:1 1 auto;max-width:none}
+  #game .spectator-compact-actions{width:100%;justify-content:space-between;gap:4px}
+  #game .spectator-compact-actions button{flex:1 1 auto;font-size:10.5px;padding:6px 5px;min-height:38px}
+  #game .spectator-compact-drawer{
+    left:7px;right:7px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom));
+    width:auto;max-height:min(75dvh,640px);height:min(70dvh,600px);
+    padding:10px;border-radius:17px;
+  }
+  #game.spectator-mode .table-shell{padding-left:6px!important;padding-right:6px!important}
 }
-#game .spectator-mode-banner{flex-wrap:wrap}
-#game .spectator-visibility-controls button:focus-visible{outline:2px solid #c5f5d9}
+/* A versão mobile do placar usa cartões estreitos com três colunas.
+   Na gaveta do observador, conservar as quatro colunas reais da pontuação. */
+#game.spectator-mode #spectatorDrawerScore .score-row{
+  display:grid!important;flex:none!important;
+  grid-template-columns:32px minmax(0,1fr) 42px 42px!important;
+  gap:5px;padding:8px 5px;
+}
+#game.spectator-mode #spectatorDrawerScore .score-row .round-score{display:block!important}
+#game.spectator-mode #spectatorDrawerScore .score-row strong{justify-self:end}

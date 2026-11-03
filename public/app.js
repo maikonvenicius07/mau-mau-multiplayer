@@ -2781,7 +2781,7 @@ async function sendVoiceDraft(){if(isSpectatorState())return toast('Áudio Rápi
 $('#chatToggleBtn').onclick=()=>{setSideTab('chat',true)};
 $('#logTabBtn').onclick=()=>setSideTab('log',true);
 $('#chatTabBtn').onclick=()=>setSideTab('chat',true);
-$('#sideCloseBtn').onclick=()=>$('#sidePanel').classList.remove('open');
+$('#sideCloseBtn').onclick=()=>{if(isSpectatorState()){spectatorDrawerActive=null;syncSpectatorCompactUI()}else $('#sidePanel').classList.remove('open')};
 $('#voiceRecordBtn').onclick=startQuickAudio;
 $('#voiceStopBtn').onclick=()=>stopQuickAudio(false);
 $('#voiceCancelBtn').onclick=()=>stopQuickAudio(true);
@@ -3104,7 +3104,7 @@ socket.on('inviteStatus',info=>{
 socket.on('chatHistory',messages=>{for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;refreshQuickAudioMusicDuck();renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
   chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
-  const panelOpen=$('#sidePanel').classList.contains('open')||window.innerWidth>900;
+  const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':($('#sidePanel').classList.contains('open')||window.innerWidth>900);
   if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
   renderChat();renderChatBadge();
   if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
@@ -3116,7 +3116,7 @@ socket.on('voiceMessage',message=>{
     const voice={...message,kind:'voice',audio:null,audioUrl:URL.createObjectURL(blob)};
     chatMessages.push(voice);
     while(chatMessages.length>60){const removed=chatMessages.shift();if(removed?.audioUrl)try{URL.revokeObjectURL(removed.audioUrl)}catch{}}
-    const panelOpen=$('#sidePanel').classList.contains('open')||window.innerWidth>900;
+    const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':($('#sidePanel').classList.contains('open')||window.innerWidth>900);
     if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
     renderChat();renderChatBadge();
     if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
@@ -3279,7 +3279,7 @@ socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();
 
 function returnToLanding(message=''){
   resetLiveVoice({notify:false});closeSpectatorOffer();
-  state=null;pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
+  state=null;syncSpectatorCompactUI();pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
   $('#sidePanel')?.classList.remove('open');renderChatBadge();
   try{
@@ -3296,44 +3296,74 @@ function returnToLanding(message=''){
 }
 
 
-// Preferências exclusivamente visuais do Observador: sem alterar logs ou estado do servidor.
-let spectatorFeedHidden=false;
-let spectatorSidebarHidden=false;
-function syncSpectatorVisibility(){
-  const spectator=isSpectatorState();
-  const game=$('#game');
-  if(!game)return;
-  game.classList.toggle('spectator-feed-collapsed',spectator&&spectatorFeedHidden);
-  game.classList.toggle('spectator-sidebar-collapsed',spectator&&spectatorSidebarHidden);
-  const feedBtn=$('#spectatorFeedToggle');
-  if(feedBtn){feedBtn.textContent=spectatorFeedHidden?'Mostrar eventos':'Ocultar eventos';feedBtn.setAttribute('aria-pressed',String(spectatorFeedHidden));}
-  const sideBtn=$('#spectatorSidebarToggle');
-  if(sideBtn){sideBtn.textContent=spectatorSidebarHidden?'Mostrar lateral':'Ocultar lateral';sideBtn.setAttribute('aria-pressed',String(spectatorSidebarHidden));}
-  if(spectator&&spectatorSidebarHidden)$('#sidePanel')?.classList.remove('open');
+// Painel compacto exclusivo do Observador. O servidor e as regras não são alterados.
+// Movemos os mesmos nós reais de Placar e Mesa/Chat; não criamos cópias dos dados.
+let spectatorDrawerActive=null;
+let spectatorNodesInDrawer=false;
+function syncSpectatorCompactUI(){
+  const game=$('#game');if(!game)return;
+  const spectator=isSpectatorState(),shell=$('#game .table-shell');
+  const score=$('#scoreboard'),side=$('#sidePanel');
+  if(spectator&&!spectatorNodesInDrawer){
+    $('#spectatorDrawerScore')?.appendChild(score);
+    $('#spectatorDrawerActivity')?.appendChild(side);
+    spectatorNodesInDrawer=true;
+    side?.classList.remove('open');
+  }else if(!spectator&&spectatorNodesInDrawer){
+    if(shell&&score)shell.insertBefore(score,shell.firstElementChild);
+    if(shell&&side)shell.appendChild(side);
+    spectatorNodesInDrawer=false;
+    spectatorDrawerActive=null;
+  }
+  if(!spectator)spectatorDrawerActive=null;
+  const drawer=$('#spectatorAuxDrawer');
+  const opened=spectator&&!!spectatorDrawerActive;
+  drawer?.classList.toggle('hidden',!opened);
+  drawer?.setAttribute('aria-hidden',String(!opened));
+  for(const key of ['score','events','chat','watchers']){
+    const btn=document.querySelector(`[data-spectator-panel="${key}"]`);
+    btn?.classList.toggle('active',opened&&spectatorDrawerActive===key);
+    btn?.setAttribute('aria-expanded',String(opened&&spectatorDrawerActive===key));
+  }
+  $('#spectatorDrawerScore')?.classList.toggle('hidden',!opened||spectatorDrawerActive!=='score');
+  $('#spectatorDrawerActivity')?.classList.toggle('hidden',!opened||!['events','chat'].includes(spectatorDrawerActive));
+  $('#spectatorDrawerWatchers')?.classList.toggle('hidden',!opened||spectatorDrawerActive!=='watchers');
+  const titles={score:'🏆 Placar acumulado',events:'☷ Acontecimentos da mesa',chat:'💬 Conversa da sala',watchers:'👁️ Pessoas assistindo'};
+  if($('#spectatorDrawerTitle'))$('#spectatorDrawerTitle').textContent=titles[spectatorDrawerActive]||'Informações';
 }
-$('#spectatorFeedToggle')?.addEventListener('click',()=>{
-  if(!isSpectatorState())return;
-  spectatorFeedHidden=!spectatorFeedHidden;
-  syncSpectatorVisibility();
-});
-$('#spectatorSidebarToggle')?.addEventListener('click',()=>{
-  if(!isSpectatorState())return;
-  spectatorSidebarHidden=!spectatorSidebarHidden;
-  syncSpectatorVisibility();
+function openSpectatorDrawer(key,force=false){
+  if(!isSpectatorState()||!['score','events','chat','watchers'].includes(key))return;
+  spectatorDrawerActive=!force&&spectatorDrawerActive===key?null:key;
+  if(spectatorDrawerActive==='events'||spectatorDrawerActive==='chat'){
+    // Mantém os mesmos conteúdos e ações da aba Mesa/Chat já existente.
+    setSideTab(spectatorDrawerActive==='chat'?'chat':'log',false);
+  }
+  syncSpectatorCompactUI();
+}
+for(const button of document.querySelectorAll('[data-spectator-panel]')){
+  button.addEventListener('click',()=>openSpectatorDrawer(button.dataset.spectatorPanel));
+}
+$('#spectatorDrawerClose')?.addEventListener('click',()=>{spectatorDrawerActive=null;syncSpectatorCompactUI()});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&isSpectatorState()&&spectatorDrawerActive){
+    spectatorDrawerActive=null;syncSpectatorCompactUI();
+  }
 });
 function setSideTab(tab,openMobile=false){
-  if(isSpectatorState()&&spectatorSidebarHidden){spectatorSidebarHidden=false;syncSpectatorVisibility();}
   activeSideTab=tab==='chat'?'chat':'log';
   $('#logTabBtn').classList.toggle('active',activeSideTab==='log');
   $('#chatTabBtn').classList.toggle('active',activeSideTab==='chat');
   $('#logView').classList.toggle('hidden',activeSideTab!=='log');
   $('#chatView').classList.toggle('hidden',activeSideTab!=='chat');
-  if(openMobile) $('#sidePanel').classList.add('open');
-  if(activeSideTab==='chat'){unreadChat=0;renderChatBadge();setTimeout(()=>$('#chatInput')?.focus(),30)}
+  if(openMobile){
+    if(isSpectatorState())openSpectatorDrawer(activeSideTab==='chat'?'chat':'events',true);
+    else $('#sidePanel').classList.add('open');
+  }
+  if(activeSideTab==='chat'){unreadChat=0;renderChatBadge();if(openMobile)setTimeout(()=>$('#chatInput')?.focus(),30)}
 }
 function renderChatBadge(){
   const text=unreadChat>9?'9+':String(unreadChat);
-  for(const el of [$('#chatBadge'),$('#chatTopBadge')]){if(!el)continue;el.textContent=text;el.classList.toggle('hidden',unreadChat===0)}
+  for(const el of [$('#chatBadge'),$('#chatTopBadge'),$('#spectatorChatBadge')]){if(!el)continue;el.textContent=text;el.classList.toggle('hidden',unreadChat===0)}
 }
 function renderChat(){
   const box=$('#chatMessages');if(!box)return;
@@ -3381,7 +3411,7 @@ function render(){
   const myTurnNow=!spectator&&state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
   $('#game').classList.toggle('my-turn',!!myTurnNow);$('#game').classList.toggle('spectator-mode',spectator);
   $('#spectatorModeBanner')?.classList.toggle('hidden',!spectator);
-  syncSpectatorVisibility();
+  syncSpectatorCompactUI();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=spectator?'• OBSERVADOR':`• ${state.me.hand.length} carta(s)`;
@@ -3703,10 +3733,7 @@ function renderSpectatorLivePanel(){
     const viewers=Array.isArray(state.spectators)?state.spectators:[];
     people.innerHTML=viewers.length?viewers.map(v=>`<span class="spectator-person">${avatarHTML(v.avatar,'xs')}<b>${esc(v.name||'Observador')}</b>${liveVoiceActivePlayerIds.has(v.id)?'<span class="spectator-live-mic" title="Falando pelo microfone ao vivo">🎙️</span>':''}</span>`).join(''):'<span class="spectator-person-empty">Só você está assistindo agora.</span>';
   }
-  const feed=$('#spectatorFeed');if(feed){
-    const items=(state.log||[]).slice(-6).reverse();
-    feed.innerHTML=items.length?items.map(x=>`<div class="spectator-feed-item ${esc(x.kind||'info')}"><span>•</span><p>${esc(x.message)}</p></div>`).join(''):'<div class="spectator-feed-empty">Aguardando acontecimentos da mesa...</div>';
-  }
+
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}
 function renderControls(){
