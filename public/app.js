@@ -2780,7 +2780,6 @@ async function sendVoiceDraft(){if(isSpectatorState())return toast('Áudio Rápi
 
 $('#scoreToggleBtn')?.addEventListener('click',()=>togglePlayerScoreboard());
 $('#tableInfoToggleBtn')?.addEventListener('click',()=>openPlayerSide('log'));
-$('#chatToggleBtn').onclick=()=>openPlayerSide('chat',true);
 $('#logTabBtn').onclick=()=>openPlayerSide('log');
 $('#chatTabBtn').onclick=()=>openPlayerSide('chat',true);
 $('#sideCloseBtn').onclick=()=>{if(isSpectatorState()){spectatorDrawerActive=null;syncSpectatorCompactUI()}else closePlayerAuxPanels()};
@@ -3309,7 +3308,6 @@ function updatePlayerAuxButtons(){
   const sideOpen=$('#sidePanel')?.classList.contains('open');
   $('#scoreToggleBtn')?.classList.toggle('active',!!scoreOpen);
   $('#tableInfoToggleBtn')?.classList.toggle('active',!!sideOpen&&activeSideTab==='log');
-  $('#chatToggleBtn')?.classList.toggle('active',!!sideOpen&&activeSideTab==='chat');
 }
 function closePlayerAuxPanels(){
   $('#scoreboard')?.classList.remove('open');
@@ -3422,7 +3420,7 @@ function setSideTab(tab,openMobile=false){
 }
 function renderChatBadge(){
   const text=unreadChat>9?'9+':String(unreadChat);
-  for(const el of [$('#chatBadge'),$('#chatTopBadge'),$('#spectatorChatBadge')]){if(!el)continue;el.textContent=text;el.classList.toggle('hidden',unreadChat===0)}
+  for(const el of [$('#chatBadge'),$('#spectatorChatBadge')]){if(!el)continue;el.textContent=text;el.classList.toggle('hidden',unreadChat===0)}
 }
 function renderChat(){
   const box=$('#chatMessages');if(!box)return;

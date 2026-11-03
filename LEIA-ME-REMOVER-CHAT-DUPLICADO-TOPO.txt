@@ -1,0 +1,21 @@
+MAU-MAU CANDEIAS — Correção: botão Chat duplicado no topo
+
+O que mudou:
+- Removido apenas o ícone 💬 Chat da barra superior.
+- Para abrir o Chat como jogador: clique em 📋 Mesa, depois na aba Chat dentro do painel.
+- O Chat do Observador continua na barra compacta do Observador.
+- Histórico, mensagens, contador de não lidas, áudio rápido e demais regras preservados.
+
+Instalação no GitHub:
+1. Substitua public/index.html e public/app.js nas pastas originais.
+2. Atualize tests/spectator-single-chat-entry.test.js e adicione tests/player-single-chat-access.test.js.
+3. Faça Commit changes e confirme o deploy no Render.
+4. No navegador, atualize a página para carregar o novo HTML e JavaScript.
+
+Verificações locais:
+- Sintaxe de public/app.js aprovada.
+- Validação do package-lock.json aprovada.
+- 137/138 testes executados aprovados.
+- Teste de integração Socket.IO não executado por ausência local de socket.io-client.
+
+Essa atualização foi construída sobre a versão completa do projeto com os ajustes móveis de Sala/Rodada e botões da mão.
