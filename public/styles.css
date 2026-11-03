@@ -3115,3 +3115,78 @@ button.bot-primary{
 @media (max-width: 560px) and (max-height: 720px) and (orientation: portrait){
   #game .felt{height:clamp(370px,54svh,410px)!important}
 }
+
+/* V52.4 — celular vertical: mesa menos alta e cartas maiores.
+   Mantém as três ações numa só linha e a rolagem horizontal da mão.
+   Não modifica o funcionamento do jogo, apenas as dimensões visuais. */
+@media (max-width: 560px) and (orientation: portrait){
+  /* Redução da área vazia na mesa sem tirar as cartas centrais de destaque. */
+  #game .felt{
+    height:clamp(350px,45svh,410px)!important;
+    margin-top:clamp(12px,4svh,45px)!important;
+  }
+  #game .center-zone{
+    padding:47px 7px 36px!important;
+  }
+  #game .piles{gap:15px!important}
+  #game .pile{
+    width:91px!important;
+    height:132px!important;
+  }
+  #game #discardPile .playing-card{
+    width:88px!important;
+    height:128px!important;
+  }
+  #game .back-card .back-m{
+    width:57px!important;
+    height:57px!important;
+    font-size:40px!important;
+  }
+  /* Cartas da mão: aumento de tamanho, sem quebrar o scroll horizontal. */
+  #game .hand .playing-card{
+    width:clamp(88px,24vw,100px)!important;
+    height:clamp(128px,35vw,146px)!important;
+    flex:0 0 clamp(88px,24vw,100px)!important;
+  }
+  #game .hand .playing-card:not(:first-child){margin-left:-10px!important}
+  #game .hand .playing-card .corner-rank{font-size:18px!important}
+  #game .hand .playing-card .corner-suit{font-size:12px!important}
+  #game .hand .playing-card .suit-big{font-size:44px!important}
+  #game .hand{
+    min-height:161px!important;
+    padding:8px 10px 5px!important;
+  }
+  #game .hand-panel{
+    max-height:min(280px,45svh)!important;
+    overflow:visible;
+  }
+}
+/* Em celulares estreitos mantém cartas grandes, mas com largura compatível. */
+@media (max-width: 390px) and (orientation: portrait){
+  #game .felt{height:clamp(342px,44svh,395px)!important}
+  #game .center-zone{padding:44px 5px 33px!important}
+  #game .piles{gap:12px!important}
+  #game .pile{width:86px!important;height:125px!important}
+  #game #discardPile .playing-card{width:83px!important;height:121px!important}
+  #game .back-card .back-m{width:54px!important;height:54px!important;font-size:37px!important}
+  #game .hand .playing-card{width:clamp(88px,24vw,94px)!important;height:clamp(128px,35vw,137px)!important;flex-basis:clamp(88px,24vw,94px)!important}
+  #game .hand .playing-card .suit-big{font-size:41px!important}
+  #game .hand{min-height:152px!important}
+  #game .hand-panel{max-height:min(270px,45svh)!important}
+}
+@media (max-width: 350px) and (orientation: portrait){
+  #game .felt{height:clamp(335px,43svh,380px)!important}
+  #game .hand .playing-card{width:85px!important;height:123px!important;flex-basis:85px!important}
+  #game .hand{min-height:140px!important}
+}
+/* Em aparelhos com pouca altura, evita que a mesa pressione a mão. */
+@media (max-width: 560px) and (max-height: 720px) and (orientation: portrait){
+  /* Dá prioridade a uma mão legível sem encobrir o feltro. */
+  #game .felt{height:clamp(235px,calc(100svh - 390px),365px)!important}
+  #game .center-zone{padding:25px 4px 18px!important}
+  #game .piles{gap:9px!important}
+  #game .pile{width:76px!important;height:110px!important}
+  #game #discardPile .playing-card{width:73px!important;height:106px!important}
+  #game .back-card .back-m{width:49px!important;height:49px!important;font-size:34px!important}
+  #game .hand-panel{max-height:min(240px,45svh)!important}
+}
