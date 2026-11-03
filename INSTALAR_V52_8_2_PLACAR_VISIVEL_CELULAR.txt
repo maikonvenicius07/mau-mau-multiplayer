@@ -1,0 +1,33 @@
+MAU-MAU CANDEIAS — V52.8.2
+CORREÇÃO: PLACAR ACUMULADO APARECE COMO FAIXA BAIXA NO CELULAR
+
+CAUSA
+Uma regra antiga mobile fixava o Placar acumulado em apenas 62px de altura.
+A versão V52.8.1 reposicionava o painel, mas não substituía essa altura.
+Assim, a janela abria e mostrava quase somente o botão X e o começo da lista.
+
+ALTERAÇÃO
+- O placar passa a ter altura automática e limite de 72% da altura do celular.
+- Abre centralizado na tela, com rolagem interna para até 5 jogadores.
+- O cabeçalho e o botão X permanecem visíveis.
+- Os nomes, pontos da rodada e pontos totais continuam legíveis.
+- Não altera o Placar do Observador nem as regras do jogo.
+- O link do CSS foi atualizado para evitar carregamento de estilo antigo em cache.
+
+ARQUIVOS A SUBSTITUIR NO GITHUB
+1. public/styles.css
+2. public/index.html
+
+INSTALAÇÃO
+1. No GitHub, substitua os dois arquivos mantendo os nomes e caminhos.
+2. Faça Commit e confirme o deploy como Live no Render.
+3. Atualize o jogo no celular (feche e reabra a aba ou atualize o navegador).
+4. Entre como jogador e toque no ícone de gráfico 📊.
+5. Confirme que o Placar exibe nomes e pontos e que X fecha a janela.
+
+TESTES LOCAIS
+- Prévia técnica em navegador com 5 jogadores, em 320, 360, 390 e 430 px:
+  placar >200px, 5 linhas no painel, sem ultrapassar o viewport; botão X fecha.
+- Testes do projeto: mobile-layout, player-single-chat, spectator-ui,
+  player-information-no-duplicates, sintaxe JavaScript e lockfile: aprovados.
+- A integração com partida real no Render continua dependendo de teste no celular.
