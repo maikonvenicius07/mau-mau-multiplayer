@@ -3296,7 +3296,33 @@ function returnToLanding(message=''){
 }
 
 
+// Preferências exclusivamente visuais do Observador: sem alterar logs ou estado do servidor.
+let spectatorFeedHidden=false;
+let spectatorSidebarHidden=false;
+function syncSpectatorVisibility(){
+  const spectator=isSpectatorState();
+  const game=$('#game');
+  if(!game)return;
+  game.classList.toggle('spectator-feed-collapsed',spectator&&spectatorFeedHidden);
+  game.classList.toggle('spectator-sidebar-collapsed',spectator&&spectatorSidebarHidden);
+  const feedBtn=$('#spectatorFeedToggle');
+  if(feedBtn){feedBtn.textContent=spectatorFeedHidden?'Mostrar eventos':'Ocultar eventos';feedBtn.setAttribute('aria-pressed',String(spectatorFeedHidden));}
+  const sideBtn=$('#spectatorSidebarToggle');
+  if(sideBtn){sideBtn.textContent=spectatorSidebarHidden?'Mostrar lateral':'Ocultar lateral';sideBtn.setAttribute('aria-pressed',String(spectatorSidebarHidden));}
+  if(spectator&&spectatorSidebarHidden)$('#sidePanel')?.classList.remove('open');
+}
+$('#spectatorFeedToggle')?.addEventListener('click',()=>{
+  if(!isSpectatorState())return;
+  spectatorFeedHidden=!spectatorFeedHidden;
+  syncSpectatorVisibility();
+});
+$('#spectatorSidebarToggle')?.addEventListener('click',()=>{
+  if(!isSpectatorState())return;
+  spectatorSidebarHidden=!spectatorSidebarHidden;
+  syncSpectatorVisibility();
+});
 function setSideTab(tab,openMobile=false){
+  if(isSpectatorState()&&spectatorSidebarHidden){spectatorSidebarHidden=false;syncSpectatorVisibility();}
   activeSideTab=tab==='chat'?'chat':'log';
   $('#logTabBtn').classList.toggle('active',activeSideTab==='log');
   $('#chatTabBtn').classList.toggle('active',activeSideTab==='chat');
@@ -3355,6 +3381,7 @@ function render(){
   const myTurnNow=!spectator&&state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
   $('#game').classList.toggle('my-turn',!!myTurnNow);$('#game').classList.toggle('spectator-mode',spectator);
   $('#spectatorModeBanner')?.classList.toggle('hidden',!spectator);
+  syncSpectatorVisibility();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=spectator?'• OBSERVADOR':`• ${state.me.hand.length} carta(s)`;

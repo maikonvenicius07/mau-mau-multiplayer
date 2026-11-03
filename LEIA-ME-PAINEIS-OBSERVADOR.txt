@@ -1,0 +1,23 @@
+MAU-MAU CANDEIAS — Controles opcionais de painéis do Observador
+Base: mau-mau-multiplayer-main (16).zip
+
+O QUE MUDOU
+- No banner MODO OBSERVADOR, botão 'Ocultar eventos' / 'Mostrar eventos' controla somente o quadro ACONTECIMENTOS DA MESA acima do tabuleiro.
+- Botão 'Ocultar lateral' / 'Mostrar lateral' controla somente o painel lateral MESA/CHAT. O placar permanece visível.
+- Ao ocultar a lateral no desktop, o tabuleiro usa a largura livre. O placar continua exibido.
+- Os eventos continuam chegando; ocultar não apaga histórico.
+- Ao clicar no Chat do cabeçalho, o painel lateral reabre automaticamente.
+- Esses controles não são mostrados para jogadores.
+- Nenhuma mudança em server.js, motor do jogo ou regras.
+
+COMO APLICAR
+1. Abra o ZIP de atualizacao.
+2. Envie os arquivos public/index.html, public/app.js e public/styles.css para os caminhos correspondentes no GitHub.
+3. O teste tests/spectator-hide-panels.test.js pode ser adicionado à suíte.
+4. Aguarde o deploy e atualize o navegador.
+5. Entre como observador e teste ocultar/mostrar ambos os paineis, inclusive chat.
+
+VALIDACAO LOCAL
+- 131 testes executados e aprovados (excluindo teste de integracao Socket.IO sem dependencia instalada).
+- Node --check de public/app.js aprovado.
+- Nenhuma verificacao visual automatizada em navegadores reais foi realizada.

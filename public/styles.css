@@ -2714,3 +2714,27 @@ button.bot-primary{
   #spectatorLivePanel .spectator-seat-area{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
   #spectatorLivePanel .spectator-seat-note{flex:1 1 160px}
 }
+
+
+/* Painéis opcionais do Observador: o histórico continua recebendo os eventos. */
+#game .spectator-visibility-controls{display:flex;flex-wrap:wrap;gap:5px;margin-left:auto;align-items:center;justify-content:flex-end}
+#game .spectator-visibility-controls button{border:1px solid #416751;border-radius:999px;padding:5px 9px;min-height:28px;background:#15382b;color:#d2e9db;font-size:10px;font-weight:750;white-space:nowrap}
+#game .spectator-visibility-controls button:hover,#game .spectator-visibility-controls button:focus-visible{background:#28533e;outline-offset:2px}
+#game.spectator-feed-collapsed #spectatorLivePanel .spectator-feed-wrap{display:none!important}
+#game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(180px,.7fr) minmax(165px,.65fr) minmax(170px,.85fr)}
+#game.spectator-sidebar-collapsed #sidePanel{display:none!important}
+/* Mantém o placar, mas libera a largura da mesa quando o histórico lateral é ocultado. */
+@media(min-width:901px){
+  #game.spectator-sidebar-collapsed .table-shell{padding-right:14px}
+  #game.spectator-sidebar-collapsed .scoreboard{position:relative;top:auto;right:auto;width:min(290px,100%);margin:0 0 12px auto}
+}
+@media(max-width:1150px){
+  #game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+@media(max-width:700px){
+  #game .spectator-visibility-controls{margin-left:0;justify-content:flex-start;width:100%}
+  #game .spectator-visibility-controls button{min-height:32px}
+  #game.spectator-feed-collapsed #spectatorLivePanel.spectator-live-panel{grid-template-columns:minmax(0,1fr)}
+}
+#game .spectator-mode-banner{flex-wrap:wrap}
+#game .spectator-visibility-controls button:focus-visible{outline:2px solid #c5f5d9}
