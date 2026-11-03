@@ -3618,16 +3618,72 @@ function fixedPlayerSpot(player,mobile){
   const assigned=fixedSeatAssignments.get(player?.id);
   return assigned?(mobile?assigned.mobile:assigned.desktop):[50,50];
 }
+// FASE 2A: reconciliacao dos assentos por ID. Não removemos o avatar ou seu
+// <video> nas mudanças de turno/contagem: o módulo LiveKit mantém o stream.
+function syncPlayerSeat(existing,desired){
+  // Classes da câmera são controladas pelo módulo camera-video.js.
+  const cameraSeatClasses=['camera-visible','camera-edge-left','camera-edge-right'];
+  const preserved=cameraSeatClasses.filter(name=>existing.classList.contains(name));
+  existing.className=desired.className;
+  preserved.forEach(name=>existing.classList.add(name));
+  if(existing.style.left!==desired.style.left)existing.style.left=desired.style.left;
+  if(existing.style.top!==desired.style.top)existing.style.top=desired.style.top;
+  existing.dataset.playerName=desired.dataset.playerName;
+  existing.dataset.cameraPlayerId=desired.dataset.cameraPlayerId;
+
+  const oldArrow=existing.querySelector(':scope > .next-turn-arrow');
+  const newArrow=desired.querySelector(':scope > .next-turn-arrow');
+  if(oldArrow&&!newArrow)oldArrow.remove();
+  else if(oldArrow&&newArrow&&oldArrow.outerHTML!==newArrow.outerHTML)oldArrow.replaceWith(newArrow);
+  else if(!oldArrow&&newArrow)existing.insertBefore(newArrow,existing.firstChild);
+
+  const oldCard=existing.querySelector(':scope > .player-card');
+  const newCard=desired.querySelector(':scope > .player-card');
+  if(!oldCard||!newCard)return false;
+  const hasCamera=oldCard.classList.contains('camera-seat');
+  oldCard.className=newCard.className;
+  if(hasCamera)oldCard.classList.add('camera-seat');
+  if(newCard.hasAttribute('aria-current'))oldCard.setAttribute('aria-current',newCard.getAttribute('aria-current'));
+  else oldCard.removeAttribute('aria-current');
+
+  const oldAvatar=oldCard.querySelector(':scope > .avatar');
+  const newAvatar=newCard.querySelector(':scope > .avatar');
+  if(!oldAvatar||!newAvatar)return false;
+  // Nunca removemos <video class="camera-video"> nem trocamos o elemento
+  // avatar, pois ele contém os listeners de ampliação da câmera.
+  const staticChildren=[...oldAvatar.children].filter(el=>!el.matches('video.camera-video'));
+  const oldMarkup=staticChildren.map(el=>el.outerHTML).join('');
+  if(oldMarkup!==newAvatar.innerHTML){
+    staticChildren.forEach(el=>el.remove());
+    [...newAvatar.childNodes].forEach(node=>oldAvatar.insertBefore(node,oldAvatar.querySelector('video.camera-video')));
+  }
+
+  // Nome, status e contador podem mudar independentemente do stream.
+  for(const selector of [':scope > .player-meta',':scope > .card-count-badge']){
+    const current=oldCard.querySelector(selector),incoming=newCard.querySelector(selector);
+    if(!current||!incoming)continue;
+    if(current.className!==incoming.className)current.className=incoming.className;
+    if(current.innerHTML!==incoming.innerHTML)current.innerHTML=incoming.innerHTML;
+    if(incoming.hasAttribute('aria-label'))current.setAttribute('aria-label',incoming.getAttribute('aria-label'));
+    else current.removeAttribute('aria-label');
+  }
+  return true;
+}
 function renderPlayers(){
-  const ring=$('#playersRing');ring.innerHTML='';
+  const ring=$('#playersRing');
+  const existing=new Map([...ring.querySelectorAll(':scope > .player-seat')]
+    .map(seat=>[seat.dataset.cameraPlayerId,seat]));
   const mobile=window.innerWidth<=900;
   const orderedPlayers=playerDisplayOrderFromMe();
   const queue=playerTurnQueue();
   syncFixedSeatAssignments(orderedPlayers);
+  const currentIds=new Set();
   orderedPlayers.forEach((p,i)=>{
+    const id=String(p.id);
+    currentIds.add(id);
     const d=document.createElement('div');d.className='player-seat'+(p.id===state.me.id?' self-seat':'');
     const spot=fixedPlayerSpot(p,mobile);
-    d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';d.dataset.cameraPlayerId=String(p.id);
+    d.style.left=spot[0]+'%';d.style.top=spot[1]+'%';d.dataset.playerName=p.name||'Jogador';d.dataset.cameraPlayerId=id;
     const isCurrent=state.status==='playing'&&!state.paused&&state.currentPlayerId===p.id;
     const active=isCurrent?' active':'';
     const waitingReconnect=!p.isBot&&!p.connected&&!p.autoControlled;
@@ -3646,16 +3702,18 @@ function renderPlayers(){
     const arrowSide=spot[1]<50?'below':'above';
     const arrowGlyph=spot[1]<50?'↑':'↓';
     const nextArrow=nextTurn?`<div class="next-turn-arrow ${arrowSide}" aria-label="Próximo jogador">${arrowGlyph} PRÓXIMO</div>`:'';
-    // O turno atual ja esta no banner central e no destaque visual do assento.
-    // Nao repetir SUA VEZ / VEZ DE sobre o avatar.
+    // Mantém o aviso SUA VEZ somente no banner, não na ficha do jogador.
     if(nextTurn)d.classList.add('next-turn-seat');
     if(isCurrent)d.classList.add('current-turn-seat');
-    // PRÓXIMO aparece uma unica vez, na seta proxima ao jogador.
-    // Conservamos apenas os demais indicadores de ordem (3º, 4º, 5º).
     const orderBadge=!isCurrent&&!nextTurn&&orderText?`<div class="player-order-badge">${esc(orderText)}</div>`:'';
     d.innerHTML=`${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"${isCurrent?' aria-current="true"':''}><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
-    ring.appendChild(d);
+    const previous=existing.get(id);
+    if(!previous||!syncPlayerSeat(previous,d)){
+      if(previous)previous.replaceWith(d);
+      else ring.appendChild(d);
+    }
   });
+  for(const [id,seat] of existing){if(!currentIds.has(id))seat.remove();}
   window.MauCamera?.renderIntoSeats();
 }
 function renderScore(){
