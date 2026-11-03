@@ -3060,3 +3060,58 @@ button.bot-primary{
   #game .room-chip{flex:1 1 120px!important;min-width:120px!important;font-size:8.2px!important;padding:4px 7px!important}
   #game .status-chip{flex:1 1 132px!important;min-width:132px!important;font-size:8px!important;padding:4px 7px!important}
 }
+
+/* V52.3 — Mesa e cartas um pouco maiores em celulares na vertical.
+   Mantém os três botões de ação em uma linha, o scroll da mão e as
+   proporções do tabuleiro. Não se aplica a tablet/desktop nem à paisagem. */
+@media (max-width: 560px) and (orientation: portrait){
+  #game .table-shell{
+    padding-left:4px!important;
+    padding-right:4px!important;
+  }
+  #game .felt{
+    height:clamp(405px,57svh,495px)!important;
+    border-radius:30px!important;
+  }
+  #game .piles{gap:16px!important}
+  #game .pile{
+    width:84px!important;
+    height:121px!important;
+  }
+  #game #discardPile .playing-card{
+    width:81px!important;
+    height:117px!important;
+  }
+  #game .back-card .back-m{
+    width:55px!important;
+    height:55px!important;
+    font-size:38px!important;
+  }
+  /* Mão ligeiramente ampliada, mantendo a rolagem horizontal existente. */
+  #game .hand .playing-card{
+    width:76px!important;
+    height:109px!important;
+    flex-basis:76px!important;
+  }
+  #game .hand{
+    min-height:123px!important;
+    padding-top:8px!important;
+    padding-bottom:5px!important;
+  }
+  #game .hand-panel{max-height:205px!important}
+}
+/* Evita apertar o baralho e a mão em aparelhos bem estreitos. */
+@media (max-width: 390px) and (orientation: portrait){
+  #game .felt{height:clamp(395px,56svh,460px)!important}
+  #game .piles{gap:13px!important}
+  #game .pile{width:80px!important;height:115px!important}
+  #game #discardPile .playing-card{width:77px!important;height:111px!important}
+  #game .back-card .back-m{width:51px!important;height:51px!important;font-size:35px!important}
+  #game .hand .playing-card{width:71px!important;height:103px!important;flex-basis:71px!important}
+  #game .hand{min-height:117px!important}
+  #game .hand-panel{max-height:195px!important}
+}
+/* Telas baixas: prioriza a mão e evita que o feltro cubra controles. */
+@media (max-width: 560px) and (max-height: 720px) and (orientation: portrait){
+  #game .felt{height:clamp(370px,54svh,410px)!important}
+}
