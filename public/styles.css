@@ -4060,3 +4060,250 @@ button.bot-primary{
     flex:none!important;
   }
 }
+
+/* =============================================================
+   V52.8.4 — TELA DA PARTIDA MOBILE (referência 03/11/2026)
+   Consolidação visual final para celular em pé. Apenas CSS:
+   mesa mais larga, adversário e avisos centralizados, cartas e
+   mão próximas. Desktop, lógica, IDs e modo Observador preservados.
+   ============================================================= */
+@media (max-width: 560px) and (orientation: portrait) {
+  /* Evita a margem direita de 14px herdada do painel de desktop. */
+  #game:not(.spectator-mode) .table-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+    padding: 5px 3px calc(9px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #game:not(.spectator-mode) .felt {
+    width: 100% !important;
+    height: clamp(400px, 115vw, 475px) !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    border-width: 8px !important;
+    border-radius: 32% / 24% !important;
+    overflow: hidden !important;
+    background:
+      radial-gradient(ellipse at 50% 43%, rgba(39,164,105,.22), transparent 55%),
+      radial-gradient(ellipse at center, #136d4c 0%, #0b553b 61%, #063322 100%) !important;
+    box-shadow: inset 0 0 0 3px #c5914b, inset 0 0 0 5px rgba(255,221,140,.08),
+      inset 0 0 55px rgba(0,0,0,.35), 0 8px 20px rgba(0,0,0,.37) !important;
+  }
+  #game:not(.spectator-mode) .felt:before { inset: 14px !important; }
+  #game:not(.spectator-mode) .felt:after { inset: 11px !important; }
+
+  /* Nomes/contadores ficam nos assentos existentes; sem novos elementos. */
+  #game:not(.spectator-mode) .players-ring:not(:has(.player-seat:nth-child(4))) .player-card {
+    max-width: min(174px, 49vw) !important;
+    gap: 5px !important;
+    padding: 5px 6px !important;
+  }
+  #game:not(.spectator-mode) .players-ring:not(:has(.player-seat:nth-child(4))) .player-meta,
+  #game:not(.spectator-mode) .players-ring:not(:has(.player-seat:nth-child(4))) .player-name {
+    max-width: 65px !important;
+  }
+  #game:not(.spectator-mode) .players-ring:not(:has(.player-seat:nth-child(4))) .player-name {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 9.5px !important;
+  }
+  #game:not(.spectator-mode) .next-turn-arrow {
+    max-width: 106px !important;
+    font-size: 9px !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Cartas da mesa + informações num único bloco central vertical. */
+  #game:not(.spectator-mode) .center-zone {
+    padding: 92px 6px 24px !important;
+    gap: 0 !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+  }
+  #game:not(.spectator-mode) .turn-banner {
+    max-width: min(86%, 274px) !important;
+    min-width: min(180px, 69%) !important;
+    padding: 8px 11px !important;
+    margin: 0 0 9px !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+  #game:not(.spectator-mode) .piles {
+    gap: clamp(12px, 4vw, 18px) !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+  }
+  #game:not(.spectator-mode) .pile {
+    width: clamp(89px, 25vw, 103px) !important;
+    height: clamp(132px, 37.5vw, 152px) !important;
+  }
+  #game:not(.spectator-mode) #discardPile .playing-card {
+    width: clamp(87px, 25vw, 103px) !important;
+    height: clamp(130px, 37vw, 150px) !important;
+  }
+  #game:not(.spectator-mode) .back-card .back-m {
+    width: clamp(54px, 14vw, 64px) !important;
+    height: clamp(54px, 14vw, 64px) !important;
+    font-size: clamp(37px, 10vw, 45px) !important;
+  }
+  #game:not(.spectator-mode) .suit-request,
+  #game:not(.spectator-mode) .penalty,
+  #game:not(.spectator-mode) #drawChoice {
+    box-sizing: border-box !important;
+    max-width: min(91%, 308px) !important;
+    margin-top: 10px !important;
+    padding: 7px 10px !important;
+    font-size: 11.5px !important;
+    line-height: 1.25 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+  #game:not(.spectator-mode) .host-controls {
+    max-width: 94% !important;
+    margin-top: 9px !important;
+  }
+  #game:not(.spectator-mode) .host-controls .room-public-control {
+    min-height: 33px !important;
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+  }
+
+  /* Painel e cartas seguem imediatamente após a borda inferior da mesa. */
+  #game:not(.spectator-mode) .hand-panel {
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 7px 5px 6px !important;
+    max-height: none !important;
+    border-radius: 15px !important;
+    overflow: visible !important;
+  }
+  #game:not(.spectator-mode) .hand-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) !important;
+    gap: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  #game:not(.spectator-mode) .hand-owner-row { min-width: 0 !important; }
+  #game:not(.spectator-mode) #meLabel,
+  #game:not(.spectator-mode) #handCount { font-size: 11px !important; }
+  #game:not(.spectator-mode) .sort-hand-btn {
+    min-width: 54px !important;
+    min-height: 30px !important;
+    padding: 4px 7px !important;
+    font-size: 9px !important;
+    border-radius: 999px !important;
+  }
+  #game:not(.spectator-mode) .toolbar-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 5px !important;
+    width: 100% !important;
+  }
+  #game:not(.spectator-mode) #passTurnBtn { grid-column: auto !important; }
+  #game:not(.spectator-mode) .toolbar-actions button {
+    min-width: 0 !important;
+    min-height: 38px !important;
+    padding: 5px 3px !important;
+    font-size: clamp(7.4px, 2.05vw, 9px) !important;
+    line-height: 1.08 !important;
+    border-radius: 11px !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+  #game:not(.spectator-mode) .hand {
+    box-sizing: border-box !important;
+    min-height: 155px !important;
+    gap: 0 !important;
+    padding: 6px 2px 5px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    touch-action: pan-x !important;
+  }
+  #game:not(.spectator-mode) .hand .playing-card {
+    box-sizing: border-box !important;
+    width: clamp(82px, 25.2vw, 108px) !important;
+    height: clamp(128px, 36.5vw, 156px) !important;
+    flex: 0 0 clamp(82px, 25.2vw, 108px) !important;
+  }
+  #game:not(.spectator-mode) .hand .playing-card:not(:first-child) { margin-left: -9px !important; }
+}
+
+/* A tela pode rolar verticalmente em rodadas com mensagens/controles extras;
+   não escondemos funções só para encaixar no espaço da foto. */
+@media (max-width: 560px) and (orientation: portrait) {
+  #game:not(.spectator-mode) .felt:has(#drawChoice:not(.hidden)),
+  #game:not(.spectator-mode) .felt:has(#sevenPenalty:not(.hidden)) {
+    height: max(510px, 130vw) !important;
+  }
+  #game:not(.spectator-mode) .felt:has(#hostControls > :nth-child(3)) {
+    height: max(560px, 145vw) !important;
+  }
+}
+@media (max-width: 355px) and (orientation: portrait) {
+  #game:not(.spectator-mode) .felt { height: 402px !important; }
+  #game:not(.spectator-mode) .center-zone { padding: 84px 4px 20px !important; }
+  #game:not(.spectator-mode) .piles { gap: 10px !important; }
+  #game:not(.spectator-mode) .turn-banner,
+  #game:not(.spectator-mode) .suit-request,
+  #game:not(.spectator-mode) .penalty,
+  #game:not(.spectator-mode) #drawChoice { font-size: 10.5px !important; }
+}
+
+/* V52.8.4 — ajuste fino das distâncias da referência de mesa com 2 jogadores.
+   Preserva a posição lógica de cada cadeira e evita alterar vídeos ativos. */
+@media (max-width: 560px) and (orientation: portrait) {
+  #game:not(.spectator-mode) .center-zone {
+    padding-top: 107px !important;
+  }
+  #game:not(.spectator-mode) .turn-banner {
+    margin-bottom: 18px !important;
+  }
+  #game:not(.spectator-mode) .host-controls {
+    margin-top: 14px !important;
+  }
+  #game:not(.spectator-mode) .players-ring:has(> .player-seat:nth-child(2):last-child)
+  > .player-seat:not(.self-seat):not(.camera-visible) {
+    transform: translate(-50%, calc(-50% + 11px)) !important;
+  }
+}
+@media (max-width: 355px) and (orientation: portrait) {
+  /* Celular muito estreito: devolve alguns pixels ao conteúdo da mesa. */
+  #game:not(.spectator-mode) .center-zone { padding-top: 90px !important; }
+}
+
+/* Proteção visual para mesas com 4 ou 5 cadeiras: a ficha da lateral
+   não deve ser cortada pelo contorno oval, nem o aviso cobrir o turno. */
+@media (max-width: 560px) and (orientation: portrait) {
+  #game:not(.spectator-mode) .players-ring:has(> .player-seat:nth-child(4))
+  > .player-seat:nth-child(2):not(.camera-visible) {
+    transform: translate(calc(-50% + 14px), -50%) !important;
+  }
+  #game:not(.spectator-mode) .players-ring:has(> .player-seat:nth-child(4))
+  > .player-seat:last-child:not(.camera-visible) {
+    transform: translate(calc(-50% - 14px), -50%) !important;
+  }
+  #game:not(.spectator-mode) .players-ring:has(> .player-seat:nth-child(4)) .next-turn-arrow {
+    min-width: 68px !important;
+    padding: 3px 5px !important;
+    font-size: 7.5px !important;
+  }
+  #game:not(.spectator-mode) .players-ring:has(> .player-seat:nth-child(4))
+  + .center-zone .turn-banner {
+    min-width: min(140px, 60%) !important;
+    max-width: min(60%, 195px) !important;
+  }
+  /* Controles e explicações do intervalo não devem encostar na borda. */
+  #game:not(.spectator-mode) .felt:has(#hostControls > :nth-child(3)) {
+    height: max(610px, 156vw) !important;
+  }
+}
