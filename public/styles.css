@@ -2856,3 +2856,8 @@ button.bot-primary{
 #game.spectator-mode #spectatorDrawerActivity .side-tabs {
   display:none!important;
 }
+
+/* Simplificacao visual: a ficha local traz a contagem no desktop;
+   no celular a ficha e ocultada, por isso o total aparece na mao. */
+#game .hand-owner #handCount{display:none}
+@media(max-width:900px){#game .hand-owner #handCount{display:inline}}

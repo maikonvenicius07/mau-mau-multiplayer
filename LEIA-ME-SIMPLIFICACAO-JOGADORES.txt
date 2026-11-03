@@ -1,0 +1,17 @@
+MAU-MAU CANDEIAS — SIMPLIFICAÇÃO VISUAL DOS JOGADORES
+
+BASE: Projeto completo Observador Etapa 3.
+
+ALTERAÇÕES:
+1. Não duplica o aviso SUA VEZ / VEZ DE sobre o jogador. Mantém banner central, borda ativa e destaque de turno.
+2. Não duplica PRÓXIMO dentro da ficha do jogador. Mantém seta PRÓXIMO e borda verde.
+3. Na barra da mão, substitui o nome repetido por 🃏 Suas cartas. No desktop, esconde a contagem duplicada; no celular, mostra o total porque a ficha do jogador fica oculta.
+4. Preserva nome e quantidade de cartas na ficha do jogador, placar e posições das cadeiras.
+5. Não altera regras, motor, torneios, banco, câmera, áudio ou observador.
+
+PARA INSTALAR: Substitua public/app.js, public/index.html, public/styles.css e o teste
+tests/current-turn-visual.test.js; adicione tests/player-information-no-duplicates.test.js.
+Faça commit no GitHub e confirme o deploy do Render. Atualize com Ctrl+F5.
+Verifique mesa com 2, 3 e 5 jogadores e a virada do sentido da jogada.
+
+Os testes locais não substituem uma partida real no Render.

@@ -3419,7 +3419,9 @@ function render(){
   syncSpectatorCompactUI();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
-  $('#meLabel').innerHTML=`${avatarHTML(state.me.avatar,'sm')} <span>${esc(state.me.name)}</span>`;$('#handCount').textContent=spectator?'• OBSERVADOR':`• ${state.me.hand.length} carta(s)`;
+  // O nome e a quantidade de cartas ja aparecem no assento do jogador.
+  // A mao mostra a contagem somente no celular, onde a ficha local da mesa fica oculta.
+  $('#meLabel').textContent='🃏 Suas cartas';$('#handCount').textContent=spectator?'':` • ${state.me.hand.length} carta(s)`;
   $('#handPanel')?.classList.toggle('hidden',spectator);
   $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
   renderSpectatorLivePanel();
@@ -3536,12 +3538,14 @@ function renderPlayers(){
     const arrowSide=spot[1]<50?'below':'above';
     const arrowGlyph=spot[1]<50?'↑':'↓';
     const nextArrow=nextTurn?`<div class="next-turn-arrow ${arrowSide}" aria-label="Próximo jogador">${arrowGlyph} PRÓXIMO</div>`:'';
-    const currentTurnText=p.id===state.me.id?'SUA VEZ':`VEZ DE ${p.name||'JOGADOR'}`;
-    const currentTurnIndicator=isCurrent?`<div class="current-turn-indicator ${arrowSide}" aria-label="${esc(currentTurnText)}"><span class="current-turn-dot" aria-hidden="true"></span>${esc(currentTurnText)}</div>`:'';
+    // O turno atual ja esta no banner central e no destaque visual do assento.
+    // Nao repetir SUA VEZ / VEZ DE sobre o avatar.
     if(nextTurn)d.classList.add('next-turn-seat');
     if(isCurrent)d.classList.add('current-turn-seat');
-    const orderBadge=!isCurrent&&orderText?`<div class="player-order-badge ${nextTurn?'next':''}">${esc(orderText)}</div>`:'';
-    d.innerHTML=`${currentTurnIndicator}${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"${isCurrent?' aria-current="true"':''}><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
+    // PRÓXIMO aparece uma unica vez, na seta proxima ao jogador.
+    // Conservamos apenas os demais indicadores de ordem (3º, 4º, 5º).
+    const orderBadge=!isCurrent&&!nextTurn&&orderText?`<div class="player-order-badge">${esc(orderText)}</div>`:'';
+    d.innerHTML=`${nextArrow}<div class="player-card${active}${disc}${auto}${countClass}${nextTurn?' next-turn':''}"${isCurrent?' aria-current="true"':''}><span class="avatar">${avatarHTML(p.avatar,'md')}</span><div class="player-meta"><div class="player-name">${p.host?'<span class="crown">★</span> ':''}${esc(p.name)}${bot}${autoTag}${liveMicTag}${you}</div><div class="player-stats">${p.score} pts${reconnectTag}</div>${orderBadge}</div><div class="card-count-badge${countClass}" aria-label="${p.cardCount} ${countWord.toLowerCase()}"><strong>${p.cardCount}</strong><span>${countWord}</span></div></div>`;
     ring.appendChild(d);
   });
   window.MauCamera?.renderIntoSeats();
