@@ -3484,3 +3484,248 @@ button.bot-primary{
     padding:46px 6px 34px!important;
   }
 }
+
+/* =============================================================
+   V52.8 — LAYOUT MOBILE REAL, baseado na referência visual
+   Corrige a mesa achatada, a distância até a mão e o corte de
+   avisos. Somente a apresentação no celular vertical é afetada.
+   ============================================================= */
+@media (max-width: 560px) and (orientation: portrait) {
+  /* Mesa e mão seguem a ordem normal da página: não deixar um
+     painel fixo cobrir cartas ou gerar uma grande faixa vazia. */
+  #game .table-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    min-height: 0 !important;
+    padding: 8px 7px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    overflow: visible !important;
+  }
+  #game .felt {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: clamp(425px, calc(100svh - 375px), 545px) !important;
+    min-height: 425px !important;
+    margin: 0 !important;
+    border: 9px solid #744623 !important;
+    border-radius: 46% / 27% !important;
+    background:
+      radial-gradient(ellipse at 50% 43%, rgba(48,170,110,.22), transparent 56%),
+      radial-gradient(ellipse at center, #116d49 0%, #095438 62%, #062c20 100%) !important;
+    box-shadow: inset 0 0 0 3px #ce9a53,
+      inset 0 0 0 6px rgba(255,226,142,.08),
+      inset 0 0 70px rgba(0,0,0,.40),
+      0 12px 28px rgba(0,0,0,.45) !important;
+  }
+  #game .felt:before { inset: 17px !important; border-radius: inherit !important; }
+  #game .felt:after { inset: 12px !important; border-radius: inherit !important; }
+
+  #game .center-zone {
+    justify-content: center !important;
+    gap: 0 !important;
+    padding: 87px 9px 28px !important;
+    min-width: 0 !important;
+  }
+  #game .turn-banner {
+    flex: 0 0 auto !important;
+    max-width: min(90%, 300px) !important;
+    min-width: min(195px, 75%) !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-align: center !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    padding: 8px 11px !important;
+    margin: 0 0 9px !important;
+    border-radius: 999px !important;
+  }
+  #game .piles { gap: 16px !important; flex-shrink: 0 !important; }
+  #game .pile { width: 91px !important; height: 131px !important; }
+  #game #discardPile .playing-card { width: 89px !important; height: 128px !important; }
+  #game .back-card .back-m { width: 55px !important; height: 55px !important; font-size: 39px !important; }
+
+  #game .suit-request,
+  #game .penalty,
+  #game #drawChoice {
+    flex: 0 0 auto !important;
+    width: max-content !important;
+    max-width: min(92%, 310px) !important;
+    margin: 9px 0 0 !important;
+    padding: 8px 10px !important;
+    text-align: center !important;
+    line-height: 1.25 !important;
+    font-size: 11px !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    border-radius: 11px !important;
+  }
+  #game .host-controls { margin-top: 9px !important; max-width: 94% !important; }
+  #game .host-controls .room-public-control {
+    max-width: 100% !important;
+    min-height: 34px !important;
+    font-size: 11px !important;
+    padding: 7px 11px !important;
+  }
+
+  /* Jogadores permanecem nos assentos e não cobrem o aviso central. */
+  #game .player-seat { max-width: 134px !important; }
+  #game .player-card { max-width: 128px !important; gap: 4px !important; padding: 5px 5px !important; }
+  #game .player-name { max-width: 49px !important; font-size: 9px !important; }
+  #game .player-meta { max-width: 49px !important; }
+  #game .next-turn-arrow { min-width: 82px !important; padding: 4px 8px !important; }
+
+  #game .hand-panel {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 18px !important;
+    padding: 8px 9px 8px !important;
+  }
+  #game .hand-toolbar { margin-bottom: 5px !important; }
+  #game .toolbar-actions { gap: 5px !important; }
+  #game .toolbar-actions button {
+    min-width: 0 !important;
+    min-height: 39px !important;
+    font-size: 8px !important;
+    padding: 5px 3px !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.13 !important;
+  }
+  #game .hand {
+    min-height: 145px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 7px 9px 6px !important;
+    scrollbar-width: thin;
+    scrollbar-color: #8e734a transparent;
+  }
+  #game .hand .playing-card {
+    flex: 0 0 clamp(86px, 24vw, 102px) !important;
+    width: clamp(86px, 24vw, 102px) !important;
+    height: clamp(122px, 35vw, 146px) !important;
+  }
+  #game .hand .playing-card:not(:first-child) { margin-left: -12px !important; }
+}
+
+/* Avisos longos e controles de fim de rodada exigem espaço extra:
+   aumentamos a mesa, não escondemos o texto. */
+@media (max-width: 560px) and (orientation: portrait) {
+  #game .felt:has(#drawChoice:not(.hidden)),
+  #game .felt:has(#sevenPenalty:not(.hidden)) {
+    height: clamp(475px, calc(100svh - 330px), 610px) !important;
+  }
+  #game .felt:has(#hostControls > :nth-child(3)) {
+    height: clamp(490px, calc(100svh - 320px), 650px) !important;
+  }
+}
+@media (max-width: 390px) and (orientation: portrait) {
+  #game .felt { height: clamp(415px, calc(100svh - 365px), 510px) !important; min-height: 415px !important; }
+  #game .center-zone { padding: 80px 5px 25px !important; }
+  #game .piles { gap: 13px !important; }
+  #game .pile { width: 86px !important; height: 125px !important; }
+  #game #discardPile .playing-card { width: 83px !important; height: 121px !important; }
+  #game .back-card .back-m { width: 52px !important; height: 52px !important; font-size: 36px !important; }
+  #game .turn-banner,
+  #game .suit-request,
+  #game .penalty,
+  #game #drawChoice { font-size: 10.5px !important; }
+  #game .felt:has(#drawChoice:not(.hidden)),
+  #game .felt:has(#sevenPenalty:not(.hidden)) {
+    height: clamp(465px, calc(100svh - 330px), 590px) !important;
+  }
+  #game .felt:has(#hostControls > :nth-child(3)) {
+    height: clamp(480px, calc(100svh - 320px), 620px) !important;
+  }
+}
+
+/* Acabamentos de legibilidade da V52.8 */
+@media (max-width: 560px) and (orientation: portrait) {
+  /* Evita que 'Número' apareça espremido no seletor da mão. */
+  #game .sort-hand-btn {
+    box-sizing: border-box !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 68px !important;
+    min-height: 32px !important;
+    padding: 5px 8px !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+  #game .sort-hand-btn::before { content: none !important; display: none !important; }
+  #game .hand-owner-row { min-width:0 !important; }
+  #game .hand-owner { overflow: hidden !important; }
+  #game .hand-owner strong, #game #handCount { font-size: 11px !important; white-space:nowrap!important; }
+
+  /* A versão anterior escondia todo o nome em <=390px. */
+  #game .players-ring .player-card { max-width: 146px !important; }
+  #game .players-ring .player-meta {
+    display:flex!important;
+    flex-direction:column!important;
+    max-width: 55px !important;
+    overflow: hidden !important;
+  }
+  #game .players-ring .player-name {
+    display:block!important;
+    max-width:55px!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    overflow:visible!important;
+    font-size:9px!important;
+    line-height:1.1!important;
+  }
+  /* Em mesas com 4-5 participantes, cadeiras mais compactas e
+     nomes de até duas linhas, evitando colisões nas bordas. */
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-card { max-width: 114px !important; }
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-meta { max-width: 39px !important; }
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-name {
+    max-width:39px!important;
+    font-size:8px!important;
+    line-height:1.05!important;
+    max-height: 2.2em!important;
+    overflow:hidden!important;
+  }
+  #game .players-ring:has(.player-seat:nth-child(4)) .card-count-badge {
+    min-width:34px!important;
+    width:34px!important;
+  }
+}
+
+@media (max-width: 560px) and (orientation: portrait) {
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-name {
+    white-space: nowrap !important;
+    font-size: 7.5px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+    max-height: none !important;
+  }
+}
+@media (max-width: 350px) and (orientation: portrait) {
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-card {
+    max-width: 96px !important;
+    gap: 2px !important;
+    padding: 4px 3px !important;
+  }
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-card .avatar {
+    width: 25px !important;
+    height: 25px !important;
+  }
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-meta,
+  #game .players-ring:has(.player-seat:nth-child(4)) .player-name {
+    max-width: 32px !important;
+  }
+  #game .players-ring:has(.player-seat:nth-child(4)) .card-count-badge {
+    width: 30px !important;
+    min-width: 30px !important;
+  }
+}

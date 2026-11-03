@@ -3520,12 +3520,12 @@ function visualSeatLayout(count){
   const desktop=count===2?[[50,88],[50,12]]:count===3?[[50,88],[22,18],[78,18]]:count===4?[[50,88],[14,48],[50,12],[86,48]]:[[50,88],[12,36],[31,11],[69,11],[88,36]];
   // Mobile: sobe mais os oponentes e abre um pouco as laterais.
   // Isso libera a área central da mesa e evita corte/encavalamento de banners.
-  const mobile=count===2?[[50,90],[50,10]]:count===3?[[50,90],[21,15],[79,15]]:count===4?[[50,90],[13,19],[50,9],[87,19]]:[[50,90],[11,20],[33,8],[67,8],[89,20]];
+  const mobile=count===2?[[50,90],[50,10]]:count===3?[[50,90],[21,15],[79,15]]:count===4?[[50,90],[19,19],[50,9],[81,19]]:[[50,90],[18,20],[33,8],[67,8],[82,20]];
   return desktop.map((spot,i)=>({desktop:spot,mobile:mobile[i]||spot}));
 }
 function fixedSeatCandidatePool(){
   const desktop=[[50,88],[14,48],[50,12],[86,48],[31,11],[69,11],[12,36],[88,36],[22,18],[78,18]];
-  const mobile=[[50,90],[13,19],[50,9],[87,19],[33,8],[67,8],[11,20],[89,20],[21,15],[79,15]];
+  const mobile=[[50,90],[19,19],[50,9],[81,19],[33,8],[67,8],[18,20],[82,20],[21,15],[79,15]];
   return desktop.map((spot,i)=>({desktop:spot,mobile:mobile[i]}));
 }
 function seatDistanceSq(a,b){const dx=a[0]-b[0],dy=a[1]-b[1];return dx*dx+dy*dy}
