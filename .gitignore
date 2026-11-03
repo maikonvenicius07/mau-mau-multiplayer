@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Arquivos locais/temporários que não devem entrar no projeto
+*.zip
+*.bak
+*.tmp
+*.log
+coverage/
+.vscode/
+.idea/
