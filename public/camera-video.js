@@ -10,7 +10,10 @@
   let sdkPromise=null, room=null, connecting=null, roomCode='', joinedRoomCode='', publishing=false;
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
+  // FASE 2B: evita reconstruir o <video> quando LiveKit reapresenta a mesma faixa.
+  const videoTrackRefs=new Map(); // identidade da MediaStreamTrack, sem persistência.
   let localPreview=null;
+  let lastPreviewPlayAttemptAt=0; // Intervalo entre tentativas se autoplay permanecer pausado.
   let expandedPlayerId=null;
   let lastExpandedTrigger=null;
   function closeExpanded(restoreFocus=false){
@@ -82,6 +85,7 @@
   function updateButton(){
     const button=document.getElementById('liveCameraBtn');if(!button)return;
     const active=!!getState()&&!!code();
+    const wasHidden=button.classList.contains('hidden');
     button.classList.toggle('hidden',!active);
     button.disabled=!enabled||busy||!socket?.connected;
     button.classList.toggle('camera-on',publishing);
@@ -90,7 +94,7 @@
     if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':isSpectator()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(publishing?'DESLIGAR CÂMERA':'LIGAR CÂMERA');
     button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':publishing?'Desligar câmera e voltar ao avatar.':'Ligar câmera ao vivo; a câmera não é gravada.';
     button.setAttribute('aria-label',button.title);
-    if(active)window.MauCameraFloating?.reclamp('button');
+    if(active&&wasHidden)window.MauCameraFloating?.reclamp('button');
     updateSwitchButton();
   }
   function removeVideo(id){
@@ -105,22 +109,32 @@
     }
     try{element.pause();element.srcObject=null;element.remove();}catch{}
     videoNodes.delete(id);
+    videoTrackRefs.delete(id);
   }
   function clearVideo(){
     closeExpanded();
     for(const id of [...videoNodes.keys()])removeVideo(id);
     if(localPreview){try{localPreview.pause();localPreview.srcObject=null;localPreview.remove()}catch{}localPreview=null;}
+    lastPreviewPlayAttemptAt=0;
     document.getElementById('cameraSelfPreview')?.classList.add('hidden');
     updateSwitchButton();
   }
   function createVideo(id,track){
     if(!track?.mediaStreamTrack)return;
+    // Mesmo player + mesma faixa de vídeo: reaproveita o elemento e não
+    // reinicia srcObject/play(). Para uma faixa nova preserva o fluxo anterior.
+    if(videoNodes.has(id)&&videoTrackRefs.get(id)===track.mediaStreamTrack){
+      renderIntoSeats();
+      syncExpanded();
+      return;
+    }
     removeVideo(id);
     const video=document.createElement('video');
     video.className='camera-video';video.muted=true;video.autoplay=true;video.playsInline=true;
     video.setAttribute('playsinline','');video.setAttribute('aria-label','Vídeo ao vivo do jogador');
     video.srcObject=new MediaStream([track.mediaStreamTrack]);
     videoNodes.set(id,video);
+    videoTrackRefs.set(id,track.mediaStreamTrack);
     renderIntoSeats();
     syncExpanded();
     video.play().catch(()=>{});
@@ -134,12 +148,16 @@
   }
   function renderIntoSeats(){
     const ring=document.getElementById('playersRing');
-    if(!ring||!getState())return;
-    const valid=new Set((getState().players||[]).filter(p=>!p.isBot&&p.connected&&!p.autoControlled).map(p=>String(p.id)));
+    const state=getState();
+    if(!ring||!state)return;
+    const myId=String(state.me?.id||'');
+    const valid=new Set((state.players||[]).filter(p=>!p.isBot&&p.connected&&!p.autoControlled).map(p=>String(p.id)));
+    // Uma busca de assentos por atualização (antes: uma busca por vídeo).
+    const seatById=new Map([...ring.querySelectorAll('.player-seat')]
+      .map(seat=>[seat.dataset.cameraPlayerId,seat]));
     for(const [id,video] of videoNodes){
-      if(!valid.has(id) && id!==String(me()?.id||'')){removeVideo(id);continue;}
-      const seats=[...ring.querySelectorAll('.player-seat')];
-      const seat=seats.find(el=>el.dataset.cameraPlayerId===id);
+      if(!valid.has(id) && id!==myId){removeVideo(id);continue;}
+      const seat=seatById.get(id);
       const avatar=seat?.querySelector('.player-card .avatar');
       if(avatar){
         avatar.classList.add('camera-streaming');
@@ -149,7 +167,7 @@
         else if(seatLeft>78)seat.classList?.add('camera-edge-right');
         avatar.closest?.('.player-card')?.classList.add('camera-seat');
         if(video.parentElement!==avatar)avatar.appendChild(video);
-        if(id!==String(me()?.id||'')){
+        if(id!==myId){
           avatar.setAttribute('role','button');
           avatar.tabIndex=0;
           avatar.setAttribute('aria-label','Ampliar câmera de '+String(seat.dataset.playerName||'adversário'));
@@ -166,17 +184,29 @@
       }
     }
     const holder=document.getElementById('cameraSelfPreview');
-    const myId=String(me()?.id||''),myVideo=videoNodes.get(myId);
+    const myVideo=videoNodes.get(myId);
     if(holder){
       // V50.2: prévia independente e arrastável em celular E computador.
       // O posicionamento é gerenciado por camera-floating.js, sem alterar a mídia.
       const visible=!!publishing&&!!myVideo;
+      const wasHidden=holder.classList.contains('hidden');
       holder.classList.toggle('hidden',!visible);
-      if(visible)window.MauCameraFloating?.reclamp('preview');
       if(visible&&myVideo?.srcObject){
-        if(!localPreview){localPreview=document.createElement('video');localPreview.className='camera-video';localPreview.muted=true;localPreview.autoplay=true;localPreview.playsInline=true;holder.appendChild(localPreview);}
-        localPreview.srcObject=myVideo.srcObject;localPreview.play().catch(()=>{});
-      }else if(localPreview){localPreview.pause();localPreview.srcObject=null;localPreview.remove();localPreview=null;}
+        const newPreview=!localPreview;
+        if(newPreview){localPreview=document.createElement('video');localPreview.className='camera-video';localPreview.muted=true;localPreview.autoplay=true;localPreview.playsInline=true;holder.appendChild(localPreview);}
+        // Atribuir o mesmo srcObject e chamar play() em cada render é custoso
+        // no celular. Retoma somente ao trocar o stream ou se estiver pausado.
+        const streamChanged=localPreview.srcObject!==myVideo.srcObject;
+        if(streamChanged)localPreview.srcObject=myVideo.srcObject;
+        const now=Date.now();
+        // Em navegadores que impedem autoplay, evita uma nova tentativa
+        // a cada render: outra tentativa somente após 3 segundos.
+        if(streamChanged||(localPreview.paused===true&&now-lastPreviewPlayAttemptAt>=3000)){
+          lastPreviewPlayAttemptAt=now;
+          localPreview.play().catch(()=>{});
+        }
+        if(newPreview||wasHidden)window.MauCameraFloating?.reclamp('preview');
+      }else if(localPreview){localPreview.pause();localPreview.srcObject=null;localPreview.remove();localPreview=null;lastPreviewPlayAttemptAt=0;}
     }
     syncExpanded();
     updateSwitchButton();
