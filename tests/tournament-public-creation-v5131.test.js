@@ -1,0 +1,44 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {TournamentCatalog}=require('../tournament-catalog');
+const {TournamentStore}=require('../tournament-store');
+const {TournamentDraw}=require('../tournament-draw');
+(async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mau-v5131-'));
+ try{
+  const opts={databaseUrl:'',filePath:path.join(dir,'tournaments.json'),signupsFilePath:path.join(dir,'tournament-signups.json')};
+  const cat=new TournamentCatalog(opts),store=new TournamentStore({databaseUrl:'',filePath:opts.signupsFilePath});
+  const draw=new TournamentDraw({databaseUrl:'',filePath:path.join(dir,'tournament-draws.json'),signupsFilePath:opts.signupsFilePath});
+  await store.init();await cat.init();await draw.init();
+  const a=await cat.create({data:{name:'Copa de Ana',capacity:4,startAt:null},actor:'ana'});
+  const b=await cat.create({data:{name:'Copa de Bruno',capacity:4,startAt:null},actor:'bruno'});
+  assert.equal((await cat.get(a.id,{actor:'ana'})).canManage,true);
+  assert.equal((await cat.get(a.id,{actor:'bruno'})).canManage,false);
+  assert.equal((await cat.get(b.id,{actor:'bruno'})).canManage,true);
+  assert.equal((await cat.list({actor:'ana'})).find(t=>t.id===a.id).canManage,true);
+  assert(!JSON.stringify(await cat.list({actor:'ana'})).includes('createdBy'));
+  await assert.rejects(cat.delete({id:a.id,actor:''}),e=>e.status===401);
+  await assert.rejects(cat.delete({id:a.id,actor:'bruno'}),e=>e.status===403);
+  const opened=await cat.update({id:a.id,data:{status:'open'}});
+  await store.change({action:'join',playerKey:'p1',name:'A',config:opened});
+  await store.change({action:'join',playerKey:'p2',name:'B',config:opened});
+  await cat.update({id:a.id,data:{status:'closed'}});
+  await draw.draw(a.id);
+  assert.equal((await draw.get(a.id)).length,1);
+  assert.equal((await store.get({config:opened})).players.length,2);
+  assert.deepEqual(await cat.delete({id:a.id,actor:'ana'}),{id:a.id});
+  assert.equal(await cat.get(a.id),null);
+  assert.deepEqual(await draw.get(a.id),[]);
+  assert.equal((await store.get({config:opened})).players.length,0);
+  await assert.rejects(cat.delete({id:a.id,actor:'ana'}),e=>e.status===404);
+  assert(await cat.get(b.id),'outros campeonatos preservados');
+  const restarted=new TournamentCatalog(opts);await restarted.init();
+  assert.equal(await restarted.get(a.id),null);
+  assert(await restarted.get(b.id));
+  await assert.rejects(cat.delete({id:'copa-candeias-1',actor:'ana'}),e=>e.status===403);
+  console.log('✓ V51.3.1 qualquer conta cria, autor gerencia/exclui, registros vinculados removidos e outros torneios preservados.');
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;});

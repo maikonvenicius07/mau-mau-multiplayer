@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const ui=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
+const segment=ui.slice(ui.indexOf('function renderSpectatorLivePanel(){'),ui.indexOf('  const people=',ui.indexOf('function renderSpectatorLivePanel(){')));
+assert(segment.includes('state.spectatorSeat'), 'A disponibilidade precisa vir do servidor');
+assert(segment.includes('seat.status===\'queued\''), 'O cliente deve restaurar o estado do pedido');
+assert(segment.includes('seat?.queuePosition'), 'A posição na fila deve ser mostrada');
+assert(segment.includes('seatBtn.disabled=requested||!socket.connected||!canRequest'));
+assert(segment.includes("classList.toggle('hidden',!eligible&&!requested)"));
+assert(segment.includes('state.round<Number(state.rules?.rounds||5)'), 'As rodadas 1–4 continuam elegíveis');
+console.log('OK: Observador exibe vagas reais, fila e pedido recuperado do estado do servidor');
