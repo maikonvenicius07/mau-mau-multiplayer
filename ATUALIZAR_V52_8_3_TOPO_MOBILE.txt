@@ -1,0 +1,32 @@
+MAU-MAU CANDEIAS — V52.8.3
+AJUSTE EXCLUSIVO DO TOPO NO CELULAR
+
+O que muda:
+- Cabeçalho mobile organizado em duas faixas, sem uma terceira linha para Rodada.
+- Primeira faixa: marca e ícones principais.
+- Segunda faixa: Vibração, Ajuda, Som, Sala/link e Rodada, todos lado a lado.
+- Ícones mais legíveis, botões com menos preenchimento horizontal e pequenos espaços entre eles.
+- Altura da área compactada para 78 px no teste de navegador (fora as barras do sistema operacional).
+- Em celulares estreitos (até 390 px), o rótulo visual de Som é abreviado para 'Som' ou 'Mudo' (conforme o estado), sem mudar seu texto acessível ou funcionamento.
+- Em telas de até 350 px, a direção aparece pela seta para preservar a indicação de sentido sem cortar Sala/Rodada.
+
+Arquivo modificado:
+public/styles.css
+
+A atualização NÃO modifica:
+public/app.js, public/index.html, server.js, motor do jogo, observador ou regras de cartas.
+Não altera layout de tablets, desktop ou celular em paisagem.
+
+Instalação:
+1. Abra o ZIP de atualização e substitua public/styles.css no GitHub, mantendo a mesma pasta.
+2. Faça o commit e aguarde o deploy ficar Live no Render.
+3. Atualize o navegador; se o topo continuar antigo, faça uma recarga sem cache ou limpe os dados do site/PWA.
+
+Verificações efetuadas:
+- CSS analisado sem erros sintáticos de nível superior.
+- Teste do cabeçalho por navegador em 320, 360, 375, 390, 412, 430 e 560 px:
+  duas linhas, sem colisão de controles ou rolagem horizontal.
+- Teste de comparação do layout em 768 e 1100 px: idêntico ao CSS original.
+- Quatro testes direcionados do repositório passaram.
+- A prévia foi construída a partir dos controles reais, com dados ilustrativos.
+A validação final em partida real no celular permanece necessária.
