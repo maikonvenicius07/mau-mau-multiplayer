@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: mau-mau-multiplayer
-    runtime: node
-    plan: free
-    buildCommand: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi && npm run verify
-    startCommand: npm start
-    healthCheckPath: /ready
