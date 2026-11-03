@@ -2898,3 +2898,109 @@ button.bot-primary{
     display:none;left:10px;right:10px;top:72px;bottom:10px;width:auto;z-index:160;
   }
 }
+
+/* V52.1 — refinamento do layout móvel pedido pelo usuário
+   1) Sala + Rodada sobem e ficam mais compactos.
+   2) Botões da mão cabem em uma única linha para liberar área às cartas. */
+@media (max-width: 560px){
+  #game .topbar{
+    row-gap:3px!important;
+    column-gap:4px!important;
+    padding-top:calc(3px + var(--safe-top))!important;
+    padding-bottom:2px!important;
+    min-height:50px!important;
+  }
+  #game .brand-small{
+    flex:0 1 110px!important;
+    min-width:95px!important;
+    margin-right:2px!important;
+  }
+  #game .brand-small span{width:23px!important;height:28px!important;margin-right:4px!important}
+  #game .brand-small-text strong{font-size:11px!important}
+  #game .brand-small-text small{font-size:6px!important;letter-spacing:.16em!important}
+
+  /* sobe os chips e reduz altura */
+  #game .room-chip,
+  #game .status-chip{
+    order:7!important;
+    flex:1 1 calc(50% - 3px)!important;
+    min-height:24px!important;
+    padding:3px 7px!important;
+    font-size:8.6px!important;
+    line-height:1.05!important;
+    margin-top:-4px!important;
+    align-self:flex-start!important;
+  }
+  #game .room-chip button{padding:0 2px!important}
+  #game .status-chip{order:8!important}
+
+  /* deixa os botões do topo um pouco menores para abrir espaço */
+  #game .connection-chip,
+  #game .leave-btn,
+  #game .icon-btn{
+    min-width:32px!important;
+    min-height:32px!important;
+    width:auto;
+    height:auto;
+  }
+  #game .connection-chip{width:32px!important;height:32px!important}
+  #game .icon-btn{font-size:16px!important}
+
+  /* Mão mais compacta: ações em uma linha */
+  #game .hand-panel{
+    max-height:182px!important;
+    padding:6px 7px 6px!important;
+  }
+  #game .hand-toolbar{
+    grid-template-columns:1fr!important;
+    gap:4px!important;
+    margin-bottom:3px!important;
+  }
+  #game .hand-toolbar > div:first-child{
+    min-width:0!important;
+  }
+  #game #meLabel{font-size:10px!important}
+  #game .hand-owner-row{gap:4px!important}
+  #game .sort-hand-btn{
+    min-height:30px!important;
+    padding:4px 7px!important;
+    font-size:8px!important;
+  }
+  #game .toolbar-actions{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:4px!important;
+    width:100%!important;
+  }
+  #game #passTurnBtn{grid-column:auto!important}
+  #game .toolbar-actions button{
+    min-height:34px!important;
+    padding:4px 3px!important;
+    font-size:7.9px!important;
+    line-height:1.05!important;
+    letter-spacing:-.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #game .hand{
+    min-height:118px!important;
+    padding:7px 10px 4px!important;
+  }
+}
+
+@media (max-width: 390px){
+  #game .room-chip,
+  #game .status-chip{
+    font-size:8.1px!important;
+    padding:3px 6px!important;
+    margin-top:-5px!important;
+  }
+  #game .hand-panel{max-height:174px!important}
+  #game .toolbar-actions button{
+    min-height:32px!important;
+    font-size:7.3px!important;
+    padding:4px 2px!important;
+  }
+  #game .hand{min-height:112px!important}
+}
