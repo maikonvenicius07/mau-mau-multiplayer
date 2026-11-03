@@ -1,0 +1,27 @@
+MAU-MAU CANDEIAS — V52 Painel do jogador sob demanda
+
+Objetivo:
+- Remover a sensação de duplicação na lateral.
+- Esconder o Placar e as informações da Mesa/Chat por padrão.
+- Mostrar esses painéis somente quando o jogador quiser.
+
+O que mudou:
+1. O placar da partida agora começa fechado.
+2. O painel lateral Mesa/Chat agora começa fechado.
+3. Foram adicionados dois botões no topo:
+   - 📊 abre/fecha o Placar da partida;
+   - 📋 abre/fecha as informações da Mesa.
+4. O botão 💬 continua abrindo/fechando o Chat.
+5. Abrir um painel fecha o outro automaticamente, deixando a tela mais limpa.
+6. O placar ganhou botão de fechar (×).
+7. O contador do chat foi ajustado para funcionar corretamente com o painel fechado.
+8. No modo Observador, os novos botões do jogador ficam ocultos e o comportamento especial do observador continua preservado.
+
+Arquivos alterados:
+- public/index.html
+- public/styles.css
+- public/app.js
+
+Como atualizar:
+- Substitua os arquivos acima no seu projeto.
+- Faça o deploy normalmente.

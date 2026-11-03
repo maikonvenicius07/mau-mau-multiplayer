@@ -16,7 +16,7 @@ let state=null, pendingCard=null, pendingBurn=false, pendingDouble=null, soundOn
 const turnVibrationStorage='maumauTurnVibrationV1';
 let turnVibrationOn=localStorage.getItem(turnVibrationStorage)!=='off';
 let yourTurnAlertTimer=null;
-let chatMessages=[], unreadChat=0, activeSideTab='log';
+let chatMessages=[], unreadChat=0, activeSideTab='log', playerAuxOpen=null;
 let leaveRoomPending=false;
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=250*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
@@ -2778,10 +2778,13 @@ async function startQuickAudio(){if(isSpectatorState())return toast('No Modo Obs
 function stopQuickAudio(cancel=false){if(!voiceRecorder||voiceRecorder.state==='inactive'){if(cancel){clearVoiceDraft();setVoiceIdleUI()}return}voiceCancelOnStop=!!cancel;clearVoiceTimers();try{voiceRecorder.stop()}catch{stopVoiceTracks();voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck()}}
 async function sendVoiceDraft(){if(isSpectatorState())return toast('Áudio Rápido não está disponível no Modo Observador.');if(!voiceDraft)return;if(!state||!socket.connected)return toast('Sem conexão com a sala.');const d=voiceDraft;try{const audio=await d.blob.arrayBuffer();if(audio.byteLength>QUICK_AUDIO_MAX_BYTES)throw new Error();socket.emit('voiceMessage',{audio,mime:d.mime,durationMs:d.durationMs});clearVoiceDraft();toast('🎙️ Áudio enviado.')}catch{toast('Não foi possível enviar o áudio. Tente novamente.')}}
 
-$('#chatToggleBtn').onclick=()=>{setSideTab('chat',true)};
-$('#logTabBtn').onclick=()=>setSideTab('log',true);
-$('#chatTabBtn').onclick=()=>setSideTab('chat',true);
-$('#sideCloseBtn').onclick=()=>{if(isSpectatorState()){spectatorDrawerActive=null;syncSpectatorCompactUI()}else $('#sidePanel').classList.remove('open')};
+$('#scoreToggleBtn')?.addEventListener('click',()=>togglePlayerScoreboard());
+$('#tableInfoToggleBtn')?.addEventListener('click',()=>openPlayerSide('log'));
+$('#chatToggleBtn').onclick=()=>openPlayerSide('chat',true);
+$('#logTabBtn').onclick=()=>openPlayerSide('log');
+$('#chatTabBtn').onclick=()=>openPlayerSide('chat',true);
+$('#sideCloseBtn').onclick=()=>{if(isSpectatorState()){spectatorDrawerActive=null;syncSpectatorCompactUI()}else closePlayerAuxPanels()};
+$('#scoreboard')?.addEventListener('click',event=>{if(event.target?.closest?.('#scoreCloseBtn'))closePlayerAuxPanels()});
 $('#voiceRecordBtn').onclick=startQuickAudio;
 $('#voiceStopBtn').onclick=()=>stopQuickAudio(false);
 $('#voiceCancelBtn').onclick=()=>stopQuickAudio(true);
@@ -3109,7 +3112,7 @@ socket.on('inviteStatus',info=>{
 socket.on('chatHistory',messages=>{for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;refreshQuickAudioMusicDuck();renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
   chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
-  const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':($('#sidePanel').classList.contains('open')||window.innerWidth>900);
+  const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':$('#sidePanel').classList.contains('open');
   if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
   renderChat();renderChatBadge();
   if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
@@ -3121,7 +3124,7 @@ socket.on('voiceMessage',message=>{
     const voice={...message,kind:'voice',audio:null,audioUrl:URL.createObjectURL(blob)};
     chatMessages.push(voice);
     while(chatMessages.length>60){const removed=chatMessages.shift();if(removed?.audioUrl)try{URL.revokeObjectURL(removed.audioUrl)}catch{}}
-    const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':($('#sidePanel').classList.contains('open')||window.innerWidth>900);
+    const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':$('#sidePanel').classList.contains('open');
     if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
     renderChat();renderChatBadge();
     if(activeSideTab==='chat'&&panelOpen) unreadChat=0,renderChatBadge();
@@ -3286,7 +3289,7 @@ function returnToLanding(message=''){
   resetLiveVoice({notify:false});closeSpectatorOffer();
   state=null;syncSpectatorCompactUI();pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
-  $('#sidePanel')?.classList.remove('open');renderChatBadge();
+  closePlayerAuxPanels();renderChatBadge();
   try{
     const url=new URL(location.href);
     url.searchParams.delete('room');
@@ -3301,6 +3304,53 @@ function returnToLanding(message=''){
 }
 
 
+function updatePlayerAuxButtons(){
+  const scoreOpen=$('#scoreboard')?.classList.contains('open');
+  const sideOpen=$('#sidePanel')?.classList.contains('open');
+  $('#scoreToggleBtn')?.classList.toggle('active',!!scoreOpen);
+  $('#tableInfoToggleBtn')?.classList.toggle('active',!!sideOpen&&activeSideTab==='log');
+  $('#chatToggleBtn')?.classList.toggle('active',!!sideOpen&&activeSideTab==='chat');
+}
+function closePlayerAuxPanels(){
+  $('#scoreboard')?.classList.remove('open');
+  $('#sidePanel')?.classList.remove('open');
+  playerAuxOpen=null;
+  updatePlayerAuxButtons();
+}
+function togglePlayerScoreboard(){
+  if(isSpectatorState())return;
+  const score=$('#scoreboard');
+  if(!score)return;
+  const shouldOpen=!score.classList.contains('open');
+  closePlayerAuxPanels();
+  if(shouldOpen){
+    score.classList.add('open');
+    playerAuxOpen='score';
+  }
+  updatePlayerAuxButtons();
+}
+function openPlayerSide(tab='log',focusChat=false){
+  if(isSpectatorState())return;
+  const desired=tab==='chat'?'chat':'log';
+  const side=$('#sidePanel');
+  if(!side)return;
+  const alreadyOpen=side.classList.contains('open')&&activeSideTab===desired;
+  if(alreadyOpen){
+    closePlayerAuxPanels();
+    return;
+  }
+  closePlayerAuxPanels();
+  setSideTab(desired,false);
+  side.classList.add('open');
+  playerAuxOpen='side';
+  updatePlayerAuxButtons();
+  if(desired==='chat'){
+    unreadChat=0;renderChatBadge();
+    if(focusChat)setTimeout(()=>$('#chatInput')?.focus(),30);
+  }
+}
+
+
 // Painel compacto exclusivo do Observador. O servidor e as regras não são alterados.
 // Movemos os mesmos nós reais de Placar e Mesa/Chat; não criamos cópias dos dados.
 let spectatorDrawerActive=null;
@@ -3309,6 +3359,7 @@ function syncSpectatorCompactUI(){
   const game=$('#game');if(!game)return;
   const spectator=isSpectatorState(),shell=$('#game .table-shell');
   const score=$('#scoreboard'),side=$('#sidePanel');
+  if(spectator)closePlayerAuxPanels();
   if(spectator&&!spectatorNodesInDrawer){
     $('#spectatorDrawerScore')?.appendChild(score);
     $('#spectatorDrawerActivity')?.appendChild(side);
@@ -3352,6 +3403,8 @@ $('#spectatorDrawerClose')?.addEventListener('click',()=>{spectatorDrawerActive=
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&isSpectatorState()&&spectatorDrawerActive){
     spectatorDrawerActive=null;syncSpectatorCompactUI();
+  }else if(event.key==='Escape'&&!isSpectatorState()&&(($('#sidePanel')?.classList.contains('open'))||($('#scoreboard')?.classList.contains('open')))){
+    closePlayerAuxPanels();
   }
 });
 function setSideTab(tab,openMobile=false){
@@ -3362,9 +3415,10 @@ function setSideTab(tab,openMobile=false){
   $('#chatView').classList.toggle('hidden',activeSideTab!=='chat');
   if(openMobile){
     if(isSpectatorState())openSpectatorDrawer(activeSideTab==='chat'?'chat':'events',true);
-    else $('#sidePanel').classList.add('open');
+    else openPlayerSide(activeSideTab==='chat'?'chat':'log',activeSideTab==='chat');
   }
   if(activeSideTab==='chat'){unreadChat=0;renderChatBadge();if(openMobile)setTimeout(()=>$('#chatInput')?.focus(),30)}
+  updatePlayerAuxButtons();
 }
 function renderChatBadge(){
   const text=unreadChat>9?'9+':String(unreadChat);
@@ -3551,7 +3605,8 @@ function renderPlayers(){
   window.MauCamera?.renderIntoSeats();
 }
 function renderScore(){
-  const box=$('#scoreboard');box.innerHTML='<div class="score-title">Placar acumulado</div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
+  const box=$('#scoreboard');
+  box.innerHTML='<div class="score-head"><div class="score-title">Placar acumulado</div><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
