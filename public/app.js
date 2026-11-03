@@ -20,6 +20,8 @@ let chatMessages=[], unreadChat=0, activeSideTab='log', playerAuxOpen=null;
 let leaveRoomPending=false;
 const QUICK_AUDIO_MAX_MS=15000, QUICK_AUDIO_MAX_BYTES=250*1024;
 let voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceStartedAt=0,voiceTickTimer=null,voiceMaxTimer=null,voiceCancelOnStop=false,voiceDraft=null;
+// Fase 3A: identifica solicitações assíncronas de captura para descartar permissões antigas.
+let voiceCaptureRequestId=0,voiceCaptureStarting=false;
 const playingVoiceAudios=new Set();
 // V51.6.1 — Canal exclusivo dos sons do jogo. NUNCA suspendemos o AudioContext:
 // o mesmo contexto pode estar sendo usado pelo microfone/WebRTC e pelo relay de voz.
@@ -68,6 +70,7 @@ let localMusicObjectUrl='',localMusicUserWantsPlay=false,localMusicPausedForVoic
 // V40.33 — microfone ao vivo WebRTC estabilizado. O áudio continua P2P; Socket.IO carrega somente a sinalização.
 // A conexão agora mantém fila de ICE, recuperação automática, áudio otimizado para voz e TURN opcional.
 let liveMicOn=false,liveMicStarting=false,liveMicStream=null,liveMicSessionId=null,liveMicWanted=false;
+let liveMicCaptureRequestId=0;
 let liveVoiceConfigLoaded=false,liveVoiceConfigPromise=null,liveVoiceConfigExpiresAt=0,liveVoiceTurnConfigured=false,liveVoiceTurnAuthMode='none';
 let liveVoiceRtcConfig={
   iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}],
@@ -2309,6 +2312,8 @@ async function createOutboundLivePeer(peer,{recovery=false}={}){
   if(liveMicOutboundPeers.size>=LIVE_VOICE_RTC_MAX_PEERS){setLiveVoiceRelayFallback(peer.socketId,true);return;}
   const sessionId=liveMicSessionId;if(!sessionId)return;
   await loadLiveVoiceRtcConfig();
+  // A sessão/sala pode ter sido encerrada enquanto TURN era carregado.
+  if(!liveMicOn||!socket.connected||!liveMicStream||liveMicSessionId!==sessionId||!liveMicPeerInfo.has(peer.socketId)||liveMicOutboundPeers.has(peer.socketId))return;
   const pc=newLiveVoicePeer();liveMicOutboundPeers.set(peer.socketId,pc);bindOutboundLivePeerHealth(pc,peer);scheduleLiveVoiceConnectTimeout(peer.socketId);
   for(const track of liveMicStream.getAudioTracks()){const sender=pc.addTrack(track,liveMicStream);tuneLiveVoiceSender(pc,sender)}
   let canSendIce=false;const queuedIce=[];
@@ -2398,10 +2403,11 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
   if(!liveVoiceSupported()){liveMicWanted=false;return toast('Este navegador não oferece conversa por microfone compatível.');}
   if(voiceRecorder?.state==='recording')return toast('Finalize o Áudio Rápido antes de ligar o microfone ao vivo.');
   liveMicWanted=true;liveMicStarting=true;updateLiveMicUI();
+  const captureId=++liveMicCaptureRequestId;
   try{
     await loadLiveVoiceRtcConfig();
     const stream=await navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints());
-    if(!state||!socket.connected||!liveMicWanted){stream.getTracks().forEach(x=>x.stop());return;}
+    if(captureId!==liveMicCaptureRequestId||!state||!socket.connected||!liveMicWanted){stream.getTracks().forEach(x=>x.stop());return;}
     liveMicStream=stream;liveMicSessionId=liveVoiceSession();liveMicOn=true;liveMicRestartAttempts=0;clearLiveMicRestartTimer();
     syncLiveVoiceRelayCapture();
     for(const track of stream.getAudioTracks()){
@@ -2417,6 +2423,8 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
     if(recovery)requestUnhealthyInboundLiveVoiceRefresh('mic-restarted');
     else toast(isSpectatorState()?'🎙️ Microfone ligado. Você pode conversar com a mesa como observador.':'🎙️ Microfone ao vivo ligado com recuperação automática de conexão.');
   }catch(e){
+    // Uma tentativa antiga não pode desligar a sessão mais nova nem reiniciar o microfone.
+    if(captureId!==liveMicCaptureRequestId)return;
     liveMicOn=false;liveMicSessionId=null;liveMicStream=null;
     const denied=['NotAllowedError','SecurityError'].includes(String(e?.name||''));
     if(denied){liveMicWanted=false;liveMicRestartAttempts=0;clearLiveMicRestartTimer();toast('Permita o uso do microfone para conversar ao vivo.');}
@@ -2424,9 +2432,11 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
       scheduleLiveMicRestart(String(e?.name||reason||'capture-error'));
       if(!recovery)toast('🎙️ O microfone oscilou. Tentando recuperar automaticamente...');
     }else if(!recovery)toast('Não foi possível ligar o microfone neste dispositivo.');
-  }finally{liveMicStarting=false;updateLiveMicUI()}
+  }finally{if(captureId===liveMicCaptureRequestId){liveMicStarting=false;updateLiveMicUI()}}
 }
 function stopLiveMic({notify=true,showToast=false,reason='🎙️ Microfone ao vivo desligado.',keepWanted=false}={}){
+  // Invalida capturas ainda aguardando a permissão do navegador.
+  liveMicCaptureRequestId++;
   if(!keepWanted)liveMicWanted=false;
   clearLiveMicRestartTimer();if(!keepWanted)liveMicRestartAttempts=0;
   if(!keepWanted&&liveVoiceTransportRecoveryTimer){clearTimeout(liveVoiceTransportRecoveryTimer);liveVoiceTransportRecoveryTimer=null;}
@@ -2797,8 +2807,52 @@ function clearVoiceDraft(){if(voiceDraft?.url)try{URL.revokeObjectURL(voiceDraft
 function setVoiceIdleUI(){$('#voiceRecorderPanel')?.classList.add('hidden');const b=$('#voiceRecordBtn');if(b){b.disabled=false;b.classList.remove('recording');b.textContent='🎙️';b.title='Gravar Áudio Rápido de até 15 segundos'}}
 function showVoiceDraft(blob,durationMs){clearVoiceDraft();const url=URL.createObjectURL(blob);voiceDraft={blob,url,durationMs,mime:blob.type||'audio/webm'};const a=$('#voicePreviewAudio');if(a)a.src=url;const t=$('#voicePreviewTime');if(t)t.textContent=formatVoiceDuration(durationMs);$('#voicePreviewPanel')?.classList.remove('hidden')}
 function finishVoiceRecording(){clearVoiceTimers();stopVoiceTracks();const canceled=voiceCancelOnStop;voiceCancelOnStop=false;const durationMs=Math.min(QUICK_AUDIO_MAX_MS,Math.max(200,Date.now()-voiceStartedAt));voiceStartedAt=0;const mime=voiceRecorder?.mimeType||quickAudioMime()||'audio/webm';voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck();if(canceled){voiceChunks=[];return}const blob=new Blob(voiceChunks,{type:mime});voiceChunks=[];if(blob.size<80)return toast('Não foi possível gravar o áudio. Tente novamente.');if(blob.size>QUICK_AUDIO_MAX_BYTES)return toast('O áudio ficou grande demais. Grave novamente.');showVoiceDraft(blob,durationMs)}
-async function startQuickAudio(){if(isSpectatorState())return toast('No Modo Observador, use o chat de texto e as reações.');if(!state||!socket.connected)return toast('Sem conexão com a sala.');if(!quickAudioSupported())return toast('Este navegador não oferece gravação de áudio compatível.');if(voiceRecorder?.state==='recording')return;clearVoiceDraft();try{const liveTrack=liveMicOn?liveMicStream?.getAudioTracks?.()[0]:null;voiceStream=liveTrack?new MediaStream([liveTrack.clone()]):await navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints());const mime=quickAudioMime();try{voiceRecorder=new MediaRecorder(voiceStream,mime?{mimeType:mime,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000})}catch{voiceRecorder=new MediaRecorder(voiceStream)}voiceChunks=[];voiceCancelOnStop=false;voiceStartedAt=Date.now();voiceRecorder.ondataavailable=e=>{if(e.data?.size)voiceChunks.push(e.data)};voiceRecorder.onerror=()=>{voiceCancelOnStop=true;toast('Falha durante a gravação do áudio.');try{voiceRecorder?.stop()}catch{}};voiceRecorder.onstop=finishVoiceRecording;voiceRecorder.start(250);$('#voiceRecorderPanel')?.classList.remove('hidden');const b=$('#voiceRecordBtn');if(b){b.disabled=true;b.classList.add('recording');b.textContent='🔴'}const t=$('#voiceRecordTime');if(t)t.textContent='00:00 / 00:15';refreshQuickAudioMusicDuck();voiceTickTimer=setInterval(()=>{const e=Date.now()-voiceStartedAt,x=$('#voiceRecordTime');if(x)x.textContent=formatRecordClock(e)},200);voiceMaxTimer=setTimeout(()=>stopQuickAudio(false),QUICK_AUDIO_MAX_MS)}catch(e){stopVoiceTracks();voiceRecorder=null;clearVoiceTimers();setVoiceIdleUI();refreshQuickAudioMusicDuck();toast(e?.name==='NotAllowedError'?'Permita o uso do microfone para gravar Áudio Rápido.':'Não foi possível acessar o microfone neste dispositivo.')}}
-function stopQuickAudio(cancel=false){if(!voiceRecorder||voiceRecorder.state==='inactive'){if(cancel){clearVoiceDraft();setVoiceIdleUI()}return}voiceCancelOnStop=!!cancel;clearVoiceTimers();try{voiceRecorder.stop()}catch{stopVoiceTracks();voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck()}}
+async function startQuickAudio(){
+  if(isSpectatorState())return toast('No Modo Observador, use o chat de texto e as reações.');
+  if(!state||!socket.connected)return toast('Sem conexão com a sala.');
+  if(!quickAudioSupported())return toast('Este navegador não oferece gravação de áudio compatível.');
+  if(voiceRecorder?.state==='recording'||voiceCaptureStarting)return;
+  const captureId=++voiceCaptureRequestId;
+  voiceCaptureStarting=true;
+  clearVoiceDraft();
+  let capturedStream=null;
+  try{
+    const liveTrack=liveMicOn?liveMicStream?.getAudioTracks?.()[0]:null;
+    capturedStream=liveTrack?new MediaStream([liveTrack.clone()]):await navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints());
+    // Sair da sala ou cancelar enquanto o Android pede permissão não inicia gravação atrasada.
+    if(captureId!==voiceCaptureRequestId||!state||!socket.connected||isSpectatorState()){
+      capturedStream?.getTracks?.().forEach(track=>track.stop());
+      return;
+    }
+    voiceStream=capturedStream;
+    const mime=quickAudioMime();
+    try{voiceRecorder=new MediaRecorder(voiceStream,mime?{mimeType:mime,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000})}
+    catch{voiceRecorder=new MediaRecorder(voiceStream)}
+    voiceChunks=[];voiceCancelOnStop=false;voiceStartedAt=Date.now();
+    voiceRecorder.ondataavailable=e=>{if(e.data?.size)voiceChunks.push(e.data)};
+    voiceRecorder.onerror=()=>{voiceCancelOnStop=true;toast('Falha durante a gravação do áudio.');try{voiceRecorder?.stop()}catch{}};
+    voiceRecorder.onstop=finishVoiceRecording;
+    voiceRecorder.start(250);
+    $('#voiceRecorderPanel')?.classList.remove('hidden');
+    const b=$('#voiceRecordBtn');if(b){b.disabled=true;b.classList.add('recording');b.textContent='🔴'}
+    const t=$('#voiceRecordTime');if(t)t.textContent='00:00 / 00:15';
+    refreshQuickAudioMusicDuck();
+    voiceTickTimer=setInterval(()=>{const e=Date.now()-voiceStartedAt,x=$('#voiceRecordTime');if(x)x.textContent=formatRecordClock(e)},200);
+    voiceMaxTimer=setTimeout(()=>stopQuickAudio(false),QUICK_AUDIO_MAX_MS);
+  }catch(e){
+    if(captureId!==voiceCaptureRequestId){capturedStream?.getTracks?.().forEach(track=>track.stop());return}
+    stopVoiceTracks();voiceRecorder=null;clearVoiceTimers();setVoiceIdleUI();refreshQuickAudioMusicDuck();
+    toast(e?.name==='NotAllowedError'?'Permita o uso do microfone para gravar Áudio Rápido.':'Não foi possível acessar o microfone neste dispositivo.');
+  }finally{if(captureId===voiceCaptureRequestId)voiceCaptureStarting=false}
+}
+function stopQuickAudio(cancel=false){
+  // Cancela também solicitações ainda pendentes do getUserMedia.
+  if(cancel){voiceCaptureRequestId++;voiceCaptureStarting=false}
+  if(!voiceRecorder||voiceRecorder.state==='inactive'){if(cancel){clearVoiceDraft();setVoiceIdleUI()}return}
+  voiceCancelOnStop=!!cancel;clearVoiceTimers();
+  try{voiceRecorder.stop()}catch{stopVoiceTracks();voiceRecorder=null;setVoiceIdleUI();refreshQuickAudioMusicDuck()}
+}
+
 async function sendVoiceDraft(){if(isSpectatorState())return toast('Áudio Rápido não está disponível no Modo Observador.');if(!voiceDraft)return;if(!state||!socket.connected)return toast('Sem conexão com a sala.');const d=voiceDraft;try{const audio=await d.blob.arrayBuffer();if(audio.byteLength>QUICK_AUDIO_MAX_BYTES)throw new Error();socket.emit('voiceMessage',{audio,mime:d.mime,durationMs:d.durationMs});clearVoiceDraft();toast('🎙️ Áudio enviado.')}catch{toast('Não foi possível enviar o áudio. Tente novamente.')}}
 
 $('#scoreToggleBtn')?.addEventListener('click',()=>togglePlayerScoreboard());
@@ -3304,7 +3358,7 @@ socket.on('connect',()=>{
   requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{if(voiceCaptureStarting){voiceCaptureRequestId++;voiceCaptureStarting=false}window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
