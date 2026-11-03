@@ -3025,10 +3025,15 @@ io.on('connection', socket => {
       // Solicitações repetidas não alteram a posição nem falham por uma vaga
       // que tenha sido reservada DEPOIS do primeiro pedido legítimo.
       const existing=room.spectatorSeatRequests.some(x=>x.spectatorId===spectator.id||x.playerKey===spectator.playerKey);
-      if(!existing){
-        if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');
-        room.spectatorSeatRequests.push({spectatorId:spectator.id,playerKey:spectator.playerKey,at:Date.now()});
+      if(existing){
+        // ETAPA 3 — cliques/retries duplicados não refazem processamento,
+        // persistência de sala nem broadcasts para todos os participantes.
+        const seat=SpectatorSeatAdmission.seatStatus(room,spectator);
+        socket.emit('spectatorSeatStatus',{status:'queued',position:seat.queuePosition,message:seat.message});
+        return;
       }
+      if(!roomHasInviteCapacity(room,spectator.playerKey))throw new Error('Não há vagas livres nesta mesa.');
+      room.spectatorSeatRequests.push({spectatorId:spectator.id,playerKey:spectator.playerKey,at:Date.now()});
       const seat=SpectatorSeatAdmission.seatStatus(room,spectator);
       socket.emit('spectatorSeatStatus',{status:'queued',position:seat.queuePosition,message:seat.message});
       if(room.status==='between-rounds')processSpectatorSeatRequests(room);

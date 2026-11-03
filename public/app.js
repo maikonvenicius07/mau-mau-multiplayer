@@ -2987,13 +2987,17 @@ setInterval(updateReconnectCountdown,250);
 
 socket.on('joined',data=>{
   savedSessionResumePending=false;accountSeatResumePending=false;accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();pendingRoomSwitch=null;closeRoomSwitchDialog();
-  // V40.58.3 — o chat é por SALA. Ao entrar em outra sala, limpamos primeiro
-  // a tela local; em seguida o servidor envia somente o histórico daquela sala.
-  // Revanche na mesma sala mantém a conversa da própria sala.
-  for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}
-  chatMessages=[];unreadChat=0;
-  for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}
-  refreshQuickAudioMusicDuck();renderChat();renderChatBadge();
+  // V40.58.3 — o chat é por SALA: trocas de sala limpam o histórico local.
+  // ETAPA 3 — promoção acontece na MESMA sala e no MESMO socket.
+  // Não apagar o Chat existente quando o observador vira jogador: o servidor
+  // não envia um novo chatHistory nessa conversão, apenas o novo estado.
+  const spectatorPromotion=data?.source==='spectator-promotion' && data?.role==='PLAYER';
+  if(!spectatorPromotion){
+    for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}
+    chatMessages=[];unreadChat=0;
+    for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}
+    refreshQuickAudioMusicDuck();renderChat();renderChatBadge();
+  }
   spectatorSeatRequested=false;
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   const resumeLiveMic=!!liveMicWanted;
@@ -3015,6 +3019,7 @@ socket.on('joined',data=>{
   updateLiveMicUI();
   window.MauCamera?.onJoined(data?.code);
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
+  else if(spectatorPromotion)toast('🎉 Você entrou na partida! Aguarde a próxima rodada para receber suas cartas.');
   else if(data?.source==='auto-resume')toast('🟢 Partida encontrada. Você voltou automaticamente para sua vaga.');
 });
 socket.on('publicRoomsSnapshot',snapshot=>renderPublicRoomsSnapshot(snapshot||{}));
@@ -3708,7 +3713,9 @@ $('#spectatorSeatBtn')?.addEventListener('click',()=>{
 });
 socket.on('spectatorSeatStatus',info=>{
   spectatorSeatRequested=info?.status==='queued';
-  if(info?.message)toast(info.message);
+  // O evento `joined` já mostra a confirmação da promoção. Evita dois avisos
+  // consecutivos para a mesma entrada, sem esconder recusas e posições na fila.
+  if(info?.message&&info?.status!=='accepted')toast(info.message);
   renderSpectatorLivePanel();
 });
 socket.on('spectatorSeatAvailability',info=>{

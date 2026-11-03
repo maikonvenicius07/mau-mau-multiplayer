@@ -1,0 +1,8 @@
+Etapa 3 - MAU-MAU CANDEIAS
+
+Total de testes: 136
+Aprovados: 135
+Não executado: socketio-integration-v4063.test.js (bibliotecas Node não disponíveis no ambiente)
+Falhas: 0
+
+
