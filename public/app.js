@@ -120,11 +120,10 @@ let authConfig=null,authControlsBound=false;
 let onlinePlayers=[],onlineCount=0,presenceSyncTimer=null;
 let recentPlayers=[],playersDirectoryTab='online';
 const inviteCards=new Map();
-let inviteCountdownTimer=null;
 // V40.2 — estado da busca automática recebido do servidor.
 let matchmaking={searching:false,players:[],foundCount:0,maxPlayers:5,deadlineAt:null,waitMs:15000,reason:''};
-let matchmakingDialogDismissed=false,matchmakingCountdownTimer=null;
-let reconnectCountdownTimer=null;
+let matchmakingCountdownTimer=null;
+let matchmakingDialogDismissed=false;
 let pendingSpectatorOffer=null;
 let pendingRoomSwitch=null;
 let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,spectatorLimitPerRoom:5,rooms:[],at:0};
@@ -1499,20 +1498,17 @@ function matchmakingSeconds(){
   if(!matchmaking?.deadlineAt)return null;
   return Math.max(0,Math.ceil((Number(matchmaking.deadlineAt)-Date.now())/1000));
 }
-function stopMatchmakingCountdownTimer(){
-  if(matchmakingCountdownTimer)clearInterval(matchmakingCountdownTimer);
-  matchmakingCountdownTimer=null;
-}
 function syncMatchmakingCountdownTimer(){
-  if(matchmaking?.searching){
-    if(!matchmakingCountdownTimer)matchmakingCountdownTimer=setInterval(updateMatchmakingCountdown,1000);
-  }else stopMatchmakingCountdownTimer();
+  const active=!!matchmaking?.searching&&Number(matchmaking.foundCount||0)>=2&&!!matchmaking.deadlineAt;
+  if(!active){if(matchmakingCountdownTimer)clearInterval(matchmakingCountdownTimer);matchmakingCountdownTimer=null;return;}
+  if(!matchmakingCountdownTimer)matchmakingCountdownTimer=setInterval(updateMatchmakingCountdown,1000);
 }
-function openMatchmaking(){const dlg=$('#matchmakingDialog');if(!dlg)return;matchmakingDialogDismissed=false;renderMatchmaking();syncMatchmakingCountdownTimer();if(!dlg.open)dlg.showModal();}
-function closeMatchmaking(markDismissed=true){const dlg=$('#matchmakingDialog');if(markDismissed)matchmakingDialogDismissed=true;if(dlg?.open)dlg.close();if(!matchmaking?.searching)stopMatchmakingCountdownTimer();}
+function openMatchmaking(){const dlg=$('#matchmakingDialog');if(!dlg)return;matchmakingDialogDismissed=false;renderMatchmaking();if(!dlg.open)dlg.showModal();}
+function closeMatchmaking(markDismissed=true){const dlg=$('#matchmakingDialog');if(markDismissed)matchmakingDialogDismissed=true;if(dlg?.open)dlg.close();}
 function renderMatchmaking(){
   const btn=$('#matchmakingStart'),title=$('#matchmakingBtnTitle'),sub=$('#matchmakingBtnSubtitle');
   const searching=!!matchmaking?.searching;
+  syncMatchmakingCountdownTimer();
   if(btn)btn.classList.toggle('searching',searching);
   if(title)title.textContent=searching?'PROCURANDO JOGADORES...':'BUSCAR JOGADORES';
   if(sub)sub.textContent=searching?'Clique para acompanhar a busca':'Encontre alguém automaticamente';
@@ -1578,34 +1574,32 @@ function upsertInviteCard(data,uiState){
   if(!data?.id)return;
   const prior=inviteCards.get(data.id)||{};inviteCards.set(data.id,{...prior,...data,uiState:uiState||prior.uiState||data.status||'pending'});renderInviteInbox();
 }
-function stopInviteCountdownTimer(){
-  if(inviteCountdownTimer)clearInterval(inviteCountdownTimer);
+function removeInviteCard(id){inviteCards.delete(id);renderInviteInbox()}
+let inviteCountdownTimer=null;
+function syncInviteCountdownTimer(){
+  const pending=[...inviteCards.values()].some(inv=>inv.uiState==='pending');
+  if(!pending){if(inviteCountdownTimer)clearTimeout(inviteCountdownTimer);inviteCountdownTimer=null;return;}
+  if(!inviteCountdownTimer)inviteCountdownTimer=setTimeout(tickInviteCountdown,1000);
+}
+function tickInviteCountdown(){
   inviteCountdownTimer=null;
-}
-function ensureInviteCountdownTimer(){
-  const hasPending=[...inviteCards.values()].some(inv=>inv.uiState==='pending');
-  if(inviteCountdownTimer||!hasPending)return;
-  inviteCountdownTimer=setInterval(()=>{
-    let pending=false;
-    for(const inv of inviteCards.values()){
-      if(inv.uiState!=='pending')continue;
-      if(inviteSeconds(inv.expiresAt)<=0)inv.uiState='expired';
-      else pending=true;
-    }
-    renderInviteInbox();
-    if(!pending)stopInviteCountdownTimer();
-  },1000);
-}
-function removeInviteCard(id){
-  inviteCards.delete(id);
-  if(!inviteCards.size)stopInviteCountdownTimer();
-  renderInviteInbox();
+  let expired=false;
+  for(const inv of inviteCards.values()){
+    if(inv.uiState==='pending'&&inviteSeconds(inv.expiresAt)<=0){inv.uiState='expired';expired=true;}
+  }
+  if(expired){renderInviteInbox();return;}
+  // Atualiza só os números; não substitui os nós e seus handlers a cada segundo.
+  for(const el of $$('#inviteInbox [data-invite-countdown]')){
+    const inv=inviteCards.get(el.dataset.inviteCountdown);
+    if(inv?.uiState==='pending')el.textContent=`${inviteSeconds(inv.expiresAt)}s`;
+  }
+  syncInviteCountdownTimer();
 }
 function renderInviteInbox(){
   const box=$('#inviteInbox');if(!box)return;
+  syncInviteCountdownTimer();
   const cards=[...inviteCards.values()].filter(x=>!['refused','expired','cancelled','completed','unavailable'].includes(x.uiState));
-  if(!cards.length){box.innerHTML='';stopInviteCountdownTimer();return;}
-  ensureInviteCountdownTimer();
+  if(!cards.length){box.innerHTML='';return;}
   box.innerHTML=cards.slice(-4).reverse().map(inv=>{
     const pending=inv.uiState==='pending',ready=inv.uiState==='ready',waiting=inv.uiState==='accepted-waiting';
     const seconds=inviteSeconds(inv.expiresAt);
@@ -1613,14 +1607,13 @@ function renderInviteInbox(){
     const actions=pending?`<div class="invite-actions"><button class="invite-refuse" data-invite-refuse="${esc(inv.id)}">RECUSAR</button><button class="invite-accept" data-invite-accept="${esc(inv.id)}">ACEITAR</button></div>`:
       ready?`<div class="invite-actions"><button class="invite-cancel" data-invite-cancel="${esc(inv.id)}">CANCELAR</button><button class="invite-ready-btn" data-invite-claim="${esc(inv.id)}">🎮 ENTRAR AGORA</button></div>`:
       `<div class="invite-wait-status">⏳ <span>${mainText}</span></div><div class="invite-actions"><button class="invite-cancel" data-invite-cancel="${esc(inv.id)}">Cancelar reserva</button></div>`;
-    return `<div class="invite-card ${ready?'ready':waiting?'waiting':''}" data-invite-card="${esc(inv.id)}"><div class="invite-card-head">${avatarHTML(inv.fromAvatar||'macaco','sm')}<div><small>🃏 CONVITE PARA JOGAR</small><strong>${esc(inv.fromName||'Jogador')}</strong></div></div>${waiting?'':`<p>${mainText}${pending?` <span class="invite-countdown">${seconds}s</span>`:''}</p>`}${actions}</div>`;
+    return `<div class="invite-card ${ready?'ready':waiting?'waiting':''}" data-invite-card="${esc(inv.id)}"><div class="invite-card-head">${avatarHTML(inv.fromAvatar||'macaco','sm')}<div><small>🃏 CONVITE PARA JOGAR</small><strong>${esc(inv.fromName||'Jogador')}</strong></div></div>${waiting?'':`<p>${mainText}${pending?` <span class="invite-countdown" data-invite-countdown="${esc(inv.id)}">${seconds}s</span>`:''}</p>`}${actions}</div>`;
   }).join('');
   box.querySelectorAll('[data-invite-accept]').forEach(b=>b.onclick=()=>{b.disabled=true;socket.emit('respondInvite',{inviteId:b.dataset.inviteAccept,accept:true})});
   box.querySelectorAll('[data-invite-refuse]').forEach(b=>b.onclick=()=>socket.emit('respondInvite',{inviteId:b.dataset.inviteRefuse,accept:false}));
   box.querySelectorAll('[data-invite-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;socket.emit('claimInvite',{inviteId:b.dataset.inviteClaim})});
   box.querySelectorAll('[data-invite-cancel]').forEach(b=>b.onclick=()=>socket.emit('cancelAcceptedInvite',{inviteId:b.dataset.inviteCancel}));
 }
-
 $('#onlinePlayersOpen').onclick=openOnlinePlayers;
 $('#onlinePlayersOpen2').onclick=openOnlinePlayers;
 $('#onlinePlayersClose').onclick=closeOnlinePlayers;
@@ -1629,7 +1622,7 @@ $('#recentPlayersTab')?.addEventListener('click',()=>setPlayersDirectoryTab('rec
 $('#matchmakingStart').onclick=startMatchmaking;
 $('#matchmakingClose').onclick=closeMatchmaking;
 $('#matchmakingCancel').onclick=cancelMatchmaking;
-setInterval(updateMatchmakingCountdown,250);
+
 
 $$('.avatar-option').forEach(btn=>btn.onclick=()=>{
   if(btn.dataset.avatar==='__custom__'){
@@ -3009,23 +3002,17 @@ function reconnectBannerText(){
   const max=Math.max(...waiting.map(p=>reconnectSeconds(p.reconnectDeadlineAt)));
   return `⏸️ ${waiting.length} jogadores reconectando — até ${max}s`;
 }
+let reconnectCountdownTimer=null;
 function updateReconnectCountdown(){
   if(!state)return;
-  const waiting=reconnectWaitingPlayers();
-  if(!waiting.length){stopReconnectCountdownTimer();return;}
   const banner=reconnectBannerText();
   if(banner&&$('#turnBanner'))$('#turnBanner').textContent=banner;
   $$('.reconnect-countdown[data-deadline]').forEach(el=>{el.textContent=`${reconnectSeconds(el.dataset.deadline)}s`;});
 }
-function stopReconnectCountdownTimer(){
-  if(reconnectCountdownTimer)clearInterval(reconnectCountdownTimer);
-  reconnectCountdownTimer=null;
-}
 function syncReconnectCountdownTimer(){
-  if(reconnectWaitingPlayers().length){
-    if(!reconnectCountdownTimer)reconnectCountdownTimer=setInterval(updateReconnectCountdown,1000);
-    updateReconnectCountdown();
-  }else stopReconnectCountdownTimer();
+  const active=!!state&&reconnectWaitingPlayers().length>0;
+  if(!active){if(reconnectCountdownTimer)clearInterval(reconnectCountdownTimer);reconnectCountdownTimer=null;return;}
+  if(!reconnectCountdownTimer)reconnectCountdownTimer=setInterval(updateReconnectCountdown,1000);
 }
 
 socket.on('joined',data=>{
@@ -3073,7 +3060,7 @@ socket.on('avatarAsset',payload=>{
   pendingAvatarAssetRefs.delete(ref);
   networkDiagnostics.avatarAssetBytes+=avatarDataByteSize(dataUrl);
   updateNetworkDiagnosticsUI();
-  if(state&&collectStateAvatarRefs(state).includes(ref))render();
+  if(state&&collectStateAvatarRefs(state).includes(ref))render(true);
 });
 socket.on('state',s=>{
   const prev=state;
@@ -3086,7 +3073,6 @@ socket.on('state',s=>{
     passPending=false;
   }
   render();
-  syncReconnectCountdownTimer();
   if($('#roundReviewDialog')?.open)updateReplayControls();
   maybeShowRoundReview(s);
   if(prev){
@@ -3123,13 +3109,12 @@ socket.on('matchmakingState',payload=>{
     reason:String(payload?.reason||''),
   };
   renderMatchmaking();
-  syncMatchmakingCountdownTimer();
   if(matchmaking.searching&&!matchmakingDialogDismissed&&$('#matchmakingDialog')?.open===false)openMatchmaking();
   if(!matchmaking.searching&&$('#matchmakingDialog')?.open&&payload?.reason)closeMatchmaking(false);
 });
 socket.on('matchmakingMatched',info=>{
   matchmaking={...matchmaking,searching:true,foundCount:Number(info?.count||matchmaking.foundCount||2),deadlineAt:Date.now(),players:Array.isArray(info?.players)?info.players:matchmaking.players};
-  renderMatchmaking();syncMatchmakingCountdownTimer();playGameSound('yourTurn');
+  renderMatchmaking();playGameSound('yourTurn');
 });
 socket.on('matchmakingCancelled',info=>{if(info?.message)toast(info.message);});
 socket.on('matchmakingError',info=>{toast(info?.message||'Não foi possível formar a partida agora.');});
@@ -3236,7 +3221,7 @@ socket.on('gameError',e=>{
   // Se um código/token antigo deixou de funcionar, ainda tentamos localizar a vaga
   // pela conta autenticada antes de obrigar o jogador a digitar qualquer código.
   if(wasSavedResume&&socket.connected){clearSession();requestAccountSeatResume(0);return;}
-  playGameSound('error');toast(e.message);render();
+  playGameSound('error');toast(e.message);render(true);
 });
 socket.on('leftRoom',data=>{
   window.MauCamera?.stop();
@@ -3319,7 +3304,7 @@ socket.on('connect',()=>{
   requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
@@ -3329,7 +3314,7 @@ socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();
 
 function returnToLanding(message=''){
   resetLiveVoice({notify:false});closeSpectatorOffer();
-  state=null;syncSpectatorCompactUI();pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
+  state=null;syncReconnectCountdownTimer();clearRenderSignatures();syncSpectatorCompactUI();pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
   closePlayerAuxPanels();renderChatBadge();
   try{
@@ -3504,7 +3489,19 @@ function showReaction(name,emoji,label,avatar=null,effect=''){
 }
 
 function canAct(){return !isSpectatorState()&&!passPending&&socket.connected&&state?.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id}
-function render(){
+// OTIMIZAÇÃO ETAPA 1: não reconstruir componentes se suas dependências visuais
+// não mudaram. A comparação é por sala/papel; erros/avatar novo forçam atualização.
+const renderSignatures=new Map();
+let renderContextKey='';
+function clearRenderSignatures(){renderSignatures.clear();renderContextKey=''}
+function renderWhenChanged(name,dependencies,callback,force=false){
+  const signature=JSON.stringify(dependencies);
+  if(!force&&renderSignatures.get(name)===signature)return false;
+  callback();
+  renderSignatures.set(name,signature);
+  return true;
+}
+function render(force=false){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   const spectator=isSpectatorState();
@@ -3519,8 +3516,22 @@ function render(){
   $('#meLabel').textContent='🃏 Suas cartas';$('#handCount').textContent=spectator?'':` • ${state.me.hand.length} carta(s)`;
   $('#handPanel')?.classList.toggle('hidden',spectator);
   $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
-  renderSpectatorLivePanel();
-  renderPlayers();window.MauCamera?.onState();renderScore();renderCenter();renderHand();renderLog();renderControls();updateLiveMicUI();updateFloatingGameActions();
+  // O contexto muda ao entrar em outra sala ou trocar de Observador para Jogador.
+  const contextKey=`${state.code||''}:${state.me?.id||''}:${spectator?'S':'P'}:${state.matchSerial||1}`;
+  if(renderContextKey!==contextKey){renderSignatures.clear();renderContextKey=contextKey;force=true;}
+  const players=state.players||[];
+  const voiceIds=[...liveVoiceActivePlayerIds].sort();
+  renderWhenChanged('spectator',[spectator,state.status,state.round,state.rounds,state.spectatorCount,state.spectatorSeat,state.spectators,players.length,state.tournament,state.rules?.rounds,voiceIds,socket.connected],renderSpectatorLivePanel,force);
+  renderWhenChanged('players',[players,state.round,state.status,state.currentPlayerId,state.paused,state.direction,state.me?.id,voiceIds],renderPlayers,force);
+  // O SDK da câmera continua responsável por sincronizar seu próprio estado.
+  window.MauCamera?.onState();
+  renderWhenChanged('score',players.map(p=>[p.id,p.name,p.avatar,p.score,p.roundScore,p.isBot,p.autoControlled]),renderScore,force);
+  renderWhenChanged('center',[state.topCard,state.status,state.paused,state.currentPlayerId,state.winnerId,state.requestedSuit,state.pendingSeven,state.continuationPlayerId,state.openingReaction,state.me?.id,state.me?.justDrawnCardId,state.me?.burnableCardIds,state.me?.quickActionCardIds,state.me?.doublePairs,players.map(p=>[p.id,p.name,p.score,p.autoControlled,p.connected,p.reconnectDeadlineAt])],renderCenter,force);
+  renderWhenChanged('hand',[state.me,state.round,state.status,state.paused,state.currentPlayerId,state.pendingSeven,state.continuationPlayerId,state.openingReaction,handSort,passPending,socket.connected],renderHand,force);
+  renderWhenChanged('log',state.log||[],renderLog,force);
+  renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
+  updateLiveMicUI();updateFloatingGameActions();
+  syncReconnectCountdownTimer();
 }
 function playerDisplayOrderFromMe(){
   const players=Array.isArray(state?.players)?state.players:[];
