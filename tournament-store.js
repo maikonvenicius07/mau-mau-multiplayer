@@ -21,10 +21,11 @@ function publicList(rows,config,playerKey='') {
 }
 
 class TournamentStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-signups.json')}={}) {
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-signups.json'),pool=null}={}) {
     this.filePath=filePath;
-    this.kind=databaseUrl?'postgres':'json';
-    if(databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});}
+    this.kind=(pool||databaseUrl)?'postgres':'json';
+    if(pool){this.pool=pool;this.ownsPool=false;}
+    else if(databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}
     this.local=[];
   }
   async init(){

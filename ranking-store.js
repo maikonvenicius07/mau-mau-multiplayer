@@ -183,9 +183,13 @@ class JsonBackend {
 }
 
 class PostgresBackend {
-  constructor(databaseUrl) {
-    const { Pool } = require('pg');
-    this.pool = new Pool({ connectionString:databaseUrl, ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false} });
+  constructor(databaseUrl, pool=null) {
+    if(pool){this.pool=pool;this.ownsPool=false;}
+    else{
+      const { Pool } = require('pg');
+      this.pool = new Pool({ connectionString:databaseUrl, ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false} });
+      this.ownsPool=true;
+    }
   }
   async init() {
     const client=await this.pool.connect();
@@ -395,9 +399,9 @@ class PostgresBackend {
 }
 
 class RankingStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.RANKING_FILE||path.join(__dirname,'data','ranking.json')}={}) {
-    this.kind = databaseUrl ? 'postgres' : 'json';
-    this.backend = databaseUrl ? new PostgresBackend(databaseUrl) : new JsonBackend(filePath);
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.RANKING_FILE||path.join(__dirname,'data','ranking.json'),pool=null}={}) {
+    this.kind = (pool||databaseUrl) ? 'postgres' : 'json';
+    this.backend = (pool||databaseUrl) ? new PostgresBackend(databaseUrl,pool) : new JsonBackend(filePath);
   }
   async init(){ return this.backend.init(); }
   async healthCheck(){ return this.backend.healthCheck(); }

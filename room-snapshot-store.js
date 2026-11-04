@@ -201,9 +201,9 @@ class JsonSnapshotBackend {
 }
 
 class PostgresSnapshotBackend {
-  constructor(databaseUrl){
-    const {Pool}=require('pg');
-    this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});
+  constructor(databaseUrl,pool=null){
+    if(pool){this.pool=pool;this.ownsPool=false;}
+    else{const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}
   }
   async init(){
     await this.pool.query(`
@@ -321,7 +321,7 @@ class PostgresSnapshotBackend {
     const {rows}=await this.pool.query('SELECT 1 AS ok');
     return Number(rows?.[0]?.ok)===1;
   }
-  async close(){ await this.pool.end(); }
+  async close(){ if(this.ownsPool)await this.pool.end(); }
 }
 
 function convertStaleMembershipToBot(player){
@@ -343,9 +343,9 @@ function convertStaleMembershipToBot(player){
 }
 
 class RoomSnapshotStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=RetentionPolicy.snapshotTtlMs(process.env),debounceMs=DEFAULT_DEBOUNCE_MS}={}){
-    this.kind=databaseUrl?'postgres':'json';
-    this.backend=databaseUrl?new PostgresSnapshotBackend(databaseUrl):new JsonSnapshotBackend(filePath);
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=RetentionPolicy.snapshotTtlMs(process.env),debounceMs=DEFAULT_DEBOUNCE_MS,pool=null}={}){
+    this.kind=(pool||databaseUrl)?'postgres':'json';
+    this.backend=(pool||databaseUrl)?new PostgresSnapshotBackend(databaseUrl,pool):new JsonSnapshotBackend(filePath);
     this.ttlMs=Math.max(5*60*1000,ttlMs);
     this.lifecycleTtlMs=Math.max(MIN_LIFECYCLE_TTL_MS,this.ttlMs*2);
     this.debounceMs=debounceMs;

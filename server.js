@@ -13,6 +13,7 @@ const StateDelivery = require('./state-delivery');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
 const MatchmakingDelivery = require('./matchmaking-delivery');
 const StaticAssetVersioning = require('./static-asset-versioning');
+const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -258,9 +259,11 @@ function enforceActionRate(socket,action,message='Muitas tentativas em pouco tem
 }
 const abusePruneTimer=setInterval(()=>abuseLimiter.prune(),5*60*1000);
 abusePruneTimer.unref?.();
-const rankingStore = new RankingStore();
+// Fase 6A: autenticação, ranking, snapshots e torneios usam o mesmo pool por processo.
+const appDatabasePool=createAppDatabasePool(process.env.DATABASE_URL);
+const rankingStore = new RankingStore({pool:appDatabasePool});
 // V51.1 — inscrições independentes do ranking e do motor do jogo.
-const tournamentStore = new TournamentStore();
+const tournamentStore = new TournamentStore({pool:appDatabasePool});
 const tournamentReady = tournamentStore.init().then(()=>true).catch(e=>{console.error('[tournament] inicialização falhou:',e);return false;});
 const tournamentCatalog = new TournamentCatalog({pool:tournamentStore.pool||null,databaseUrl:''});
 const tournamentCatalogReady = tournamentReady.then(ok=>ok?tournamentCatalog.init().then(()=>true).catch(e=>{console.error('[tournament] catálogo falhou:',e);return false;}):false);
@@ -278,10 +281,10 @@ async function tournamentCanManage(session,id){return !!(session?.playerKey&&(to
 const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
 // V40.69.1 — identidade universal. O playerKey continua sendo a chave canônica do ranking
 // e agora pode ser resolvido por Google, Apple ou e-mail verificado.
-const authIdentityStore = new AuthIdentityStore();
+const authIdentityStore = new AuthIdentityStore({pool:appDatabasePool});
 const authIdentityReady = authIdentityStore.init().then(()=>{console.log(`[auth] identidades: ${authIdentityStore.kind}`);return true}).catch(e=>{console.error('[auth] falha ao iniciar identidades:',e);return false});
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
-const roomSnapshotStore = new RoomSnapshotStore();
+const roomSnapshotStore = new RoomSnapshotStore({pool:appDatabasePool});
 const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
 const DATABASE_REQUIRED = databaseRequired(process.env);
 if(DATABASE_REQUIRED && !String(process.env.DATABASE_URL||'').trim()){
@@ -3622,7 +3625,13 @@ async function gracefulShutdown(signal){
   try{await roomSnapshotsReady;await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
   catch(e){console.error('[rooms] erro no snapshot final:',e?.message||e);}
   try{io.close();}catch{}
-  server.close(async()=>{try{await roomSnapshotStore.close();}catch{};try{await authIdentityStore.close();}catch{};clearTimeout(force);process.exit(0);});
+  server.close(async()=>{
+    try{await roomSnapshotStore.close();}catch(e){console.error('[db] falha ao encerrar snapshots:',e?.message||e);}
+    try{await authIdentityStore.close();}catch(e){console.error('[db] falha ao encerrar autenticação:',e?.message||e);}
+    // Somente o servidor encerra o pool compartilhado, após os snapshots finais.
+    try{if(appDatabasePool)await appDatabasePool.end();}catch(e){console.error('[db] falha ao encerrar pool compartilhado:',e?.message||e);}
+    clearTimeout(force);process.exit(0);
+  });
 }
 process.once('SIGTERM',()=>gracefulShutdown('SIGTERM'));
 process.once('SIGINT',()=>gracefulShutdown('SIGINT'));

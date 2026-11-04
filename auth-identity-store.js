@@ -212,7 +212,7 @@ class JsonBackend {
 }
 
 class PostgresBackend {
-  constructor(databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});}
+  constructor(databaseUrl,pool=null){if(pool){this.pool=pool;this.ownsPool=false;}else{const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}}
   async init(){
     const client=await this.pool.connect();
     try{
@@ -386,11 +386,11 @@ class PostgresBackend {
     const result=await this.pool.query(`SELECT session_version FROM mm_auth_users WHERE player_key=$1`,[playerKey]);
     return result.rowCount?normalizeSessionVersion(result.rows[0]?.session_version):null;
   }
-  async close(){await this.pool.end();}
+  async close(){if(this.ownsPool)await this.pool.end();}
 }
 
 class AuthIdentityStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.AUTH_IDENTITY_FILE||path.join(__dirname,'data','auth-identities.json')}={}){this.kind=databaseUrl?'postgres':'json';this.backend=databaseUrl?new PostgresBackend(databaseUrl):new JsonBackend(filePath);}
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.AUTH_IDENTITY_FILE||path.join(__dirname,'data','auth-identities.json'),pool=null}={}){this.kind=(pool||databaseUrl)?'postgres':'json';this.backend=(pool||databaseUrl)?new PostgresBackend(databaseUrl,pool):new JsonBackend(filePath);}
   async init(){return this.backend.init();}
   async healthCheck(){return this.backend.healthCheck();}
   async ensureSessionUser(session){return this.backend.ensureSessionUser(session);}
