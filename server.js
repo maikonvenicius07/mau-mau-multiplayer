@@ -11,6 +11,7 @@ const BotPlayer = require('./bot-player');
 const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
+const MatchmakingDelivery = require('./matchmaking-delivery');
 const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -1990,8 +1991,8 @@ async function prepareForRoomSwitch(socket, exceptCode=null) {
 function playerHasAcceptedInvite(playerKey) {
   return [...invitations.values()].some(inv=>inv.toKey===playerKey&&['accepted-waiting','ready'].includes(inv.status)&&inv.expiresAt>Date.now());
 }
-function matchmakingPayloadFor(playerKey,reason='') {
-  const players=matchmakingSortedEntries().slice(0,MATCHMAKING_MAX_PLAYERS).map(e=>matchmakingPlayerPublic(e.playerKey));
+function matchmakingPayloadFor(playerKey,reason='',sortedEntries=null) {
+  const players=(sortedEntries||matchmakingSortedEntries()).slice(0,MATCHMAKING_MAX_PLAYERS).map(e=>matchmakingPlayerPublic(e.playerKey));
   return {
     searching:matchmakingQueue.has(playerKey),
     players,
@@ -2002,16 +2003,26 @@ function matchmakingPayloadFor(playerKey,reason='') {
     reason:reason||'',
   };
 }
-function emitMatchmakingState(reason='') {
-  for(const entry of matchmakingSortedEntries()){
-    emitToPlayerKey(entry.playerKey,'matchmakingState',matchmakingPayloadFor(entry.playerKey,reason));
+// Fase 4C: cada conexão recebe somente mudanças reais do estado da busca.
+// A verificação é individual, inclusive quando uma conta possui vários dispositivos.
+function emitMatchmakingToKey(playerKey,payload,{force=false}={}) {
+  const rec=presenceFor(playerKey);if(!rec)return;
+  for(const socketId of rec.sockets){
+    const target=io.sockets.sockets.get(socketId);
+    if(target)MatchmakingDelivery.emitIfChanged(target,payload,{force});
   }
 }
-function emitMatchmakingIdle(playerKey,reason='') {
-  emitToPlayerKey(playerKey,'matchmakingState',{
+function emitMatchmakingState(reason='') {
+  const entries=matchmakingSortedEntries();
+  for(const entry of entries){
+    emitMatchmakingToKey(entry.playerKey,matchmakingPayloadFor(entry.playerKey,reason,entries));
+  }
+}
+function emitMatchmakingIdle(playerKey,reason='',force=false) {
+  emitMatchmakingToKey(playerKey,{
     searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,
     deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:reason||'',
-  });
+  },{force});
 }
 function pruneMatchmakingQueue() {
   let changed=false;
@@ -2129,7 +2140,7 @@ async function formMatchmakingGroup() {
       const p=seatByKey.get(x.entry.playerKey);
       x.socket.data.roomCode=code;x.socket.data.playerId=p.id;x.socket.data.spectatorId=null;x.socket.data.role=ROLE_PLAYER;x.socket.join(code);
       updatePresenceFromSocket(x.socket,{name:p.name,avatar:p.avatar});
-      emitToPlayerKey(x.entry.playerKey,'matchmakingState',{searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:'Partida encontrada.'});
+      emitMatchmakingToKey(x.entry.playerKey,{searching:false,players:[],foundCount:0,maxPlayers:MATCHMAKING_MAX_PLAYERS,deadlineAt:null,waitMs:MATCHMAKING_WAIT_MS,reason:'Partida encontrada.'});
       x.socket.emit('matchmakingMatched',{code,count:group.length,players:matchPlayers});
       StateDelivery.invalidate(x.socket);x.socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'matchmaking',matchSize:group.length,matchPlayers:names});
       emitChatHistory(x.socket,room);
@@ -2189,9 +2200,13 @@ function purgeInvitesForRoom(code,message='A sala do convite não está mais dis
   for(const inv of [...invitations.values()]){
     if(inv.targetRoomCode!==code)continue;
     clearInviteTimer(inv.id);
-    inv.status='unavailable';inv.updatedAt=Date.now();
-    emitToPlayerKey(inv.toKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
-    emitToPlayerKey(inv.fromKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
+    // Convites terminados ficam no Map até 60 s por compatibilidade com o cliente.
+    // Encerrar a sala não deve reenviar "indisponível" após concluído/expirado.
+    if(['pending','accepted-waiting','ready'].includes(inv.status)){
+      inv.status='unavailable';inv.updatedAt=Date.now();
+      emitToPlayerKey(inv.toKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
+      emitToPlayerKey(inv.fromKey,'inviteStatus',{inviteId:inv.id,status:'unavailable',message});
+    }
     invitations.delete(inv.id);
   }
 }
@@ -2463,7 +2478,7 @@ io.on('connection', socket => {
   registerPresenceSocket(socket);
   socket.emit('presenceSnapshot',buildPresenceSnapshot());
   socket.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
-  socket.emit('matchmakingState',matchmakingPayloadFor(socket.data.auth.playerKey));
+  MatchmakingDelivery.emitIfChanged(socket,matchmakingPayloadFor(socket.data.auth.playerKey),{force:true});
   emitPendingInvitesFor(socket);
   setTimeout(broadcastPresence,0);
 
@@ -2735,7 +2750,7 @@ io.on('connection', socket => {
       if(blocker)throw new Error(`Você já possui uma vaga ativa na sala ${blocker.code}. Saia dela antes de buscar jogadores.`);
       if(playerHasAcceptedInvite(key))throw new Error('Você possui um convite aceito com vaga reservada. Entre nele ou cancele a reserva antes de buscar.');
       if(matchmakingQueue.has(key)){
-        socket.emit('matchmakingState',matchmakingPayloadFor(key));
+        MatchmakingDelivery.emitIfChanged(socket,matchmakingPayloadFor(key),{force:true});
         return;
       }
       enforceActionRate(socket,'startMatchmaking','Muitas tentativas de busca em pouco tempo.');
@@ -2750,7 +2765,7 @@ io.on('connection', socket => {
     try{
       const key=socket.data.auth.playerKey;
       if(removeFromMatchmaking(key,{reason:'Busca cancelada.'}))socket.emit('matchmakingCancelled',{message:'Busca cancelada.'});
-      else emitMatchmakingIdle(key,'Você não está na fila.');
+      else emitMatchmakingIdle(key,'Você não está na fila.',true);
     }catch(e){err(socket,e);}
   });
 
