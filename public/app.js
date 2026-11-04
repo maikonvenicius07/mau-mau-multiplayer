@@ -81,7 +81,7 @@ const liveMicPeerInfo=new Map(),liveMicCandidateQueues=new Map(),liveMicRetryTim
 // V49.11 — saúde e recuperação por PEER. Evita que uma micro-oscilação de um participante
 // reconstrua toda a malha de voz e mantém um único inbound ativo por socket remoto.
 const liveVoiceInboundRefreshAtByPeer=new Map(),liveVoiceInboundRtpHealth=new Map();
-let liveVoiceInboundRtpHealthTimer=null;
+let liveVoiceInboundRtpHealthTimer=null,liveVoiceInboundRtpHealthSampling=false;
 // V49.10 — recuperação silenciosa do microfone após troca de rede, retorno do segundo plano e encerramento inesperado da trilha.
 let liveMicRestartTimer=null,liveMicRestartAttempts=0,liveVoiceTransportRecoveryTimer=null,liveVoiceHiddenAt=0;
 // V40.51 — jogadores E observadores tentam primeiro WebRTC/Opus. O relay leve
@@ -2093,21 +2093,30 @@ function closeOtherInboundLivePeers(fromSocketId,keepKey=''){
   const prefix=`${String(fromSocketId||'')}:`;
   for(const key of [...liveMicInboundPeers.keys()])if(key.startsWith(prefix)&&key!==keepKey)closeInboundLivePeer(key);
 }
+// Fase 6B — getStats() pode demorar no celular. Evita coletas sobrepostas
+// e descarta resultados de peers removidos durante um await.
 async function sampleLiveVoiceInboundRtpHealth(){
-  const now=Date.now(),totals=new Map();
-  for(const [key,pc] of liveMicInboundPeers){
-    const socketId=String(key).split(':')[0];if(!socketId||!pc?.getStats)continue;
-    try{
-      const stats=await pc.getStats();let bytes=0,packets=0;
-      stats.forEach(r=>{if(r?.type==='inbound-rtp'&&r.kind==='audio'&&!r.isRemote){bytes+=Number(r.bytesReceived||0);packets+=Number(r.packetsReceived||0)}});
-      const rec=totals.get(socketId)||{bytes:0,packets:0};rec.bytes+=bytes;rec.packets+=packets;totals.set(socketId,rec);
-    }catch{}
-  }
-  for(const [socketId,total] of totals){
-    const prev=liveVoiceInboundRtpHealth.get(socketId)||{bytes:0,packets:0,lastIncreaseAt:now,observedAt:0};
-    const increased=total.bytes>prev.bytes||total.packets>prev.packets;
-    liveVoiceInboundRtpHealth.set(socketId,{...total,lastIncreaseAt:increased?now:prev.lastIncreaseAt,observedAt:now});
-  }
+  if(liveVoiceInboundRtpHealthSampling)return;
+  liveVoiceInboundRtpHealthSampling=true;
+  try{
+    const now=Date.now(),totals=new Map();
+    for(const [key,pc] of liveMicInboundPeers){
+      const socketId=String(key).split(':')[0];if(!socketId||!pc?.getStats)continue;
+      try{
+        const stats=await pc.getStats();
+        if(liveMicInboundPeers.get(key)!==pc)continue;
+        let bytes=0,packets=0;
+        stats.forEach(r=>{if(r?.type==='inbound-rtp'&&r.kind==='audio'&&!r.isRemote){bytes+=Number(r.bytesReceived||0);packets+=Number(r.packetsReceived||0)}});
+        const rec=totals.get(socketId)||{bytes:0,packets:0};rec.bytes+=bytes;rec.packets+=packets;totals.set(socketId,rec);
+      }catch{}
+    }
+    for(const [socketId,total] of totals){
+      if(![...liveMicInboundPeers.keys()].some(key=>String(key).startsWith(`${socketId}:`)))continue;
+      const prev=liveVoiceInboundRtpHealth.get(socketId)||{bytes:0,packets:0,lastIncreaseAt:now,observedAt:0};
+      const increased=total.bytes>prev.bytes||total.packets>prev.packets;
+      liveVoiceInboundRtpHealth.set(socketId,{...total,lastIncreaseAt:increased?now:prev.lastIncreaseAt,observedAt:now});
+    }
+  }finally{liveVoiceInboundRtpHealthSampling=false;}
 }
 function syncLiveVoiceInboundRtpHealthMonitor(){
   if(liveMicInboundPeers.size&&!liveVoiceInboundRtpHealthTimer){
@@ -3192,7 +3201,13 @@ socket.on('inviteStatus',info=>{
 
 socket.on('chatHistory',messages=>{for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}for(const a of [...playingVoiceAudios]){if(a?.classList?.contains('chat-audio'))playingVoiceAudios.delete(a)}chatMessages=Array.isArray(messages)?messages.slice(-60):[];unreadChat=0;refreshQuickAudioMusicDuck();renderChat();renderChatBadge()});
 socket.on('chatMessage',message=>{
-  chatMessages.push(message);if(chatMessages.length>60)chatMessages=chatMessages.slice(-60);
+  chatMessages.push(message);
+  // Fase 6B — mensagens de texto também podem expulsar áudios antigos do histórico.
+  // Libera a URL do Blob imediatamente em vez de retê-la até sair da sala.
+  while(chatMessages.length>60){
+    const removed=chatMessages.shift();
+    if(removed?.audioUrl)try{URL.revokeObjectURL(removed.audioUrl)}catch{}
+  }
   const panelOpen=isSpectatorState()?spectatorDrawerActive==='chat':$('#sidePanel').classList.contains('open');
   if(message.playerId!==state?.me?.id && (activeSideTab!=='chat'||!panelOpen)) unreadChat++;
   renderChat();renderChatBadge();
