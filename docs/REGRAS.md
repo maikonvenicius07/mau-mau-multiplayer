@@ -58,7 +58,7 @@ Depois da Queima:
 A, 7, 8, J, Q e K não podem iniciar Queima.
 
 ## 7. Ação Rápida — fora da vez
-Logo após uma carta normal ser jogada, um jogador que não seja quem acabou de jogar nem o próximo da vez pode descartar uma carta normal exatamente igual à recém-jogada.
+Enquanto uma carta normal permanece no topo da mesa, um jogador que não seja quem a jogou nem o jogador da vez pode descartar uma carta normal exatamente igual (mesmo valor e mesmo naipe). Comprar ou passar sem jogar outra carta não encerra essa oportunidade.
 
 A Ação Rápida:
 - descarta somente uma carta;
@@ -70,7 +70,7 @@ A Ação Rápida:
 - fica suspensa durante cadeia de 7 e durante continuação de Queima;
 - encerra a oportunidade assim que a primeira Ação Rápida válida for aceita.
 
-Depois dela, continua jogando quem já seria o próximo.
+Depois dela, a vez continua com quem estiver na vez naquele momento. A oportunidade anterior termina quando uma carta substitui a do topo, quando uma Ação Rápida é aceita ou quando outra condição restritiva das regras ocorre.
 
 ## 8. Carta Dupla
 Na própria vez, duas cartas exatamente iguais — mesmo valor e mesmo naipe — podem ser descartadas juntas se a jogada for válida.

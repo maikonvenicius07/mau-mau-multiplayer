@@ -3806,7 +3806,7 @@ function renderCenter(){
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL NA SUA VEZ! Jogue a carta igual e decida se continua ou passa';
-  else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner=state.openingReaction?'⚡ AÇÃO RÁPIDA NA ABERTURA! Descarte a carta igual sem tomar a vez':'⚡ AÇÃO RÁPIDA! Jogue a carta igual antes do próximo';
+  else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner=state.openingReaction?'⚡ AÇÃO RÁPIDA NA ABERTURA! Descarte a carta igual sem tomar a vez':'⚡ AÇÃO RÁPIDA! Jogue a carta igual enquanto o topo não mudar';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
   if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}

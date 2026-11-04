@@ -1,3 +1,10 @@
+## V53.1 — Ação Rápida preservada após compra e passe (04/11/2026)
+
+- Corrige a janela de Ação Rápida: comprar uma carta não cancela mais a reação enquanto o topo da mesa não mudar.
+- Passar após a compra mantém a oportunidade e sincroniza quem possui a vez, sem pular nem devolver turnos.
+- Cartas normais idênticas, especiais proibidas, cadeia de 7, Queima, abertura, anúncio Mau-Mau e primeira reação válida mantidos conforme as regras.
+- Atualiza a explicação da interface e adiciona testes de regressão específicos.
+
 ## V51.3.1 — Torneios por qualquer jogador (21/10/2026)
 - Qualquer conta autenticada pode criar torneios; o criador pode editar, gerir inscrições, sortear e excluir os próprios.
 - Exclusão definitiva de torneio + inscrições + grupos associados, protegida pela conta criadora no servidor.

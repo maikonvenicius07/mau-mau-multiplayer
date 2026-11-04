@@ -533,7 +533,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,1);
 }
 
-// V17: a janela de reação fecha quando o próximo jogador começa sua ação normal.
+// V53.1: comprar não fecha a janela se a carta do topo permanecer a mesma.
 {
   const r=room4(),a=r.players[0],b=r.players[1],d=r.players[3];
   r.currentPlayer=0;r.discard=[card('5','clubs','close-base')];
@@ -544,7 +544,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.playCard(r,a.id,'close-source');
   assert(E.canQuickAction(r,b).length>0);
   E.drawAction(r,d.id);
-  assert.equal(E.canQuickAction(r,b).length,0);
+  assert.equal(E.canQuickAction(r,b).length,1,'apenas comprar não fecha Ação Rápida');
 }
 
 // V17: Mau-Mau também funciona antes de Ação Rápida que deixa apenas 1 carta.

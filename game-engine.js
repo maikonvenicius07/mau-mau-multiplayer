@@ -430,9 +430,10 @@ function topCard(room) {
   return room.discard[room.discard.length-1] || null;
 }
 
-// V17 — janela única de reação para Queima e Ação Rápida.
-// Ela permanece aberta somente até o próximo jogador começar sua jogada
-// (jogar, comprar ou usar Carta Dupla), ou até alguém reagir primeiro.
+// V53.1 — a janela de Ação Rápida acompanha a carta do topo.
+// Comprar ou passar sem descartar NÃO fecha a oportunidade; somente uma nova
+// carta efetivamente jogada, uma reação aceita ou as demais restrições das
+// regras (cadeia de 7, continuação de Queima etc.) podem encerrá-la/suspendê-la.
 function closeReaction(room) {
   room.openingReaction = false;
   room.burnTopCardId = null;
@@ -449,6 +450,15 @@ function openReaction(room, sourcePlayerId, cardId) {
   room.reactionTopCardId = cardId;
   room.reactionSourcePlayerId = sourcePlayerId;
   room.reactionNextPlayerId = room.players[room.currentPlayer]?.id || null;
+}
+
+// O passe avança a vez sem mudar a carta da mesa. Mantemos a origem da carta
+// e sincronizamos somente quem está na vez: Ação Rápida nunca pode devolvê-la
+// ao jogador que já passou, nem permitir que o jogador atual reaja fora da vez.
+function syncReactionTurnAfterPass(room) {
+  if (room.reactionTopCardId && room.reactionTopCardId === topCard(room)?.id) {
+    room.reactionNextPlayerId = room.players[room.currentPlayer]?.id || null;
+  }
 }
 
 function legalCard(room, card, player) {
@@ -915,8 +925,8 @@ function nextEligiblePenaltyTarget(room, fromIdx) {
 function drawAction(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
-  // Ao iniciar uma compra, encerra-se qualquer janela de reação da jogada anterior.
-  closeReaction(room);
+  // V53.1: comprar altera a mão, não a carta do topo. Preserve a oportunidade
+  // de Ação Rápida para terceiros enquanto o topo for o mesmo.
 
   // V49.9.3: durante a continuação de uma Queima, o jogador pode continuar
   // jogando normalmente. Se optar por ENCERRAR a sequência, a compra de 1 carta
@@ -1021,13 +1031,14 @@ function passTurn(room, playerId) {
     throw new Error('Para passar a vez, primeiro compre 1 carta do monte.');
   }
 
-  closeReaction(room);
+  // V53.1: o passe normal não altera o topo; mantenha a janela de Ação Rápida.
   const keptCardId = p.justDrawnCardId;
   p.justDrawnCardId = null;
   p.declaration = null;
 
   const next = nextIndex(room, idx, 1);
   room.currentPlayer = next;
+  syncReactionTurnAfterPass(room);
   auditTurn(room,{fromIdx:idx,toIdx:next,reason:'pass-after-draw'});
   room.lastPass = {
     playerId: p.id,
@@ -1135,11 +1146,11 @@ function canBurnMatch(room, player) {
   return player.hand.filter(first => !isSpecial(first) && sameCard(first, top));
 }
 
-// V17 — AÇÃO RÁPIDA
-// Um jogador que NÃO está na vez pode descartar imediatamente uma carta
-// exatamente igual à recém-jogada OU à carta inicial da rodada. Não toma a vez,
-// não altera o sentido e não dispara novamente o efeito especial da carta. A ordem normal
-// continua com quem já seria o próximo. A primeira reação aceita pelo servidor fecha a janela.
+// V53.1 — AÇÃO RÁPIDA
+// Um jogador que NÃO está na vez pode descartar uma carta normal idêntica ao
+// topo (mesmo naipe e valor), mesmo após a compra/passe de outro participante.
+// Não toma a vez, não altera o sentido e não inicia uma segunda jogada. A vez
+// permanece com o jogador atual; a primeira reação aceita fecha a janela.
 function canQuickAction(room, player) {
   if (!room?.rules?.quickActionEnabled || room.status !== 'playing') return [];
   if (room.pendingSeven > 0 || room.continuationPlayerId) return [];
