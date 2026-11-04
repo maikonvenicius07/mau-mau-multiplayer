@@ -1,0 +1,14 @@
+MAU-MAU CANDEIAS V53.2.1 — relatório de validação
+Projeto-base: mau-mau-multiplayer-main (23).zip
+Correção de implantação: mover três arquivos da raiz para as pastas corretas.
+Arquivo raiz index.html removido; public/index.html atualizado.
+Arquivo raiz REGRAS.md removido; docs/REGRAS.md atualizado.
+Arquivo raiz quick-action-own-top-after-draw-v53-2.test.js removido; tests/quick-action-own-top-after-draw-v53-2.test.js criado.
+Testes existentes: 153
+Testes aprovados: 152
+Testes com falhas: 0
+Testes não executados por dependência ausente: ['socketio-integration-v4063.test.js']
+Comparação binária: projeto corrigido idêntico à V53.2 completa preparada anteriormente.
+A validação real do botão ⚡ e da corrida Socket.IO no Render ainda é necessária.
+
+Falhas:

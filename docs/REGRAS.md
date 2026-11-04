@@ -58,7 +58,7 @@ Depois da Queima:
 A, 7, 8, J, Q e K não podem iniciar Queima.
 
 ## 7. Ação Rápida — fora da vez
-Enquanto uma carta normal permanece no topo da mesa, um jogador que não seja quem a jogou nem o jogador da vez pode descartar uma carta normal exatamente igual (mesmo valor e mesmo naipe). Comprar ou passar sem jogar outra carta não encerra essa oportunidade.
+Enquanto uma carta normal permanece no topo da mesa, **qualquer jogador que esteja fora da vez**, inclusive aquele que colocou a carta atual no topo e já encerrou seu turno, pode descartar uma carta normal exatamente igual (mesmo valor e mesmo naipe). Comprar ou passar sem jogar outra carta não encerra essa oportunidade. **O autor da carta só pode reagir depois que a vez tiver sido passada para outro jogador.**
 
 A Ação Rápida:
 - descarta somente uma carta;
