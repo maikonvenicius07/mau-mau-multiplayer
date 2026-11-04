@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#10291f" />
+  <meta name="application-name" content="MAU-MAU CANDEIAS" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
+  <title>Mau-Mau Candeias — Baralho Tradicional</title>
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v52.8-layout-mobile-real-scoreboard-v52.8.2" />
+</head>
+<body>
+  <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
+  <div id="appSplash" class="app-splash" aria-hidden="true">
+    <div class="app-splash-glow"></div>
+    <div class="app-splash-content">
+      <img class="app-splash-logo" src="/assets/app/logo-display-512.webp" fetchpriority="high" alt="" />
+      <div class="app-splash-title">MAU-MAU</div>
+      <div class="app-splash-subtitle">CANDEIAS</div>
+      <div class="app-splash-cards" aria-hidden="true">
+        <span class="red">A♥</span><span>7♣</span><span class="red">J♦</span><span>Q♠</span>
+      </div>
+      <div class="app-splash-loader"><span></span></div>
+      <div class="app-splash-caption">Preparando suas cartas...</div>
+    </div>
+  </div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="inviteInbox" class="invite-inbox" aria-live="polite" aria-label="Convites para jogar"></div>
+
+  <!-- Painel global: pode ser aberto tanto na tela inicial quanto dentro da sala -->
+
+  <section id="authGate" class="screen auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand-mark">M</div>
+      <div class="eyebrow">ACESSO AO MAU-MAU CANDEIAS</div>
+      <h1>Entre para jogar</h1>
+      <p>Use Google ou e-mail + senha. Sua conta mantém a mesma identidade do ranking e da reconexão em celular ou computador.</p>
+
+      <div id="googleSignInButton" class="google-signin-container" aria-label="Continuar com Google"></div>
+      <div id="authDivider" class="auth-divider"><span>ou</span></div>
+      <div id="emailPasswordAuthBox" class="email-auth-box hidden">
+        <div class="email-auth-tabs" role="tablist" aria-label="Acesso por e-mail e senha">
+          <button id="emailPasswordLoginTab" class="email-auth-tab active" type="button" role="tab" aria-selected="true">Entrar</button>
+          <button id="emailPasswordRegisterTab" class="email-auth-tab" type="button" role="tab" aria-selected="false">Criar conta</button>
+        </div>
+        <form id="emailPasswordLoginForm" class="email-auth-form">
+          <label for="emailPasswordLoginEmail">E-mail</label>
+          <input id="emailPasswordLoginEmail" type="email" inputmode="email" autocomplete="username" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <label for="emailPasswordLoginPassword">Senha</label>
+          <input id="emailPasswordLoginPassword" type="password" autocomplete="current-password" minlength="6" maxlength="60" placeholder="Sua senha" required />
+          <button id="emailPasswordLoginBtn" type="submit">Entrar com e-mail + senha</button>
+          <button id="emailPasswordRecoverOpen" class="email-change-btn" type="button">Esqueci minha senha</button>
+        </form>
+        <form id="emailPasswordRegisterForm" class="email-auth-form hidden">
+          <label for="emailPasswordRegisterName">Nome do jogador</label>
+          <input id="emailPasswordRegisterName" type="text" autocomplete="nickname" maxlength="60" placeholder="Seu nome" />
+          <label for="emailPasswordRegisterEmail">E-mail</label>
+          <input id="emailPasswordRegisterEmail" type="email" inputmode="email" autocomplete="email" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <label for="emailPasswordRegisterPassword">Crie uma senha</label>
+          <input id="emailPasswordRegisterPassword" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="6 a 60 caracteres" required />
+          <label for="emailPasswordRegisterConfirm">Confirme a senha</label>
+          <input id="emailPasswordRegisterConfirm" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="Repita a senha" required />
+          <button id="emailPasswordRegisterBtn" type="submit">Criar conta</button>
+          <p class="email-code-hint">A senha pode ter de 6 a 60 caracteres. Você escolhe o tamanho e pode usar letras, números e símbolos. Use um e-mail ao qual você tenha acesso, pois ele será usado para recuperar a senha.</p>
+        </form>
+        <form id="emailPasswordRecoverForm" class="email-auth-form hidden">
+          <label for="emailPasswordRecoverEmail">E-mail da conta</label>
+          <input id="emailPasswordRecoverEmail" type="email" inputmode="email" autocomplete="username" maxlength="180" placeholder="seuemail@exemplo.com" required />
+          <button id="emailPasswordRecoverySend" type="button">Enviar código por e-mail</button>
+          <p class="email-code-hint">O código tem 6 números e vale por 10 minutos.</p>
+          <label for="emailPasswordRecoveryCode">Código recebido por e-mail</label>
+          <input id="emailPasswordRecoveryCode" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required />
+          <label for="emailPasswordNewPassword">Nova senha</label>
+          <input id="emailPasswordNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="6 a 60 caracteres" required />
+          <label for="emailPasswordNewPasswordConfirm">Confirme a nova senha</label>
+          <input id="emailPasswordNewPasswordConfirm" type="password" autocomplete="new-password" minlength="6" maxlength="60" placeholder="Repita a nova senha" required />
+          <button id="emailPasswordRecoverBtn" type="submit">Alterar senha</button>
+          <button id="emailPasswordRecoverBack" class="email-change-btn" type="button">Voltar para entrar</button>
+        </form>
+      </div>
+
+      <div id="authStatus" class="auth-status" aria-live="polite">Verificando sua sessão...</div>
+      <p class="auth-privacy">O Google protege as credenciais da Conta Google. No acesso por e-mail, você escolhe uma senha de 6 a 60 caracteres. Se esquecer a senha, poderá receber um código de recuperação no e-mail cadastrado.</p>
+    </div>
+  </section>
+
+
+  <section id="landing" class="screen landing hidden">
+    <div class="hero-card">
+      <div class="google-account-bar">
+        <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da conta" referrerpolicy="no-referrer" />
+        <div class="google-account-meta"><small id="authProviderLabel">CONTA CONECTADA</small><strong id="googleAccountName">Jogador</strong><span id="googleAccountEmail"></span></div>
+        <button id="googleLogoutBtn" class="google-logout-btn" type="button">Sair da conta</button>
+      </div>
+      <div class="brand-row">
+        <div class="brand-mark">M</div>
+        <div>
+          <div class="eyebrow">BARALHO TRADICIONAL</div>
+          <h1>MAU-MAU</h1>
+          <div class="brand-subtitle">CANDEIAS</div>
+          <p>5 rodadas • 2 a 5 jogadores • amigos ou máquina • menor pontuação vence</p>
+        </div>
+      </div>
+      <div class="mini-deck" aria-hidden="true">
+        <div class="mini-card red">A♥</div><div class="mini-card black">7♣</div><div class="mini-card red">J♦</div><div class="mini-card black">Q♠</div>
+      </div>
+
+      <section class="online-discovery" aria-label="Encontrar jogadores e assistir partidas">
+        <div class="online-count-card"><span class="online-live-dot" aria-hidden="true"></span><strong><span id="onlineCount">0</span> JOGADORES ONLINE</strong><small>Contas conectadas agora</small></div>
+        <button id="matchmakingStart" class="matchmaking-main" type="button"><span>🔎</span><strong id="matchmakingBtnTitle">BUSCAR JOGADORES</strong><small id="matchmakingBtnSubtitle">Encontre alguém automaticamente</small></button>
+        <button id="onlinePlayersOpen" class="online-players-main" type="button"><span>👥</span><strong>JOGADORES ONLINE</strong><small>Veja quem está conectado e convide para jogar</small></button>
+        <button id="watchRoomsOpen" class="watch-rooms-main watch-rooms-compact" type="button" aria-label="Ver partidas públicas ao vivo">
+          <span class="watch-rooms-eye" aria-hidden="true">👁️</span>
+          <span class="watch-rooms-copy"><strong>ASSISTIR PARTIDAS</strong><small><b id="watchableRoomsCount">0</b> AO VIVO</small></span>
+        </button>
+        <span id="publicRoomsCountLanding" hidden>0</span>
+        <span id="liveSpectatorsCount" hidden>0</span>
+      </section>
+
+      <section id="linkInviteBanner" class="link-invite-banner hidden" aria-live="polite">
+        <div class="link-invite-copy"><small>🔗 CONVITE POR LINK</small><strong>Sala <span id="linkInviteCode">------</span></strong><span>Você recebeu um convite direto. Entre normalmente; se a partida já tiver começado, o jogo poderá oferecer o Modo Observador.</span></div>
+        <div class="link-invite-actions"><button id="linkInviteJoin" type="button" class="primary">🎮 ENTRAR NA SALA</button><button id="linkInviteCopy" type="button">🔗 COPIAR LINK</button></div>
+      </section>
+
+      <div class="setup-grid avatar-setup">
+        <label>Nome na mesa<input id="nameInput" maxlength="24" placeholder="Seu nome na mesa" value="Jogador" /></label>
+        <div class="avatar-field">
+          <div class="avatar-field-title">Escolha seu avatar</div>
+          <input id="avatarSelect" type="hidden" value="macaco" />
+          <div id="avatarPicker" class="avatar-picker avatar-categories" role="radiogroup" aria-label="Escolha seu avatar">
+            <section class="avatar-group animals">
+              <div class="avatar-group-title">🐾 Animais</div>
+              <div class="avatar-group-grid avatar-grid-5">
+                <button type="button" class="avatar-option selected" data-avatar="macaco" role="radio" aria-checked="true" title="Macaco">
+                  <img loading="lazy" decoding="async" src="assets/avatars/macaco.webp" alt="Macaco" /><span>Macaco</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="boi" role="radio" aria-checked="false" title="Boi">
+                  <img loading="lazy" decoding="async" src="assets/avatars/boi.webp" alt="Boi" /><span>Boi</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="jacare" role="radio" aria-checked="false" title="Jacaré">
+                  <img loading="lazy" decoding="async" src="assets/avatars/jacare.webp" alt="Jacaré" /><span>Jacaré</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="veado" role="radio" aria-checked="false" title="Veado">
+                  <img loading="lazy" decoding="async" src="assets/avatars/veado.webp" alt="Veado" /><span>Veado</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="cachorro" role="radio" aria-checked="false" title="Cachorro">
+                  <img loading="lazy" decoding="async" src="assets/avatars/cachorro.webp" alt="Cachorro" /><span>Cachorro</span>
+                </button>
+              </div>
+            </section>
+            <section class="avatar-group mascots">
+              <div class="avatar-group-title">🏆 Mascotes</div>
+              <div class="avatar-group-grid avatar-grid-3">
+                <button type="button" class="avatar-option" data-avatar="preta" role="radio" aria-checked="false" title="Tela Preta">
+                  <img loading="lazy" decoding="async" src="assets/avatars/preta.webp" alt="Tela Preta" /><span>Tela Preta</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="costela" role="radio" aria-checked="false" title="Costela">
+                  <img loading="lazy" decoding="async" src="assets/avatars/costela.webp" alt="Costela" /><span>Costela</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="perna" role="radio" aria-checked="false" title="Perna">
+                  <img loading="lazy" decoding="async" src="assets/avatars/perna.webp" alt="Perna" /><span>Perna</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="telaazul" role="radio" aria-checked="false" title="Tela Azul">
+                  <img loading="lazy" decoding="async" src="assets/avatars/telaazul.webp" alt="Tela Azul" /><span>Tela Azul</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="caldo" role="radio" aria-checked="false" title="Kaldynho">
+                  <img loading="lazy" decoding="async" src="assets/avatars/caldo.webp" alt="Kaldynho" /><span>Kaldynho</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="anao" role="radio" aria-checked="false" title="Anão">
+                  <img loading="lazy" decoding="async" src="assets/avatars/anao.webp" alt="Anão" /><span>Anão</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="anaocabecao" role="radio" aria-checked="false" title="Anão Cabeção">
+                  <img loading="lazy" decoding="async" src="assets/avatars/anaocabecao.webp" alt="Anão Cabeção" /><span>Anão Cabeção</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="vesgo" role="radio" aria-checked="false" title="Vesgo">
+                  <img loading="lazy" decoding="async" src="assets/avatars/vesgo.webp" alt="Vesgo" /><span>Vesgo</span>
+                </button>
+                <button type="button" class="avatar-option" data-avatar="magreloverde" role="radio" aria-checked="false" title="Hulk Magrelo">
+                  <img loading="lazy" decoding="async" src="assets/avatars/magreloverde.webp" alt="Hulk Magrelo" /><span>Hulk Magrelo</span>
+                </button>
+              </div>
+            </section>
+            <div class="avatar-side-column">
+              <section class="avatar-group people">
+                <div class="avatar-group-title">👤 Pessoas</div>
+                <div class="avatar-group-grid avatar-grid-2">
+                  <button type="button" class="avatar-option" data-avatar="homem" role="radio" aria-checked="false" title="Homem">
+                    <img loading="lazy" decoding="async" src="assets/avatars/homem.webp" alt="Homem" /><span>Homem</span>
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="mulher" role="radio" aria-checked="false" title="Mulher">
+                    <img loading="lazy" decoding="async" src="assets/avatars/mulher.webp" alt="Mulher" /><span>Mulher</span>
+                  </button>
+                </div>
+              </section>
+              <section class="avatar-group custom-avatar-group">
+                <div class="avatar-group-title">🖼️ Sua Figurinha</div>
+                <div class="custom-avatar-wrap">
+                  <button type="button" id="customAvatarOption" class="avatar-option custom-avatar-option" data-avatar="__custom__" role="radio" aria-checked="false" title="Sua figurinha">
+                    <img id="customAvatarPreview" loading="lazy" decoding="async" src="assets/avatars/custom_placeholder.webp" alt="Prévia da sua figurinha" />
+                    <span class="custom-avatar-copy">
+                      <span id="customAvatarLabel">Escolher figurinha</span>
+                      <small>JPG • PNG • WEBP</small>
+                    </span>
+                  </button>
+                  <div class="custom-avatar-actions">
+                    <label class="custom-avatar-upload-btn" for="customAvatarInput">Trocar</label>
+                    <input id="customAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                    <button type="button" id="customAvatarClear" class="custom-avatar-clear-btn">Remover</button>
+                  </div>
+                  <div class="custom-avatar-tip">Ajuste automático para avatar redondo.</div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="room-visibility-option">
+        <label class="visibility-toggle"><input id="publicRoomToggle" type="checkbox" checked /><span class="visibility-switch" aria-hidden="true"></span><span><strong>👁️ Sala pública para observadores</strong><small>Quando a partida começar, ela poderá aparecer em “Assistir Partidas”. Desmarque para manter privada.</small></span></label>
+      </div>
+      <div class="action-grid">
+        <button id="createBtn" class="primary">➕ Criar sala</button>
+        <button id="botGameBtn" class="bot-primary">🤖 Jogar contra a máquina</button>
+        <div class="join-row"><input id="roomInput" maxlength="6" placeholder="CÓDIGO" /><button id="joinBtn">🎮 Entrar</button></div>
+      </div>
+      <div class="landing-links">
+        <button id="rankingOpen" class="ranking-link-btn" type="button">🏆 Ranking</button>
+        <button id="tournamentOpenHome" class="tournament-home-btn" type="button" aria-haspopup="dialog" aria-controls="tournamentDialog">🏆 Torneios</button>
+        <button id="localMusicOpen" class="local-music-link-btn" type="button">🎵 Minha Música</button>
+        <button id="rulesOpen" class="link-btn" type="button">VER REGRAS</button>
+      </div>
+      <p class="fine">Jogue online com amigos ou escolha “Jogar contra a máquina” para uma partida imediata contra o computador.</p>
+    </div>
+  </section>
+
+  <section id="game" class="screen hidden">
+    <header class="topbar">
+      <div class="brand-small"><span>M</span><div class="brand-small-text"><strong>MAU-MAU</strong><small>CANDEIAS</small></div></div>
+      <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Compartilhar convite da sala" aria-label="Compartilhar convite da sala">🔗</button></div>
+      <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
+      <button id="connectionChip" class="connection-chip connecting" type="button" title="Abrir diagnóstico da conexão" aria-label="Abrir diagnóstico da conexão">● Conectando</button>
+      <button id="leaveBtn" class="leave-btn" title="Sair da sala">🚪 Sair</button>
+      <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
+      <button id="onlinePlayersOpen2" class="icon-btn online-top-btn" title="Jogadores Online" aria-label="Abrir jogadores online">👥<span id="onlineTopBadge" class="online-top-badge">0</span></button>
+      <button id="scoreToggleBtn" class="icon-btn player-aux-top-btn" type="button" title="Abrir placar da partida" aria-label="Abrir placar da partida">📊</button>
+      <button id="tableInfoToggleBtn" class="icon-btn player-aux-top-btn" type="button" title="Abrir informações da mesa" aria-label="Abrir informações da mesa">📋</button>
+      <button id="soundBtn" class="icon-btn game-sound-toggle game-sound-top-btn" type="button" aria-label="Silenciar sons do jogo" aria-pressed="false" title="Silenciar os sons do jogo"><span class="game-sound-icon" aria-hidden="true">🔊</span><span class="game-sound-label">Som ligado</span></button>
+      <button id="localMusicOpen2" class="icon-btn local-music-top-btn" type="button" title="Minha Música" aria-label="Escolher música do próprio aparelho">🎵</button>
+      <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
+      <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
+    </header>
+
+    <!-- Interface compacta exclusiva do Observador. Não altera regras nem dados do servidor. -->
+    <div class="spectator-compact-toolbar" aria-label="Controles do modo observador">
+      <div id="spectatorModeBanner" class="spectator-mode-banner hidden" role="status">
+        <span class="spectator-mode-icon" aria-hidden="true">👁️</span>
+        <div class="spectator-mode-copy">
+          <strong>OBSERVADOR</strong>
+          <small>Acompanhando a mesa · cartas privadas protegidas</small>
+        </div>
+      </div>
+      <section id="spectatorLivePanel" class="spectator-live-panel hidden" aria-label="Resumo da partida para observadores">
+        <div class="spectator-live-stats">
+          <div><strong id="spectatorLivePlayers">0</strong><span>jogadores</span></div>
+          <div><strong id="spectatorLiveRound">0/5</strong><span>rodada</span></div>
+          <div><strong id="spectatorLiveWatching">0</strong><span>assistindo</span></div>
+        </div>
+        <div class="spectator-seat-area"><button id="spectatorSeatBtn" class="spectator-seat-btn hidden" type="button">＋ Entrar na partida</button><small id="spectatorSeatNote" class="spectator-seat-note hidden" role="status" aria-live="polite"></small></div>
+        <nav class="spectator-compact-actions" aria-label="Abrir informações do observador">
+          <button type="button" data-spectator-panel="score" aria-controls="spectatorAuxDrawer" aria-expanded="false">🏆 Placar</button>
+          <button type="button" data-spectator-panel="events" aria-controls="spectatorAuxDrawer" aria-expanded="false">☷ Eventos</button>
+          <button type="button" data-spectator-panel="chat" aria-controls="spectatorAuxDrawer" aria-expanded="false">💬 Chat <span id="spectatorChatBadge" class="chat-badge hidden">0</span></button>
+          <button type="button" data-spectator-panel="watchers" aria-controls="spectatorAuxDrawer" aria-expanded="false">👁️ Pessoas</button>
+        </nav>
+      </section>
+    </div>
+    <!-- Gaveta única. O placar e o painel original Mesa/Chat são movidos para cá
+         enquanto o usuário observa, preservando handlers, chats e logs reais. -->
+    <aside id="spectatorAuxDrawer" class="spectator-compact-drawer hidden" aria-label="Informações da partida" aria-hidden="true">
+      <header class="spectator-drawer-head">
+        <strong id="spectatorDrawerTitle">Informações</strong>
+        <button id="spectatorDrawerClose" type="button" aria-label="Fechar painel do observador" title="Fechar">×</button>
+      </header>
+      <div id="spectatorDrawerScore" class="spectator-drawer-content hidden"></div>
+      <div id="spectatorDrawerActivity" class="spectator-drawer-content hidden"></div>
+      <div id="spectatorDrawerWatchers" class="spectator-drawer-content hidden">
+        <div class="spectator-watchers-wrap"><strong>👁️ Pessoas assistindo</strong><div id="spectatorPeople" class="spectator-people"></div></div>
+      </div>
+    </aside>
+
+    <div id="quickReactionsWidget" class="quick-reactions-widget quick-reactions-widget-minimal" aria-label="Reações rápidas">
+      <button id="allReactionsBtn" class="quick-reaction-btn all-reactions-toggle quick-reaction-main" type="button" title="Ver todas as reações. Arraste para mover. Duplo toque para voltar à posição inicial." aria-label="Ver todas as reações" aria-expanded="false">😊</button>
+      <div id="allReactionsPanel" class="all-reactions-panel hidden" role="menu" aria-label="Todas as reações">
+        <div class="all-reactions-title">REAÇÕES</div>
+        <div class="all-reactions-grid sticker-reactions-grid">
+          <button data-effect="horn" class="all-reaction-btn sticker-reaction sticker-mau" type="button" title="MAU-MAU!" aria-label="MAU-MAU!"><b class="sticker-symbol">🃏</b><span>MAU-MAU!</span></button>
+          <button data-effect="angry" class="all-reaction-btn sticker-reaction sticker-burn" type="button" title="QUEIMOU!" aria-label="QUEIMOU!"><b class="sticker-symbol">🔥</b><span>QUEIMOU!</span></button>
+          <button data-effect="wow" class="all-reaction-btn sticker-reaction sticker-turn" type="button" title="SUA VEZ!" aria-label="SUA VEZ!"><b class="sticker-symbol">👉</b><span>SUA VEZ!</span></button>
+          <button data-effect="draw2" class="all-reaction-btn sticker-reaction sticker-draw2" type="button" title="COMPRA 2!" aria-label="COMPRA 2!"><b class="sticker-symbol">+2</b><span>COMPRA 2!</span></button>
+          <button data-effect="drum" class="all-reaction-btn sticker-reaction sticker-reverse" type="button" title="REVERSO!" aria-label="REVERSO!"><b class="sticker-symbol">🔄</b><span>REVERSO!</span></button>
+          <button data-effect="jogaBoca" class="all-reaction-btn all-reaction-speaker sticker-reaction sticker-boca" type="button" title="JOGA BOCA ABERTA!" aria-label="JOGA BOCA ABERTA!"><b class="sticker-symbol">😮</b><span>JOGA BOCA!</span></button>
+          <button data-effect="victory" class="all-reaction-btn sticker-reaction sticker-win" type="button" title="GANHEI!" aria-label="GANHEI!"><b class="sticker-symbol">🏆</b><span>GANHEI!</span></button>
+          <button data-effect="laugh" class="all-reaction-btn sticker-reaction sticker-slow" type="button" title="TÁ LENTO HEIN..." aria-label="TÁ LENTO HEIN..."><b class="sticker-symbol">🐌</b><span>TÁ LENTO!</span></button>
+          <button data-effect="applause" class="all-reaction-btn sticker-reaction sticker-good" type="button" title="BOA PARTIDA!" aria-label="BOA PARTIDA!"><b class="sticker-symbol">👍</b><span>BOA PARTIDA!</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- V40.35: microfone ao vivo é um controle global da partida.
+         Fica fora do felt para nunca ser recortado pelo overflow da mesa, inclusive no Modo Observador. -->
+    <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone estável. Arraste para mover." aria-label="Microfone ao vivo estável: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
+    <!-- Camera de video opcional: video efemero, sem gravacao, nao usa Socket.IO. -->
+    <button id="liveCameraBtn" class="live-camera-btn hidden" type="button" title="Clique para ligar/desligar a câmera. Arraste para mover." aria-label="Câmera ao vivo: clique para ligar ou desligar, arraste para mover"><span class="camera-btn-drag-handle" aria-hidden="true">⠿</span><span aria-hidden="true">📷</span><span id="liveCameraLabel">LIGAR CÂMERA</span></button>
+    <div id="cameraSelfPreview" class="camera-self-preview hidden" aria-label="Prévia da própria câmera. Arraste para posicionar." title="Arraste sua imagem para onde quiser."><span class="camera-preview-drag" aria-hidden="true">⠿</span><button id="cameraSwitchBtn" class="camera-switch-btn hidden" type="button" title="Trocar câmera frontal e traseira" aria-label="Trocar câmera frontal e traseira">🔄</button></div>
+    <!-- V50.4: ampliacao em tela dos adversarios usando a mesma transmissao ao vivo. -->
+    <div id="cameraOpponentOverlay" class="camera-opponent-overlay hidden" role="dialog" aria-modal="true" aria-label="Câmera do adversário ampliada">
+      <div class="camera-opponent-panel">
+        <span id="cameraOpponentName" class="camera-opponent-heading"></span>
+        <button id="cameraOpponentClose" class="camera-opponent-close" type="button" aria-label="Fechar vídeo ampliado">×</button>
+        <video id="cameraOpponentExpandedVideo" class="camera-opponent-expanded-video" autoplay muted playsinline aria-label="Vídeo ao vivo ampliado do adversário"></video>
+      </div>
+    </div>
+
+    <!-- V40.69.1f: controle global fora do felt. Assim o arraste não depende da mesa,
+         do overflow nem da quantidade/posição dos jogadores. -->
+    <button id="pileSideBtn" class="pile-side-toggle" type="button" title="Trocar o lado do baralho e da carta da mesa. Arraste para mover." aria-label="Trocar o lado do baralho e da carta da mesa. Arraste para mover."><span class="pile-side-drag" aria-hidden="true">⠿</span><span class="pile-side-icon" aria-hidden="true">⇄</span><span class="pile-side-label">Trocar lados</span></button>
+
+    <main class="table-shell">
+      <div class="scoreboard" id="scoreboard"></div>
+      <div class="felt">
+        <button id="floatingBurnBtn" class="floating-game-action floating-burn-action hidden" type="button" title="Queima disponível. Clique para queimar ou arraste para mover." aria-label="Botão flutuante de Queima"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">🔥</span><strong>QUEIMA</strong></button>
+        <button id="floatingDoubleBtn" class="floating-game-action floating-double-action hidden" type="button" title="Carta Dupla disponível. Clique para jogar a dupla ou arraste para mover." aria-label="Botão flutuante de Carta Dupla"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">×2</span><strong>DUPLA</strong></button>
+        <button id="floatingQuickBtn" class="floating-game-action floating-quick-action hidden" type="button" title="Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover." aria-label="Botão flutuante de Ação Rápida"><span class="floating-action-drag" aria-hidden="true">⠿</span><span class="floating-action-icon" aria-hidden="true">⚡</span><strong>RÁPIDA</strong></button>
+        <div id="floatingActionChooser" class="floating-action-chooser hidden" role="menu" aria-label="Escolher Carta Dupla"></div>
+        <div id="liveVoiceAudios" class="live-voice-audios" aria-hidden="true"></div>
+        <div class="players-ring" id="playersRing"></div>
+        <div class="center-zone">
+          <div class="turn-banner" id="turnBanner">Aguardando jogadores...</div>
+          <div class="piles">
+            <button id="drawPile" class="pile back-card" title="Comprar carta"><span class="back-m">M</span><small id="deckCount">104</small></button>
+            <div id="discardPile" class="pile"></div>
+          </div>
+          <div id="suitRequest" class="suit-request hidden"></div>
+          <div id="sevenPenalty" class="penalty hidden"></div>
+          <div id="drawChoice" class="draw-choice hidden">🃏 Carta comprada: você pode jogar QUALQUER carta válida da sua mão ou PASSAR. Ao passar, a carta comprada fica na sua mão e seu turno termina imediatamente.</div>
+          <div id="hostControls" class="host-controls"></div>
+        </div>
+      </div>
+
+      <section id="handPanel" class="hand-panel">
+        <div class="hand-toolbar">
+          <div class="hand-owner-row"><span class="hand-owner"><strong id="meLabel">🃏 Suas cartas</strong> <span id="handCount"></span></span><button id="sortHandBtn" class="sort-hand-btn" type="button" title="Organizar as cartas da sua mão por número ou por naipe">🔢 Número</button></div>
+          <div class="toolbar-actions">
+            <button id="mauBtn" class="mau-btn">📣 Mau-Mau!</button>
+            <button id="batendoBtn" class="mau-btn burn-tone">🔥 Mau-Mau batendo/queimando!</button>
+            <button id="endBurnBtn" class="hidden">Encerrar queima</button>
+            <button id="passTurnBtn" class="pass-turn-btn">⏭️ Passar a vez</button>
+          </div>
+        </div>
+        <div id="hand" class="hand"></div>
+      </section>
+
+      <aside id="sidePanel" class="log-panel">
+        <div class="side-tabs">
+          <button id="logTabBtn" class="side-tab active">Mesa</button>
+          <button id="chatTabBtn" class="side-tab">💬 Chat <span id="chatBadge" class="chat-badge hidden">0</span></button>
+          <button id="sideCloseBtn" class="side-close" title="Fechar">×</button>
+        </div>
+
+        <div id="logView" class="side-view">
+          <div id="log" class="log"></div>
+        </div>
+
+        <div id="chatView" class="side-view chat-view hidden">
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="chatInput" maxlength="180" autocomplete="off" placeholder="Escreva uma mensagem..." />
+            <button id="voiceRecordBtn" class="voice-record-btn" type="button" title="Gravar Áudio Rápido de até 15 segundos" aria-label="Gravar Áudio Rápido">🎙️</button>
+            <button class="chat-send-btn" type="submit" title="Enviar mensagem">➤</button>
+          </form>
+          <div id="voiceRecorderPanel" class="voice-recorder-panel hidden" aria-live="polite">
+            <div class="voice-record-live"><span class="voice-record-dot"></span><strong>Gravando</strong><span id="voiceRecordTime">00:00 / 00:15</span></div>
+            <div class="voice-record-actions"><button id="voiceCancelBtn" type="button" class="voice-cancel-btn">✕ Cancelar</button><button id="voiceStopBtn" type="button" class="voice-stop-btn">■ Finalizar</button></div>
+          </div>
+          <div id="voicePreviewPanel" class="voice-preview-panel hidden">
+            <div class="voice-preview-head"><strong>🎙️ Áudio Rápido</strong><span id="voicePreviewTime">0 s</span></div>
+            <audio id="voicePreviewAudio" class="voice-preview-audio" controls preload="metadata"></audio>
+            <div class="voice-preview-actions"><button id="voiceDiscardBtn" type="button" class="voice-cancel-btn">🗑 Descartar</button><button id="voiceSendBtn" type="button" class="voice-send-btn">➤ Enviar áudio</button></div>
+          </div>
+          <div class="quick-audio-note">🎙️ Áudio Rápido: até 15 segundos. A gravação só é enviada depois da sua confirmação.</div>
+          <div class="effects-title">Efeitos para a mesa</div>
+          <div class="effect-grid sticker-effect-grid">
+            <button data-effect="horn" class="sticker-reaction sticker-mau" title="MAU-MAU!"><b class="sticker-symbol">🃏</b><span>MAU-MAU!</span></button>
+            <button data-effect="angry" class="sticker-reaction sticker-burn" title="QUEIMOU!"><b class="sticker-symbol">🔥</b><span>QUEIMOU!</span></button>
+            <button data-effect="wow" class="sticker-reaction sticker-turn" title="SUA VEZ!"><b class="sticker-symbol">👉</b><span>SUA VEZ!</span></button>
+            <button data-effect="draw2" class="sticker-reaction sticker-draw2" title="COMPRA 2!"><b class="sticker-symbol">+2</b><span>COMPRA 2!</span></button>
+            <button data-effect="drum" class="sticker-reaction sticker-reverse" title="REVERSO!"><b class="sticker-symbol">🔄</b><span>REVERSO!</span></button>
+            <button data-effect="jogaBoca" class="effect-shout effect-speaker-only sticker-reaction sticker-boca" title="Falar JOGA BOCA ABERTA!"><b class="sticker-symbol">😮</b><span>JOGA BOCA!</span></button>
+            <button data-effect="victory" class="sticker-reaction sticker-win" title="GANHEI!"><b class="sticker-symbol">🏆</b><span>GANHEI!</span></button>
+            <button data-effect="laugh" class="sticker-reaction sticker-slow" title="TÁ LENTO HEIN..."><b class="sticker-symbol">🐌</b><span>TÁ LENTO!</span></button>
+            <button data-effect="applause" class="sticker-reaction sticker-good" title="BOA PARTIDA!"><b class="sticker-symbol">👍</b><span>BOA PARTIDA!</span></button>
+          </div>
+          <div class="sound-note">Os efeitos sociais são enviados para todos na sala. O botão 🔊/🔇 silencia os efeitos e anúncios falados do jogo, sem desligar microfone ou Minha Música; o botão 📳 ativa/desativa a vibração de SUA VEZ em aparelhos compatíveis. O botão 🎵 Minha Música permite escolher um arquivo de áudio do próprio aparelho. O arquivo não é enviado ao servidor.</div>
+        </div>
+      </aside>
+      <div id="reactionLayer" class="reaction-layer" aria-live="polite"></div>
+      <div id="yourTurnAlert" class="your-turn-alert" role="status" aria-live="assertive" aria-atomic="true">
+        <span class="your-turn-spark">✨</span>
+        <strong>SUA VEZ!</strong>
+        <small>Escolha sua jogada</small>
+      </div>
+    </main>
+  </section>
+
+
+  <dialog id="localMusicDialog" class="modal local-music-modal">
+    <button class="close" id="localMusicClose" type="button" aria-label="Fechar">×</button>
+    <div class="local-music-head">
+      <div class="local-music-icon" aria-hidden="true">🎵</div>
+      <div><div class="eyebrow">MÚSICA DO SEU APARELHO</div><h2>Minha Música</h2><p>Escolha uma música salva no seu celular ou computador. Ela toca somente neste aparelho.</p></div>
+    </div>
+    <label class="local-music-file-btn" for="localMusicFile">📂 Escolher música
+      <input id="localMusicFile" type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.webm" />
+    </label>
+    <div class="local-music-track">
+      <strong id="localMusicFileName">Nenhuma música selecionada</strong>
+      <small id="localMusicStatus">Escolha um arquivo para começar.</small>
+    </div>
+    <audio id="localMusicAudio" class="local-music-audio" controls preload="metadata"></audio>
+    <div class="local-music-actions">
+      <button id="localMusicRemove" type="button">🗑️ Remover</button>
+      <button id="localMusicDone" class="primary" type="button">Pronto</button>
+    </div>
+    <p class="local-music-privacy">🔒 O arquivo fica somente no seu aparelho. Não há upload, envio pelo Socket.IO nem armazenamento no ranking/PostgreSQL. Ao fechar ou atualizar a aba, será necessário escolher o arquivo novamente.</p>
+  </dialog>
+
+  <dialog id="networkDiagnosticsDialog" class="modal network-diagnostics-modal">
+    <button class="close" id="networkDiagnosticsClose" type="button" aria-label="Fechar diagnóstico da conexão">×</button>
+    <div class="network-diagnostics-head">
+      <div>
+        <div class="eyebrow">ESTABILIDADE DA PARTIDA</div>
+        <h2>📶 Diagnóstico de conexão</h2>
+        <p>Mede a comunicação deste aparelho com o servidor e, quando disponível, a qualidade da voz WebRTC.</p>
+      </div>
+      <span id="networkQualityBadge" class="network-quality-badge pending">Medindo</span>
+    </div>
+    <div class="network-diagnostics-grid">
+      <div><span>Qualidade</span><strong id="networkQualityValue">Medindo</strong></div>
+      <div><span>Ping servidor</span><strong id="networkPingValue">—</strong></div>
+      <div><span>Jitter da rede</span><strong id="networkJitterValue">—</strong></div>
+      <div><span>Falhas de sonda</span><strong id="networkLossValue">—</strong></div>
+      <div><span>Transporte</span><strong id="networkTransportValue">—</strong></div>
+      <div><span>Reconexões</span><strong id="networkReconnectValue">0</strong></div>
+      <div><span>Último estado</span><strong id="networkStatePayloadValue">—</strong></div>
+      <div><span>Avatares em cache</span><strong id="networkAvatarCacheValue">0 imagem(ns)</strong></div>
+      <div><span>Dados de avatar</span><strong id="networkAvatarBytesValue">0 B</strong></div>
+      <div class="network-diagnostics-wide"><span>Rota da voz</span><strong id="networkVoiceModeValue">Desligado</strong></div>
+      <div><span>TURN</span><strong id="networkTurnValue">Verificando</strong></div>
+      <div><span>Rota WebRTC</span><strong id="networkRtcRouteValue">—</strong></div>
+      <div class="network-diagnostics-wide"><span>WebRTC</span><strong id="networkRtcValue">Sem amostra WebRTC</strong></div>
+    </div>
+    <p id="networkAdvice" class="network-advice">Aguardando algumas sondas para avaliar a qualidade.</p>
+    <div class="network-diagnostics-actions"><button id="networkDiagnosticsRefresh" type="button">↻ Medir agora</button></div>
+    <p class="network-diagnostics-note">ℹ️ “Falhas de sonda” indica quantas medições recentes não receberam resposta a tempo. Não é um teste de velocidade da internet.</p>
+  </dialog>
+
+  <dialog id="liveRoomsDialog" class="modal live-rooms-modal">
+    <button class="close live-rooms-close" id="liveRoomsClose" type="button" aria-label="Fechar partidas ao vivo">×</button>
+    <div class="live-rooms-head">
+      <div><div class="eyebrow">MODO OBSERVADOR</div><h2>👁️ Partidas ao vivo</h2><p>Escolha uma sala pública que já começou e entre apenas para assistir.</p></div>
+      <button id="liveRoomsRefresh" class="live-rooms-refresh" type="button">↻ Atualizar</button>
+    </div>
+    <div class="live-rooms-summary">
+      <div><strong id="publicRoomCountDialog">0</strong><span>salas públicas</span></div>
+      <div><strong id="watchableRoomCountDialog">0</strong><span>ao vivo</span></div>
+      <div><strong id="activeSpectatorCountDialog">0</strong><span>observadores</span></div>
+    </div>
+    <div id="liveRoomsList" class="live-rooms-list"><div class="live-rooms-empty">Nenhuma partida pública em andamento agora.</div></div>
+    <div class="live-rooms-privacy">🔒 O observador não recebe as cartas privadas dos jogadores e não ocupa uma das 5 vagas da mesa.</div>
+  </dialog>
+
+  <dialog id="spectatorOfferDialog" class="modal spectator-offer-modal">
+    <button class="close spectator-offer-close" id="spectatorOfferClose" type="button" aria-label="Fechar oferta para assistir">×</button>
+    <div class="spectator-offer-head">
+      <span class="spectator-offer-icon" aria-hidden="true">👁️</span>
+      <div>
+        <div class="eyebrow">PARTIDA EM ANDAMENTO</div>
+        <h2>Assistir como observador?</h2>
+      </div>
+    </div>
+    <p id="spectatorOfferText" class="spectator-offer-text">Esta partida já começou. Você pode entrar apenas para assistir.</p>
+    <div class="spectator-privacy-note">
+      <strong>🔒 Privacidade protegida</strong>
+      <span>Você não verá nem receberá as cartas privadas dos jogadores. O observador também não ocupa uma das 5 vagas da mesa.</span>
+    </div>
+    <div class="spectator-offer-features" aria-label="Recursos disponíveis para observadores">
+      <span>💬 Chat de texto</span>
+      <span>😊 Reações</span>
+      <span>👁️ Mesa ao vivo</span>
+    </div>
+    <div class="spectator-offer-actions">
+      <button id="spectatorCancelBtn" type="button" class="spectator-cancel-btn">Cancelar</button>
+      <button id="spectatorJoinBtn" type="button" class="primary spectator-join-btn">👁️ ASSISTIR PARTIDA</button>
+    </div>
+  </dialog>
+
+  <dialog id="roomSwitchDialog" class="modal room-switch-modal">
+    <div class="room-switch-head">
+      <span class="room-switch-icon" aria-hidden="true">↔️</span>
+      <div>
+        <div class="eyebrow">PARTIDA ATIVA ENCONTRADA</div>
+        <h2>Você ainda está em outra sala</h2>
+      </div>
+    </div>
+    <p id="roomSwitchText" class="room-switch-text">Você ainda possui uma cadeira em uma partida ativa.</p>
+    <div class="room-switch-warning">
+      <strong>⚠️ A saída é definitiva para aquela partida</strong>
+      <span>Se você escolher continuar para a nova sala, sua vaga anterior deixa de pertencer à sua conta e a regra normal de substituição da mesa será aplicada.</span>
+    </div>
+    <div class="room-switch-actions">
+      <button id="roomSwitchReturnBtn" type="button">↩️ VOLTAR À PARTIDA</button>
+      <button id="roomSwitchContinueBtn" type="button" class="primary">🚪 SAIR E CONTINUAR</button>
+    </div>
+  </dialog>
+
+  <dialog id="matchmakingDialog" class="modal matchmaking-modal">
+    <button class="close matchmaking-close" id="matchmakingClose" type="button" aria-label="Fechar acompanhamento da busca">×</button>
+    <div class="matchmaking-head">
+      <div>
+        <div class="eyebrow">PARTIDA AUTOMÁTICA</div>
+        <h2>🔎 BUSCAR JOGADORES</h2>
+        <p id="matchmakingStatus">Encontre jogadores automaticamente para uma partida de 2 a 5 pessoas.</p>
+      </div>
+      <div class="matchmaking-count"><strong id="matchmakingFoundCount">0</strong><small>encontrados</small></div>
+    </div>
+    <div id="matchmakingCountdown" class="matchmaking-countdown"><strong>Até 5 jogadores</strong><span>A partida começa quando houver pelo menos 2.</span></div>
+    <div id="matchmakingPlayersList" class="matchmaking-players-list"><div class="matchmaking-empty">Clique em BUSCAR JOGADORES para entrar na fila.</div></div>
+    <div class="matchmaking-info">
+      <span>👥 2 a 5 jogadores</span>
+      <span>⏱️ 15 s após encontrar o 2º</span>
+      <span>⚡ 5 encontrados = início imediato</span>
+    </div>
+    <button id="matchmakingCancel" class="matchmaking-cancel" type="button">CANCELAR BUSCA</button>
+    <p class="matchmaking-note">Fechar esta janela não cancela a busca. Para sair da fila, use <strong>CANCELAR BUSCA</strong>.</p>
+  </dialog>
+
+  <dialog id="onlinePlayersDialog" class="modal online-players-modal">
+    <button class="close online-players-close" id="onlinePlayersClose" type="button" aria-label="Fechar jogadores online">×</button>
+    <div class="online-dialog-head">
+      <div>
+        <div class="eyebrow">ENCONTRE QUEM ESTÁ NO JOGO</div>
+        <h2>👥 JOGADORES ONLINE</h2>
+        <p>Convide qualquer jogador conectado. O convite não interrompe automaticamente a atividade de ninguém.</p>
+      </div>
+      <div class="online-dialog-count"><span class="online-live-dot"></span><strong id="onlineDialogCount">0</strong><small>online</small></div>
+    </div>
+    <div class="online-status-legend">
+      <span>🟢 Disponível</span><span>🔎 Procurando</span><span>🤖 Contra máquina</span><span>🎮 Com pessoas</span><span>🟠 Reconectando</span>
+    </div>
+    <div class="players-directory-tabs" role="tablist" aria-label="Lista de jogadores">
+      <button id="onlinePlayersTab" class="active" type="button" role="tab" aria-selected="true">🟢 ONLINE</button>
+      <button id="recentPlayersTab" type="button" role="tab" aria-selected="false">🕘 RECENTES</button>
+    </div>
+    <div id="onlinePlayersList" class="online-players-list"><div class="online-empty">Carregando jogadores...</div></div>
+    <div id="recentPlayersList" class="online-players-list hidden"><div class="online-empty">Carregando jogadores recentes...</div></div>
+    <div class="online-dialog-note">Em <strong>Recentes</strong> aparecem pessoas com quem você concluiu partidas. Se estiverem online, você pode convidá-las novamente. Convites expiram em 30 segundos.</div>
+  </dialog>
+
+  <dialog id="roundReviewDialog" class="modal round-review-modal">
+    <button class="close round-review-close" id="roundReviewClose" type="button" aria-label="Fechar conferência">×</button>
+    <section id="finalVictoryHero" class="final-victory-hero hidden" aria-live="polite">
+      <div class="final-victory-confetti" aria-hidden="true"><span>♦</span><span>♣</span><span>♥</span><span>♠</span><span>★</span><span>♦</span></div>
+      <div class="final-victory-cards" aria-hidden="true">
+        <span class="red">A♥</span><span>Q♠</span>
+      </div>
+      <div class="final-victory-trophy" aria-hidden="true">🏆</div>
+      <div id="finalVictoryLabel" class="final-victory-ribbon">VITÓRIA!</div>
+      <div id="finalVictoryNames" class="final-victory-names"></div>
+      <div id="finalVictoryMessage" class="final-victory-message">Parabéns! Você venceu a partida!</div>
+    </section>
+    <div class="round-review-head">
+      <div>
+        <div class="eyebrow">CONFERÊNCIA DA RODADA</div>
+        <h2 id="roundReviewTitle">🧮 Pontuação da rodada</h2>
+        <p id="roundReviewWinner" class="round-review-winner"></p>
+      </div>
+      <div id="roundReviewBadge" class="round-review-badge"></div>
+    </div>
+    <div id="roundReviewJackNote" class="round-review-jack hidden"></div>
+    <div id="roundReviewPlayers" class="round-review-players"></div>
+    <div class="round-review-legend">
+      <strong>Valores:</strong> A = 1 • J = 11 • Q = 12 • K = 13 • demais cartas = valor impresso.
+      <span>Se a batida for com J, a soma dos adversários é dobrada.</span>
+    </div>
+    <div class="round-review-actions">
+      <button id="roundReviewReplay" type="button" class="replay-btn hidden">🔁 JOGAR DE NOVO</button>
+      <button id="roundReviewDone" type="button" class="primary">✅ Fechar conferência</button>
+      <div id="roundReviewReplayInfo" class="replay-info hidden"></div>
+    </div>
+  </dialog>
+
+  <dialog id="suitDialog" class="modal">
+    <h2>Escolha o naipe</h2>
+    <p>O Valete permite escolher o naipe da próxima jogada.</p>
+    <div class="suit-grid">
+      <button data-suit="hearts" class="suit red">♥<span>Copas</span></button>
+      <button data-suit="diamonds" class="suit red">♦<span>Ouros</span></button>
+      <button data-suit="clubs" class="suit black">♣<span>Paus</span></button>
+      <button data-suit="spades" class="suit black">♠<span>Espadas</span></button>
+    </div>
+  </dialog>
+
+  <dialog id="rulesDialog" class="modal rules-modal">
+    <button class="close" id="rulesClose">×</button>
+    <div class="rules-heading">
+      <div class="eyebrow">COMO JOGAR</div>
+      <h2>REGRAS DO MAU-MAU CANDEIAS</h2>
+      <p>Estas são as regras efetivamente utilizadas pelo jogo.</p>
+    </div>
+
+    <div class="rules-summary" aria-label="Resumo da partida">
+      <span>🃏 2 baralhos</span>
+      <span>👥 2 a 5 jogadores</span>
+      <span>✋ 6 cartas</span>
+      <span>🔄 5 rodadas</span>
+      <span>🏆 Menor pontuação vence</span>
+    </div>
+
+    <div class="rule-important">
+      <strong>Regra principal:</strong> na sua vez, jogue uma carta do mesmo <strong>naipe</strong> ou do mesmo <strong>valor</strong> da carta que está no topo. O <strong>Valete (J)</strong> funciona como coringa de naipe, exceto durante uma cadeia de 7.
+    </div>
+
+    <div class="rule-columns">
+      <article>
+        <h3>🎯 Objetivo da partida</h3>
+        <p>A partida possui <strong>5 rodadas</strong>. A rodada termina quando um jogador fica sem cartas, depois que todos os efeitos da última carta forem resolvidos. O vencedor da rodada recebe <strong>0 ponto</strong>; os demais recebem os pontos das cartas que permaneceram em suas mãos. Ao final das 5 rodadas, vence quem tiver <strong>menos pontos acumulados</strong>. Em caso de empate na menor pontuação, a vitória é compartilhada.</p>
+
+        <h3>🃏 Preparação</h3>
+        <p>São usados <strong>2 baralhos tradicionais completos, sem coringas</strong>, totalizando 104 cartas. A sala aceita de <strong>2 a 5 jogadores</strong>, humanos ou máquinas. Cada jogador recebe <strong>6 cartas</strong>. Uma carta normal inicia o descarte; se for sorteada uma carta especial para começar, ela volta ao monte e outra é escolhida. O sentido inicial é <strong>anti-horário</strong>.</p>
+
+        <h3>▶️ Jogada normal e compra</h3>
+        <p>Na sua vez, você pode jogar uma carta válida ou optar por <strong>comprar 1 carta</strong>, mesmo que já tenha uma jogada possível. Depois de comprar, pode jogar <strong>qualquer carta válida da sua mão</strong> — não apenas a carta comprada — ou clicar em <strong>Passar a vez</strong> e guardar a carta. Na jogada normal, não é permitido comprar uma segunda carta na mesma vez.</p>
+        <p>Para usar <strong>Passar a vez</strong> numa jogada normal, é necessário ter comprado 1 carta antes. A cadeia de 7 possui regra própria e não pode ser evitada simplesmente passando.</p>
+
+        <h3>📣 Mau-Mau</h3>
+        <p>Antes de uma jogada que deixe você com <strong>apenas 1 carta</strong>, anuncie <strong>Mau-Mau</strong>. Se esquecer, receberá <strong>+2 cartas</strong> de penalidade.</p>
+        <p>Quando você estiver com duas cartas e uma jogada composta puder eliminar as duas — por <strong>Queima + continuação</strong> ou por <strong>Carta Dupla</strong> — você pode escolher anunciar <strong>Mau-Mau</strong> simples ou <strong>Mau-Mau batendo/queimando</strong> antes de iniciar a jogada. Os dois anúncios são válidos; o jogador escolhe livremente.</p>
+
+        <h3>🔥 Queima — somente na própria vez</h3>
+        <p>Na regra normal, se já for <strong>a sua vez</strong> e você tiver uma carta normal <strong>exatamente igual</strong> à carta do topo — mesmo valor e mesmo naipe — poderá usar a <strong>Queima</strong>.</p>
+        <p><strong>Na abertura:</strong> quem estiver na vez pode Queimar normalmente. Se outro jogador tiver uma carta normal exatamente igual à primeira carta virada, poderá usar <strong>Ação Rápida</strong> fora da vez, mas não assume a jogada nem ganha continuação.</p>
+        <p>Após queimar, você pode continuar jogando <strong>mais uma carta válida</strong>. A segunda carta pode ser especial e, nesse caso, seu efeito é aplicado normalmente.</p>
+        <p>Se decidir <strong>encerrar a sequência</strong>, não pode passar diretamente: deve obrigatoriamente comprar <strong>1 carta</strong> do monte. Essa compra é exigida mesmo que você ainda tenha outras cartas válidas na mão.</p>
+        <p>Depois da compra obrigatória, a obrigação está cumprida: você pode jogar uma carta válida, se quiser, ou simplesmente <strong>passar a vez e guardar a carta comprada</strong>. Uma carta comprada válida não é obrigatória.</p>
+        <div class="rule-mini-note">A, 7, 8, J, Q e K não podem <strong>iniciar</strong> uma Queima. Fora da sua vez, inclusive na primeira carta da rodada, use somente <strong>Ação Rápida</strong>.</div>
+
+        <h3>🃏🃏 Carta Dupla</h3>
+        <p>Na sua própria vez, duas cartas <strong>idênticas</strong> — mesmo valor e mesmo naipe — podem ser descartadas juntas pelo botão <strong>×2</strong>, desde que a jogada seja válida.</p>
+        <p>A Carta Dupla vale somente para cartas normais: <strong>2, 3, 4, 5, 6, 9 e 10</strong>. Não pode ser usada com <strong>A, 7, 8, J, Q ou K</strong>.</p>
+      </article>
+
+      <article>
+        <h3>✨ Cartas especiais</h3>
+        <div class="special-rules">
+          <p><b>A — Ás:</b> pula o próximo jogador.</p>
+          <p><b>7:</b> o próximo jogador recebe <strong>+2</strong>. Outro 7 pode rebater, acumulando +2 por carta, até que alguém não consiga responder.</p>
+          <p><b>8:</b> o jogador anterior, considerando o sentido atual da partida, compra <strong>2 cartas</strong>.</p>
+          <p><b>J — Valete:</b> durante a <strong>própria vez do jogador</strong>, pode ser jogado independentemente do valor ou naipe da carta da mesa e permite escolher o próximo naipe. Não pode ser utilizado durante uma cadeia ativa de 7, nem em <strong>Ação Rápida</strong> ou para iniciar uma <strong>Queima</strong>. Se o Valete for a carta da batida, os pontos dos adversários naquela rodada são <strong>dobrados</strong>.</p>
+          <p><b>Q — Dama:</b> inverte o sentido da partida. Com apenas 2 jogadores ativos, quem joga a Dama joga novamente.</p>
+          <p><b>K — Rei:</b> o jogador anterior, considerando o sentido atual, compra <strong>1 carta</strong>.</p>
+        </div>
+        <div class="rule-mini-note">Cartas especiais só podem ser jogadas na própria vez ou como continuação válida de uma Queima. Elas não podem iniciar Queima, nem ser usadas em Ação Rápida ou Carta Dupla.</div>
+
+        <h3>⚡ Ação Rápida — fora da vez</h3>
+        <p>Enquanto uma carta normal continuar no topo da mesa, qualquer jogador que <strong>não esteja na vez</strong>, inclusive quem colocou a carta no topo e já encerrou seu turno, pode usar uma carta <strong>exatamente igual</strong> — mesmo valor e mesmo naipe — pelo botão <strong>⚡</strong> ou tocando na carta destacada. Na <strong>abertura</strong>, também é permitido reagir à primeira carta virada, sem roubar a vez do jogador que deveria começar.</p>
+        <p>A oportunidade continua disponível <strong>enquanto a mesma carta permanecer no topo da mesa</strong>. Se o jogador da vez comprar uma carta e até passar, isso não cancela a Ação Rápida dos demais. A Ação Rápida descarta <strong>somente uma carta</strong>, não toma a vez, não muda o sentido e não permite uma segunda jogada. A vez permanece com o jogador que estiver na vez naquele momento.</p>
+        <p>Somente cartas normais podem ser usadas. <strong>A, 7, 8, J, Q e K não são permitidos.</strong> A Ação Rápida fica suspensa durante cadeia de 7 e durante a continuação de uma Queima. A primeira Ação Rápida válida fecha aquela oportunidade.</p>
+
+        <h3>🏁 Batida com carta especial</h3>
+        <p>O efeito da última carta é resolvido <strong>antes</strong> de calcular a pontuação. Por isso, bater com <strong>8</strong> ainda faz o jogador anterior comprar 2; bater com <strong>K</strong> faz o anterior comprar 1; e bater com <strong>J</strong> dobra os pontos dos adversários.</p>
+        <p>Se a batida ocorrer com <strong>7</strong>, a cadeia continua. Os jogadores seguintes podem rebater com outro 7. Quem não tiver 7 compra o total acumulado e então a rodada termina. Se todos os demais responderem e a cadeia completar a volta até o vencedor original, ninguém compra.</p>
+
+        <h3>🏆 Pontuação e Conferência da Rodada</h3>
+        <p><strong>A = 1</strong>; cartas de <strong>2 a 10</strong> valem o número impresso; <strong>J = 11</strong>; <strong>Q = 12</strong>; <strong>K = 13</strong>.</p>
+        <p>Ao final de cada rodada, o jogo abre a <strong>Conferência da Rodada</strong>, revelando somente naquele momento as cartas restantes de cada jogador, o valor individual das cartas, a soma da rodada e o placar acumulado. Ao iniciar a rodada seguinte, as mãos voltam a ficar ocultas.</p>
+
+        <h3>👥 Entrada de jogadores e máquinas</h3>
+        <p>Ninguém entra no meio de uma rodada. Novos jogadores podem entrar nos intervalos <strong>até antes do início da 3ª rodada</strong>. Quem entra depois do começo da partida recebe como pontuação inicial o <strong>maior total já acumulado</strong> pelos participantes da mesa.</p>
+        <p>As máquinas seguem as mesmas regras dos jogadores humanos, inclusive Mau-Mau, cadeia de 7, Queima, Ação Rápida e Carta Dupla.</p>
+
+        <h3>🏆 Ranking</h3>
+        <p>O ranking do <strong>MAU-MAU CANDEIAS</strong> conta <strong>somente vitórias</strong>. O modo <strong>👥 OFICIAL</strong> registra apenas partidas entre pessoas; partidas com máquina ficam separadas em <strong>🤖 TREINO</strong>. Os filtros disponíveis são <strong>Hoje, Semana, Mês, Temporada e Histórico</strong>.</p>
+        <p>A identidade do ranking é a <strong>conta autenticada</strong>: mudar o nome na mesa ou o avatar não cria outro jogador nem separa as vitórias. Empates em número de vitórias ocupam a mesma posição.</p>
+      </article>
+    </div>
+
+    <div class="rules-extras">
+      <h3>💬 Recursos da mesa</h3>
+      <p><strong>Chat e Áudio Rápido:</strong> a sala possui mensagens em tempo real e gravações de voz de até <strong>15 segundos</strong>. Os áudios são repassados apenas aos jogadores da sala e não ficam armazenados no histórico do chat, no PostgreSQL ou no ranking.</p>
+      <p><strong>Microfone ao vivo:</strong> o botão 🎙️ na mesa permite ligar ou desligar a voz em tempo real. A V40.51/V40.52 tenta WebRTC/Opus também com observadores, usa TURN automaticamente quando configurado e mantém o relay leve pelo servidor apenas como fallback seletivo. O diagnóstico mostra se a rota real está em P2P, TURN ou fallback. O áudio não é gravado nem salvo no PostgreSQL ou no ranking.</p>
+      <p><strong>Minha Música:</strong> a V40.48 permite escolher um arquivo de áudio do próprio celular ou computador pelo botão 🎵. A música toca somente naquele aparelho, não é enviada ao servidor e não é compartilhada com os outros jogadores. Quando há microfone/voz ativa, a música local pausa para priorizar a conversa e volta depois, se estava tocando.</p>
+      <p><strong>SUA VEZ:</strong> quando chega a sua jogada, o jogo mostra um aviso grande, ilumina sua área e as cartas válidas, toca uma campainha curta e, em aparelhos compatíveis, pode emitir uma vibração. O botão 📳 permite desligar ou reativar somente a vibração.</p>
+      <p><strong>Reconexão Inteligente:</strong> a reconexão automática existe somente após uma <strong>desconexão involuntária</strong>, como queda de internet, atualização da página ou fechamento acidental. A mesa aguarda até <strong>60 segundos</strong>; depois, a Máquina pode assumir temporariamente a mesma mão, posição e pontuação. Enquanto o jogador não escolher sair nem entrar em outra sala, a reserva continua válida e ele pode retomar automaticamente a mão atual. <strong>Sair da sala</strong> ou <strong>entrar em outra sala</strong> cancela essa reserva somente após uma ação voluntária confirmada. Ao tentar trocar de sala, o jogo oferece <strong>VOLTAR À PARTIDA</strong> ou <strong>SAIR E CONTINUAR</strong>. Para voltar depois de confirmar a saída, será necessário usar novamente o código da sala.</p>
+      <p><strong>Buscar Jogadores:</strong> na tela inicial, entre na fila automática para encontrar outras pessoas sem código de sala. Quando o 2º jogador é encontrado, começa uma janela de <strong>15 segundos</strong> para chegarem mais participantes. Com 5 jogadores a partida inicia imediatamente; ao fim da contagem, inicia com 2, 3 ou 4. O botão <strong>Cancelar Busca</strong> remove o jogador da fila na hora. Se aceitar um convite enquanto estiver procurando, sai automaticamente da busca e segue o convite.</p>
+      <p><strong>Jogadores Online e Convites:</strong> a lista mostra os jogadores conectados e seu status atual. O convidado sempre escolhe entre <strong>aceitar ou recusar</strong>. Recusar não altera a sala atual. Quando a entrada em outra sala é confirmada e realmente acontece, qualquer reserva de reconexão da sala anterior é cancelada; se a rodada antiga ainda estiver em andamento, a cadeira pode continuar como uma Máquina normal para não interromper os demais jogadores. Se a sala do convite estiver no meio de uma rodada, a entrada aguarda um momento em que a nova mesa possa receber o jogador.</p>
+      <p><strong>Jogar de Novo:</strong> ao terminar uma partida entre pessoas, cada jogador conectado pode confirmar <strong>JOGAR DE NOVO</strong>. Quando todos confirmam e há pelo menos 2 jogadores, começa automaticamente outra partida de 5 rodadas na mesma sala, com placar zerado. O resultado anterior permanece registrado separadamente no ranking.</p>
+    </div>
+
+    <div class="rule-note"><strong>Outras regras do sistema:</strong> quando o monte acaba, o descarte é reembaralhado preservando a carta do topo; queda involuntária mantém a reserva de reconexão e, após 60 segundos, a Máquina pode assumir temporariamente; saída voluntária ou entrada em outra sala cancela a reserva; quando não resta nenhum jogador humano pertencente à sala, ela é excluída; a organização da mão por número ou naipe é apenas visual e não altera nenhuma regra.</div>
+  </dialog>
+
+
+  <!-- V51.0: estatísticas básicas, exclusivamente de partidas já registradas. -->
+  <dialog id="profileStatsDialog" class="modal profile-stats-modal" aria-labelledby="profileStatsTitle">
+    <button class="close" id="profileStatsClose" type="button" aria-label="Fechar perfil">×</button>
+    <div class="profile-stats-header">
+      <div class="profile-stats-avatar" id="profileStatsAvatar" aria-hidden="true">👤</div>
+      <div class="profile-stats-ident">
+        <h2 id="profileStatsTitle">Meu Perfil</h2>
+        <div id="profileStatsName" class="profile-stats-name">Carregando...</div>
+        <div id="profileStatsRank" class="profile-stats-rank">Estatísticas de partidas concluídas</div>
+      </div>
+    </div>
+    <div class="profile-stats-filters" aria-label="Filtros de estatísticas">
+      <div class="profile-stats-filter-row">
+        <button type="button" data-profile-mode="official" class="active">Oficial</button>
+        <button type="button" data-profile-mode="training">Treino</button>
+      </div>
+      <div class="profile-stats-filter-row">
+        <button type="button" data-profile-period="day">Hoje</button>
+        <button type="button" data-profile-period="week">Semana</button>
+        <button type="button" data-profile-period="month">Mês</button>
+        <button type="button" data-profile-period="season" class="active">Temporada</button>
+      </div>
+    </div>
+    <div id="profileStatsFeedback" class="profile-stats-feedback" role="status" aria-live="polite"></div>
+    <div class="profile-stats-grid" id="profileStatsGrid">
+      <div><strong>—</strong><span>Partidas concluídas</span></div>
+      <div><strong>—</strong><span>Vitórias</span></div>
+      <div><strong>—</strong><span>Aproveitamento</span></div>
+      <div><strong>—</strong><span>Partidas sem vitória</span></div>
+      <div><strong>—</strong><span>Colocação média</span></div>
+      <div><strong>—</strong><span>Média de pontos</span></div>
+    </div>
+    <div class="profile-stats-history">
+      <div class="profile-stats-history-title"><h3>🏆 Vitórias no período</h3><span id="profileStatsWinsCount" aria-live="polite"></span></div>
+      <div id="profileStatsRecent" class="profile-stats-recent">Carregando...</div>
+    </div>
+    <p class="profile-stats-note">Somente partidas concluídas e registradas. Pontuação menor é melhor. Dados anteriores já salvos são aproveitados.</p>
+  </dialog>
+
+  <dialog id="rankingDialog" class="modal ranking-modal">
+    <button class="close" id="rankingClose">×</button>
+    <div class="ranking-head">
+      <div>
+        <div class="eyebrow">CAMPEONATO MAU-MAU CANDEIAS</div>
+        <h2>🏆 Ranking</h2>
+        <p>Classificação simples: <strong>somente vitórias</strong>. Empates dividem a mesma posição.</p>
+      </div>
+      <div id="rankingScopeLabel" class="ranking-scope">Hoje • Oficial • Temporada 1</div>
+    </div>
+    <div class="ranking-filters ranking-filters-v408">
+      <div class="rank-filter-group rank-mode-group" aria-label="Modalidade do ranking">
+        <button data-rank-mode="official" class="active">👥 OFICIAL</button>
+        <button data-rank-mode="training">🤖 TREINO</button>
+      </div>
+      <div class="rank-filter-group rank-period-group" aria-label="Período">
+        <button data-rank-period="day" class="active">HOJE</button>
+        <button data-rank-period="week">SEMANA</button>
+        <button data-rank-period="month">MÊS</button>
+        <button data-rank-period="season">TEMPORADA</button>
+        <button data-rank-period="history">HISTÓRICO</button>
+      </div>
+    </div>
+    <div class="ranking-leagues" aria-label="Faixas visuais do ranking">
+      <div class="ranking-league-card tier-bronze"><span class="ranking-league-icon">🥉</span><strong>Bronze</strong><small>Novato</small></div>
+      <div class="ranking-league-card tier-silver"><span class="ranking-league-icon">🥈</span><strong>Prata</strong><small>Competidor</small></div>
+      <div class="ranking-league-card tier-gold"><span class="ranking-league-icon">🏆</span><strong>Ouro</strong><small>Mestre</small></div>
+      <div class="ranking-league-card tier-diamond"><span class="ranking-league-icon">💎</span><strong>Diamante</strong><small>Lendário</small></div>
+      <div class="ranking-league-card tier-legend"><span class="ranking-league-icon">👑</span><strong>Lenda</strong><small>de Candeias</small></div>
+    </div>
+    <div id="rankingMine" class="ranking-mine"></div>
+    <button id="profileStatsOpenRanking" type="button" class="ranking-link-btn profile-rank-link">📊 Abrir Meu Perfil</button>
+    <div class="ranking-table-wrap">
+      <p class="ranking-profile-tip">Toque em <strong>Ver perfil</strong> para consultar as estatísticas do jogador.</p>
+      <table class="ranking-table ranking-table-wins">
+        <thead><tr><th>#</th><th>Jogador</th><th>Vitórias</th></tr></thead>
+        <tbody id="rankingBody"><tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr></tbody>
+      </table>
+    </div>
+    <details id="tournamentResultsInfo" class="ranking-tournament-results">
+      <summary>🏅 Resultados dos torneios</summary>
+      <div id="tournamentChampionsList" class="ranking-tournament-champions" aria-live="polite">Abra esta seção para consultar os campeões dos torneios concluídos.</div>
+    </details>
+    <div class="ranking-note"><strong>Temporada 1.</strong> A conta autenticada é a identidade do ranking. Trocar nome ou avatar não cria um novo registro e todas as vitórias continuam somadas ao mesmo jogador.</div>
+  </dialog>
+
+  <dialog id="tournamentDialog" class="modal tournament-modal" aria-labelledby="tournamentName">
+    <button id="tournamentClose" class="close" type="button" aria-label="Fechar torneios">×</button>
+    <div class="eyebrow">MAU-MAU CANDEIAS</div>
+    <h2 id="tournamentName">🏆 Torneios</h2>
+    <p id="tournamentStatus" role="status" aria-live="polite">Carregando inscrições...</p>
+    <p id="tournamentDate" class="tournament-date"></p>
+    <label class="tournament-field" for="tournamentPicker">Selecionar campeonato</label>
+    <select id="tournamentPicker" class="tournament-select" aria-label="Selecionar campeonato"></select>
+    <section id="tournamentAdminPanel" class="tournament-admin" hidden aria-label="Administração de torneios">
+      <h3>🏆 Criar e administrar torneios</h3>
+      <p class="tournament-note">Qualquer jogador com conta pode criar. Só o criador pode editar, sortear e excluir seu torneio.</p>
+      <label class="tournament-field" for="tournamentAdminName">Nome do campeonato</label>
+      <input id="tournamentAdminName" type="text" maxlength="70" autocomplete="off" placeholder="Ex.: Copa Candeias" />
+      <div class="tournament-form-grid">
+        <div><label class="tournament-field" for="tournamentAdminCapacity">Vagas (2 a 100)</label>
+          <input id="tournamentAdminCapacity" type="number" min="2" max="100" value="20" /></div>
+        <div><label class="tournament-field" for="tournamentAdminStart">Data e horário</label>
+          <input id="tournamentAdminStart" type="datetime-local" /></div>
+      </div>
+      <div class="tournament-admin-actions">
+        <button id="tournamentAdminCreate" type="button">+ Criar torneio</button>
+        <button id="tournamentAdminSave" type="button">Salvar alterações</button>
+        <button id="tournamentAdminToggle" type="button">Abrir inscrições</button>
+        <button id="tournamentAdminCancel" type="button" class="tournament-danger">Cancelar torneio</button>
+        <button id="tournamentAdminDelete" type="button" class="tournament-danger">🗑 Excluir meu torneio</button>
+      </div>
+      <p id="tournamentAdminMessage" role="status" aria-live="polite"></p>
+      <div class="tournament-draw-admin">
+        <h3>🎲 Sorteio das mesas</h3>
+        <p>Depois de inscrever os participantes, encerre as inscrições. O sorteio é realizado uma única vez.</p>
+        <button id="tournamentDrawButton" type="button" disabled>Sortear mesas</button>
+      </div>
+    </section>
+    <p id="tournamentAdminHint" class="tournament-admin-hint" hidden>Entre na sua conta para criar um torneio. A edição, o sorteio e a exclusão ficam disponíveis ao criador.</p>
+    <h3>Jogadores inscritos</h3>
+    <ol id="tournamentPlayers" class="tournament-players"></ol>
+    <button id="tournamentJoin" class="ranking-link-btn tournament-join" type="button" disabled>Inscrever-me</button>
+    <div id="tournamentProgress" class="tournament-progress" aria-live="polite"></div>
+    <section id="tournamentOverview" class="tournament-overview" hidden aria-label="Acompanhamento das fases">
+      <div class="tournament-overview-head">
+        <h3>📊 Acompanhamento do torneio</h3>
+        <button id="tournamentRefresh" type="button" aria-label="Atualizar andamento e resultados">↻ Atualizar</button>
+      </div>
+      <div id="tournamentStages" class="tournament-stages" aria-live="polite"></div>
+    </section>
+    <section id="tournamentTables" class="tournament-tables" hidden aria-label="Mesas sorteadas">
+      <h3>🎲 Mesas sorteadas</h3>
+      <div id="tournamentTableList"></div>
+      <p class="tournament-note">Cada inscrito entra na própria mesa pelo botão. A partida começa quando todos estiverem presentes. O avanço é automático após todas as mesas terminarem. Em empate pela última vaga, o desempate é por sorteio automático.</p>
+    </section>
+    <p class="tournament-note">Inscrição gratuita e vinculada à sua conta. Os jogos usam as regras normais. Resultados de torneios não alteram o Ranking Oficial.</p>
+  </dialog>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="camera-floating.js?v=50.2-arraste-camera"></script>
+  <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-top-removed-v52.8-mobile-seats-perf-phase1-voice3a"></script>
+  <script src="tournament-dashboard.js?v=51.6"></script>
+  <script src="tournament-ui.js?v=51.6"></script>
+</body>
+</html>

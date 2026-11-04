@@ -1,3 +1,12 @@
+## V53.2 — Ação Rápida pelo autor do topo após encerrar a vez (04/11/2026)
+- Corrigido o bloqueio que impedia quem colocou uma carta normal no topo de reagir com outra carta idêntica depois que a vez passou para outro jogador.
+- Em `game-engine.js`, `canQuickAction()` não exclui mais `reactionSourcePlayerId`: agora exige estar **fora da vez**, possuir carta normal de mesmo valor/naipe, manter o topo original e observar as demais restrições já existentes.
+- A compra por outro jogador não fecha a janela; a Jogada Rápida não rouba a vez e não interfere na decisão pendente após a compra.
+- Mantido o processamento sequencial e a revalidação pelo servidor: em ações quase simultâneas, a segunda só é aceita se continuar válida após a primeira.
+- Revisadas as regras em `docs/REGRAS.md` e na ajuda em `public/index.html`.
+- Novo teste `tests/quick-action-own-top-after-draw-v53-2.test.js` com cenário exato 6♥, 4♥ e 4♥, atraso após compra, troca de topo, passe, proteção contra duplicação e 30 simulações de chegada quase simultânea.
+- Não foram alterados `server.js`, `public/app.js`, regras de cartas especiais, bots, WebRTC ou ranking.
+
 ## V53.1 — Ação Rápida preservada após compra e passe (04/11/2026)
 
 - Corrige a janela de Ação Rápida: comprar uma carta não cancela mais a reação enquanto o topo da mesa não mudar.

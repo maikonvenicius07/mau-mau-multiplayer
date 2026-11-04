@@ -1147,8 +1147,8 @@ function canBurnMatch(room, player) {
 }
 
 // V53.1 — AÇÃO RÁPIDA
-// Um jogador que NÃO está na vez pode descartar uma carta normal idêntica ao
-// topo (mesmo naipe e valor), mesmo após a compra/passe de outro participante.
+// Qualquer jogador que NÃO está na vez (inclusive o autor do topo) pode
+// descartar carta normal idêntica ao topo, mesmo após compra/passe de outro.
 // Não toma a vez, não altera o sentido e não inicia uma segunda jogada. A vez
 // permanece com o jogador atual; a primeira reação aceita fecha a janela.
 function canQuickAction(room, player) {
@@ -1160,8 +1160,13 @@ function canQuickAction(room, player) {
   // Na abertura não existe jogador de origem (reactionSourcePlayerId === null).
   // Essa ausência é válida SOMENTE enquanto a janela da abertura estiver ativa.
   if (!room.reactionSourcePlayerId && !room.openingReaction) return [];
-  if (room.reactionSourcePlayerId === player.id) return [];
-  if (room.reactionNextPlayerId === player.id) return []; // pela regra, quem já seria o próximo não usa Ação Rápida
+  // V53.2: quem jogou a carta do topo pode reagir com outra carta idêntica
+  // APÓS sua vez normal acabar. A condição é estar fora da vez no momento
+  // da reação; a autoria da carta não torna a oportunidade inválida.
+  // A verificação explícita do turno protege também estados restaurados que
+  // ainda não tenham sincronizado reactionNextPlayerId.
+  if (room.players[room.currentPlayer]?.id === player.id) return [];
+  if (room.reactionNextPlayerId === player.id) return [];
   if (isSpecial(top)) return []; // V30: especial nunca entra em Ação Rápida
   return player.hand.filter(c => !isSpecial(c) && sameCard(c, top));
 }
