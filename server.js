@@ -12,6 +12,7 @@ const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
 const MatchmakingDelivery = require('./matchmaking-delivery');
+const StaticAssetVersioning = require('./static-asset-versioning');
 const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -724,10 +725,19 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'assetlinks.json'));
 });
 
+// Fase 5A: HTML sempre revalidado, com URLs locais versionadas pelo conteúdo.
+// Permite que uma nova publicação renove CSS/JS mesmo sem edição manual do ?v=.
+// Não existe Service Worker próprio: mantemos o jogo online e evitamos cache offline de estado.
+const VERSIONED_GAME_HTML = StaticAssetVersioning.versionedIndex(path.join(__dirname, 'public'));
+app.get(['/', '/index.html'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.type('html').send(VERSIONED_GAME_HTML);
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res,filePath){
-    if(filePath.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control','public, max-age=86400, stale-while-revalidate=604800');
-    else if(/\.(?:js|css)$/i.test(filePath)) res.setHeader('Cache-Control','no-cache, must-revalidate');
+    if(filePath.includes(`${path.sep}assets${path.sep}app${path.sep}`)) res.setHeader('Cache-Control','no-cache, must-revalidate');
+    else if(filePath.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control','public, max-age=86400, stale-while-revalidate=604800');
+    else if(/\.(?:js|css|webmanifest)$/i.test(filePath)) res.setHeader('Cache-Control','no-cache, must-revalidate');
     else if(/\.html?$/i.test(filePath)) res.setHeader('Cache-Control','no-cache');
   }
 }));
