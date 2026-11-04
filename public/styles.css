@@ -4307,3 +4307,9 @@ button.bot-primary{
     height: max(610px, 156vw) !important;
   }
 }
+
+/* Níveis dos bots: compacto, responsivo e sem mudar os demais controles. */
+#game .bot-difficulty-control{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#f4dc99;font-size:11px;font-weight:800;white-space:nowrap}
+#game .bot-difficulty-select{min-height:34px;min-width:92px;max-width:130px;padding:5px 7px;border:1px solid #9b7d3f;border-radius:9px;background:#173e2e;color:#fff8df;font:inherit;cursor:pointer}
+#game .bot-difficulty-select:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:560px){#game .bot-difficulty-control{font-size:10px;gap:4px}#game .bot-difficulty-select{min-height:34px;min-width:84px;padding:4px 5px}}

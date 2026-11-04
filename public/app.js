@@ -3591,14 +3591,14 @@ function render(force=false){
   const players=state.players||[];
   const voiceIds=[...liveVoiceActivePlayerIds].sort();
   renderWhenChanged('spectator',[spectator,state.status,state.round,state.rounds,state.spectatorCount,state.spectatorSeat,state.spectators,players.length,state.tournament,state.rules?.rounds,voiceIds,socket.connected],renderSpectatorLivePanel,force);
-  renderWhenChanged('players',[players,state.round,state.status,state.currentPlayerId,state.paused,state.direction,state.me?.id,voiceIds],renderPlayers,force);
+  renderWhenChanged('players',[players,state.botDifficulty,state.round,state.status,state.currentPlayerId,state.paused,state.direction,state.me?.id,voiceIds],renderPlayers,force);
   // O SDK da câmera continua responsável por sincronizar seu próprio estado.
   window.MauCamera?.onState();
   renderWhenChanged('score',players.map(p=>[p.id,p.name,p.avatar,p.score,p.roundScore,p.isBot,p.autoControlled]),renderScore,force);
   renderWhenChanged('center',[state.topCard,state.status,state.paused,state.currentPlayerId,state.winnerId,state.requestedSuit,state.pendingSeven,state.continuationPlayerId,state.openingReaction,state.me?.id,state.me?.justDrawnCardId,state.me?.burnableCardIds,state.me?.quickActionCardIds,state.me?.doublePairs,players.map(p=>[p.id,p.name,p.score,p.autoControlled,p.connected,p.reconnectDeadlineAt])],renderCenter,force);
   renderWhenChanged('hand',[state.me,state.round,state.status,state.paused,state.currentPlayerId,state.pendingSeven,state.continuationPlayerId,state.openingReaction,handSort,passPending,socket.connected],renderHand,force);
   renderWhenChanged('log',state.log||[],renderLog,force);
-  renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
+  renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,state.botDifficulty,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
   updateLiveMicUI();updateFloatingGameActions();
   syncReconnectCountdownTimer();
 }
@@ -3759,7 +3759,8 @@ function renderPlayers(){
     const disc=waitingReconnect?' disconnect':'';
     const auto=p.autoControlled?' auto-control':'';
     const you=p.id===state.me.id?' <span class="you-tag">(você)</span>':'';
-    const bot=p.isBot?' <span class="bot-tag">BOT</span>':'';
+    const botLevel=state.botDifficulty==='easy'?'FÁCIL':state.botDifficulty==='hard'?'DIFÍCIL':'NORMAL';
+    const bot=p.isBot?` <span class="bot-tag" title="Nível do robô: ${botLevel}">BOT · ${botLevel}</span>`:'';
     const autoTag=p.autoControlled?' <span class="auto-tag">🤖 AUTO</span>':'';
     const liveMicTag=!p.isBot&&liveVoiceActivePlayerIds.has(p.id)?' <span class="live-mic-player" title="Microfone ao vivo ligado">🎙️</span>':'';
     const reconnectTag=waitingReconnect&&p.reconnectDeadlineAt?` <span class="reconnect-tag">🔴 <span class="reconnect-countdown" data-deadline="${p.reconnectDeadlineAt}">${reconnectSeconds(p.reconnectDeadlineAt)}s</span></span>`:'';
@@ -4071,6 +4072,19 @@ function renderControls(){
       if(bots.length){
         const removeBot=document.createElement('button');removeBot.className='bot-control-btn remove';removeBot.textContent='− Remover máquina';
         removeBot.disabled=!socket.connected;removeBot.onclick=()=>socket.emit('removeBot');botBar.appendChild(removeBot);
+
+        const difficultyLabel=document.createElement('label');difficultyLabel.className='bot-difficulty-control';
+        difficultyLabel.textContent='🎯 Nível do robô';
+        const difficulty=document.createElement('select');difficulty.className='bot-difficulty-select';
+        difficulty.setAttribute('aria-label','Nível de dificuldade da máquina');
+        for(const [value,text] of [['easy','🟢 Fácil'],['normal','🟡 Normal'],['hard','🔴 Difícil']]){
+          const option=document.createElement('option');option.value=value;option.textContent=text;
+          difficulty.appendChild(option);
+        }
+        difficulty.value=['easy','normal','hard'].includes(state.botDifficulty)?state.botDifficulty:'normal';
+        difficulty.disabled=!socket.connected;
+        difficulty.onchange=()=>socket.emit('setBotDifficulty',{level:difficulty.value});
+        difficultyLabel.appendChild(difficulty);botBar.appendChild(difficultyLabel);
       }
       box.appendChild(botBar);
     }

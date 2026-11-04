@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const { OAuth2Client } = require('google-auth-library');
 const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
+const BotDifficulty = require('./bot-difficulty');
 const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
@@ -3084,6 +3085,20 @@ io.on('connection', socket => {
     if(!roomHasInviteCapacity(room,null)) throw new Error('Há vaga reservada por convite; não é possível adicionar outra máquina agora.');
     addBotToRoom(room);
     broadcastPresence();
+  }));
+
+  // Dificuldade exclusiva dos bots permanentes da sala, nunca do AUTO de
+  // reconexão. Apenas anfitrião e somente fora de uma rodada.
+  socket.on('setBotDifficulty', payload => withRoom(socket,(room,p)=>{
+    if(room.tournament)throw new Error('Torneios não permitem alterar o nível da máquina.');
+    if(!p.host)throw new Error('Somente o anfitrião pode escolher o nível da máquina.');
+    if(!['lobby','between-rounds'].includes(room.status))throw new Error('Altere o nível somente entre rodadas.');
+    if(!room.players.some(x=>x.isBot))throw new Error('Adicione uma máquina antes de escolher seu nível.');
+    const level=payload?.level;
+    if(!BotDifficulty.LEVELS.includes(level))throw new Error('Nível inválido. Escolha Fácil, Normal ou Difícil.');
+    if(room.botDifficulty===level)return;
+    room.botDifficulty=level;
+    Engine.appendLog(room,`🤖 Nível da Máquina: ${{easy:'Fácil',normal:'Normal',hard:'Difícil'}[level]}.`, 'system');
   }));
 
   socket.on('removeBot', () => withRoom(socket,(room,p)=>{

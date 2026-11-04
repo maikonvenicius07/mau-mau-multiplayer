@@ -9,6 +9,7 @@
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 const SPECIAL_RANKS = new Set(['A','7','8','J','Q','K']);
+const BotDifficulty = require('./bot-difficulty');
 
 function chooseSuit(hand) {
   const counts = Object.fromEntries(SUITS.map(s => [s, 0]));
@@ -31,6 +32,31 @@ function selectLegalCard(room, bot, Engine, legal) {
   if (room.pendingSeven > 0) return legal.find(c => c.rank === '7') || null;
   if (bot.hand.length === 1) return legal[0];
 
+  const level=BotDifficulty.forPlayer(room,bot);
+  // Fácil: utiliza a primeira carta legal, sem análise da mão adversária.
+  if(level==='easy')return legal[0];
+
+  if(level==='hard'){
+    // Difícil: considera somente informação pública dos adversários
+    // (quantidade de cartas), as próprias cartas e efeitos da Engine.
+    const opponents=room.players.filter(p=>p.id!==bot.id&&!p.finishedRound);
+    const urgent=opponents.some(p=>p.hand.length<=2);
+    const suitCounts=Object.fromEntries(SUITS.map(s=>[s,0]));
+    for(const card of bot.hand)if(card.rank!=='J')suitCounts[card.suit]++;
+    const value=card=>{
+      const remainingSuit=(suitCounts[card.suit]||0)-1;
+      let score=cardPriority(card,room,bot);
+      score+=Number(card.rank)||0; // Descartar cartas de maior penalidade.
+      score+=Math.max(0,remainingSuit)*5; // Manter a maioria do mesmo naipe.
+      if(card.rank==='J')score+=urgent?36:-24; // Poupar o coringa, salvo urgência.
+      if(card.rank==='A'&&urgent)score+=18;
+      if(card.rank==='7'&&urgent)score+=20;
+      return score;
+    };
+    return legal.slice().sort((a,b)=>value(b)-value(a))[0];
+  }
+
+  // Normal: estratégia da versão anterior, sem nenhuma mudança.
   return legal.slice().sort((a,b) => {
     const pa = cardPriority(a, room, bot);
     const pb = cardPriority(b, room, bot);
@@ -169,11 +195,15 @@ function takeTurn(room, bot, Engine) {
   }
 
   const doubles = Engine.canPlayDouble(room, bot);
-  if (doubles.length) {
+  // No Fácil, a máquina segue jogando uma carta por vez. A jogada dupla
+  // continua disponível nas regras, para humanos e demais níveis.
+  if (doubles.length && BotDifficulty.forPlayer(room,bot)!=='easy') {
     const pair = doubles.slice().sort((a,b) => {
       const ca = bot.hand.find(c => c.id === a.cardIds[0]);
       const cb = bot.hand.find(c => c.id === b.cardIds[0]);
-      return cardPriority(cb,room,bot) - cardPriority(ca,room,bot);
+      const level=BotDifficulty.forPlayer(room,bot);
+      const priority=card=>cardPriority(card,room,bot)+(level==='hard'?(Number(card?.rank)||0):0);
+      return priority(cb) - priority(ca);
     })[0];
     playDoubleChosen(room, bot, Engine, pair);
     return {action:'double',pair};

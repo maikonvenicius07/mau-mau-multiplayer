@@ -6,6 +6,7 @@ const AvatarWire = require('./avatar-wire');
 const RankingMode = require('./ranking-mode');
 const InputSafety = require('./input-safety');
 const RetentionPolicy = require('./retention-policy');
+const BotDifficulty = require('./bot-difficulty');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
@@ -64,6 +65,7 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   const room = JSON.parse(JSON.stringify(snapshot));
   delete room.snapshotVersion;
   delete room.savedAt;
+  room.botDifficulty=BotDifficulty.normalize(room.botDifficulty);
   room.botTimer = null;
   room.inviteReservations = new Map();
   room.spectators = [];

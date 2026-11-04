@@ -2,6 +2,7 @@
 
 const RankingMode = require('./ranking-mode');
 const InputSafety = require('./input-safety');
+const BotDifficulty = require('./bot-difficulty');
 
 const crypto = require('crypto');
 
@@ -179,6 +180,7 @@ function createRoom(code, hostInfo) {
     status: 'lobby', // lobby, playing, between-rounds, finished
     round: 0,
     rules: {...DEFAULT_RULES},
+    botDifficulty: 'normal',
     players: [host],
     deck: [],
     discard: [],
@@ -1214,6 +1216,7 @@ function roomPublicState(room, viewerId) {
     status: room.status,
     round: room.round,
     rounds: room.rules.rounds,
+    botDifficulty: BotDifficulty.normalize(room.botDifficulty),
     direction: room.direction,
     requestedSuit: room.requestedSuit,
     pendingSeven: room.pendingSeven,
