@@ -10,6 +10,7 @@ const Engine = require('./game-engine');
 const BotPlayer = require('./bot-player');
 const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
+const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
 const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -1751,9 +1752,13 @@ function buildPublicRoomsSnapshot() {
     at: Date.now(),
   };
 }
+// Fase 4B: atualiza a lista global apenas se houve mudança de conteúdo.
+// O campo informativo `at` não altera jogadores online nem salas disponíveis.
+// Os snapshots iniciais e os pedidos explícitos seguem sendo enviados integralmente.
+const lobbySnapshotDelivery = LobbySnapshotDelivery.createBroadcastGate();
 function broadcastPresence() {
-  io.emit('presenceSnapshot',buildPresenceSnapshot());
-  io.emit('publicRoomsSnapshot',buildPublicRoomsSnapshot());
+  lobbySnapshotDelivery.emitIfChanged(io,'presenceSnapshot',buildPresenceSnapshot());
+  lobbySnapshotDelivery.emitIfChanged(io,'publicRoomsSnapshot',buildPublicRoomsSnapshot());
 }
 function emitToPlayerKey(playerKey,event,payload) {
   const rec=presenceFor(playerKey);if(!rec)return;
