@@ -1,0 +1,382 @@
+[
+  {
+    "width": 320,
+    "height": 690,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        314,
+        402
+      ],
+      "hand": [
+        3,
+        492,
+        314,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        314,
+        402
+      ],
+      "hand": [
+        3,
+        492,
+        314,
+        246
+      ]
+    }
+  },
+  {
+    "width": 360,
+    "height": 760,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        354,
+        414
+      ],
+      "hand": [
+        3,
+        504,
+        354,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        354,
+        414
+      ],
+      "hand": [
+        3,
+        504,
+        354,
+        246
+      ]
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    }
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        424,
+        475
+      ],
+      "hand": [
+        3,
+        565,
+        424,
+        258
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        424,
+        475
+      ],
+      "hand": [
+        3,
+        565,
+        424,
+        258
+      ]
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "variant": "five",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "variant": "score",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        384,
+        448.5
+      ],
+      "hand": [
+        3,
+        538.5,
+        384,
+        246
+      ]
+    }
+  },
+  {
+    "width": 320,
+    "height": 690,
+    "variant": "long",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        314,
+        510
+      ],
+      "hand": [
+        3,
+        600,
+        314,
+        246
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        3,
+        83,
+        314,
+        510
+      ],
+      "hand": [
+        3,
+        600,
+        314,
+        246
+      ]
+    }
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        8,
+        102,
+        746,
+        470
+      ],
+      "hand": [
+        6,
+        809,
+        756,
+        210
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        8,
+        102,
+        746,
+        470
+      ],
+      "hand": [
+        6,
+        809,
+        756,
+        210
+      ]
+    }
+  },
+  {
+    "width": 1365,
+    "height": 768,
+    "variant": "normal",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        14,
+        82,
+        1337,
+        500
+      ],
+      "hand": [
+        14,
+        536,
+        1031,
+        220
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        14,
+        82,
+        1337,
+        500
+      ],
+      "hand": [
+        14,
+        536,
+        1031,
+        220
+      ]
+    }
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "variant": "spectator",
+    "pixel_equal": true,
+    "diff_bbox": null,
+    "layout_equal": true,
+    "before": {
+      "overflow": false,
+      "felt": [
+        6,
+        220,
+        418,
+        545
+      ],
+      "hand": [
+        6,
+        775,
+        418,
+        257
+      ]
+    },
+    "after": {
+      "overflow": false,
+      "felt": [
+        6,
+        220,
+        418,
+        545
+      ],
+      "hand": [
+        6,
+        775,
+        418,
+        257
+      ]
+    }
+  }
+]
