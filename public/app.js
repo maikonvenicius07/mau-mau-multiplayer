@@ -159,6 +159,43 @@ function updateHandSortButton(){
   }
   btn.setAttribute('aria-label',btn.title);
 }
+// V53.3 — cartas compactas e sobreposição proporcional ao espaço disponível.
+// Quando não há largura suficiente para mostrar pelo menos 32px por carta,
+// permanece a rolagem horizontal: nenhuma carta é eliminada ou fica inacessível.
+let handLayoutFrame=0;
+function updateHandOverflowHint(){
+  const hand=$('#hand'),hint=$('#handScrollHint');if(!hand||!hint)return;
+  const overflows=hand.scrollWidth>hand.clientWidth+3;
+  hint.classList.toggle('hidden',!overflows);
+  if(!overflows)return;
+  const atStart=hand.scrollLeft<7;
+  const atEnd=hand.scrollLeft>=hand.scrollWidth-hand.clientWidth-7;
+  hint.textContent=atStart?'Deslize para ver outras cartas →':atEnd?'← Deslize para ver cartas anteriores':'← Deslize para ver todas as cartas →';
+}
+function updateHandLayout(){
+  const hand=$('#hand');if(!hand||hand.closest('.hidden')||!hand.clientWidth)return;
+  const count=hand.children.length;
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const landscapeCompact=vw<=950&&vh<=620&&vw>vh;
+  const cardWidth=landscapeCompact?62:vw<=360?66:vw<=420?72:vw<=560?76:vw<=900?80:88;
+  const cardHeight=Math.round(cardWidth*1.44);
+  const padding=window.getComputedStyle(hand);
+  const freeWidth=Math.max(1,hand.clientWidth-parseFloat(padding.paddingLeft||0)-parseFloat(padding.paddingRight||0)-4);
+  const overlap=count>1?Math.min(cardWidth-32,Math.max(0,Math.ceil((count*cardWidth-freeWidth)/(count-1)))):0;
+  hand.style.setProperty('--mm-hand-card-width',`${cardWidth}px`);
+  hand.style.setProperty('--mm-hand-card-height',`${cardHeight}px`);
+  hand.style.setProperty('--mm-hand-overlap',`${overlap}px`);
+  hand.style.setProperty('--mm-hand-min-height',`${cardHeight+17}px`);
+  // Preserva a posição relativa ao classificar/comprar uma carta.
+  updateHandOverflowHint();
+}
+function scheduleHandLayout(){
+  if(handLayoutFrame)cancelAnimationFrame(handLayoutFrame);
+  handLayoutFrame=requestAnimationFrame(()=>{handLayoutFrame=0;updateHandLayout()});
+}
+$('#hand')?.addEventListener('scroll',updateHandOverflowHint,{passive:true});
+window.addEventListener('resize',scheduleHandLayout);
+window.addEventListener('orientationchange',scheduleHandLayout);
 function toggleHandSort(){
   handSort=handSort==='rank'?'suit':'rank';
   localStorage.setItem(handSortStorage,handSort);
@@ -2727,7 +2764,11 @@ function restoreFloatingActionPosition(kind){
 }
 function hideFloatingActionChooser(){const chooser=$('#floatingActionChooser');if(chooser){chooser.classList.add('hidden');chooser.innerHTML=''}}
 function showDoubleActionChooser(pairs){
-  const chooser=$('#floatingActionChooser'),anchorBtn=$('#floatingDoubleBtn');if(!chooser||!anchorBtn||!pairs?.length)return;
+  const chooser=$('#floatingActionChooser');
+  const dockBtn=$('#handDoubleBtn');
+  const useDock=window.innerWidth<=900&&dockBtn&&getComputedStyle(dockBtn).display!=='none';
+  const anchorBtn=useDock?dockBtn:$('#floatingDoubleBtn');
+  if(!chooser||!anchorBtn||!pairs?.length)return;
   chooser.innerHTML='<div class="floating-action-chooser-title">Escolha a dupla</div>';
   pairs.forEach(pair=>{
     const card=state?.me?.hand?.find(c=>(pair.cardIds||[]).includes(c.id));if(!card)return;
@@ -2788,8 +2829,25 @@ function initDraggableGameAction(kind,clickHandler){
   btn.addEventListener('dblclick',ev=>{ev.preventDefault();const pos=floatingActionDefaultPosition(kind);setFloatingActionPosition(kind,pos.x,pos.y,{save:true});toast(kind==='burn'?'🔥 Botão da Queima voltou à posição inicial.':'×2 Botão da Carta Dupla voltou à posição inicial.')});
   restoreFloatingActionPosition(kind);
 }
+function specialActionAvailability(){
+  return {
+    burn:!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.burnableCardIds||[]).length),
+    double:!!(state&&state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&(state.me?.doublePairs||[]).length),
+    quick:!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.quickActionCardIds||[]).length)
+  };
+}
+function updateHandSpecialActions(){
+  const availability=specialActionAvailability();
+  for(const [kind,id,label] of [['burn','#handBurnBtn','Queima'],['double','#handDoubleBtn','Carta Dupla'],['quick','#handQuickBtn','Ação Rápida']]){
+    const btn=$(id);if(!btn)continue;
+    btn.disabled=!availability[kind];
+    btn.setAttribute('aria-disabled',String(!availability[kind]));
+    btn.title=availability[kind]?`${label} disponível. Clique para jogar.`:`${label} indisponível pelas regras neste momento.`;
+  }
+}
 function updateFloatingGameActions(){
   const burnBtn=$('#floatingBurnBtn'),doubleBtn=$('#floatingDoubleBtn'),quickBtn=$('#floatingQuickBtn');if(!burnBtn||!doubleBtn||!quickBtn)return;
+  // O atalho flutuante preserva os mesmos cálculos originais do jogo.
   const burnAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.burnableCardIds||[]).length);
   const doubleAvailable=!!(state&&state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&(state.me?.doublePairs||[]).length);
   const quickAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.quickActionCardIds||[]).length);
@@ -2803,6 +2861,14 @@ function updateFloatingGameActions(){
 initDraggableGameAction('burn',triggerFloatingBurn);
 initDraggableGameAction('double',triggerFloatingDouble);
 initDraggableGameAction('quick',triggerFloatingQuick);
+// O seletor de Carta Dupla fica fora do feltro para não ser recortado
+// pela borda oval quando o botão está na faixa de controles do celular.
+const doubleActionChooser=$('#floatingActionChooser');
+if(doubleActionChooser)$('#game')?.appendChild(doubleActionChooser);
+// Os botões do painel só encaminham a ação para as funções já existentes.
+for(const [id,handler] of [['handBurnBtn',triggerFloatingBurn],['handDoubleBtn',triggerFloatingDouble],['handQuickBtn',triggerFloatingQuick]]){
+  const btn=$(`#${id}`);btn?.addEventListener('click',()=>{if(!btn.disabled)handler()});
+}
 document.addEventListener('pointerdown',ev=>{const chooser=$('#floatingActionChooser');if(!chooser||chooser.classList.contains('hidden'))return;if(chooser.contains(ev.target)||$('#floatingDoubleBtn')?.contains(ev.target))return;hideFloatingActionChooser()});
 window.addEventListener('resize',()=>{for(const kind of ['burn','double','quick']){const btn=floatingActionButton(kind);if(btn&&!btn.classList.contains('hidden')){const r=btn.getBoundingClientRect();setFloatingActionPosition(kind,r.left,r.top,{save:true})}}hideFloatingActionChooser()});
 
@@ -3599,7 +3665,7 @@ function render(force=false){
   renderWhenChanged('hand',[state.me,state.round,state.status,state.paused,state.currentPlayerId,state.pendingSeven,state.continuationPlayerId,state.openingReaction,handSort,passPending,socket.connected],renderHand,force);
   renderWhenChanged('log',state.log||[],renderLog,force);
   renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,state.botDifficulty,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
-  updateLiveMicUI();updateFloatingGameActions();
+  updateLiveMicUI();updateFloatingGameActions();if(typeof updateHandSpecialActions==='function')updateHandSpecialActions();
   syncReconnectCountdownTimer();
 }
 function playerDisplayOrderFromMe(){
@@ -3822,7 +3888,8 @@ function renderHand(){
   const h=$('#hand');h.innerHTML='';
   if(isSpectatorState()){
     previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';
-    $('#mauBtn').disabled=true;$('#batendoBtn').disabled=true;$('#passTurnBtn').disabled=true;$('#passTurnBtn').classList.add('hidden');
+    $('#mauBtn').disabled=true;$('#batendoBtn').disabled=true;$('#passTurnBtn').disabled=true;
+    $('#passTurnBtn').classList.remove('hidden');updateHandOverflowHint();
     $('#drawPile').disabled=true;$('#drawPile').title='Modo Observador: o monte é apenas visual.';
     return;
   }
@@ -3859,6 +3926,13 @@ function renderHand(){
     }else if(ok){
       el.onclick=()=>play(card,false);
     }
+    el.setAttribute('aria-label',`${card.rank} de ${suitName[card.suit]||card.suit}${el.onclick?' — tocar para jogar':''}`);
+    if(el.onclick){
+      el.setAttribute('role','button');el.tabIndex=0;
+      el.addEventListener('keydown',ev=>{
+        if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();el.click()}
+      });
+    }else el.setAttribute('role','img');
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
@@ -3917,7 +3991,8 @@ function renderHand(){
   const canPassNormal=!!(!inBurn&&boughtThisTurn);
   const canPassTurn=!!(myTurn&&!state.paused&&!passBlockedBySeven&&(canPassBurn||canPassNormal));
 
-  $('#passTurnBtn').classList.toggle('hidden',state.status!=='playing');
+  // Mantenha o controle visível também antes da distribuição/entre rodadas.
+  $('#passTurnBtn').classList.remove('hidden');
   $('#passTurnBtn').disabled=!canPassTurn;
   $('#passTurnBtn').textContent=passPending?'⏳ Passando...':'⏭️ Passar a vez';
   $('#passTurnBtn').title=canPassTurn
@@ -3945,6 +4020,7 @@ function renderHand(){
       ? 'Comprar 1 carta para poder encerrar a sequência da queima e liberar o passe.'
       : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
+  scheduleHandLayout();
 }
 let spectatorSeatRequested=false;
 $('#spectatorSeatBtn')?.addEventListener('click',()=>{

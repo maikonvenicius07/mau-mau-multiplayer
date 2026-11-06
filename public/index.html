@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v52.8-layout-mobile-real-scoreboard-v52.8.2" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.3-hand-dock-responsive" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -354,13 +354,21 @@
         <div class="hand-toolbar">
           <div class="hand-owner-row"><span class="hand-owner"><strong id="meLabel">🃏 Suas cartas</strong> <span id="handCount"></span></span><button id="sortHandBtn" class="sort-hand-btn" type="button" title="Organizar as cartas da sua mão por número ou por naipe">🔢 Número</button></div>
           <div class="toolbar-actions">
-            <button id="mauBtn" class="mau-btn">📣 Mau-Mau!</button>
-            <button id="batendoBtn" class="mau-btn burn-tone">🔥 Mau-Mau batendo/queimando!</button>
+            <button id="mauBtn" class="mau-btn" disabled title="Anuncie Mau-Mau antes de ficar com uma carta.">📣 Mau-Mau!</button>
+            <button id="batendoBtn" class="mau-btn burn-tone" disabled title="Anuncie Mau-Mau batendo/queimando antes da jogada final." aria-label="Anunciar Mau-Mau batendo/queimando">🔥 Batendo/Queima</button>
             <button id="endBurnBtn" class="hidden">Encerrar queima</button>
-            <button id="passTurnBtn" class="pass-turn-btn">⏭️ Passar a vez</button>
+            <button id="passTurnBtn" class="pass-turn-btn" disabled>⏭️ Passar a vez</button>
+          </div>
+          <!-- Controles persistentes: mantêm a localização, mas a regra de jogo
+               continua validada pelas funções já existentes no app.js/servidor. -->
+          <div class="special-actions-dock" role="group" aria-label="Ações especiais da sua mão">
+            <button id="handBurnBtn" class="special-action-btn special-burn" type="button" disabled title="Queima indisponível no momento">🔥 Queima</button>
+            <button id="handDoubleBtn" class="special-action-btn special-double" type="button" disabled title="Carta Dupla indisponível no momento">×2 Dupla</button>
+            <button id="handQuickBtn" class="special-action-btn special-quick" type="button" disabled title="Ação Rápida indisponível no momento">⚡ Rápida</button>
           </div>
         </div>
-        <div id="hand" class="hand"></div>
+        <div id="hand" class="hand" role="group" aria-label="Cartas da sua mão"></div>
+        <div id="handScrollHint" class="hand-scroll-hint hidden" aria-live="polite">Deslize para ver outras cartas →</div>
       </section>
 
       <aside id="sidePanel" class="log-panel">
@@ -855,7 +863,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-top-removed-v52.8-mobile-seats-perf-phase1-voice3a"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.3-hand-dock-responsive"></script>
   <script src="tournament-dashboard.js?v=51.6"></script>
   <script src="tournament-ui.js?v=51.6"></script>
 </body>

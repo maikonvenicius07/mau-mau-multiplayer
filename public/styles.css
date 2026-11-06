@@ -4313,3 +4313,148 @@ button.bot-primary{
 #game .bot-difficulty-select{min-height:34px;min-width:92px;max-width:130px;padding:5px 7px;border:1px solid #9b7d3f;border-radius:9px;background:#173e2e;color:#fff8df;font:inherit;cursor:pointer}
 #game .bot-difficulty-select:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:560px){#game .bot-difficulty-control{font-size:10px;gap:4px}#game .bot-difficulty-select{min-height:34px;min-width:84px;padding:4px 5px}}
+
+/* =============================================================
+   V53.3 — MÃO RESPONSIVA E CONTROLES PERSISTENTES
+   CSS isolado do jogo: não altera mesa, motor ou modo observador.
+   As variáveis são calculadas no cliente após cada nova mão/resize.
+   ============================================================= */
+#game:not(.spectator-mode) .hand-toolbar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(250px,1fr)!important;
+  align-items:center!important;
+  gap:7px 10px!important;
+  margin-bottom:5px!important;
+}
+#game:not(.spectator-mode) .hand-owner-row{width:100%;min-width:0!important;justify-content:space-between!important}
+#game:not(.spectator-mode) .hand-owner{min-width:0!important}
+#game:not(.spectator-mode) .toolbar-actions{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:5px!important;min-width:0!important;width:100%!important;
+}
+#game:not(.spectator-mode) .toolbar-actions button{
+  display:flex;align-items:center;justify-content:center;
+  min-width:0!important;min-height:39px!important;
+  padding:6px 5px!important;font-size:clamp(10px,1vw,12px)!important;
+  line-height:1.13!important;white-space:normal!important;
+  overflow-wrap:anywhere!important;text-align:center!important;
+}
+#game:not(.spectator-mode) #passTurnBtn{grid-column:auto!important}
+#game:not(.spectator-mode) .special-actions-dock{
+  grid-column:1/-1;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:5px;width:100%;min-width:0;
+}
+#game:not(.spectator-mode) .special-actions-dock .special-action-btn{
+  border:1px solid #486457;
+  color:#f6f0d8;background:#203d31;
+  border-radius:10px;
+  min-height:36px;min-width:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:5px 6px;font-size:11px;font-weight:900;
+  line-height:1.13;white-space:nowrap;
+  cursor:pointer;
+  transition:filter .15s ease,background-color .15s ease;
+}
+#game:not(.spectator-mode) .special-actions-dock .special-burn:not(:disabled){background:#7d3818;border-color:#ffad60;color:#fff2d9}
+#game:not(.spectator-mode) .special-actions-dock .special-double:not(:disabled){background:#80601b;border-color:#f8db75;color:#fff7d1}
+#game:not(.spectator-mode) .special-actions-dock .special-quick:not(:disabled){background:#184e78;border-color:#8ddaff;color:#eaf7ff}
+#game:not(.spectator-mode) .special-actions-dock button:disabled,
+#game:not(.spectator-mode) .toolbar-actions button:disabled{
+  opacity:.48!important;filter:grayscale(.3);cursor:not-allowed!important;
+  transform:none!important;
+}
+#game:not(.spectator-mode) .special-actions-dock button:not(:disabled):active{filter:brightness(1.2);transform:translateY(1px)}
+#game:not(.spectator-mode) .hand{
+  --mm-hand-card-width:76px;
+  --mm-hand-card-height:109px;
+  --mm-hand-overlap:18px;
+  --mm-hand-min-height:126px;
+  display:flex!important;
+  gap:0!important;
+  box-sizing:border-box!important;
+  padding:13px 6px 4px!important;
+  min-height:var(--mm-hand-min-height)!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow-x:auto!important;overflow-y:hidden!important;
+  touch-action:pan-x!important;
+  scroll-snap-type:none!important;scrollbar-width:thin;
+  scrollbar-color:#977d4b transparent;
+  overscroll-behavior-x:contain;
+}
+#game:not(.spectator-mode) .hand .playing-card{
+  box-sizing:border-box!important;
+  width:var(--mm-hand-card-width)!important;
+  height:var(--mm-hand-card-height)!important;
+  min-width:var(--mm-hand-card-width)!important;
+  flex:0 0 var(--mm-hand-card-width)!important;
+  margin-right:0!important;
+  border-radius:9px!important;
+  scroll-snap-align:none!important;
+}
+#game:not(.spectator-mode) .hand .playing-card:not(:first-child){
+  margin-left:calc(-1 * var(--mm-hand-overlap))!important;
+}
+#game:not(.spectator-mode) .hand .playing-card:is(:hover,:focus-visible,:active){
+  z-index:18!important;
+}
+#game:not(.spectator-mode) .hand .playing-card .corner-rank{font-size:17px!important}
+#game:not(.spectator-mode) .hand .playing-card .corner-suit{font-size:11px!important}
+#game:not(.spectator-mode) .hand .playing-card .suit-big{font-size:clamp(29px,4vw,38px)!important}
+#game:not(.spectator-mode) .hand .playing-card .special-tag{font-size:6.5px!important;bottom:5px!important}
+#game:not(.spectator-mode) .hand .playing-card:focus-visible{outline:3px solid #ffe48e!important;outline-offset:-2px}
+#game:not(.spectator-mode) .hand-scroll-hint{
+  margin-top:3px;padding:3px 8px 1px;
+  min-height:18px;text-align:center;
+  font-size:10px;font-weight:750;letter-spacing:.01em;color:#d6c58e;
+}
+@media(max-width:900px){
+  #game:not(.spectator-mode) .hand-toolbar{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:5px!important;
+  }
+  #game:not(.spectator-mode) .special-actions-dock{grid-column:auto;gap:5px}
+  #game:not(.spectator-mode) .toolbar-actions button{
+    font-size:clamp(10px,2.5vw,12px)!important;
+    min-height:40px!important;padding:5px 4px!important;
+  }
+  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{
+    min-height:34px;font-size:clamp(10px,2.5vw,12px);
+  }
+  /* Os atalhos flutuantes continuam operacionais no desktop.
+     No móvel, as mesmas funções são acionadas pela faixa fixa da mão. */
+  #game:not(.spectator-mode) .felt > .floating-game-action{display:none!important}
+}
+@media(max-width:560px){
+  #game:not(.spectator-mode) .hand-panel{
+    max-height:none!important;
+    overflow:visible!important;
+    padding:7px 6px 7px!important;
+  }
+  #game:not(.spectator-mode) .hand-toolbar{gap:4px!important;margin-bottom:4px!important}
+  #game:not(.spectator-mode) .hand-owner-row{min-height:29px}
+  #game:not(.spectator-mode) .toolbar-actions{gap:4px!important}
+  #game:not(.spectator-mode) .special-actions-dock{gap:4px}
+  #game:not(.spectator-mode) .hand .playing-card .suit-big{font-size:33px!important}
+  #game:not(.spectator-mode) .hand .playing-card .corner-rank{font-size:17px!important}
+  #game:not(.spectator-mode) .hand .playing-card .corner-suit{font-size:11px!important}
+  #game:not(.spectator-mode) .hand-scroll-hint{font-size:9.5px}
+}
+@media(max-width:350px){
+  #game:not(.spectator-mode) .toolbar-actions button{font-size:9px!important}
+  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{font-size:9.5px}
+}
+/* Orientação horizontal: painel abaixo da mesa, em vez de cobrir o feltro. */
+@media(max-width:900px) and (max-height:620px) and (orientation:landscape){
+  #game:not(.spectator-mode) .table-shell{padding-bottom:14px!important}
+  #game:not(.spectator-mode) .hand-panel{
+    position:relative!important;inset:auto!important;
+    left:auto!important;right:auto!important;bottom:auto!important;
+    width:100%!important;max-height:none!important;margin-top:8px!important;
+    overflow:visible!important;
+  }
+  #game:not(.spectator-mode) .hand-toolbar{gap:3px!important}
+  #game:not(.spectator-mode) .toolbar-actions button{min-height:33px!important;font-size:10px!important}
+  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{min-height:30px}
+}
