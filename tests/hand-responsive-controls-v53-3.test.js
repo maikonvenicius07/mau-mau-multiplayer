@@ -8,22 +8,19 @@ const app=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
 
-for(const id of ['hand','handScrollHint','handBurnBtn','handDoubleBtn','handQuickBtn','mauBtn','batendoBtn','passTurnBtn']){
+for(const id of ['hand','handScrollHint','floatingBurnBtn','floatingDoubleBtn','floatingQuickBtn','mauBtn','batendoBtn','passTurnBtn']){
   assert(html.includes(`id="${id}"`),`controle ausente: ${id}`);
-}
-for(const id of ['handBurnBtn','handDoubleBtn','handQuickBtn']){
-  assert(new RegExp(`id="${id}"[^>]*\\bdisabled\\b`).test(html),`${id} não começa desabilitado`);
 }
 assert(html.includes('id="passTurnBtn" class="pass-turn-btn" disabled'),'Passar a vez deve ficar visível/desabilitado antes da distribuição');
 assert(app.includes("$('#passTurnBtn').classList.remove('hidden');"),'Passar a vez não mantém seu lugar em todos os estados');
-assert(app.includes('function updateHandSpecialActions()'),'Painel não acompanha o estado da partida');
+assert(app.includes('function updateFloatingGameActions()'),'Atalhos flutuantes não acompanham o estado da partida');
 assert(app.includes('function triggerFloatingQuick()'),'Regra atual da Ação Rápida foi removida');
 assert(app.includes('function triggerFloatingBurn()'),'Regra atual da Queima foi removida');
 assert(app.includes('function triggerFloatingDouble()'),'Regra atual da Dupla foi removida');
-assert(css.includes('#game:not(.spectator-mode) .special-actions-dock'),'Faixa de ações não tem CSS separado do observador');
+assert(!html.includes('special-actions-dock'),'A faixa fixa antiga de ações especiais deve ser removida');
 assert(css.includes('var(--mm-hand-overlap)'),'Mão não implementa sobreposição dinâmica');
 assert(css.includes('overflow-x:auto!important'),'Mão com muitas cartas precisa continuar rolável');
-assert(css.includes('.felt > .floating-game-action{display:none!important}'),'Atalhos flutuantes cobrem a mesa no celular');
+assert(!css.includes('.felt > .floating-game-action{display:none!important}'),'Atalhos flutuantes originais devem aparecer no celular');
 
 const start=app.indexOf('function updateHandLayout(){');
 const end=app.indexOf('function scheduleHandLayout(){',start);
@@ -53,4 +50,4 @@ for(const [width,count,containerWidth] of [[320,6,300],[390,6,370],[390,10,370],
   if(count===6)assert(count*actual.w-(count-1)*actual.overlap<=containerWidth,`6 cartas não couberam em ${width}px`);
 }
 assert.equal(simulate(390,16,370).visiblePerCard,32,'Uma mão longa deve conservar 32px de cada carta e habilitar rolagem');
-console.log('✓ V53.3: mão adaptável, controles persistentes, ações desabilitadas e seletividade preservadas.');
+console.log('✓ V53.3/V53.4: tamanho e sobreposição das cartas aprovados; atalhos flutuantes originais restaurados.');

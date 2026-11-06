@@ -2765,9 +2765,7 @@ function restoreFloatingActionPosition(kind){
 function hideFloatingActionChooser(){const chooser=$('#floatingActionChooser');if(chooser){chooser.classList.add('hidden');chooser.innerHTML=''}}
 function showDoubleActionChooser(pairs){
   const chooser=$('#floatingActionChooser');
-  const dockBtn=$('#handDoubleBtn');
-  const useDock=window.innerWidth<=900&&dockBtn&&getComputedStyle(dockBtn).display!=='none';
-  const anchorBtn=useDock?dockBtn:$('#floatingDoubleBtn');
+  const anchorBtn=$('#floatingDoubleBtn');
   if(!chooser||!anchorBtn||!pairs?.length)return;
   chooser.innerHTML='<div class="floating-action-chooser-title">Escolha a dupla</div>';
   pairs.forEach(pair=>{
@@ -2825,8 +2823,8 @@ function initDraggableGameAction(kind,clickHandler){
     drag.moved=true;btn.classList.add('dragging');hideFloatingActionChooser();setFloatingActionPosition(kind,drag.originX+dx,drag.originY+dy);if(ev.cancelable)ev.preventDefault();
   });
   btn.addEventListener('pointerup',finish);btn.addEventListener('pointercancel',finish);
-  btn.addEventListener('click',ev=>{if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}clickHandler()});
-  btn.addEventListener('dblclick',ev=>{ev.preventDefault();const pos=floatingActionDefaultPosition(kind);setFloatingActionPosition(kind,pos.x,pos.y,{save:true});toast(kind==='burn'?'🔥 Botão da Queima voltou à posição inicial.':'×2 Botão da Carta Dupla voltou à posição inicial.')});
+  btn.addEventListener('click',ev=>{if(suppressClick){suppressClick=false;ev.preventDefault();ev.stopImmediatePropagation();return;}if(btn.classList.contains('predeal-positioning')){toast('Arraste este botão para escolher sua posição antes da distribuição.');return;}clickHandler()});
+  btn.addEventListener('dblclick',ev=>{ev.preventDefault();const pos=floatingActionDefaultPosition(kind);setFloatingActionPosition(kind,pos.x,pos.y,{save:true});toast(kind==='burn'?'🔥 Botão da Queima voltou à posição inicial.':kind==='double'?'×2 Botão da Carta Dupla voltou à posição inicial.':'⚡ Botão da Ação Rápida voltou à posição inicial.')});
   restoreFloatingActionPosition(kind);
 }
 function specialActionAvailability(){
@@ -2836,27 +2834,44 @@ function specialActionAvailability(){
     quick:!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.quickActionCardIds||[]).length)
   };
 }
-function updateHandSpecialActions(){
-  const availability=specialActionAvailability();
-  for(const [kind,id,label] of [['burn','#handBurnBtn','Queima'],['double','#handDoubleBtn','Carta Dupla'],['quick','#handQuickBtn','Ação Rápida']]){
-    const btn=$(id);if(!btn)continue;
-    btn.disabled=!availability[kind];
-    btn.setAttribute('aria-disabled',String(!availability[kind]));
-    btn.title=availability[kind]?`${label} disponível. Clique para jogar.`:`${label} indisponível pelas regras neste momento.`;
-  }
+// V53.4: os mesmos 3 atalhos originais são mostrados só para posicionamento
+// no lobby/intervalo. Após distribuir, apenas a disponibilidade real do jogo
+// determina sua visibilidade. Arrastar persiste a posição no localStorage.
+function isPredealPositioningPhase(){
+  return !!(state && !isSpectatorState() &&
+    (state.status==='lobby'||state.status==='between-rounds'));
 }
 function updateFloatingGameActions(){
-  const burnBtn=$('#floatingBurnBtn'),doubleBtn=$('#floatingDoubleBtn'),quickBtn=$('#floatingQuickBtn');if(!burnBtn||!doubleBtn||!quickBtn)return;
-  // O atalho flutuante preserva os mesmos cálculos originais do jogo.
-  const burnAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.burnableCardIds||[]).length);
-  const doubleAvailable=!!(state&&state.status==='playing'&&!state.paused&&canAct()&&!state.continuationPlayerId&&(state.me?.doublePairs||[]).length);
-  const quickAvailable=!!(state&&state.status==='playing'&&!state.paused&&socket.connected&&!state.me?.justDrawnCardId&&(state.me?.quickActionCardIds||[]).length);
-  const burnWasHidden=burnBtn.classList.contains('hidden'),doubleWasHidden=doubleBtn.classList.contains('hidden'),quickWasHidden=quickBtn.classList.contains('hidden');
-  burnBtn.classList.toggle('hidden',!burnAvailable);doubleBtn.classList.toggle('hidden',!doubleAvailable);quickBtn.classList.toggle('hidden',!quickAvailable);
-  if(burnAvailable){burnBtn.classList.toggle('opening-action',!!state.openingReaction);burnBtn.title='Queima na sua vez disponível. Clique para queimar ou arraste para mover.';if(burnWasHidden)restoreFloatingActionPosition('burn')}
-  if(doubleAvailable){const n=(state.me.doublePairs||[]).length;doubleBtn.title=n>1?`Carta Dupla: ${n} opções disponíveis. Clique para escolher ou arraste para mover.`:'Carta Dupla disponível. Clique para jogar ou arraste para mover.';if(doubleWasHidden)restoreFloatingActionPosition('double')}
-  if(quickAvailable){quickBtn.title='Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover.';if(quickWasHidden)restoreFloatingActionPosition('quick')}
-  if(!doubleAvailable)hideFloatingActionChooser();
+  const buttons={burn:$('#floatingBurnBtn'),double:$('#floatingDoubleBtn'),quick:$('#floatingQuickBtn')};
+  if(!buttons.burn||!buttons.double||!buttons.quick)return;
+  const setup=isPredealPositioningPhase();
+  const available=specialActionAvailability();
+  for(const [kind,label] of [['burn','Queima'],['double','Carta Dupla'],['quick','Ação Rápida']]){
+    const btn=buttons[kind];
+    const wasHidden=btn.classList.contains('hidden');
+    const visible=setup||available[kind];
+    btn.classList.toggle('hidden',!visible);
+    btn.classList.toggle('predeal-positioning',setup);
+    btn.setAttribute('aria-disabled',String(setup));
+    btn.setAttribute('aria-label',setup
+      ? `Posicionar botão de ${label}. Arraste antes da distribuição.`
+      : `Botão flutuante de ${label}`);
+    if(visible&&wasHidden)restoreFloatingActionPosition(kind);
+    if(setup){
+      btn.title=`${label}: arraste para posicionar antes da distribuição. Duplo toque para restaurar.`;
+    }else if(available[kind]){
+      if(kind==='double'){
+        const n=(state.me.doublePairs||[]).length;
+        btn.title=n>1?`Carta Dupla: ${n} opções disponíveis. Clique para escolher ou arraste para mover.`:'Carta Dupla disponível. Clique para jogar ou arraste para mover.';
+      }else if(kind==='burn'){
+        btn.title='Queima na sua vez disponível. Clique para queimar ou arraste para mover.';
+      }else{
+        btn.title='Ação Rápida disponível. Clique para jogar a carta igual ou arraste para mover.';
+      }
+    }
+  }
+  buttons.burn.classList.toggle('opening-action',!setup&&!!available.burn&&!!state.openingReaction);
+  if(!available.double)hideFloatingActionChooser();
 }
 initDraggableGameAction('burn',triggerFloatingBurn);
 initDraggableGameAction('double',triggerFloatingDouble);
@@ -2865,10 +2880,6 @@ initDraggableGameAction('quick',triggerFloatingQuick);
 // pela borda oval quando o botão está na faixa de controles do celular.
 const doubleActionChooser=$('#floatingActionChooser');
 if(doubleActionChooser)$('#game')?.appendChild(doubleActionChooser);
-// Os botões do painel só encaminham a ação para as funções já existentes.
-for(const [id,handler] of [['handBurnBtn',triggerFloatingBurn],['handDoubleBtn',triggerFloatingDouble],['handQuickBtn',triggerFloatingQuick]]){
-  const btn=$(`#${id}`);btn?.addEventListener('click',()=>{if(!btn.disabled)handler()});
-}
 document.addEventListener('pointerdown',ev=>{const chooser=$('#floatingActionChooser');if(!chooser||chooser.classList.contains('hidden'))return;if(chooser.contains(ev.target)||$('#floatingDoubleBtn')?.contains(ev.target))return;hideFloatingActionChooser()});
 window.addEventListener('resize',()=>{for(const kind of ['burn','double','quick']){const btn=floatingActionButton(kind);if(btn&&!btn.classList.contains('hidden')){const r=btn.getBoundingClientRect();setFloatingActionPosition(kind,r.left,r.top,{save:true})}}hideFloatingActionChooser()});
 
@@ -3665,7 +3676,7 @@ function render(force=false){
   renderWhenChanged('hand',[state.me,state.round,state.status,state.paused,state.currentPlayerId,state.pendingSeven,state.continuationPlayerId,state.openingReaction,handSort,passPending,socket.connected],renderHand,force);
   renderWhenChanged('log',state.log||[],renderLog,force);
   renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,state.botDifficulty,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
-  updateLiveMicUI();updateFloatingGameActions();if(typeof updateHandSpecialActions==='function')updateHandSpecialActions();
+  updateLiveMicUI();updateFloatingGameActions();
   syncReconnectCountdownTimer();
 }
 function playerDisplayOrderFromMe(){

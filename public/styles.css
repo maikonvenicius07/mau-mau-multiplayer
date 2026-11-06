@@ -4315,7 +4315,7 @@ button.bot-primary{
 @media(max-width:560px){#game .bot-difficulty-control{font-size:10px;gap:4px}#game .bot-difficulty-select{min-height:34px;min-width:84px;padding:4px 5px}}
 
 /* =============================================================
-   V53.3 — MÃO RESPONSIVA E CONTROLES PERSISTENTES
+   V53.3/V53.4 — MÃO RESPONSIVA, ATALHOS FLUTUANTES ORIGINAIS
    CSS isolado do jogo: não altera mesa, motor ou modo observador.
    As variáveis são calculadas no cliente após cada nova mão/resize.
    ============================================================= */
@@ -4340,31 +4340,6 @@ button.bot-primary{
   overflow-wrap:anywhere!important;text-align:center!important;
 }
 #game:not(.spectator-mode) #passTurnBtn{grid-column:auto!important}
-#game:not(.spectator-mode) .special-actions-dock{
-  grid-column:1/-1;
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:5px;width:100%;min-width:0;
-}
-#game:not(.spectator-mode) .special-actions-dock .special-action-btn{
-  border:1px solid #486457;
-  color:#f6f0d8;background:#203d31;
-  border-radius:10px;
-  min-height:36px;min-width:0;
-  display:flex;align-items:center;justify-content:center;
-  padding:5px 6px;font-size:11px;font-weight:900;
-  line-height:1.13;white-space:nowrap;
-  cursor:pointer;
-  transition:filter .15s ease,background-color .15s ease;
-}
-#game:not(.spectator-mode) .special-actions-dock .special-burn:not(:disabled){background:#7d3818;border-color:#ffad60;color:#fff2d9}
-#game:not(.spectator-mode) .special-actions-dock .special-double:not(:disabled){background:#80601b;border-color:#f8db75;color:#fff7d1}
-#game:not(.spectator-mode) .special-actions-dock .special-quick:not(:disabled){background:#184e78;border-color:#8ddaff;color:#eaf7ff}
-#game:not(.spectator-mode) .special-actions-dock button:disabled,
-#game:not(.spectator-mode) .toolbar-actions button:disabled{
-  opacity:.48!important;filter:grayscale(.3);cursor:not-allowed!important;
-  transform:none!important;
-}
-#game:not(.spectator-mode) .special-actions-dock button:not(:disabled):active{filter:brightness(1.2);transform:translateY(1px)}
 #game:not(.spectator-mode) .hand{
   --mm-hand-card-width:76px;
   --mm-hand-card-height:109px;
@@ -4414,17 +4389,13 @@ button.bot-primary{
     grid-template-columns:minmax(0,1fr)!important;
     gap:5px!important;
   }
-  #game:not(.spectator-mode) .special-actions-dock{grid-column:auto;gap:5px}
   #game:not(.spectator-mode) .toolbar-actions button{
     font-size:clamp(10px,2.5vw,12px)!important;
     min-height:40px!important;padding:5px 4px!important;
   }
-  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{
-    min-height:34px;font-size:clamp(10px,2.5vw,12px);
-  }
-  /* Os atalhos flutuantes continuam operacionais no desktop.
-     No móvel, as mesmas funções são acionadas pela faixa fixa da mão. */
-  #game:not(.spectator-mode) .felt > .floating-game-action{display:none!important}
+  /* V53.4: no celular os atalhos flutuantes originais permanecem disponíveis
+     para arrastar antes da distribuição e quando a jogada for válida. */
+}
 }
 @media(max-width:560px){
   #game:not(.spectator-mode) .hand-panel{
@@ -4435,7 +4406,6 @@ button.bot-primary{
   #game:not(.spectator-mode) .hand-toolbar{gap:4px!important;margin-bottom:4px!important}
   #game:not(.spectator-mode) .hand-owner-row{min-height:29px}
   #game:not(.spectator-mode) .toolbar-actions{gap:4px!important}
-  #game:not(.spectator-mode) .special-actions-dock{gap:4px}
   #game:not(.spectator-mode) .hand .playing-card .suit-big{font-size:33px!important}
   #game:not(.spectator-mode) .hand .playing-card .corner-rank{font-size:17px!important}
   #game:not(.spectator-mode) .hand .playing-card .corner-suit{font-size:11px!important}
@@ -4443,7 +4413,6 @@ button.bot-primary{
 }
 @media(max-width:350px){
   #game:not(.spectator-mode) .toolbar-actions button{font-size:9px!important}
-  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{font-size:9.5px}
 }
 /* Orientação horizontal: painel abaixo da mesa, em vez de cobrir o feltro. */
 @media(max-width:900px) and (max-height:620px) and (orientation:landscape){
@@ -4456,5 +4425,11 @@ button.bot-primary{
   }
   #game:not(.spectator-mode) .hand-toolbar{gap:3px!important}
   #game:not(.spectator-mode) .toolbar-actions button{min-height:33px!important;font-size:10px!important}
-  #game:not(.spectator-mode) .special-actions-dock .special-action-btn{min-height:30px}
 }
+
+/* V53.4: os botões flutuantes ficam fora do feltro; o painel de cartas
+   conserva as dimensões aprovadas na V53.3. */
+#game .floating-game-action.predeal-positioning{
+  cursor:grab;
+}
+#game .floating-game-action.predeal-positioning:active{cursor:grabbing}

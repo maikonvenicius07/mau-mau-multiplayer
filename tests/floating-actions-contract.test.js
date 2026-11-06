@@ -16,8 +16,8 @@ assert(app.includes("floatingDoublePositionStorage='maumauFloatingDoublePosition
 assert(app.includes("initDraggableGameAction('burn',triggerFloatingBurn)"),'arraste da Queima ausente');
 assert(app.includes("initDraggableGameAction('double',triggerFloatingDouble)"),'arraste da Dupla ausente');
 assert(app.includes('showDoubleActionChooser(pairs)'),'seleção quando há mais de uma dupla ausente');
-assert(app.includes("burnBtn.classList.toggle('hidden',!burnAvailable)"),'Queima não some quando indisponível');
-assert(app.includes("doubleBtn.classList.toggle('hidden',!doubleAvailable)"),'Dupla não some quando indisponível');
+assert(app.includes("btn.classList.toggle('hidden',!visible)"),'Botões não somem quando indisponíveis');
+assert(app.includes("const visible=setup||available[kind]"),'Disponibilidade contextual das ações perdida');
 assert(css.includes('.floating-game-action'),'estilo base flutuante ausente');
 assert(css.includes('touch-action:none'),'proteção de arraste/touch ausente');
 console.log('✓ V40.15: Queima e Carta Dupla flutuantes, móveis, persistentes e contextuais conferidas.');
