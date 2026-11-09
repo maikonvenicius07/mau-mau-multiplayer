@@ -1,3 +1,9 @@
+## V40.69.5 — Jogada Rápida preservada após tentativa inválida de ×2 Dupla (09/11/2026)
+- Em `playDoubleCard()`, a janela de Ação Rápida só é encerrada **depois** das verificações de anúncio Mau-Mau e estoque disponível para penalidade.
+- Uma Carta Dupla rejeitada não altera o topo, a oportunidade de reação, as mãos, o turno ou o placar. Carta Dupla aceita conserva os efeitos, a ordem da vez e a abertura da próxima reação.
+- Verificação de 14 cenários novos e regressão completa; sem modificações nas regras aprovadas, cliente, mídia ou persistência.
+- Teste: `tests/double-quick-reaction-v40695.test.js`. Relatório: `docs/RELATORIO_V40.69.5_JOGADA_RAPIDA.md`.
+
 ## V40.69.4 — Integridade de compras e penalidades (09/11/2026)
 - `drawCards()` valida previamente a disponibilidade total, incluindo as cartas recicláveis do descarte, antes de retirar qualquer carta.
 - `playCard()`, `playDoubleCard()` e `quickAction()` verificam a capacidade das penalidades que decorrerão da jogada **antes de alterar** descarte, mãos, reação ou placar; penalidades simultâneas (Mau-Mau e 8/K) são somadas.

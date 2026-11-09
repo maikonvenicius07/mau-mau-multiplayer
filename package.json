@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.4",
-  "description": "Mau-Mau Candeias V40.69.4: login com Google ou e-mail + senha de 6 a 60 caracteres e recuperação de senha por código enviado ao e-mail.",
+  "version": "40.69.5",
+  "description": "Mau-Mau Candeias V40.69.5: login com Google ou e-mail + senha de 6 a 60 caracteres e recuperação de senha por código enviado ao e-mail.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

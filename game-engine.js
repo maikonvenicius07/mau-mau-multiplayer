@@ -805,9 +805,6 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   if (isSpecial(first)) throw new Error('Carta Dupla não pode ser usada com cartas especiais (A, 7, 8, J, Q e K).');
   if (!legalCard(room, first, player)) throw new Error('Essa dupla não pode ser jogada sobre a carta atual da mesa.');
 
-  // A dupla foi validada: agora ela fecha qualquer janela de reação anterior.
-  closeReaction(room);
-
   // Com as duas últimas cartas, o jogador pode escolher qual anúncio fazer:
   // Mau-Mau simples ou Mau-Mau batendo/queimando. Ambos autorizam a batida.
   if (player.hand.length === 2 && !['mau-mau','batendo'].includes(player.declaration)) {
@@ -819,6 +816,11 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   const doubleMauMauDraw = player.hand.length === 3 && player.declaration !== 'mau-mau'
     ? room.rules.mauMauPenalty : 0;
   requireDrawCapacity(room, doubleMauMauDraw, 2);
+
+  // V40.69.5 — Encerre a reação SOMENTE depois de TODAS as validações.
+  // Uma dupla rejeitada (anúncio ausente ou penalidade impossível) não
+  // substitui o topo e não deve apagar uma Ação Rápida ainda válida.
+  closeReaction(room);
 
   const before = player.hand.length;
   const played1 = removeCard(player, first.id);
