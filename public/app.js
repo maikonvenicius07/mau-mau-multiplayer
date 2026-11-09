@@ -3663,6 +3663,7 @@ function render(force=false){
   const spectator=isSpectatorState();
   const myTurnNow=!spectator&&state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id;
   $('#game').classList.toggle('my-turn',!!myTurnNow);$('#game').classList.toggle('spectator-mode',spectator);
+  window.MauControlsLayout?.onGameState?.(state.status,state.code,spectator);
   $('#spectatorModeBanner')?.classList.toggle('hidden',!spectator);
   syncSpectatorCompactUI();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;

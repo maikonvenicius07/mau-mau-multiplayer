@@ -1,6 +1,7 @@
-/* MAU-MAU CANDEIAS V53.5 — evita sobreposicao de microfone, camera e Trocar lados.
- * Somente posicionamento visual; as posicoes arrastadas continuam salvas pelos
- * controles originais. Reorganiza apenas valores sem preferencia salva ou em colisao.
+/* MAU-MAU CANDEIAS V53.12 — controles móveis alinhados na lateral esquerda.
+ * No celular: câmera, microfone, reações e Trocar lados, nesta ordem, ao entrar
+ * na sala e ao começar uma rodada. Mantém o arraste individual após posicionar.
+ * Computador: conserva o organizador V53.5 sem alterar as posições personalizadas.
  */
 (function(){
   'use strict';
@@ -8,10 +9,14 @@
   const mic=document.getElementById('liveMicBtn');
   const camera=document.getElementById('liveCameraBtn');
   const pile=document.getElementById('pileSideBtn');
+  const reactions=document.getElementById('quickReactionsWidget');
   if(!game||!mic||!camera||!pile)return;
-  const GAP=10, MARGIN=10;
-  let pending=false;
+  const GAP=10,MARGIN=10;
+  let pending=false,mobileArranged=false,lastContext='',lastStatus='';
 
+  function mobile(){
+    return window.innerWidth<=700 || (window.innerWidth<=900&&window.innerHeight<=500);
+  }
   function hasSavedPosition(type){
     try{
       if(type==='mic')return !!localStorage.getItem('maumauLiveMicPositionV1');
@@ -23,9 +28,7 @@
   function visible(el){
     return !el.classList.contains('hidden')&&getComputedStyle(el).display!=='none'&&el.getClientRects().length>0;
   }
-  function rect(el,x,y){
-    return {x,y,w:el.offsetWidth||44,h:el.offsetHeight||42};
-  }
+  function rect(el,x,y){return{x,y,w:el.offsetWidth||44,h:el.offsetHeight||42};}
   function topLimit(){
     return Math.max(58,document.querySelector('.topbar')?.getBoundingClientRect().bottom||58)+10;
   }
@@ -36,22 +39,15 @@
     return rect(el,Math.min(maxX,Math.max(MARGIN,x)),Math.min(maxY,Math.max(top,y)));
   }
   function overlaps(a,b){
-    return a.x<b.x+b.w+GAP && a.x+a.w+GAP>b.x &&
-      a.y<b.y+b.h+GAP && a.y+a.h+GAP>b.y;
+    return a.x<b.x+b.w+GAP&&a.x+a.w+GAP>b.x&&
+      a.y<b.y+b.h+GAP&&a.y+a.h+GAP>b.y;
   }
-  function free(candidate,occupied){
-    return occupied.every(other=>!overlaps(candidate,other));
-  }
-  function current(el,top){
-    const b=el.getBoundingClientRect();
-    return clamp(el,b.left,b.top,top);
-  }
+  function free(candidate,occupied){return occupied.every(other=>!overlaps(candidate,other));}
+  function current(el,top){const b=el.getBoundingClientRect();return clamp(el,b.left,b.top,top);}
   function place(el,type,preferred,occupied,top){
     if(!visible(el))return null;
     let target=hasSavedPosition(type)?current(el,top):clamp(el,preferred.x,preferred.y,top);
     if(!free(target,occupied)){
-      // Uma posicao antiga pode coincidir com a de outro controle. Primeiro
-      // recupera a disposicao de referencia e so depois procura uma vaga livre.
       target=clamp(el,preferred.x,preferred.y,top);
       if(!free(target,occupied)){
         const step=Math.max(40,Math.ceil(target.h)+GAP+4);
@@ -62,25 +58,53 @@
             if(free(candidate,occupied)){target=candidate;found=true;break;}
           }
         }
-        // Se um aparelho for excepcionalmente pequeno, prioriza o limite da
-        // janela, sem permitir que o botao fique inacessivel fora da tela.
       }
     }
     el.style.left=Math.round(target.x)+'px';
     el.style.top=Math.round(target.y)+'px';
-    el.style.right='auto';
-    el.style.bottom='auto';
+    el.style.right='auto';el.style.bottom='auto';
     occupied.push(target);
     return target;
+  }
+  function draggableNow(){
+    return [mic,camera,pile,reactions].filter(Boolean).some(el=>el.classList.contains('dragging'));
+  }
+  function arrangeMobile(){
+    // Mesmo com a câmera inicialmente oculta, reserva-se a primeira posição.
+    // Assim a câmera aparece no lugar correto quando for habilitada.
+    const controls=[
+      {el:camera,height:42},
+      {el:mic,height:42},
+      {el:reactions,height:50},
+      {el:pile,height:44}
+    ].filter(item=>!!item.el);
+    const top=topLimit(),left=window.innerWidth<=360?10:14;
+    const heights=controls.map(item=>item.el.offsetHeight||item.height);
+    const available=Math.max(0,window.innerHeight-top-14);
+    const idealGap=6;
+    const gap=Math.max(2,Math.min(idealGap,
+      Math.floor((available-heights.reduce((a,b)=>a+b,0))/Math.max(1,controls.length-1))));
+    let y=top;
+    for(let i=0;i<controls.length;i++){
+      const {el}=controls[i],width=el.offsetWidth||54;
+      // Não grava nas preferências: arraste manual continua salvando normalmente.
+      el.style.left=Math.round(Math.max(8,Math.min(left,innerWidth-width-8)))+'px';
+      el.style.top=Math.round(y)+'px';
+      el.style.right='auto';el.style.bottom='auto';
+      y+=heights[i]+gap;
+    }
+    mobileArranged=true;
   }
   function arrange(){
     pending=false;
     if(game.classList.contains('hidden')||game.classList.contains('spectator-mode'))return;
-    // Nao reposicionar enquanto o jogador estiver arrastando algum controle.
-    if([mic,camera,pile].some(el=>el.classList.contains('dragging')))return;
+    if(draggableNow())return;
+    if(mobile()){
+      if(!mobileArranged)arrangeMobile();
+      return;
+    }
     const top=topLimit(),occupied=[];
-    // Referencia da imagem: microfone no alto a esquerda;
-    // Trocar lados a direita; camera abaixo do microfone.
+    // Computador: manter o organizador da V53.5.
     const m=place(mic,'mic',{x:MARGIN,y:top},occupied,top);
     if(!m)return;
     place(pile,'pile',{x:m.x+m.w+24,y:m.y+12},occupied,top);
@@ -88,18 +112,26 @@
   }
   function schedule(){
     if(pending)return;
-    pending=true;
-    requestAnimationFrame(arrange);
+    pending=true;requestAnimationFrame(arrange);
+  }
+  function resetMobile(){mobileArranged=false;schedule();}
+  function onGameState(status,roomCode,spectator){
+    const context=String(roomCode||'')+':'+(spectator?'S':'P');
+    // Alinhar ao entrar em outra sala e ao distribuir as cartas para a rodada.
+    // Atualizações normais do jogo não desfazem o arraste escolhido pelo jogador.
+    const changed=context!==lastContext;
+    const starting=!spectator&&status==='playing'&&lastStatus!=='playing';
+    lastContext=context;lastStatus=status;
+    if(!spectator&&mobile()&&(changed||starting))resetMobile();
   }
   const observer=new MutationObserver(schedule);
   observer.observe(game,{attributes:true,attributeFilter:['class']});
   observer.observe(camera,{attributes:true,attributeFilter:['class']});
-  window.addEventListener('resize',schedule);
-  window.addEventListener('orientationchange',schedule);
-  window.addEventListener('pageshow',schedule);
-  // Um duplo toque devolve o controle a sua posicao original; nesse caso,
-  // verificar novamente se a posicao provocou sobreposicao com outro botao.
-  for(const el of [mic,pile,camera])el.addEventListener('dblclick',schedule);
-  window.MauControlsLayout={arrange,schedule};
+  window.addEventListener('resize',resetMobile);
+  window.addEventListener('orientationchange',resetMobile);
+  window.addEventListener('pageshow',resetMobile);
+  // O duplo toque pode restaurar a posição do botão individual; não desmanchar
+  // a coluna no meio da rodada enquanto o jogador ajusta sua preferência.
+  window.MauControlsLayout={arrange,schedule,onGameState,resetMobile};
   schedule();
 })();
