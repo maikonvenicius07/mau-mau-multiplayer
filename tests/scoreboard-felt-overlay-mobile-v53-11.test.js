@@ -1,0 +1,30 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'..');
+const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
+const app=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+const v=css.slice(css.lastIndexOf('V53.11 — placar sobre o canto direito da mesa'));
+assert(v.includes('position:absolute!important'),'placar ancorado sobre a mesa, fora do fluxo');
+assert(v.includes('right:clamp(3px,1vw,9px)!important'),'coluna direita do feltro');
+assert(v.includes('margin:0!important'),'nenhuma margem que empurre a mesa');
+assert(v.includes('#game:not(.spectator-mode) #scoreboard'),'estilo limitado ao jogador');
+assert(v.includes('max-height:66px!important'),'rolagem curta em telas até 350px');
+assert(!v.includes('#game.spectator-mode'),'placar observador preservado');
+assert(html.includes('v53.11-placar-sobre-mesa-mobile'),'nova versão de CSS/JS');
+assert.equal((html.match(/id="scoreboard"/g)||[]).length,1,'placar único');
+const start=app.indexOf('function renderScore(){');
+const end=app.indexOf('\nfunction renderCenter(){',start);
+assert(start>=0&&end>start,'renderScore existente');
+const markup={innerHTML:''};
+const render=new Function('$','state','avatarHTML','esc',`${app.slice(start,end)};return renderScore;`)(
+ ()=>markup,{players:[{name:'Maikon Gianizelli',score:9,roundScore:2,avatar:'a'},{name:'Máquina',score:14,roundScore:0,isBot:true,avatar:'b'}]},()=>'<b>Avatar</b>',x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
+);
+render();
+assert(markup.innerHTML.includes('class="score-full-name">Maikon Gianizelli'),'nome completo para desktop/observador');
+assert(markup.innerHTML.includes('class="score-short-name">Maikon'),'primeiro nome no celular');
+assert(markup.innerHTML.includes('<strong>14</strong>'),'pontuação original preservada');
+assert(markup.innerHTML.includes('id="scoreCloseBtn"'),'botão fechar preservado');
+console.log('✓ V53.11: placar sobre mesa no canto direito, nome curto no celular e desktop preservado.');

@@ -4811,3 +4811,113 @@ button.bot-primary{
   #game:not(.spectator-mode) #scoreboard .score-close{position:relative!important}
   #game:not(.spectator-mode) #scoreboard .score-close::before{content:"";position:absolute;inset:-3px}
 }
+
+
+/* ==============================================================
+   V53.11 — placar sobre o canto direito da mesa no MOBILE.
+   Não altera o feltro, as cartas, o placar desktop ou o observador.
+   O próprio #scoreboard deixa o fluxo da página: isto remove o
+   espaço vazio criado pelo margin-top:60px da V53.8.
+   ============================================================== */
+#game #scoreboard .score-short-name{display:none}
+#game #scoreboard .score-full-name{display:inline}
+
+@media (max-width:768px), (max-width:900px) and (max-height:500px) and (orientation:landscape){
+  #game:not(.spectator-mode) .table-shell{position:relative!important}
+  #game:not(.spectator-mode) #scoreboard{
+    /* O elemento é irmão do feltro, portanto não sofre o overflow da mesa. */
+    position:absolute!important;
+    inset:auto!important;
+    top:clamp(42px,5vw,50px)!important;
+    right:clamp(3px,1vw,9px)!important;
+    left:auto!important;bottom:auto!important;
+    transform:none!important;
+    display:none!important;
+    width:clamp(120px,33vw,174px)!important;
+    min-width:0!important;
+    max-width:calc(100% - 8px)!important;
+    height:auto!important;min-height:0!important;
+    max-height:min(148px,29vw,29dvh)!important;
+    margin:0!important;
+    padding:0 0 2px!important;
+    overflow:hidden!important;
+    z-index:42!important;
+    border-radius:10px!important;
+    box-shadow:0 7px 22px rgba(0,0,0,.42)!important;
+  }
+  #game:not(.spectator-mode) #scoreboard.open{display:block!important}
+  #game:not(.spectator-mode) #scoreboard:not(.open){display:none!important}
+  #game:not(.spectator-mode) #scoreboard .score-head{
+    min-height:23px!important;
+    padding:0 5px!important;
+    margin:0!important;
+    gap:3px!important;
+    border-bottom:1px solid rgba(236,199,108,.18)!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-title{
+    font-size:9px!important;
+    line-height:1.2!important;
+    letter-spacing:.01em!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-close{
+    width:21px!important;min-width:21px!important;
+    height:21px!important;flex:0 0 21px!important;
+    font-size:17px!important;line-height:1!important;
+    border-radius:7px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-rows{
+    max-height:min(118px,calc(29vw - 26px),23dvh)!important;
+    padding:2px 3px!important;
+    gap:1px!important;
+    overflow-y:auto!important;overflow-x:hidden!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row{
+    display:grid!important;
+    grid-template-columns:15px minmax(0,1fr) max-content max-content!important;
+    gap:2px!important;
+    padding:1px 2px!important;
+    min-height:20px!important;
+    font-size:10px!important;
+    line-height:1.1!important;
+    border-radius:6px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar,
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar img,
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar .avatar-circle{
+    width:15px!important;height:15px!important;
+    min-width:15px!important;min-height:15px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row .score-person-name{
+    min-width:0!important;
+    display:block!important;
+    font-size:10px!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-full-name{display:none!important}
+  #game:not(.spectator-mode) #scoreboard .score-short-name{display:inline!important}
+  #game:not(.spectator-mode) #scoreboard .score-person-name .score-bot,
+  #game:not(.spectator-mode) #scoreboard .score-person-name .score-auto{display:none!important}
+  #game:not(.spectator-mode) #scoreboard .score-row .round-score{
+    font-size:9px!important;line-height:1!important;
+    text-align:right!important;white-space:nowrap!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row strong{
+    font-size:11px!important;line-height:1!important;
+    text-align:right!important;white-space:nowrap!important;
+  }
+}
+/* Em celulares muito estreitos, o placar conserva largura suficiente
+   para mostrar avatar, primeiro nome e as duas pontuações. */
+@media(max-width:350px) and (orientation:portrait){
+  #game:not(.spectator-mode) #scoreboard{
+    width:118px!important;
+    top:42px!important;
+    right:3px!important;
+    max-height:92px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-rows{
+    max-height:66px!important;
+  }
+}

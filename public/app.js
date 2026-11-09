@@ -3891,7 +3891,12 @@ function renderPlayers(){
 }
 function renderScore(){
   const box=$('#scoreboard');
-  box.innerHTML='<div class="score-head"><div class="score-title"><span class="score-title-desktop">Placar acumulado</span><span class="score-title-mobile">🏆 Placar</span></div><span class="score-swipe-hint" aria-hidden="true"></span><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div><div class="score-rows" role="list" aria-label="Pontuação acumulada dos jogadores" tabindex="0">'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row" role="listitem"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span title="${esc(p.name)}">${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('')+'</div>';
+  box.innerHTML='<div class="score-head"><div class="score-title"><span class="score-title-desktop">Placar acumulado</span><span class="score-title-mobile">🏆 Placar</span></div><span class="score-swipe-hint" aria-hidden="true"></span><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div><div class="score-rows" role="list" aria-label="Pontuação acumulada dos jogadores" tabindex="0">'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>{
+    const fullName=esc(p.name||'Jogador');
+    const firstName=String(p.name||'Jogador').trim().split(/\s+/)[0].slice(0,12)||'Jogador';
+    const tag=p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':'';
+    return `<div class="score-row" role="listitem"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span class="score-person-name" title="${fullName}"><span class="score-full-name">${fullName}</span><span class="score-short-name">${esc(firstName)}</span>${tag}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`;
+  }).join('')+'</div>';
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
