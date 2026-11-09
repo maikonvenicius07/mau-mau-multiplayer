@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {createAppDatabasePool}=require('../database-pool');
+const {createAppDatabasePool,createDatabasePoolConfig}=require('../database-pool');
 const {RankingStore}=require('../ranking-store');
 const {AuthIdentityStore}=require('../auth-identity-store');
 const {RoomSnapshotStore}=require('../room-snapshot-store');
@@ -30,10 +30,16 @@ class FakePool {
 (async()=>{
   assert.equal(createAppDatabasePool('',{PoolClass:FakePool}),null,'modo sem DATABASE_URL não abre conexão');
   assert.equal(FakePool.instances.length,0);
-  const pool=createAppDatabasePool('postgresql://user:pass@localhost:5432/db',{PoolClass:FakePool});
+  // O build do Render herda PGSSLMODE do ambiente de produção. Este teste
+  // verifica a política TLS padrão de forma determinística e não deve ser
+  // alterado por uma opção de transporte usada somente na rede interna.
+  const databaseUrl='postgresql://user:pass@localhost:5432/db';
+  const pool=createAppDatabasePool(databaseUrl,{PoolClass:FakePool,env:{}});
   assert.equal(FakePool.instances.length,1,'deve criar um único Pool');
   assert.equal(pool.config.connectionString,'postgresql://user:pass@localhost:5432/db');
   assert.equal(pool.config.ssl?.rejectUnauthorized,true,'TLS deve validar a cadeia de certificados');
+  assert.equal(createDatabasePoolConfig(databaseUrl,{env:{PGSSLMODE:'disable'}}).ssl,false,
+    'conexão interna sem TLS exige PGSSLMODE=disable explícito');
   assert.equal(Object.prototype.hasOwnProperty.call(pool.config,'max'),false,'não alterar limite padrão do pg');
 
   const options={databaseUrl:'',pool};
