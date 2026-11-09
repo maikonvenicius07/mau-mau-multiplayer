@@ -3551,6 +3551,9 @@ function syncSpectatorCompactUI(){
   if(!spectator)spectatorDrawerActive=null;
   const drawer=$('#spectatorAuxDrawer');
   const opened=spectator&&!!spectatorDrawerActive;
+  // V53.7: placar do observador ocupa apenas a altura necessaria;
+  // eventos e chat continuam usando a gaveta tradicional.
+  drawer?.classList.toggle('spectator-score-active',opened&&spectatorDrawerActive==='score');
   drawer?.classList.toggle('hidden',!opened);
   drawer?.setAttribute('aria-hidden',String(!opened));
   for(const key of ['score','events','chat','watchers']){
