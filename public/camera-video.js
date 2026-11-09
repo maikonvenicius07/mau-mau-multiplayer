@@ -9,6 +9,7 @@
   let socket=null, getState=()=>null, notice=()=>{}, enabled=false;
   let sdkPromise=null, room=null, connecting=null, roomCode='', joinedRoomCode='', publishing=false;
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
+  let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
   // FASE 2B: evita reconstruir o <video> quando LiveKit reapresenta a mesma faixa.
   const videoTrackRefs=new Map(); // identidade da MediaStreamTrack, sem persistência.
@@ -88,11 +89,12 @@
     const wasHidden=button.classList.contains('hidden');
     button.classList.toggle('hidden',!active);
     button.disabled=!enabled||busy||!socket?.connected;
-    button.classList.toggle('camera-on',publishing);
+    const cameraTransmitting=!!publishing&&!!localCameraTrack()?.mediaStreamTrack&&localCameraTrack().mediaStreamTrack.readyState!=='ended';
+    button.classList.toggle('camera-on',cameraTransmitting);
     button.classList.toggle('camera-loading',busy);
     const label=document.getElementById('liveCameraLabel');
-    if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':isSpectator()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(publishing?'DESLIGAR CÂMERA':'LIGAR CÂMERA');
-    button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':publishing?'Desligar câmera e voltar ao avatar.':'Ligar câmera ao vivo; a câmera não é gravada.';
+    if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':isSpectator()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(cameraTransmitting?'DESLIGAR CÂMERA':cameraWanted?'RECONECTANDO...':'LIGAR CÂMERA');
+    button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':cameraTransmitting?'Desligar câmera e voltar ao avatar.':cameraWanted?'Recuperando transmissão de vídeo.':'Ligar câmera ao vivo; a câmera não é gravada.';
     button.setAttribute('aria-label',button.title);
     if(active&&wasHidden)window.MauCameraFloating?.reclamp('button');
     updateSwitchButton();
@@ -256,8 +258,11 @@
       });
       newRoom.on(events.Disconnected,()=>{
         if(room===newRoom){
-          room=null;publishing=false;socket?.emit('cameraPublishState',{active:false});
+          generation++;room=null;roomCode='';publishing=false;
+          if(socket?.connected)socket.emit('cameraPublishState',{active:false});
           clearVideo();updateButton();
+          // A conexão LiveKit terminou: publicar novamente requer uma nova sala/token.
+          if(cameraWanted)scheduleRestore(1500);
         }
       });
       try{
@@ -268,6 +273,66 @@
       }catch(e){try{await newRoom.disconnect()}catch{}throw e;}
     })().finally(()=>{connecting=null;});
     return connecting;
+  }
+  function clearRestoreTimer(){if(restoreTimer)clearTimeout(restoreTimer);restoreTimer=null;}
+  function scheduleRestore(delay=500){
+    if(!cameraWanted||!socket?.connected||!joinedRoomCode||isSpectator()||publishing||restoreTimer)return;
+    if(busy){restoreDeferred=true;return;}
+    if(!enabled){window.MauMediaSession?.failed('camera','Serviço de câmera não configurado ou indisponível.');return;}
+    if(restoreAttempts>=3){window.MauMediaSession?.failed('camera','Não foi possível recuperar o vídeo. Toque para tentar novamente.');return;}
+    restoreTimer=setTimeout(()=>{restoreTimer=null;restore().catch(()=>{});},delay);
+  }
+  function watchLocalTrack(){
+    const track=localCameraTrack()?.mediaStreamTrack;
+    if(!track||track.readyState==='ended')throw new Error('A câmera não forneceu vídeo ativo.');
+    // Quando o SO retira a câmera em segundo plano, não manter ícone verde.
+    if(!track.__mauCameraWatch){
+      try{Object.defineProperty(track,'__mauCameraWatch',{value:true,configurable:true})}catch{}
+      track.addEventListener?.('ended',()=>{
+        if(localCameraTrack()?.mediaStreamTrack!==track||!publishing)return;
+        publishing=false;if(socket?.connected)socket.emit('cameraPublishState',{active:false});
+        updateLocalVideo();updateButton();if(cameraWanted)scheduleRestore(1800);
+      },{once:true});
+    }
+  }
+  async function restore({userGesture=false}={}){
+    if(userGesture){restoreAttempts=0;clearRestoreTimer();}
+    if(!cameraWanted||publishing||busy||!joinedRoomCode||!socket?.connected||isSpectator())return;
+    if(!enabled){window.MauMediaSession?.failed('camera','Serviço de câmera indisponível.');return;}
+    if(restoreAttempts>=3){window.MauMediaSession?.failed('camera','Não foi possível recuperar a câmera automaticamente.');return;}
+    const seq=generation;restoreAttempts++;busy=true;updateButton();
+    let retry=false;
+    try{
+      const current=await ensureConnected();
+      if(!current||seq!==generation||!cameraWanted||!socket?.connected)return;
+      // Faixa encerrada pelo SO não pode ser reaproveitada como publicação ativa.
+      if(localCameraTrack()?.mediaStreamTrack?.readyState==='ended')
+        await current.localParticipant.setCameraEnabled(false);
+      await current.localParticipant.setCameraEnabled(true,captureOptions());
+      if(seq!==generation||room!==current||!cameraWanted||!socket?.connected){
+        await current.localParticipant.setCameraEnabled(false).catch(()=>{});return;
+      }
+      watchLocalTrack();
+      publishing=true;restoreAttempts=0;updateLocalVideo();
+      socket.emit('cameraPublishState',{active:true});
+      window.MauMediaSession?.ready('camera');
+    }catch(error){
+      if(seq!==generation||!cameraWanted)return;
+      publishing=false;socket?.emit('cameraPublishState',{active:false});
+      const permanent=['NotAllowedError','SecurityError','NotFoundError','NotReadableError','OverconstrainedError'].includes(String(error?.name||''));
+      if(permanent){
+        const permission=['NotAllowedError','SecurityError'].includes(String(error?.name||''));
+        window.MauMediaSession?.failed('camera',permission?'Autorize o uso da câmera no navegador.':'Câmera indisponível ou ocupada por outro aplicativo.');
+      }else if(restoreAttempts>=3){
+        window.MauMediaSession?.failed('camera','Falha de rede ou de conexão com o serviço de vídeo.');
+      }else retry=true;
+      if(!watchedIds.size)closeRoom();
+    }finally{
+      if(seq===generation){busy=false;updateButton();}
+      else if(!publishing){busy=false;updateButton();}
+      if(restoreDeferred){restoreDeferred=false;scheduleRestore(1500);}
+      else if(retry&&cameraWanted)scheduleRestore(2700+restoreAttempts*900);
+    }
   }
   async function stopPublishing(){
     // O estado publico desliga antes de liberar hardware de camera.
@@ -282,7 +347,8 @@
     clearVideo();
     if(old){try{old.disconnect()}catch{}}
   }
-  function stop(){
+  function stop({keepWanted=false}={}){
+    clearRestoreTimer();restoreDeferred=false;restoreAttempts=0;if(!keepWanted)cameraWanted=false;
     generation++;publishing=false;watchedIds.clear();busy=false;joinedRoomCode='';cameraFacing='user';
     if(socket?.connected)socket.emit('cameraPublishState',{active:false});
     closeRoom();updateButton();
@@ -295,24 +361,39 @@
       else if(!spectatorWatchEnabled)closeRoom();
       updateButton();return;
     }
-    if(publishing){busy=true;updateButton();try{await stopPublishing()}finally{busy=false;updateButton()}return;}
-    busy=true;updateButton();
+    if(publishing){
+      cameraWanted=false;clearRestoreTimer();restoreAttempts=0;window.MauMediaSession?.setDesired('camera',false);
+      busy=true;updateButton();try{await stopPublishing()}finally{busy=false;updateButton()}return;
+    }
+    if(cameraWanted){
+      cameraWanted=false;clearRestoreTimer();restoreAttempts=0;
+      window.MauMediaSession?.setDesired('camera',false);
+      if(!watchedIds.size)closeRoom();
+      updateButton();notice('📷 Reconexão da câmera cancelada.');return;
+    }
+    cameraWanted=true;restoreAttempts=0;window.MauMediaSession?.setDesired('camera',true);
+    const seq=generation;busy=true;updateButton();
     try{
       const current=await ensureConnected();
       if(!current)return;
       // Somente vídeo da câmera. Nenhum microfone é criado nesta implementação.
       await current.localParticipant.setCameraEnabled(true,captureOptions());
+      if(seq!==generation||room!==current||!cameraWanted||!socket?.connected){await current.localParticipant.setCameraEnabled(false).catch(()=>{});return;}
+      watchLocalTrack();
       cameraFacing=localCameraTrack()?.mediaStreamTrack?.getSettings?.()?.facingMode==='environment'?'environment':'user';
-      publishing=true;updateLocalVideo();
+      publishing=true;updateLocalVideo();window.MauMediaSession?.ready('camera');
       socket.emit('cameraPublishState',{active:true});
       notice('📷 Câmera ligada. Sua imagem é transmitida ao vivo, sem gravação pelo jogo.');
     }catch(e){
-      publishing=false;
-      socket?.emit('cameraPublishState',{active:false});
+      if(seq!==generation)return;
+      publishing=false;socket?.emit('cameraPublishState',{active:false});
+      window.MauMediaSession?.failed('camera',e?.name==='NotAllowedError'?'Autorize o uso da câmera no navegador.':String(e?.message||'Verifique conexão e permissão.').slice(0,105));
       if(e?.name==='NotAllowedError')notice('Permita o acesso à câmera nas configurações do navegador.');
       else notice('Não foi possível ligar a câmera: '+String(e?.message||'verifique a conexão').slice(0,90));
       if(!watchedIds.size)closeRoom();
-    }finally{busy=false;updateButton();}
+    }finally{busy=false;updateButton();
+      if(restoreDeferred){restoreDeferred=false;scheduleRestore(1500);}
+    }
   }
   // V50.3: troca de dispositivo SEM criar uma segunda transmissão e SEM gravar.
   // LiveKit reinicia/substitui a mesma faixa de vídeo publicada, preservando a sala e o microfone.
@@ -387,11 +468,25 @@
     if(!enabled)return;
     if(watchedIds.size && (!isSpectator()||spectatorWatchEnabled)){
       ensureConnected().catch(()=>{});
-    }else if(!publishing)closeRoom();
+    }else if(!publishing&&!cameraWanted&&!busy)closeRoom();
     updateButton();
   }
-  function onJoined(newRoomCode){stop();joinedRoomCode=String(newRoomCode||'');if(socket?.connected)socket.emit('cameraPresenceRequest');updateButton();}
-  function onState(){updateButton();}
+  function onJoined(newRoomCode,{restoreCamera=false,role='PLAYER'}={}){
+    stop({keepWanted:true});joinedRoomCode=String(newRoomCode||'');
+    cameraWanted=!!restoreCamera&&role==='PLAYER';restoreAttempts=0;
+    if(socket?.connected)socket.emit('cameraPresenceRequest');
+    updateButton();
+    if(cameraWanted)scheduleRestore(450);
+  }
+  function onState(){
+    const track=localCameraTrack()?.mediaStreamTrack;
+    if(publishing&&(!track||track.readyState==='ended')){
+      publishing=false;if(socket?.connected)socket.emit('cameraPublishState',{active:false});
+      updateLocalVideo();
+      if(cameraWanted)scheduleRestore(1500);
+    }
+    updateButton();
+  }
   async function init(sock,options={}){
     socket=sock;getState=options.getState||getState;notice=options.toast||notice;
     socket.on('cameraPresence',onPresence);
@@ -416,6 +511,7 @@
     }catch{enabled=false}
     updateButton();
     if(code()&&socket.connected)socket.emit('cameraPresenceRequest');
+    if(cameraWanted)scheduleRestore(550);
   }
-  window.MauCamera={init,onJoined,onState,onPresence,renderIntoSeats,stop,switchCamera};
+  window.MauCamera={init,onJoined,onState,onPresence,renderIntoSeats,stop,switchCamera,restore};
 })();

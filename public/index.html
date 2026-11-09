@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -312,6 +312,11 @@
     <!-- V40.35: microfone ao vivo é um controle global da partida.
          Fica fora do felt para nunca ser recortado pelo overflow da mesa, inclusive no Modo Observador. -->
     <button id="liveMicBtn" class="live-mic-btn" type="button" title="Clique para ligar/desligar o microfone estável. Arraste para mover." aria-label="Microfone ao vivo estável: clique para ligar ou desligar e arraste para mover"><span class="live-mic-drag-handle" aria-hidden="true">⠿</span><span class="live-mic-dot" aria-hidden="true"></span><span class="live-mic-icon" aria-hidden="true">🎙️</span><span id="liveMicLabel" class="live-mic-label">LIGAR MICROFONE</span></button>
+    <!-- Restauração de mídia: somente exibido quando o navegador exigir ação do usuário. -->
+    <div id="mediaRestorePrompt" class="media-restore-prompt hidden" role="status" aria-live="polite">
+      <span id="mediaRestoreDetail" class="media-restore-detail"></span>
+      <button id="mediaRestoreBtn" type="button">Restaurar câmera e microfone</button>
+    </div>
     <!-- Camera de video opcional: video efemero, sem gravacao, nao usa Socket.IO. -->
     <button id="liveCameraBtn" class="live-camera-btn hidden" type="button" title="Clique para ligar/desligar a câmera. Arraste para mover." aria-label="Câmera ao vivo: clique para ligar ou desligar, arraste para mover"><span class="camera-btn-drag-handle" aria-hidden="true">⠿</span><span aria-hidden="true">📷</span><span id="liveCameraLabel">LIGAR CÂMERA</span></button>
     <div id="cameraSelfPreview" class="camera-self-preview hidden" aria-label="Prévia da própria câmera. Arraste para posicionar." title="Arraste sua imagem para onde quiser."><span class="camera-preview-drag" aria-hidden="true">⠿</span><button id="cameraSwitchBtn" class="camera-switch-btn hidden" type="button" title="Trocar câmera frontal e traseira" aria-label="Trocar câmera frontal e traseira">🔄</button></div>
@@ -857,8 +862,9 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
-  <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile"></script>
+  <script src="media-session.js?v=1-midia-reconexao"></script>
+  <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b-restore1"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1"></script>
   <script src="controls-positioning.js?v=53.12-mobile-left-stack"></script>
   <script src="tournament-dashboard.js?v=51.6"></script>
   <script src="tournament-ui.js?v=51.6"></script>

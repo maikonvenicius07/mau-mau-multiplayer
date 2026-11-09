@@ -1853,7 +1853,7 @@ $('#leaveBtn').onclick=()=>{
     // assim que o Socket.IO voltar, antes de qualquer tentativa de auto-reconexão.
     const sess=saved();
     savePendingVoluntaryLeave({code:String(state?.code||sess?.code||'').toUpperCase(),token:sess?.token||'',at:Date.now()});
-    clearSession();
+    clearSession();window.MauMediaSession?.clear();
     returnToLanding('Saída registrada. Assim que a conexão voltar, sua reserva será cancelada no servidor.');
     return;
   }
@@ -2031,7 +2031,8 @@ function requestUnhealthyInboundLiveVoiceRefresh(reason='resume'){
 function clearLiveMicRestartTimer(){if(liveMicRestartTimer)clearTimeout(liveMicRestartTimer);liveMicRestartTimer=null}
 function scheduleLiveMicRestart(reason='capture',delayMs=null){
   if(!liveMicWanted||liveMicOn||liveMicRestartTimer)return;
-  const attempt=liveMicRestartAttempts+1;liveMicRestartAttempts=attempt;if(attempt>4)return;
+  const attempt=liveMicRestartAttempts+1;liveMicRestartAttempts=attempt;
+  if(attempt>4){window.MauMediaSession?.failed('mic','A recuperação automática não funcionou. Toque para tentar novamente.');return;}
   const delay=Number.isFinite(delayMs)?Math.max(150,delayMs):Math.min(5000,450*(2**Math.min(3,attempt-1)));
   liveMicRestartTimer=setTimeout(()=>{
     liveMicRestartTimer=null;
@@ -2106,13 +2107,14 @@ function updateLiveMicUI(){
   const btn=$('#liveMicBtn'),label=$('#liveMicLabel');if(!btn)return;
   btn.classList.remove('hidden');
   ensureLiveMicRolePosition();
-  const supported=liveVoiceSupported(),recovering=liveMicRecoveringPeers.size>0;
+  const supported=liveVoiceSupported(),recovering=liveMicRecoveringPeers.size>0,awaitingRestore=liveMicWanted&&!liveMicOn&&!liveMicStarting;
   btn.disabled=!state||!socket.connected||liveMicStarting||!supported;
-  btn.classList.toggle('mic-active',!!liveMicOn);btn.classList.toggle('mic-starting',!!liveMicStarting);btn.classList.toggle('mic-reconnecting',!!(liveMicOn&&recovering));
-  if(label)label.textContent=liveMicStarting?'CONECTANDO...':liveMicOn?(recovering?'RECONECTANDO...':'MICROFONE LIGADO'):'LIGAR MICROFONE';
+  const micTransmitting=!!liveMicOn&&!!liveMicStream?.getAudioTracks?.().some(track=>track.readyState==='live'&&track.enabled);
+  btn.classList.toggle('mic-active',micTransmitting);btn.classList.toggle('mic-starting',!!liveMicStarting);btn.classList.toggle('mic-reconnecting',!!(liveMicOn&&recovering)||awaitingRestore);
+  if(label)label.textContent=liveMicStarting?'CONECTANDO...':liveMicOn?(recovering?'RECONECTANDO...':'MICROFONE LIGADO'):awaitingRestore?'RECONECTANDO...':'LIGAR MICROFONE';
   const icon=btn.querySelector('.live-mic-icon');if(icon)icon.textContent=liveMicOn?(recovering?'🔄':'🎤'):'🎙️';
   const audience=isSpectatorState()?'jogadores e outros observadores':'jogadores e observadores';
-  btn.title=!supported?'Este navegador não oferece microfone ao vivo compatível.':liveMicOn?(recovering?'A conexão de voz está se recuperando automaticamente.':'Desligar o microfone ao vivo'):`Ligar microfone ao vivo para conversar com ${audience}`;
+  btn.title=!supported?'Este navegador não oferece microfone ao vivo compatível.':liveMicOn?(recovering?'A conexão de voz está se recuperando automaticamente.':'Desligar o microfone ao vivo'):awaitingRestore?'Cancelar a recuperação do microfone e mantê-lo desligado.':`Ligar microfone ao vivo para conversar com ${audience}`;
   btn.setAttribute('aria-label',btn.title);
 }
 function closeLivePeer(pc){try{pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.oniceconnectionstatechange=null;pc.close()}catch{}}
@@ -2376,6 +2378,7 @@ async function createOutboundLivePeer(peer,{recovery=false}={}){
 }
 
 async function acceptInboundLiveOffer(msg){
+  if(!socket.connected||!state)return;
   const from=String(msg?.fromSocketId||''),sessionId=String(msg?.sessionId||'');if(!from||!sessionId||!msg?.sdp)return;
   const key=`${from}:${sessionId}`;
   // Uma única conexão inbound por socket remoto. Sessões antigas são encerradas antes
@@ -2394,6 +2397,7 @@ async function acceptInboundLiveOffer(msg){
     closeInboundLivePeer(key);
   }
   await loadLiveVoiceRtcConfig();
+  if(!socket.connected||!state)return;
   const pc=newLiveVoicePeer();liveMicInboundPeers.set(key,pc);syncLiveVoiceInboundRtpHealthMonitor();
   let canSendIce=false,disconnectedTimer=null;const queuedIce=[];
   const clearDisconnectedTimer=()=>{if(disconnectedTimer)clearTimeout(disconnectedTimer);disconnectedTimer=null};
@@ -2428,6 +2432,7 @@ async function acceptInboundLiveOffer(msg){
   }catch{clearDisconnectedTimer();closeInboundLivePeer(key);requestLiveVoiceInboundRefresh(from,'inbound-offer-failed')}
 }
 async function handleLiveVoiceSignal(msg){
+  if(!socket.connected||!state)return;
   try{
     if(msg?.kind==='offer')return await acceptInboundLiveOffer(msg);
     const from=String(msg?.fromSocketId||''),sessionId=String(msg?.sessionId||'');if(!from||!sessionId)return;
@@ -2446,15 +2451,20 @@ async function handleLiveVoiceSignal(msg){
 async function startLiveMic({recovery=false,reason='manual'}={}){
   if(liveMicOn||liveMicStarting)return;
   if(!state||!socket.connected){if(recovery&&liveMicWanted)scheduleLiveMicRestart(reason,700);return recovery?undefined:toast('Sem conexão com a sala.');}
-  if(!liveVoiceSupported()){liveMicWanted=false;return toast('Este navegador não oferece conversa por microfone compatível.');}
+  if(!liveVoiceSupported()){liveMicWanted=false;window.MauMediaSession?.failed('mic','Microfone ao vivo indisponível neste navegador.');return toast('Este navegador não oferece conversa por microfone compatível.');}
   if(voiceRecorder?.state==='recording')return toast('Finalize o Áudio Rápido antes de ligar o microfone ao vivo.');
-  liveMicWanted=true;liveMicStarting=true;updateLiveMicUI();
+  liveMicWanted=true;
+  if(!recovery&&typeof window!=='undefined')window.MauMediaSession?.setDesired('mic',true);
+  liveMicStarting=true;updateLiveMicUI();
   const captureId=++liveMicCaptureRequestId;
   try{
-    await loadLiveVoiceRtcConfig();
-    const stream=await navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints());
+    // Solicita a captura NO MESMO gesto do clique; esperar o fetch do TURN antes
+    // do getUserMedia faz alguns navegadores móveis perderem a ativação do usuário.
+    const [,stream]=await Promise.all([loadLiveVoiceRtcConfig(),navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints())]);
+    if(!stream.getAudioTracks().some(track=>track.readyState!=='ended')){stream.getTracks().forEach(track=>track.stop());throw new DOMException('Trilha de áudio indisponível','NotReadableError');}
     if(captureId!==liveMicCaptureRequestId||!state||!socket.connected||!liveMicWanted){stream.getTracks().forEach(x=>x.stop());return;}
     liveMicStream=stream;liveMicSessionId=liveVoiceSession();liveMicOn=true;liveMicRestartAttempts=0;clearLiveMicRestartTimer();
+    if(typeof window!=='undefined')window.MauMediaSession?.ready('mic');
     syncLiveVoiceRelayCapture();
     for(const track of stream.getAudioTracks()){
       try{if('contentHint' in track)track.contentHint='speech'}catch{}
@@ -2473,8 +2483,12 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
     if(captureId!==liveMicCaptureRequestId)return;
     liveMicOn=false;liveMicSessionId=null;liveMicStream=null;
     const denied=['NotAllowedError','SecurityError'].includes(String(e?.name||''));
-    if(denied){liveMicWanted=false;liveMicRestartAttempts=0;clearLiveMicRestartTimer();toast('Permita o uso do microfone para conversar ao vivo.');}
-    else if(liveMicWanted){
+    const unavailable=['NotFoundError','NotReadableError','OverconstrainedError'].includes(String(e?.name||''));
+    if(denied||unavailable){
+      liveMicWanted=false;liveMicRestartAttempts=0;clearLiveMicRestartTimer();
+      if(typeof window!=='undefined')window.MauMediaSession?.failed('mic',denied?'O navegador exige permissão para o microfone.':'Microfone indisponível ou ocupado por outro aplicativo.');
+      if(!recovery)toast(denied?'Permita o uso do microfone para conversar ao vivo.':'Microfone não disponível neste aparelho.');
+    }else if(liveMicWanted){
       scheduleLiveMicRestart(String(e?.name||reason||'capture-error'));
       if(!recovery)toast('🎙️ O microfone oscilou. Tentando recuperar automaticamente...');
     }else if(!recovery)toast('Não foi possível ligar o microfone neste dispositivo.');
@@ -2500,7 +2514,15 @@ function resetLiveVoice({notify=false,keepWanted=false}={}){
   for(const key of [...liveMicRemoteAudios.keys()])removeLiveRemoteAudio(key);
   refreshQuickAudioMusicDuck();updateLiveMicUI();
 }
-function toggleLiveMic(){if(liveMicOn)stopLiveMic({notify:true,showToast:true});else startLiveMic()}
+function toggleLiveMic(){
+  // O jogador pode CANCELAR a restauração pendente, sem reativação surpresa.
+  if(liveMicOn||liveMicWanted){window.MauMediaSession?.setDesired('mic',false);stopLiveMic({notify:true,showToast:true});}
+  else {liveMicRestartAttempts=0;startLiveMic();}
+}
+window.MauMediaSession?.configure({
+  mic:()=>{if(!liveMicOn&&!liveMicStarting){liveMicRestartAttempts=0;return startLiveMic({recovery:true,reason:'user-gesture'})}},
+  camera:()=>window.MauCamera?.restore({userGesture:true}),
+});
 function nudgeSocketReconnect(){
   if(!authUser||socket.connected)return;
   setTimeout(()=>{if(authUser&&!socket.connected)socket.connect()},120);
@@ -3170,8 +3192,11 @@ socket.on('joined',data=>{
   }
   spectatorSeatRequested=false;
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
-  const resumeLiveMic=!!liveMicWanted;
+  // A preferência pertence a esta conta e sala, somente nesta aba.
+  const rememberedMedia=window.MauMediaSession?.joined(data.code,permanentPlayerKey());
+  const resumeLiveMic=rememberedMedia?!!rememberedMedia.mic:!!liveMicWanted;
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
+  liveMicWanted=resumeLiveMic;liveMicRestartAttempts=0;
   saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
   closeSpectatorOffer();closeLiveRooms();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
   if(data?.inviteId)removeInviteCard(data.inviteId);
@@ -3185,9 +3210,9 @@ socket.on('joined',data=>{
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   syncPresenceProfile();
   socket.emit('liveVoiceReady');
-  if(resumeLiveMic)setTimeout(()=>startLiveMic(),350);
+  if(resumeLiveMic)setTimeout(()=>{if(liveMicWanted&&!liveMicOn&&!liveMicStarting)startLiveMic({recovery:true,reason:'room-rejoined'})},350);
   updateLiveMicUI();
-  window.MauCamera?.onJoined(data?.code);
+  window.MauCamera?.onJoined(data?.code,{restoreCamera:!!rememberedMedia?.camera,role:joinedRole});
   if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
   else if(spectatorPromotion)toast('🎉 Você entrou na partida! Aguarde a próxima rodada para receber suas cartas.');
   else if(data?.source==='auto-resume')toast('🟢 Partida encontrada. Você voltou automaticamente para sua vaga.');
@@ -3207,6 +3232,9 @@ socket.on('state',s=>{
   try{networkDiagnostics.lastStateBytes=new TextEncoder().encode(JSON.stringify(s)).byteLength}catch{networkDiagnostics.lastStateBytes=JSON.stringify(s||{}).length}
   requestMissingAvatarRefs(collectStateAvatarRefs(s));
   state=s;
+  // O evento joined pode preceder o primeiro snapshot state no recarregamento.
+  if(liveMicWanted&&!liveMicOn&&!liveMicStarting&&!liveMicRestartTimer&&socket.connected&&liveMicRestartAttempts<4)
+    scheduleLiveMicRestart('state-received',300);
   updateNetworkDiagnosticsUI();
   syncLiveVoiceRelayCapture();
   if(passPending && state?.me && state.currentPlayerId !== state.me.id){
@@ -3370,6 +3398,7 @@ socket.on('gameError',e=>{
   playGameSound('error');toast(e.message);render(true);
 });
 socket.on('leftRoom',data=>{
+  window.MauMediaSession?.clear();
   window.MauCamera?.stop();
   leaveRoomPending=false;
   const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
@@ -3399,7 +3428,7 @@ socket.on('resumeActiveSeatResult',info=>{
   accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();
   if(info?.reason==='error'&&info?.message)toast(info.message);
 });
-socket.on('sessionReplaced',()=>{window.MauCamera?.stop();resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
+socket.on('sessionReplaced',()=>{window.MauMediaSession?.clear();window.MauCamera?.stop();resetLiveVoice({notify:true});toast('Esta sessão foi aberta em outra aba. Esta aba ficará inativa.');});
 socket.on('connect',()=>{
   setConnection('online');startNetworkDiagnostics();
   syncPresenceProfile();
@@ -3450,7 +3479,7 @@ socket.on('connect',()=>{
   requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{if(voiceCaptureStarting){voiceCaptureRequestId++;voiceCaptureStarting=false}window.MauCamera?.stop();clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{if(voiceCaptureStarting){voiceCaptureRequestId++;voiceCaptureStarting=false}window.MauCamera?.stop({keepWanted:true});clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
@@ -3459,6 +3488,7 @@ socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
 socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();updateNetworkDiagnosticsUI();});
 
 function returnToLanding(message=''){
+  window.MauCamera?.stop();
   resetLiveVoice({notify:false});closeSpectatorOffer();
   state=null;syncReconnectCountdownTimer();clearRenderSignatures();syncSpectatorCompactUI();pendingCard=null;pendingBurn=false;pendingDouble=null;previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';stopQuickAudio(true);clearVoiceDraft();for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}chatMessages=[];playingVoiceAudios.clear();refreshQuickAudioMusicDuck();unreadChat=0;activeSideTab='log';lastShownRoundReviewId=null;
   closeRoundReview();
