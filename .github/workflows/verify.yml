@@ -36,3 +36,22 @@ jobs:
 
       - name: Verificar projeto
         run: npm run verify
+
+      # Diagnóstico independente: não interrompe a implantação em razão de
+      # alertas preexistentes ou indisponibilidade temporária do registro npm.
+      - name: Auditoria de dependências (não bloqueante)
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high > npm-audit-result.txt 2>&1
+          audit_status=$?
+          cat npm-audit-result.txt
+          {
+            echo "### Auditoria de dependências npm"
+            if [ "$audit_status" -eq 0 ]; then
+              echo "✅ A auditoria concluiu sem alertas altos/críticos."
+            else
+              echo "⚠️ A auditoria retornou código $audit_status. Verifique os logs para distinguir vulnerabilidades de falha de rede."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
