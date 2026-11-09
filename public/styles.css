@@ -4640,3 +4640,174 @@ button.bot-primary{
     top:76px;max-height:calc(100dvh - 88px);
   }
 }
+
+
+/* ==============================================================
+   V53.8 — PLACAR VERTICAL COMPACTO PARA CELULAR / TABLET
+   Conserva o placar desktop e reutiliza o mesmo #scoreboard nos
+   modos jogador e observador. Este bloco prevalece sobre os
+   antigos layouts móveis horizontais sem alterar cartas ou regras.
+   ============================================================== */
+#game #scoreboard .score-title-mobile { display:none; }
+
+@media (max-width:768px), (max-width:900px) and (max-height:500px) and (orientation:landscape) {
+  /* Jogador: quadro no fluxo, fora da mesa; respeita a faixa dos
+     controles flutuantes à esquerda. O layout cresce só com as linhas. */
+  #game:not(.spectator-mode) #scoreboard {
+    position:relative!important;
+    inset:auto!important;
+    top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;
+    transform:none!important;
+    box-sizing:border-box!important;
+    display:none!important;
+    width:calc(100% - 165px)!important;
+    max-width:100%!important;
+    height:auto!important;min-height:0!important;
+    max-height:none!important;
+    margin:60px 0 5px auto!important;
+    padding:0 0 3px!important;
+    overflow:hidden!important;
+    z-index:1!important;
+    border-radius:12px!important;
+    box-shadow:0 5px 15px #0004!important;
+  }
+  #game:not(.spectator-mode) #scoreboard.open { display:block!important; }
+  #game:not(.spectator-mode) #scoreboard:not(.open) { display:none!important; }
+  #game:not(.spectator-mode) #scoreboard .score-head {
+    display:flex!important;
+    position:relative!important;top:auto!important;
+    align-items:center!important;justify-content:space-between!important;
+    gap:5px!important;
+    margin:0!important;
+    padding:0 6px!important;
+    min-height:24px!important;
+    border-bottom:1px solid rgba(236,199,108,.19)!important;
+    border-radius:11px 11px 0 0!important;
+    background:linear-gradient(180deg,#0b3022,#08291e)!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-title {
+    display:block!important;
+    margin:0!important;
+    font-size:11px!important;line-height:1.2!important;
+    letter-spacing:.025em!important;
+    white-space:nowrap!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-title-desktop { display:none!important; }
+  #game:not(.spectator-mode) #scoreboard .score-title-mobile { display:inline!important; }
+  #game:not(.spectator-mode) #scoreboard .score-swipe-hint { display:none!important; }
+  #game:not(.spectator-mode) #scoreboard .score-close {
+    display:grid!important;place-items:center!important;
+    width:24px!important;min-width:24px!important;
+    height:24px!important;flex:0 0 24px!important;
+    padding:0!important;margin:0!important;
+    font-size:18px!important;line-height:1!important;
+    border-radius:7px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-rows {
+    box-sizing:border-box!important;
+    display:flex!important;flex-direction:column!important;
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    height:auto!important;max-height:min(192px,29dvh)!important;
+    gap:1px!important;
+    margin:0!important;padding:2px 5px 1px!important;
+    overflow-x:hidden!important;overflow-y:auto!important;
+    touch-action:pan-y!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row {
+    box-sizing:border-box!important;
+    display:grid!important;flex:none!important;
+    grid-template-columns:18px minmax(0,1fr) 27px 25px!important;
+    width:100%!important;min-width:0!important;
+    min-height:20px!important;height:auto!important;
+    align-items:center!important;
+    gap:4px!important;
+    margin:0!important;padding:0 4px!important;
+    font-size:11px!important;line-height:1.15!important;
+    background:#102b20!important;
+    border:1px solid #315344!important;border-radius:7px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar,
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar img,
+  #game:not(.spectator-mode) #scoreboard .score-row .score-avatar .avatar-circle {
+    width:17px!important;height:17px!important;
+    min-width:17px!important;min-height:17px!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row>span:nth-child(2) {
+    display:block!important;
+    min-width:0!important;max-height:none!important;
+    overflow:hidden!important;text-overflow:ellipsis!important;
+    white-space:nowrap!important;overflow-wrap:normal!important;
+    font-size:11px!important;line-height:1.2!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row .round-score {
+    display:block!important;text-align:right!important;
+    font-size:10px!important;white-space:nowrap!important;
+  }
+  #game:not(.spectator-mode) #scoreboard .score-row strong {
+    display:block!important;justify-self:end!important;text-align:right!important;
+    font-size:12px!important;white-space:nowrap!important;
+    color:#f3d68d!important;
+  }
+
+  /* Observador: o placar continua no seu painel, com um X único.
+     As mesmas colunas são usadas, sem copiar dados da partida. */
+  #game.spectator-mode .spectator-compact-drawer.spectator-score-active {
+    padding:7px!important;
+    max-height:min(53dvh,365px)!important;
+  }
+  #game.spectator-mode .spectator-compact-drawer.spectator-score-active .spectator-drawer-head {
+    padding:0 2px 4px!important;margin:0 0 4px!important;
+    min-height:28px!important;
+  }
+  #game.spectator-mode .spectator-compact-drawer.spectator-score-active #spectatorDrawerClose {
+    width:29px!important;height:29px!important;
+    flex:0 0 29px!important;font-size:19px!important;
+  }
+  #game.spectator-mode .spectator-compact-drawer.spectator-score-active #spectatorDrawerScore {
+    max-height:calc(min(53dvh,365px) - 55px)!important;
+    overflow-y:auto!important;overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch;
+  }
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-rows {
+    gap:3px!important;
+  }
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row {
+    grid-template-columns:22px minmax(0,1fr) 30px 29px!important;
+    min-height:32px!important;
+    gap:5px!important;padding:4px 6px!important;
+    font-size:11px!important;line-height:1.15!important;
+    border-radius:7px!important;
+  }
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row .score-avatar,
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row .score-avatar img,
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row .score-avatar .avatar-circle {
+    width:21px!important;height:21px!important;
+  }
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row>span:nth-child(2) {
+    display:block!important;min-width:0!important;
+    overflow:hidden!important;text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  #game.spectator-mode #spectatorDrawerScore #scoreboard .score-row strong {
+    font-size:12px!important;
+  }
+}
+
+@media(max-width:480px){
+  /* Microfone/câmera usam a borda esquerda; quadro começa à direita. */
+  #game:not(.spectator-mode) #scoreboard {
+    width:calc(100% - 58px)!important;
+  }
+}
+@media(min-width:481px) and (max-width:768px){
+  #game:not(.spectator-mode) #scoreboard {
+    width:calc(100% - 165px)!important;
+  }
+}
+
+@media(max-width:768px), (max-width:900px) and (max-height:500px) and (orientation:landscape){
+  #game:not(.spectator-mode) #scoreboard .score-close{position:relative!important}
+  #game:not(.spectator-mode) #scoreboard .score-close::before{content:"";position:absolute;inset:-3px}
+}

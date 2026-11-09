@@ -3564,7 +3564,9 @@ function syncSpectatorCompactUI(){
   $('#spectatorDrawerScore')?.classList.toggle('hidden',!opened||spectatorDrawerActive!=='score');
   $('#spectatorDrawerActivity')?.classList.toggle('hidden',!opened||!['events','chat'].includes(spectatorDrawerActive));
   $('#spectatorDrawerWatchers')?.classList.toggle('hidden',!opened||spectatorDrawerActive!=='watchers');
-  const titles={score:'🏆 Placar acumulado',events:'☷ Acontecimentos da mesa',chat:'💬 Conversa da sala',watchers:'👁️ Pessoas assistindo'};
+  // V53.8: título curto no placar móvel, sem mudar o cabeçalho desktop.
+  const compactScoreTitle=(typeof window!=='undefined'&&typeof window.matchMedia==='function'&&window.matchMedia('(max-width:768px), (max-width:900px) and (max-height:500px) and (orientation:landscape)').matches);
+  const titles={score:compactScoreTitle?'🏆 Placar':'🏆 Placar acumulado',events:'☷ Acontecimentos da mesa',chat:'💬 Conversa da sala',watchers:'👁️ Pessoas assistindo'};
   if($('#spectatorDrawerTitle'))$('#spectatorDrawerTitle').textContent=titles[spectatorDrawerActive]||'Informações';
 }
 function openSpectatorDrawer(key,force=false){
@@ -3683,6 +3685,10 @@ function render(force=false){
       playerAuxOpen='score';
       // O dispatcher de renderização também roda isolado nos testes de desempenho.
       if(typeof updatePlayerAuxButtons==='function')updatePlayerAuxButtons();
+    }else if(typeof openSpectatorDrawer==='function'){
+      // V53.8: placar aberto ao ENTRAR como observador, uma vez por contexto.
+      // O X continua fechando e nenhuma atualizacao de state reabre sozinho.
+      openSpectatorDrawer('score',true);
     }
   }
   const players=state.players||[];
@@ -3885,7 +3891,7 @@ function renderPlayers(){
 }
 function renderScore(){
   const box=$('#scoreboard');
-  box.innerHTML='<div class="score-head"><div class="score-title">Placar acumulado</div><span class="score-swipe-hint" aria-hidden="true">deslize ↔</span><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div><div class="score-rows" role="list" aria-label="Pontuação dos jogadores; no celular, deslize para ver todos" tabindex="0">'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row" role="listitem"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('')+'</div>';
+  box.innerHTML='<div class="score-head"><div class="score-title"><span class="score-title-desktop">Placar acumulado</span><span class="score-title-mobile">🏆 Placar</span></div><span class="score-swipe-hint" aria-hidden="true"></span><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div><div class="score-rows" role="list" aria-label="Pontuação acumulada dos jogadores" tabindex="0">'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row" role="listitem"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span title="${esc(p.name)}">${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('')+'</div>';
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
