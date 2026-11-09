@@ -3480,7 +3480,12 @@ function returnToLanding(message=''){
 function updatePlayerAuxButtons(){
   const scoreOpen=$('#scoreboard')?.classList.contains('open');
   const sideOpen=$('#sidePanel')?.classList.contains('open');
-  $('#scoreToggleBtn')?.classList.toggle('active',!!scoreOpen);
+  const scoreButton=$('#scoreToggleBtn');
+  scoreButton?.classList.toggle('active',!!scoreOpen);
+  scoreButton?.setAttribute('aria-expanded',String(!!scoreOpen));
+  const scoreTitle=scoreOpen?'Fechar placar da partida':'Abrir placar da partida';
+  scoreButton?.setAttribute('aria-label',scoreTitle);
+  scoreButton?.setAttribute('title',scoreTitle);
   $('#tableInfoToggleBtn')?.classList.toggle('active',!!sideOpen&&activeSideTab==='log');
 }
 function closePlayerAuxPanels(){
@@ -3664,7 +3669,19 @@ function render(force=false){
   $('#voiceRecordBtn')?.classList.toggle('hidden',spectator);
   // O contexto muda ao entrar em outra sala ou trocar de Observador para Jogador.
   const contextKey=`${state.code||''}:${state.me?.id||''}:${spectator?'S':'P'}:${state.matchSerial||1}`;
-  if(renderContextKey!==contextKey){renderSignatures.clear();renderContextKey=contextKey;force=true;}
+  if(renderContextKey!==contextKey){
+    renderSignatures.clear();renderContextKey=contextKey;force=true;
+    // V53.6: abrir o placar uma única vez ao entrar como jogador ou iniciar
+    // nova partida. Ao fechá-lo manualmente, não reabrir a cada state/render.
+    // Observadores continuam usando exclusivamente a gaveta existente.
+    if(!spectator){
+      $('#scoreboard')?.classList.add('open');
+      $('#sidePanel')?.classList.remove('open');
+      playerAuxOpen='score';
+      // O dispatcher de renderização também roda isolado nos testes de desempenho.
+      if(typeof updatePlayerAuxButtons==='function')updatePlayerAuxButtons();
+    }
+  }
   const players=state.players||[];
   const voiceIds=[...liveVoiceActivePlayerIds].sort();
   renderWhenChanged('spectator',[spectator,state.status,state.round,state.rounds,state.spectatorCount,state.spectatorSeat,state.spectators,players.length,state.tournament,state.rules?.rounds,voiceIds,socket.connected],renderSpectatorLivePanel,force);
@@ -3865,7 +3882,7 @@ function renderPlayers(){
 }
 function renderScore(){
   const box=$('#scoreboard');
-  box.innerHTML='<div class="score-head"><div class="score-title">Placar acumulado</div><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div>'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('');
+  box.innerHTML='<div class="score-head"><div class="score-title">Placar acumulado</div><span class="score-swipe-hint" aria-hidden="true">deslize ↔</span><button id="scoreCloseBtn" class="score-close" type="button" title="Fechar placar" aria-label="Fechar placar">×</button></div><div class="score-rows" role="list" aria-label="Pontuação dos jogadores; no celular, deslize para ver todos" tabindex="0">'+state.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="score-row" role="listitem"><span class="score-avatar">${avatarHTML(p.avatar,'sm')}</span><span>${esc(p.name)}${p.isBot?' <small class="score-bot">BOT</small>':p.autoControlled?' <small class="score-auto">AUTO</small>':''}</span><span class="round-score">+${p.roundScore||0}</span><strong>${p.score}</strong></div>`).join('')+'</div>';
 }
 function renderCenter(){
   const top=state.topCard;$('#discardPile').innerHTML=top?cardHTML(top,false):'';
