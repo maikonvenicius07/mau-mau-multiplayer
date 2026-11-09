@@ -4433,3 +4433,11 @@ button.bot-primary{
   cursor:grab;
 }
 #game .floating-game-action.predeal-positioning:active{cursor:grabbing}
+
+/* V53.5 — textos dos controles completos em telas com largura suficiente.
+   Em celulares estreitos continuam compactos, sem afetar as cartas. */
+@media (min-width:481px) and (max-width:900px){
+  #liveMicBtn .live-mic-label{display:inline}
+  #liveCameraBtn #liveCameraLabel{display:inline}
+  #liveCameraBtn{padding:8px 13px;gap:6px}
+}
