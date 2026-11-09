@@ -151,11 +151,16 @@ class JsonSnapshotBackend {
     ensureJsonLifecycle(this.data);
   }
   persist(){ const tmp=`${this.filePath}.tmp`;fs.writeFileSync(tmp,JSON.stringify(this.data));fs.renameSync(tmp,this.filePath); }
-  async save(code,snapshot,expiresAt,avatarAssets=null){
+  async save(code,snapshot,expiresAt,avatarAssets=null,revision=0){
+    const deleted=ensureJsonLifecycle(this.data).rooms[code];
+    if(deleted && Number(deleted.expiresAt||0)>Date.now())return false;
     const previous=this.data.rooms[code]||{};
-    this.data.rooms[code]={snapshot,expiresAt,avatarAssets:avatarAssets===null?(previous.avatarAssets||{}):assetObject(avatarAssets)};
+    if(Number(previous.revision||0)>=revision)return false;
+    this.data.rooms[code]={snapshot,expiresAt,revision,avatarAssets:avatarAssets===null?(previous.avatarAssets||{}):assetObject(avatarAssets)};
     this.persist();
+    return true;
   }
+  async loadRevisions(){return Object.entries(this.data.rooms).map(([code,row])=>({code,revision:Number(row.revision||0)}));}
   async delete(code){ if(this.data.rooms[code]){delete this.data.rooms[code];this.persist();} }
   async markPlayerAbandoned(code,playerKey,playerId,eventAt,expiresAt){
     const lifecycle=ensureJsonLifecycle(this.data);
@@ -216,6 +221,7 @@ class PostgresSnapshotBackend {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         expires_at TIMESTAMPTZ NOT NULL
       );
+      ALTER TABLE mm_room_snapshots ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0;
       CREATE INDEX IF NOT EXISTS mm_room_snapshots_expires_idx ON mm_room_snapshots(expires_at);
       CREATE TABLE IF NOT EXISTS mm_room_avatar_assets (
         room_code VARCHAR(10) NOT NULL REFERENCES mm_room_snapshots(room_code) ON DELETE CASCADE,
@@ -240,19 +246,30 @@ class PostgresSnapshotBackend {
     await this.pool.query('DELETE FROM mm_room_snapshots WHERE expires_at <= NOW()');
     await this.pool.query('DELETE FROM mm_room_lifecycle_tombstones WHERE expires_at <= NOW()');
   }
-  async save(code,snapshot,expiresAt,avatarAssets=null){
+  async save(code,snapshot,expiresAt,avatarAssets=null,revision=0){
     const client=await this.pool.connect();
     try{
       await client.query('BEGIN');
-      await client.query(`
-        INSERT INTO mm_room_snapshots(room_code,snapshot,status,updated_at,expires_at)
-        VALUES($1,$2::jsonb,$3,NOW(),$4)
-        ON CONFLICT(room_code) DO UPDATE SET snapshot=EXCLUDED.snapshot,status=EXCLUDED.status,updated_at=NOW(),expires_at=EXCLUDED.expires_at
-      `,[code,JSON.stringify(snapshot),String(snapshot.status||'lobby'),new Date(expiresAt).toISOString()]);
-      if(avatarAssets!==null){
+      // Serializa transações da mesma sala inclusive entre processos/instâncias.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
+      const {rows}=await client.query(`
+        INSERT INTO mm_room_snapshots(room_code,snapshot,status,updated_at,expires_at,revision)
+        SELECT $1,$2::jsonb,$3,NOW(),$4,$5
+        WHERE NOT EXISTS (
+          SELECT 1 FROM mm_room_lifecycle_tombstones
+          WHERE room_code=$1 AND subject_key='*' AND kind='room-deleted' AND expires_at>NOW()
+        )
+        ON CONFLICT(room_code) DO UPDATE
+        SET snapshot=EXCLUDED.snapshot,status=EXCLUDED.status,
+            updated_at=NOW(),expires_at=EXCLUDED.expires_at,revision=EXCLUDED.revision
+        WHERE mm_room_snapshots.revision<EXCLUDED.revision
+        RETURNING revision
+      `,[code,JSON.stringify(snapshot),String(snapshot.status||'lobby'),new Date(expiresAt).toISOString(),revision]);
+      const saved=rows.length>0;
+      if(saved&&avatarAssets!==null){
         const assets=avatarAssets instanceof Map?avatarAssets:new Map(Object.entries(avatarAssets||{}));
         const refs=[...assets.keys()];
-        if(refs.length) await client.query('DELETE FROM mm_room_avatar_assets WHERE room_code=$1 AND NOT (avatar_ref = ANY($2::text[]))',[code,refs]);
+        if(refs.length)await client.query('DELETE FROM mm_room_avatar_assets WHERE room_code=$1 AND NOT (avatar_ref = ANY($2::text[]))',[code,refs]);
         else await client.query('DELETE FROM mm_room_avatar_assets WHERE room_code=$1',[code]);
         for(const [ref,dataUrl] of assets){
           await client.query(`
@@ -263,12 +280,26 @@ class PostgresSnapshotBackend {
         }
       }
       await client.query('COMMIT');
+      return saved;
     }catch(e){
       try{await client.query('ROLLBACK');}catch{}
       throw e;
     }finally{client.release();}
   }
-  async delete(code){ await this.pool.query('DELETE FROM mm_room_snapshots WHERE room_code=$1',[code]); }
+  async loadRevisions(){
+    const {rows}=await this.pool.query('SELECT room_code AS code,revision FROM mm_room_snapshots WHERE expires_at>NOW()');
+    return rows.map(row=>({code:String(row.code),revision:Number(row.revision||0)}));
+  }
+  async delete(code){
+    const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
+      await client.query('DELETE FROM mm_room_snapshots WHERE room_code=$1',[code]);
+      await client.query('COMMIT');
+    }catch(e){try{await client.query('ROLLBACK');}catch{}throw e;}
+    finally{client.release();}
+  }
   async markPlayerAbandoned(code,playerKey,playerId,eventAt,expiresAt){
     await this.pool.query(`
       INSERT INTO mm_room_lifecycle_tombstones(room_code,subject_key,kind,player_id,event_at,expires_at)
@@ -281,6 +312,7 @@ class PostgresSnapshotBackend {
     const client=await this.pool.connect();
     try{
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
       await client.query(`
         INSERT INTO mm_room_lifecycle_tombstones(room_code,subject_key,kind,event_at,expires_at)
         VALUES($1,'*','room-deleted',$2,$3)
@@ -352,15 +384,21 @@ class RoomSnapshotStore {
     this.lifecycleTtlMs=Math.max(MIN_LIFECYCLE_TTL_MS,this.ttlMs*2);
     this.debounceMs=debounceMs;
     this.pending=new Map();
+    this.roomWriteQueues=new Map();
+    this.revisions=new Map();
     this.persistedAssetSignatures=new Map();
     this.deletedRooms=new Map();
+    this.deletingRooms=new Map();
     this.abandonedPlayers=new Map();
     this.closed=false;
   }
   async init(){
     await this.backend.init();
-    const lifecycle=await this.backend.loadLifecycle(Date.now());
+    const [lifecycle,revisions]=await Promise.all([
+      this.backend.loadLifecycle(Date.now()),this.backend.loadRevisions()
+    ]);
     for(const row of lifecycle?.rooms||[])this.deletedRooms.set(String(row.roomCode),Number(row.eventAt||0));
+    for(const row of revisions||[])this.revisions.set(String(row.code),Number(row.revision||0));
     for(const row of lifecycle?.players||[]){
       const code=String(row.roomCode||''),key=String(row.playerKey||'');
       if(!code||!key)continue;
@@ -368,57 +406,109 @@ class RoomSnapshotStore {
       this.abandonedPlayers.get(code).set(key,{playerId:String(row.playerId||''),eventAt:Number(row.eventAt||0)});
     }
   }
-  async healthCheck(){ return this.backend.healthCheck(); }
-  isRoomDeleted(code){return this.deletedRooms.has(String(code||''));}
+  async healthCheck(){return this.backend.healthCheck();}
+  isRoomDeleted(code){return this.deletedRooms.has(String(code||''))||this.deletingRooms.has(String(code||''));}
   playerAbandonTombstone(code,playerKey){return this.abandonedPlayers.get(String(code||''))?.get(String(playerKey||''))||null;}
   snapshotParts(room){
     const built=buildRoomSnapshot(room);
-    const signature=assetSignature(built.avatarAssets);
-    const changed=this.persistedAssetSignatures.get(room.code)!==signature;
-    return {...built,assetSignature:signature,avatarAssetsForSave:changed?built.avatarAssets:null};
+    return {...built,assetSignature:assetSignature(built.avatarAssets)};
+  }
+  // Uma operação falha não cancela as próximas. Cada código de sala possui
+  // sua própria fila: salas diferentes continuam persistindo em paralelo.
+  enqueueRoomWrite(code,operation){
+    const previous=this.roomWriteQueues.get(code)||Promise.resolve();
+    const task=previous.catch(()=>{}).then(operation);
+    this.roomWriteQueues.set(code,task);
+    void task.finally(()=>{
+      if(this.roomWriteQueues.get(code)===task)this.roomWriteQueues.delete(code);
+    }).catch(()=>{});
+    return task;
+  }
+  nextRevision(code){
+    const revision=(this.revisions.get(code)||0)+1;
+    this.revisions.set(code,revision);
+    return revision;
+  }
+  async writeSnapshot(code,parts,revision){
+    if(this.isRoomDeleted(code))return false;
+    const assetsForSave=this.persistedAssetSignatures.get(code)===parts.assetSignature?null:parts.avatarAssets;
+    const saved=await this.backend.save(code,parts.snapshot,Date.now()+this.ttlMs,assetsForSave,revision);
+    if(saved!==false&&assetsForSave!==null)this.persistedAssetSignatures.set(code,parts.assetSignature);
+    return saved!==false;
   }
   queueSave(room){
     if(this.closed||!room?.code||this.isRoomDeleted(room.code))return;
     const code=room.code;
     const existing=this.pending.get(code);if(existing)clearTimeout(existing.timer);
-    const {snapshot,assetSignature,avatarAssetsForSave}=this.snapshotParts(room);if(!snapshot)return;
-    const timer=setTimeout(()=>{
+    const parts=this.snapshotParts(room);if(!parts.snapshot)return;
+    const entry={timer:null,parts};
+    entry.timer=setTimeout(()=>{
+      if(this.pending.get(code)!==entry)return;
       this.pending.delete(code);
       if(this.isRoomDeleted(code))return;
-      this.backend.save(code,snapshot,Date.now()+this.ttlMs,avatarAssetsForSave).then(()=>{if(avatarAssetsForSave!==null)this.persistedAssetSignatures.set(code,assetSignature);}).catch(e=>console.error('[rooms] falha ao salvar snapshot',code,e?.message||e));
+      const revision=this.nextRevision(code);
+      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision))
+        .catch(e=>console.error('[rooms] falha ao salvar snapshot',code,e?.message||e));
     },this.debounceMs);
-    timer.unref?.();
-    this.pending.set(code,{timer,snapshot});
+    entry.timer.unref?.();
+    this.pending.set(code,entry);
   }
   async saveNow(room){
-    if(!room?.code||this.isRoomDeleted(room.code))return;
-    const pending=this.pending.get(room.code);if(pending){clearTimeout(pending.timer);this.pending.delete(room.code);}
-    const {snapshot,assetSignature,avatarAssetsForSave}=this.snapshotParts(room);
-    if(snapshot){
-      await this.backend.save(room.code,snapshot,Date.now()+this.ttlMs,avatarAssetsForSave);
-      if(avatarAssetsForSave!==null)this.persistedAssetSignatures.set(room.code,assetSignature);
-    }
+    if(this.closed||!room?.code||this.isRoomDeleted(room.code))return false;
+    const code=room.code;
+    const pending=this.pending.get(code);
+    if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
+    const parts=this.snapshotParts(room);
+    if(!parts.snapshot)return false;
+    const revision=this.nextRevision(code);
+    return this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision));
   }
   async markPlayerAbandoned(code,playerKey,playerId,eventAt=Date.now()){
     code=String(code||'');playerKey=String(playerKey||'');playerId=String(playerId||'');
     if(!code||!playerKey)return;
     const expiresAt=Date.now()+this.lifecycleTtlMs;
-    await this.backend.markPlayerAbandoned(code,playerKey,playerId,eventAt,expiresAt);
-    if(!this.abandonedPlayers.has(code))this.abandonedPlayers.set(code,new Map());
-    this.abandonedPlayers.get(code).set(playerKey,{playerId,eventAt:Number(eventAt||0)});
+    return this.enqueueRoomWrite(code,async()=>{
+      await this.backend.markPlayerAbandoned(code,playerKey,playerId,eventAt,expiresAt);
+      if(!this.abandonedPlayers.has(code))this.abandonedPlayers.set(code,new Map());
+      this.abandonedPlayers.get(code).set(playerKey,{playerId,eventAt:Number(eventAt||0)});
+    });
   }
   async markRoomDeleted(code,eventAt=Date.now()){
     code=String(code||'');if(!code)return;
     const pending=this.pending.get(code);if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
+    // Bloqueia novas gravações ANTES de aguardar uma escrita já em andamento.
+    const intent=Symbol('markRoomDeleted');
+    this.deletingRooms.set(code,intent);
     const expiresAt=Date.now()+this.lifecycleTtlMs;
-    await this.backend.markRoomDeleted(code,eventAt,expiresAt);
-    this.deletedRooms.set(code,Math.max(Number(this.deletedRooms.get(code)||0),Number(eventAt||0)));
-    this.persistedAssetSignatures.delete(code);
+    try{
+      await this.enqueueRoomWrite(code,async()=>{
+        await this.backend.markRoomDeleted(code,eventAt,expiresAt);
+        this.deletedRooms.set(code,Math.max(Number(this.deletedRooms.get(code)||0),Number(eventAt||0)));
+        this.persistedAssetSignatures.delete(code);
+      });
+    }catch(error){
+      // Se o banco rejeitar a exclusão, a sala ainda poderá tentar persistir
+      // novamente; uma solicitação de exclusão posterior não é desbloqueada.
+      if(this.deletingRooms.get(code)===intent&&!this.deletedRooms.has(code))this.deletingRooms.delete(code);
+      throw error;
+    }
   }
   async delete(code){
+    code=String(code||'');if(!code)return;
     const pending=this.pending.get(code);if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
-    this.persistedAssetSignatures.delete(code);
-    await this.backend.delete(code);
+    // Exclusão simples (fim de partida): impede que um callback tardio salve
+    // novamente o estado, sem introduzir um novo tombstone persistido.
+    const intent=Symbol('delete');
+    this.deletingRooms.set(code,intent);
+    try{
+      await this.enqueueRoomWrite(code,async()=>{
+        await this.backend.delete(code);
+        this.persistedAssetSignatures.delete(code);
+      });
+    }catch(error){
+      if(this.deletingRooms.get(code)===intent&&!this.deletedRooms.has(code))this.deletingRooms.delete(code);
+      throw error;
+    }
   }
   applyLifecycle(snapshot){
     if(!snapshot?.code||this.isRoomDeleted(snapshot.code))return null;
@@ -457,7 +547,16 @@ class RoomSnapshotStore {
     const list=[...rooms.values()].filter(r=>r&&r.status!=='finished'&&!this.isRoomDeleted(r.code));
     await Promise.all(list.map(r=>this.saveNow(r)));
   }
-  async close(){this.closed=true;for(const x of this.pending.values())clearTimeout(x.timer);this.pending.clear();this.persistedAssetSignatures.clear();await this.backend.close();}
+  async close(){
+    this.closed=true;
+    for(const x of this.pending.values())clearTimeout(x.timer);
+    this.pending.clear();
+    // O pool compartilhado só pode ser encerrado após todas as escritas iniciadas.
+    const operations=[...this.roomWriteQueues.values()];
+    await Promise.allSettled(operations);
+    this.persistedAssetSignatures.clear();
+    await this.backend.close();
+  }
 }
 
 module.exports={RoomSnapshotStore,plainRoomSnapshot,buildRoomSnapshot,hydrateSnapshotAvatars,restoreRoomSnapshot,SNAPSHOT_VERSION};

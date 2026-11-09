@@ -1,3 +1,10 @@
+## V40.69.3 — Integridade e recuperação dos snapshots (09/11/2026)
+- Ordenação das escritas por sala, revisão monotônica e proteção SQL contra estado antigo.
+- Transação e bloqueio por sala para impedir gravação atrasada após exclusão e tombstone persistido.
+- Persistência JSON de desenvolvimento alinhada ao mesmo controle de revisão; assets dos avatares sincronizados com o snapshot efetivamente salvo.
+- Novo teste `tests/snapshot-ordering-v40693.test.js`; escopo limitado à persistência, sem alteração de regras, interface ou mídia.
+- Relatório, limitações e homologação: `docs/RELATORIO_V40.69.3_PERSISTENCIA.md`.
+
 ## V53.2 — Ação Rápida pelo autor do topo após encerrar a vez (04/11/2026)
 - Corrigido o bloqueio que impedia quem colocou uma carta normal no topo de reagir com outra carta idêntica depois que a vez passou para outro jogador.
 - Em `game-engine.js`, `canQuickAction()` não exclui mais `reactionSourcePlayerId`: agora exige estar **fora da vez**, possuir carta normal de mesmo valor/naipe, manter o topo original e observar as demais restrições já existentes.
