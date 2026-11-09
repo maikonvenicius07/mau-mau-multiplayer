@@ -405,6 +405,21 @@ function startRound(room) {
   log(room, `${room.players[room.currentPlayer].name} começa no sentido anti-horário.`, 'turn');
 }
 
+// V40.69.4 — Pré-validação de estoque. Só é reciclável o descarte ABAIXO
+// do topo; para uma jogada ainda não executada, "futureDiscards" considera
+// as cartas que entrarão no descarte antes de aplicar a penalidade.
+// Verificar ANTES de retirar a primeira carta evita perda parcial do monte.
+function requireDrawCapacity(room, count, futureDiscards=0) {
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error('Quantidade de cartas para compra inválida.');
+  }
+  if (count === 0) return;
+  const drawable = room.deck.length + Math.max(0, room.discard.length + futureDiscards - 1);
+  if (drawable < count) {
+    throw new Error(`Não há cartas suficientes para a compra: necessárias ${count}, disponíveis ${drawable}. A jogada não foi aplicada.`);
+  }
+}
+
 function drawOne(room) {
   if (!room.deck.length) recycleDiscard(room);
   if (!room.deck.length) throw new Error('Não há cartas disponíveis para compra.');
@@ -420,6 +435,9 @@ function recycleDiscard(room) {
 }
 
 function drawCards(room, player, count) {
+  // Uma penalidade inteira precisa caber no monte, incluindo a reciclagem.
+  // Se faltar uma única carta, nenhum pop(), shuffle(), log ou push() ocorrerá.
+  requireDrawCapacity(room, count);
   const cards = [];
   for (let i=0; i<count; i++) cards.push(drawOne(room));
   player.hand.push(...cards);
@@ -556,6 +574,20 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (card.rank === 'J' && player.hand.length > 1 && !SUITS.includes(chosenSuit)) {
     throw new Error('Escolha um naipe ao jogar o Valete.');
   }
+
+  // V40.69.4 — Uma única carta pode causar penalidade por falta de Mau-Mau
+  // E, na mesma jogada, compra pelo Oito ou Rei. Reservamos a capacidade
+  // total antes de descartar e alterar reação, turno, pontuação ou mãos.
+  const mauMauDraw = player.hand.length === 2 && player.declaration !== 'mau-mau'
+    ? room.rules.mauMauPenalty : 0;
+  const specialDraw = card.rank === '8' ? 2 : (card.rank === 'K' ? 1 : 0);
+  // Na batida, K/8 não fazem o próprio vencedor comprar se ele for o único
+  // alvo; nas demais jogadas permanece o comportamento preexistente.
+  const specialTarget = specialDraw ? previousIndex(room, idx) : -1;
+  const effectiveSpecialDraw = specialDraw && (
+    player.hand.length > 1 || room.players[specialTarget]?.id !== player.id
+  ) ? specialDraw : 0;
+  requireDrawCapacity(room, mauMauDraw + effectiveSpecialDraw, 1);
 
   // Só fechamos a reação anterior depois de validar completamente a jogada.
   // Assim, um clique inválido do próximo jogador não elimina uma Queima/Ação Rápida legítima.
@@ -781,6 +813,12 @@ function playDoubleCard(room, playerId, firstCardId, secondCardId, chosenSuit=nu
   if (player.hand.length === 2 && !['mau-mau','batendo'].includes(player.declaration)) {
     throw new Error('Para encerrar a rodada com Carta Dupla, anuncie antes “Mau-Mau” ou “Mau-Mau batendo/queimando”.');
   }
+
+  // As duas cartas descartadas permitirão reciclar até duas cartas antigas,
+  // mas só depois da jogada. Confira a capacidade sem alterar a mesa.
+  const doubleMauMauDraw = player.hand.length === 3 && player.declaration !== 'mau-mau'
+    ? room.rules.mauMauPenalty : 0;
+  requireDrawCapacity(room, doubleMauMauDraw, 2);
 
   const before = player.hand.length;
   const played1 = removeCard(player, first.id);
@@ -1189,6 +1227,12 @@ function quickAction(room, playerId, cardId) {
   if (!allowed.some(c => c.id === cardId)) {
     throw new Error('Ação Rápida indisponível: use apenas carta normal idêntica à carta da mesa, fora da vez do jogador atual.');
   }
+
+  // Reação válida também pode acarretar +2 por falta de Mau-Mau. Valide
+  // antes de retirar a carta rápida ou fechar a janela da reação.
+  const quickMauMauDraw = player.hand.length === 2 && player.declaration !== 'mau-mau'
+    ? room.rules.mauMauPenalty : 0;
+  requireDrawCapacity(room, quickMauMauDraw, 1);
 
   const normalNextId = room.reactionNextPlayerId;
   const preservedTurnIdx = room.currentPlayer;

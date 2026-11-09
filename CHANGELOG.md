@@ -1,3 +1,9 @@
+## V40.69.4 — Integridade de compras e penalidades (09/11/2026)
+- `drawCards()` valida previamente a disponibilidade total, incluindo as cartas recicláveis do descarte, antes de retirar qualquer carta.
+- `playCard()`, `playDoubleCard()` e `quickAction()` verificam a capacidade das penalidades que decorrerão da jogada **antes de alterar** descarte, mãos, reação ou placar; penalidades simultâneas (Mau-Mau e 8/K) são somadas.
+- Mantidas as regras existentes de compra de 1 carta, penalidades de Mau-Mau, 7, 8 e K, reembaralhamento preservando o topo e Carta Dupla. Nenhuma regra nova para esgotamento completo do monte foi criada.
+- Novo teste de regressão `tests/atomic-card-draw-v40694.test.js`. Relatório de validação: `docs/RELATORIO_V40.69.4_CARTAS.md`.
+
 ## V40.69.3 — Integridade e recuperação dos snapshots (09/11/2026)
 - Ordenação das escritas por sala, revisão monotônica e proteção SQL contra estado antigo.
 - Transação e bloqueio por sala para impedir gravação atrasada após exclusão e tombstone persistido.
