@@ -8,7 +8,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 const pkg=require(path.join(root,'package.json'));
-assert.strictEqual(pkg.version,'40.69.5');
+assert.strictEqual(pkg.version,'40.69.6');
 assert(pkg.dependencies['google-auth-library'],'google-auth-library ausente');
 assert(server.includes("app.post('/api/auth/google'"),'endpoint de login Google ausente');
 assert(server.includes('verifyIdToken({idToken:credential,audience:GOOGLE_CLIENT_ID})'),'ID token Google não é validado para o audience correto');

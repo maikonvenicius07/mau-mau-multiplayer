@@ -50,7 +50,7 @@ function nextStage(stage,tables){
 class TournamentBracket{
   constructor({pool=null,databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-bracket.json'),draw=null}={}){
     this.pool=pool;this.draw=draw;this.filePath=filePath;this.local={};
-    if(!pool&&databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});}
+    if(!pool&&databaseUrl){const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);}
   }
   async init(){
     if(this.pool){await this.pool.query(`CREATE TABLE IF NOT EXISTS mm_tournament_stage_tables(

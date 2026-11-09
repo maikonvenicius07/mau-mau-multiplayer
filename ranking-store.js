@@ -186,8 +186,8 @@ class PostgresBackend {
   constructor(databaseUrl, pool=null) {
     if(pool){this.pool=pool;this.ownsPool=false;}
     else{
-      const { Pool } = require('pg');
-      this.pool = new Pool({ connectionString:databaseUrl, ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false} });
+      const { createAppDatabasePool } = require('./database-pool');
+      this.pool = createAppDatabasePool(databaseUrl);
       this.ownsPool=true;
     }
   }

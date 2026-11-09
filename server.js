@@ -865,10 +865,15 @@ app.post('/api/tournaments', async(req,res)=>{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
     if(!await tournamentCatalogReady)throw new Error('Catálogo indisponível.');
+    const attempt=abuseLimiter.consume(`tournament:${session.playerKey}`,'createTournament');
+    if(!attempt.allowed){
+      res.setHeader('Retry-After',String(Math.ceil(attempt.retryAfterMs/1000)));
+      return res.status(429).json({ok:false,message:'Muitas tentativas de criação de torneio. Aguarde alguns minutos.'});
+    }
     const tournament=await tournamentCatalog.create({data:req.body,actor:session.playerKey});
     res.status(201).json({ok:true,tournament});
   }catch(e){
-    const status=[400,403].includes(e.status)?e.status:503;
+    const status=[400,403,409,429].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] criação falhou:',e.message);
     res.status(status).json({ok:false,message:status===503?'Não foi possível criar o torneio.':e.message});
   }
@@ -2673,6 +2678,17 @@ io.on('connection', socket => {
     try {
       const current=currentVoiceParticipant(socket);
       if(!current) throw new Error('Sala não encontrada para a chamada de voz.');
+      // Evita tempestades de ICE/SDP; não interfere na mídia já estabelecida.
+      // Vinculado à conta, portanto trocar de socket não zera a quota.
+      const signalQuota=abuseLimiter.consume(abuseSubject(socket),'voiceSignal');
+      if(!signalQuota.allowed){
+        const now=Date.now();
+        if(!socket.data.voiceSignalLimitNoticeAt||now-socket.data.voiceSignalLimitNoticeAt>=10000){
+          socket.data.voiceSignalLimitNoticeAt=now;
+          socket.emit('liveVoiceSignalLimited',{retryAfterMs:signalQuota.retryAfterMs});
+        }
+        return;
+      }
       const kind=String(payload?.kind||'');
       if(!['offer','answer','candidate'].includes(kind)) throw new Error('Sinalização de voz inválida.');
       const targetSocketId=String(payload?.targetSocketId||'').slice(0,120);
@@ -2684,7 +2700,7 @@ io.on('connection', socket => {
       let out={kind,sessionId};
       if(kind==='offer'||kind==='answer'){
         const sdp=payload?.sdp;
-        if(!sdp||!['offer','answer'].includes(String(sdp.type||''))) throw new Error('Descrição de voz inválida.');
+        if(!sdp||String(sdp.type||'')!==kind) throw new Error('Descrição de voz inválida.');
         const desc=String(sdp.sdp||'');
         if(desc.length<20||desc.length>24000) throw new Error('Descrição de voz fora do limite.');
         out.sdp={type:String(sdp.type),sdp:desc};

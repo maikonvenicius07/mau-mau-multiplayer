@@ -27,11 +27,16 @@ function toPublic(row,{actor='',isAdmin=false}={}){
     canManage:!!(actor&&(row.createdBy===actor||isAdmin))};
 }
 function newId(){return `tor-${crypto.randomUUID()}`;}
+function maxTournamentsPerAccount(env=process.env){
+  const requested=Number(env.MAUMAU_MAX_TOURNAMENTS_PER_ACCOUNT);
+  return Number.isInteger(requested)&&requested>=1?Math.min(50,requested):10;
+}
 function sanitizeStatus(value){if(!STATES.has(value))throw fail('Situação de torneio inválida.');return value;}
 class TournamentCatalog {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournaments.json'),signupsFilePath=path.join(__dirname,'data','tournament-signups.json'),pool=null}={}){
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournaments.json'),signupsFilePath=path.join(__dirname,'data','tournament-signups.json'),pool=null,maxPerAccount=maxTournamentsPerAccount()}={}){
     this.filePath=filePath;this.signupsFilePath=signupsFilePath;this.local=[];this.pool=pool;
-    if(!this.pool&&databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}
+    this.maxPerAccount=Math.max(1,Math.min(50,Math.floor(Number(maxPerAccount)||10)));
+    if(!this.pool&&databaseUrl){const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);this.ownsPool=true;}
   }
   async init(){
     if(this.pool){
@@ -74,8 +79,22 @@ class TournamentCatalog {
     const info=cleanPayload(data);
     if(!actor)throw fail('Entre na sua conta para criar um torneio.',401);
     const id=newId();const row={id,...info,status:'draft',createdBy:actor,createdAt:new Date().toISOString()};
-    if(this.pool)await this.pool.query(`INSERT INTO mm_tournaments(id,name,capacity,start_at,status,created_by) VALUES($1,$2,$3,$4,'draft',$5)`,[id,info.name,info.capacity,info.startAt,actor]);
-    else{this.local.push(row);this.save();}
+    if(this.pool){
+      const conn=await this.pool.connect();
+      try{
+        await conn.query('BEGIN');
+        // Evita duas criações simultâneas ultrapassarem a quota entre processos.
+        await conn.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`tournament-create:${actor}`]);
+        const result=await conn.query(`SELECT COUNT(*)::int AS count FROM mm_tournaments WHERE created_by=$1 AND status<>'cancelled'`,[actor]);
+        if(Number(result.rows[0]?.count||0)>=this.maxPerAccount)throw fail('Limite de torneios por conta atingido. Exclua ou cancele um torneio antes de criar outro.',409);
+        await conn.query(`INSERT INTO mm_tournaments(id,name,capacity,start_at,status,created_by) VALUES($1,$2,$3,$4,'draft',$5)`,[id,info.name,info.capacity,info.startAt,actor]);
+        await conn.query('COMMIT');
+      }catch(e){await conn.query('ROLLBACK');throw e;}finally{conn.release();}
+    }else{
+      if(this.local.filter(t=>t.createdBy===actor&&t.status!=='cancelled').length>=this.maxPerAccount)
+        throw fail('Limite de torneios por conta atingido. Exclua ou cancele um torneio antes de criar outro.',409);
+      this.local.push(row);this.save();
+    }
     return toPublic(row);
   }
   async isOwner(id,actor){
@@ -158,4 +177,4 @@ class TournamentCatalog {
     return {...existing,...fields,status,registrationOpen:status==='open'};
   }
 }
-module.exports={TournamentCatalog,cleanPayload};
+module.exports={TournamentCatalog,cleanPayload,maxTournamentsPerAccount};

@@ -25,7 +25,7 @@ class TournamentStore {
     this.filePath=filePath;
     this.kind=(pool||databaseUrl)?'postgres':'json';
     if(pool){this.pool=pool;this.ownsPool=false;}
-    else if(databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}
+    else if(databaseUrl){const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);this.ownsPool=true;}
     this.local=[];
   }
   async init(){

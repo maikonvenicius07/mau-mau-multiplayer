@@ -1,3 +1,10 @@
+## V40.69.6 — Segurança do servidor
+
+- Validação de certificados TLS PostgreSQL por padrão, política centralizada para pools e CA configurável.
+- Limite específico de sinalização WebRTC por conta, com aviso controlado e preservação das chamadas válidas.
+- Quota de torneios por conta com serialização transacional e limite de frequência no endpoint HTTP.
+- Auditoria de dependências no CI (alerta não bloqueante) e novas verificações de regressão.
+
 ## V40.69.5 — Jogada Rápida preservada após tentativa inválida de ×2 Dupla (09/11/2026)
 - Em `playDoubleCard()`, a janela de Ação Rápida só é encerrada **depois** das verificações de anúncio Mau-Mau e estoque disponível para penalidade.
 - Uma Carta Dupla rejeitada não altera o topo, a oportunidade de reação, as mãos, o turno ou o placar. Carta Dupla aceita conserva os efeitos, a ordem da vez e a abertura da próxima reação.

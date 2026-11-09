@@ -33,7 +33,7 @@ class FakePool {
   const pool=createAppDatabasePool('postgresql://user:pass@localhost:5432/db',{PoolClass:FakePool});
   assert.equal(FakePool.instances.length,1,'deve criar um único Pool');
   assert.equal(pool.config.connectionString,'postgresql://user:pass@localhost:5432/db');
-  assert.equal(pool.config.ssl?.rejectUnauthorized,false,'deve preservar política SSL atual');
+  assert.equal(pool.config.ssl?.rejectUnauthorized,true,'TLS deve validar a cadeia de certificados');
   assert.equal(Object.prototype.hasOwnProperty.call(pool.config,'max'),false,'não alterar limite padrão do pg');
 
   const options={databaseUrl:'',pool};

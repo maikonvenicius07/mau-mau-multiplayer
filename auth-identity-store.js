@@ -212,7 +212,7 @@ class JsonBackend {
 }
 
 class PostgresBackend {
-  constructor(databaseUrl,pool=null){if(pool){this.pool=pool;this.ownsPool=false;}else{const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});this.ownsPool=true;}}
+  constructor(databaseUrl,pool=null){if(pool){this.pool=pool;this.ownsPool=false;}else{const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);this.ownsPool=true;}}
   async init(){
     const client=await this.pool.connect();
     try{

@@ -28,7 +28,7 @@ function publicTables(groups){return groups.map(t=>({number:t.number,players:t.p
 class TournamentDraw{
   constructor({pool=null,databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-draws.json'),signupsFilePath=path.join(__dirname,'data','tournament-signups.json')}={}){
     this.filePath=filePath;this.signupsFilePath=signupsFilePath;this.pool=pool;
-    if(!this.pool&&databaseUrl){const {Pool}=require('pg');this.pool=new Pool({connectionString:databaseUrl,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});}
+    if(!this.pool&&databaseUrl){const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);}
     this.local={};
   }
   async init(){

@@ -9,6 +9,8 @@ const DEFAULT_ACTION_RULES = Object.freeze({
   joinRoom: Object.freeze({limit:20, windowMs:60*1000}),
   joinSpectator: Object.freeze({limit:10, windowMs:60*1000}),
   startMatchmaking: Object.freeze({limit:10, windowMs:60*1000}),
+  voiceSignal: Object.freeze({limit:180, windowMs:10*1000}),
+  createTournament: Object.freeze({limit:3, windowMs:60*60*1000}),
 });
 
 function maxSpectatorsPerRoom(env=process.env) {
