@@ -2,6 +2,7 @@
 
 const RankingMode = require('./ranking-mode');
 const {performanceSettings,aggregatePerformanceMatches,rankPerformanceRows}=require('./ranking-performance');
+const {skillSettings,calculateSkillHistory,skillLeaderboardView}=require('./ranking-skill');
 
 const fs = require('fs');
 const path = require('path');
@@ -112,6 +113,10 @@ class JsonBackend {
     }
   }
   async healthCheck() { return true; }
+  async getSkillMatches({mode='official',now=Date.now(),ratingStartAt=null}={}) {
+    return this.data.matches.filter(m=>normalizeMode(m.mode)===normalizeMode(mode) && Date.parse(m.finishedAt)<=now
+      && (!ratingStartAt||Date.parse(m.finishedAt)>=Date.parse(ratingStartAt)));
+  }
   async recordMatch(match) {
     if (!Array.isArray(match?.results) || match.results.length === 0) return false;
     if (this.data.matches.some(m => m.matchId === match.matchId)) return false;
@@ -326,6 +331,28 @@ class PostgresBackend {
     const {rows}=await this.pool.query('SELECT 1 AS ok');
     return Number(rows?.[0]?.ok)===1;
   }
+  async getSkillMatches({mode='official',now=Date.now(),maxHistoryRows=200000,ratingStartAt=null}={}) {
+    // Consulta única em ordem determinística; apenas campos públicos e resultados.
+    // Acima do limite, aborta em vez de publicar um rating baseado em histórico truncado.
+    const {rows}=await this.pool.query(`
+      SELECT m.match_id AS "matchId",m.season_id AS "seasonId",m.finished_at AS "finishedAt",
+             r.player_key AS "playerKey",p.name,p.avatar,r.position,r.won
+      FROM mm_matches m
+      JOIN mm_match_results r ON r.match_id=m.match_id
+      JOIN mm_players p ON p.player_key=r.player_key
+      WHERE m.mode=$1 AND m.finished_at<=$2::timestamptz
+        AND ($4::timestamptz IS NULL OR m.finished_at >= $4::timestamptz)
+      ORDER BY m.finished_at ASC,m.match_id ASC,r.player_key ASC
+      LIMIT $3`,[normalizeMode(mode),new Date(now).toISOString(),maxHistoryRows+1,ratingStartAt]);
+    if(rows.length>maxHistoryRows)throw new Error('[ranking] Histórico de habilidade acima do limite seguro; ajuste RANK_SKILL_MAX_HISTORY_ROWS após medir o uso de memória.');
+    const byMatch=new Map();
+    for(const r of rows){
+      let match=byMatch.get(r.matchId);
+      if(!match){match={matchId:r.matchId,seasonId:r.seasonId,finishedAt:r.finishedAt,results:[]};byMatch.set(r.matchId,match);}
+      match.results.push({playerKey:r.playerKey,name:r.name,avatar:r.avatar,position:Number(r.position),won:r.won});
+    }
+    return [...byMatch.values()];
+  }
   async recordMatch(match) {
     if (!Array.isArray(match?.results) || match.results.length === 0) return false;
     const client = await this.pool.connect();
@@ -498,7 +525,46 @@ class RankingStore {
   }
   async init(){ return this.backend.init(); }
   async healthCheck(){ return this.backend.healthCheck(); }
-  async recordMatch(match){ return this.backend.recordMatch(match); }
+  async recordMatch(match){
+    const inserted=await this.backend.recordMatch(match);
+    if(inserted)this._skillCache?.clear();
+    return inserted;
+  }
+  async _skillHistory({mode='official',now=Date.now()}={}){
+    mode=normalizeMode(mode);
+    const settings=skillSettings('season');
+    // Cache de 20 s por modalidade; registro confirmado invalida imediatamente.
+    // Chamadas com tempo explícito (testes) não compartilham a cache de produção.
+    if(!this._skillCache)this._skillCache=new Map();
+    const caching=arguments[0]?.now===undefined;
+    const cached=this._skillCache.get(mode);
+    if(caching && cached && cached.expires>Date.now())return cached.promise;
+    const promise=this.backend.getSkillMatches({mode,now,maxHistoryRows:settings.maxHistoryRows,ratingStartAt:settings.ratingStartAt})
+      .then(matches=>{
+        const totalRows=matches.reduce((n,m)=>n+(m.results?.length||0),0);
+        if(totalRows>settings.maxHistoryRows)throw new Error('[ranking] Limite seguro de histórico atingido.');
+        return calculateSkillHistory(matches,{tau:settings.tau,maxHistoryRows:settings.maxHistoryRows,now});
+      });
+    if(caching){
+      this._skillCache.set(mode,{promise,expires:Date.now()+20000});
+      promise.catch(()=>{if(this._skillCache.get(mode)?.promise===promise)this._skillCache.delete(mode);});
+    }
+    return promise;
+  }
+  async _skillRows(opts={}){
+    const period=normalizePeriod(opts.period||'day'),now=opts.now??Date.now();
+    const settings=skillSettings(period);
+    const history=await this._skillHistory({mode:opts.mode||'official',...(opts.now===undefined?{}:{now})});
+    return skillLeaderboardView(history,{period,periodStart:periodStart(period,now),
+      minimumGames:settings.minimumGames,maxRD:settings.maxRD,seasonId:CURRENT_SEASON_ID});
+  }
+  async getSkillLeaderboard(opts={}){
+    return (await this._skillRows(opts)).slice(0,Math.max(1,Math.min(100,Number(opts.limit)||50)));
+  }
+  async getSkillPlayerStats({playerKey,...opts}={}){
+    if(!playerKey)return null;
+    return (await this._skillRows(opts)).find(r=>r.playerKey===playerKey)||null;
+  }
   async getLeaderboard(opts){ return this.backend.getLeaderboard(opts); }
   async getPerformanceLeaderboard(opts){ return this.backend.getPerformanceLeaderboard(opts); }
   async getPerformancePlayerStats(opts){ return this.backend.getPerformancePlayerStats(opts); }
