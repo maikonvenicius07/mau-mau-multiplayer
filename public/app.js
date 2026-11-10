@@ -131,7 +131,7 @@ let pendingSpectatorOffer=null;
 let pendingRoomSwitch=null;
 let publicRoomsSnapshot={publicRoomCount:0,watchableRoomCount:0,activeSpectatorCount:0,spectatorLimitPerRoom:5,rooms:[],at:0};
 let liveRoomsRefreshTimer=null;
-let rankingPeriod='day', rankingMode='official';
+let rankingPeriod='day', rankingMode='official', rankingCategory='wins', rankingRequestId=0;
 let lastShownRoundReviewId=null;
 const pileSideStorage='maumauPileSideV1';
 let pileSide=localStorage.getItem(pileSideStorage)==='deck-left'?'deck-left':'deck-right';
@@ -1297,36 +1297,59 @@ function rankingTier(rank){
 async function loadRanking(){
   const body=$('#rankingBody'), mine=$('#rankingMine');
   if(!body||!mine)return;
+  const requestId=++rankingRequestId;
+  const period=rankingPeriod,mode=rankingMode,category=rankingCategory;
+  const performance=category==='performance';
+  const header=$('#rankingDialog .ranking-table thead th:last-child');
+  if(header)header.textContent=performance?'Desempenho':'Vitórias';
+  const method=$('#rankingMethodNote');
+  if(method)method.textContent=performance
+    ?'Índice de 0 a 100: 50 significa resultado esperado para o tamanho da mesa; maior é melhor. Considera partidas, empates e amostras pequenas. Provisórios não lideram.'
+    :'Vitórias acumuladas das partidas concluídas, sem alterar o histórico.';
   body.innerHTML='<tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr>';
-  mine.innerHTML='<span class="ranking-loading">Consultando suas vitórias...</span>';
-  $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]} • Temporada 1`;
+  mine.innerHTML=`<span class="ranking-loading">Consultando ${performance?'seu aproveitamento':'suas vitórias'}...</span>`;
+  $('#rankingScopeLabel').textContent=`${rankPeriodLabel[period]} • ${rankModeLabel[mode]} • Temporada 1`;
   try{
+    const q=`period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}&category=${encodeURIComponent(category)}`;
     const [rankRes,profileRes]=await Promise.all([
-      fetch(`/api/ranking?period=${encodeURIComponent(rankingPeriod)}&mode=${encodeURIComponent(rankingMode)}`),
-      fetch(`/api/profile?playerKey=${encodeURIComponent(permanentPlayerKey())}&period=${encodeURIComponent(rankingPeriod)}&mode=${encodeURIComponent(rankingMode)}`)
+      fetch(`/api/ranking?${q}`),
+      fetch(`/api/profile?playerKey=${encodeURIComponent(permanentPlayerKey())}&${q}`)
     ]);
-    const rank=await rankRes.json(), prof=await profileRes.json();
+    const rank=await rankRes.json(),prof=await profileRes.json();
+    if(requestId!==rankingRequestId)return; // não renderizar resposta de filtro antigo
     if(!rank.ok) throw new Error(rank.message||'Ranking indisponível.');
     rankingPlayerRows=Array.isArray(rank.rows)?rank.rows:[];
     const seasonName=rank.seasonName||'Temporada 1';
-    $('#rankingScopeLabel').textContent=`${rankPeriodLabel[rankingPeriod]} • ${rankModeLabel[rankingMode]} • ${seasonName}`;
-    if(rankingPeriod==='history'){
+    $('#rankingScopeLabel').textContent=`${rankPeriodLabel[period]} • ${rankModeLabel[mode]} • ${seasonName}`;
+    if(period==='history'){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">📚 O histórico começa agora. Ainda não existe temporada encerrada.</td></tr>';
       mine.innerHTML='<div class="ranking-new-player">🏆 A Temporada 1 está em andamento. Quando ela for encerrada, seu resultado será guardado aqui.</div>';
       return;
     }
     if(!rank.rows?.length){
-      body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há vitórias neste ranking.</td></tr>';
+      body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há partidas concluídas neste ranking.</td></tr>';
+    }else if(performance){
+      body.innerHTML=rank.rows.map((r,i)=>{
+        const provisional=!!r.provisional;
+        const badge=provisional?`<small class="rank-performance-provisional">PROVISÓRIO • faltam ${Number(r.gamesNeeded)||0} partida(s)</small>`:`<small class="rank-performance-qualified">CLASSIFICADO</small>`;
+        return `<tr class="rank-performance-row ${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}${provisional?'rank-is-provisional':''}"><td class="rank-pos" data-label="Posição">${provisional?'—':rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}" aria-label="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span>${badge}<span class="rank-profile-cta" aria-hidden="true">👤 Ver perfil <span class="rank-profile-chevron">›</span></span></div></button></td><td class="rank-wins rank-performance-metric" data-label="Aproveitamento"><strong>${Number(r.performanceIndex).toFixed(1)} pts</strong><small>${Number(r.wins)||0} vitórias / ${Number(r.games)||0} partidas</small><small>Vitórias: ${Number(r.winRate).toFixed(1)}% • Ajust.: ${Number(r.adjustedRate).toFixed(1)}%</small>${Number(r.uncertainGames)>0?`<small title="Tamanho de algumas mesas não está totalmente registrado">⚠ ${Number(r.uncertainGames)} mesa(s) com composição parcial</small>`:''}</td></tr>`;
+      }).join('');
     }else{
       body.innerHTML=rank.rows.map((r,i)=>{const tier=rankingTier(r.rank);return `<tr class="${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}rank-tier-${tier.key}"><td class="rank-pos" data-label="Posição">${rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}" aria-label="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span><small class="rank-tier-badge tier-${tier.key}">${tier.icon} ${tier.label}</small><span class="rank-profile-cta" aria-hidden="true">👤 Ver perfil <span class="rank-profile-chevron">›</span></span></div></button></td><td class="rank-wins" data-label="Vitórias"><strong>${Number(r.wins)||0}</strong></td></tr>`}).join('');
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
-      mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua conta</span>${r.rank?`<em class="rank-tier-badge tier-${rankingTier(r.rank).key}">${rankingTier(r.rank).icon} ${rankingTier(r.rank).label}</em>`:''}</div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+      if(performance){
+        const qualification=r.provisional?`<em class="rank-performance-provisional">PROVISÓRIO • faltam ${Number(r.gamesNeeded)||0} partida(s)</em>`:'<em class="rank-performance-qualified">CLASSIFICADO</em>';
+        mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU APROVEITAMENTO</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitórias em ${Number(r.games)||0} partidas • Taxa real ${Number(r.winRate).toFixed(1)}%</span>${qualification}</div><div class="mine-rank">${Number(r.performanceIndex).toFixed(1)}<small>índice (0–100)</small></div>`;
+      }else{
+        mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU RANKING</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitória(s) • identidade vinculada à sua conta</span>${r.rank?`<em class="rank-tier-badge tier-${rankingTier(r.rank).key}">${rankingTier(r.rank).icon} ${rankingTier(r.rank).label}</em>`:''}</div>${r.rank?`<div class="mine-rank">${rankMedal(r.rank)}<small>posição</small></div>`:''}`;
+      }
     }else{
-      mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui vitória neste período e modalidade.</div>';
+      mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui partidas registradas neste período e modalidade.</div>';
     }
   }catch(e){
+    if(requestId!==rankingRequestId)return;
     body.innerHTML=`<tr><td colspan="3" class="ranking-empty">${esc(e.message||'Não foi possível carregar o ranking.')}</td></tr>`;
     mine.innerHTML='<div class="ranking-new-player">Tente novamente em alguns instantes.</div>';
   }
@@ -1335,6 +1358,11 @@ function openRanking(){
   const dlg=$('#rankingDialog'); if(!dlg)return;
   dlg.showModal(); loadRanking();
 }
+$$('[data-rank-category]').forEach(btn=>btn.onclick=()=>{
+  rankingCategory=btn.dataset.rankCategory==='performance'?'performance':'wins';
+  $$('[data-rank-category]').forEach(x=>{const active=x===btn;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
+  loadRanking();
+});
 $$('[data-rank-period]').forEach(btn=>btn.onclick=()=>{
   rankingPeriod=btn.dataset.rankPeriod;
   $$('[data-rank-period]').forEach(x=>x.classList.toggle('active',x===btn));

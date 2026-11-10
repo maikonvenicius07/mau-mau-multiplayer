@@ -1,12 +1,12 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.2",
-  "description": "Mau-Mau Candeias V40.69.8.2: protege historico do ranking sem reset automatico e reforca persistencia JSON.",
+  "version": "40.69.8-rank.3",
+  "description": "Mau-Mau Candeias V40.69.8.3: ranking de aproveitamento estatisticamente ajustado, vitórias históricas preservadas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run-all.js",
-    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check retention-policy.js && node --check room-governance.js && node --check abuse-guard.js && node --check auth-identity-store.js && node --check universal-auth.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
+    "verify": "npm run verify:lock && node --check input-safety.js && node --check service-readiness.js && node --check retention-policy.js && node --check room-governance.js && node --check abuse-guard.js && node --check auth-identity-store.js && node --check universal-auth.js && node --check server.js && node --check room-lifecycle.js && node --check ranking-mode.js && node --check room-snapshot-store.js && node --check avatar-wire.js && node --check game-engine.js && node --check bot-player.js && node --check ranking-store.js && node --check ranking-performance.js && node --check public/app.js && node --check public/voice-relay-worklet.js && npm test",
     "test:socket": "node tests/socketio-integration-v4063.test.js",
     "lock:generate": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
     "verify:lock": "node scripts/check-lockfile.js"

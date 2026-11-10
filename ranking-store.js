@@ -1,6 +1,7 @@
 'use strict';
 
 const RankingMode = require('./ranking-mode');
+const {performanceSettings,aggregatePerformanceMatches,rankPerformanceRows}=require('./ranking-performance');
 
 const fs = require('fs');
 const path = require('path');
@@ -151,6 +152,20 @@ class JsonBackend {
     const rows=[...byPlayer.values()].sort((a,b)=>b.wins-a.wins || String(a.name).localeCompare(String(b.name),'pt-BR'));
     const ranked=denseRankByWins(rows);
     return ranked.slice(0,Math.max(1,Math.min(100,Number(limit)||50)));
+  }
+  async _performanceRows({period='day',mode='official',now=Date.now()}={}) {
+    period=normalizePeriod(period);mode=normalizeMode(mode);
+    if(period==='history')return [];
+    const raw=aggregatePerformanceMatches(this.filtered(period,mode,now));
+    return rankPerformanceRows(raw,performanceSettings(period));
+  }
+  async getPerformanceLeaderboard(opts={}) {
+    const rows=await this._performanceRows(opts);
+    return rows.slice(0,Math.max(1,Math.min(100,Number(opts.limit)||50)));
+  }
+  async getPerformancePlayerStats({playerKey,...opts}={}) {
+    if(!playerKey)return null;
+    return (await this._performanceRows(opts)).find(r=>r.playerKey===playerKey)||null;
   }
   async getPlayerStats({playerKey,period='season',mode='official',now=Date.now()}={}) {
     if (!playerKey || normalizePeriod(period)==='history') return null;
@@ -363,6 +378,44 @@ class PostgresBackend {
       LIMIT $3`,params);
     return rows;
   }
+  async _performanceRows({period='day',mode='official',now=Date.now()}={}) {
+    period=normalizePeriod(period);mode=normalizeMode(mode);
+    if(period==='history')return [];
+    const start=periodStart(period,now);
+    // Um mesmo jogo contribui UMA observação por jogador. A expectativa de
+    // vitória usa o tamanho da mesa registrado e divide igualmente os empates.
+    const {rows}=await this.pool.query(`
+      WITH selected_matches AS (
+        SELECT match_id FROM mm_matches
+        WHERE season_id=$3 AND mode=$1
+          AND ($2::timestamptz IS NULL OR finished_at >= $2::timestamptz)
+      ), table_stats AS (
+        SELECT r.match_id,COUNT(DISTINCT r.player_key)::int AS participants,
+               COUNT(*) FILTER(WHERE r.won)::int AS winners
+        FROM mm_match_results r JOIN selected_matches m ON m.match_id=r.match_id
+        GROUP BY r.match_id
+      )
+      SELECT r.player_key AS "playerKey",p.name,p.avatar,
+             COUNT(*)::int AS games,
+             COUNT(*) FILTER(WHERE r.won)::int AS wins,
+             SUM(CASE WHEN r.won THEN 1.0/GREATEST(t.winners,1) ELSE 0 END)::float8 AS "winCredits",
+             SUM(1.0/GREATEST(t.participants,2))::float8 AS "expectedWins",
+             COUNT(*) FILTER(WHERE t.participants<2)::int AS "uncertainGames"
+      FROM mm_match_results r
+      JOIN selected_matches m ON m.match_id=r.match_id
+      JOIN table_stats t ON t.match_id=r.match_id
+      JOIN mm_players p ON p.player_key=r.player_key
+      GROUP BY r.player_key,p.name,p.avatar`,[mode,start,CURRENT_SEASON_ID]);
+    return rankPerformanceRows(rows,performanceSettings(period));
+  }
+  async getPerformanceLeaderboard(opts={}) {
+    const rows=await this._performanceRows(opts);
+    return rows.slice(0,Math.max(1,Math.min(100,Number(opts.limit)||50)));
+  }
+  async getPerformancePlayerStats({playerKey,...opts}={}) {
+    if(!playerKey)return null;
+    return (await this._performanceRows(opts)).find(r=>r.playerKey===playerKey)||null;
+  }
   async getPlayerStats({playerKey,period='season',mode='official',now=Date.now()}={}) {
     if(!playerKey || normalizePeriod(period)==='history') return null;
     period=normalizePeriod(period); mode=normalizeMode(mode);
@@ -447,6 +500,8 @@ class RankingStore {
   async healthCheck(){ return this.backend.healthCheck(); }
   async recordMatch(match){ return this.backend.recordMatch(match); }
   async getLeaderboard(opts){ return this.backend.getLeaderboard(opts); }
+  async getPerformanceLeaderboard(opts){ return this.backend.getPerformanceLeaderboard(opts); }
+  async getPerformancePlayerStats(opts){ return this.backend.getPerformancePlayerStats(opts); }
   async getPlayerStats(opts){ return this.backend.getPlayerStats(opts); }
   async getRecentPlayers(opts){ return this.backend.getRecentPlayers(opts); }
   async getDetailedPlayerStats(opts){ return this.backend.getDetailedPlayerStats(opts); }

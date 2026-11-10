@@ -4928,3 +4928,25 @@ button.bot-primary{
 .media-restore-prompt button{align-self:stretch;border:1px solid #e5c977;border-radius:9px;background:#35513b;color:white;font-weight:700;font-size:13px;min-height:42px;padding:8px;cursor:pointer}
 .media-restore-prompt button:focus-visible{outline:2px solid #e5c977;outline-offset:2px}
 @media(max-width:700px){.media-restore-prompt{bottom:72px;right:8px;max-width:min(310px,calc(100vw - 16px))}}
+
+/* V40.69.8.3 — Filtro de aproveitamento, sem alterar o layout das cartas. */
+.ranking-category-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 8px}
+.ranking-category-switch button{min-height:43px;border:1px solid #315943;border-radius:12px;background:#10261d;color:#dcecdf;font-weight:900;cursor:pointer;touch-action:manipulation}
+.ranking-category-switch button.active{border-color:#dfb85c;background:#4a3916;color:#ffe5a0}
+.ranking-category-switch button:focus-visible{outline:2px solid #f3cf77;outline-offset:3px}
+.ranking-method-note{font-size:11px;color:#afc6b6;line-height:1.45;margin:0 0 7px}
+.rank-performance-metric{white-space:normal;min-width:135px}
+.rank-performance-metric strong{font-size:17px;color:#ffe099}
+.rank-performance-metric small{display:block;font-size:10px;color:#b5cdbc;line-height:1.35;margin-top:2px}
+.rank-performance-provisional,.rank-performance-qualified{font-style:normal;font-size:10px;font-weight:900;letter-spacing:.03em}
+.rank-performance-provisional{color:#edc28b}.rank-performance-qualified{color:#83ddb2}
+.ranking-table .rank-is-provisional .rank-pos{color:#98b2a5}
+@media(max-width:650px){
+  .ranking-category-switch{gap:6px}
+  .ranking-category-switch button{font-size:12px;padding:8px 5px}
+  .ranking-table .rank-performance-row{grid-template-columns:42px minmax(0,1fr) 118px}
+  .rank-performance-metric{min-width:0!important}
+  .rank-performance-metric strong{font-size:15px!important}
+  .rank-performance-metric small{font-size:9px;white-space:normal}
+  .ranking-table .rank-performance-row td:nth-child(3){justify-content:center!important;text-align:center!important}
+}

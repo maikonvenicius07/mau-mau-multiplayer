@@ -19,6 +19,7 @@ const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
+const {performanceSettings}=require('./ranking-performance');
 const { createRetryableInitialization } = require('./ranking-init-retry');
 const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
@@ -963,8 +964,12 @@ app.get('/api/ranking', async (req,res)=>{
     const period=normalizePeriod(req.query.period);
     const mode=normalizeMode(req.query.mode);
     if(!(await ensureRankingReady())) throw new Error('Armazenamento do ranking indisponível.');
-    const rows=await rankingStore.getLeaderboard({period,mode,limit:50});
-    res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,timezone:'America/Porto_Velho',rows});
+    const category=req.query.category==='performance'?'performance':'wins';
+    const rows=category==='performance'
+      ?await rankingStore.getPerformanceLeaderboard({period,mode,limit:50})
+      :await rankingStore.getLeaderboard({period,mode,limit:50});
+    res.setHeader('Cache-Control','private, no-store');
+    res.json({ok:true,period,mode,category,performanceSettings:category==='performance'?performanceSettings(period):null,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,timezone:'America/Porto_Velho',rows});
   } catch(e) {
     console.error('[ranking] consulta falhou:',e);
     res.status(500).json({ok:false,message:'Não foi possível carregar o ranking agora.'});
@@ -1016,8 +1021,12 @@ app.get('/api/profile', async (req,res)=>{
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
     if(!(await ensureRankingReady())) throw new Error('Armazenamento do ranking indisponível.');
-    const stats=await rankingStore.getPlayerStats({playerKey,period,mode});
-    res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,stats});
+    const category=req.query.category==='performance'?'performance':'wins';
+    const stats=category==='performance'
+      ?await rankingStore.getPerformancePlayerStats({playerKey,period,mode})
+      :await rankingStore.getPlayerStats({playerKey,period,mode});
+    res.setHeader('Cache-Control','private, no-store');
+    res.json({ok:true,period,mode,category,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,stats});
   } catch(e) {
     console.error('[ranking] perfil falhou:',e);
     res.status(500).json({ok:false,message:'Não foi possível carregar o perfil agora.'});
