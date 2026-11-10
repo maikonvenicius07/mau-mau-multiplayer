@@ -22,6 +22,6 @@ for(const token of ['/api/ranking','/api/profile','permanentPlayerKey()','rankin
   if(!js.includes(token) && !server.includes(token)) throw new Error(`Ranking V40.8: faltou ${token}`);
 }
 if(!store.includes("matchId:`${room.code}-${room.createdAt}-${matchSerial}`")) throw new Error('matchId da revanche não usa matchSerial');
-if(!store.includes("RANKING_GENERATION = 'v40.8-season1'")) throw new Error('migração única da Temporada 1 ausente');
+if(!store.includes("RANKING_GENERATION = 'v40.8-season1'")) throw new Error('marcador de geração legada ausente');
 if(!store.includes('DENSE_RANK() OVER (ORDER BY wins DESC)')) throw new Error('empates em vitórias precisam compartilhar posição');
 console.log('✓ V40.8: UI do ranking OFICIAL/TREINO + Hoje/Semana/Mês/Temporada/Histórico conferida.');

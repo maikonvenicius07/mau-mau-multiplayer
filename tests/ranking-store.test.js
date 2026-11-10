@@ -3,19 +3,28 @@ const assert=require('assert');
 const fs=require('fs');
 const os=require('os');
 const path=require('path');
-const {RankingStore,periodStart,buildMatchRecord,RANKING_GENERATION}=require('../ranking-store');
+const {RankingStore,periodStart,buildMatchRecord}=require('../ranking-store');
 
 (async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'maumau-ranking-v408-'));
   const filePath=path.join(dir,'rank.json');
 
-  // Simula o ranking antigo: na primeira inicialização da V40.8 ele deve ser descartado uma única vez.
-  fs.writeFileSync(filePath,JSON.stringify({version:1,matches:[{matchId:'antigo',mode:'human',finishedAt:'2026-09-07T12:00:00Z',results:[]}]}));
+  // V40.69.8.2: migração não destrutiva do JSON legado (com geração diferente).
+  const oldMatch={matchId:'antigo',mode:'human',seasonId:1,
+    finishedAt:'2026-09-07T12:00:00Z',results:[
+      {playerKey:'old-id',name:'Veterano',avatar:'macaco',score:1,position:1,won:true}
+    ]};
+  const oldFile={version:1,rankingGeneration:'v-old',matches:[oldMatch]};
+  fs.writeFileSync(filePath,JSON.stringify(oldFile));
   const store=new RankingStore({databaseUrl:null,filePath});
   await store.init();
   const migrated=JSON.parse(fs.readFileSync(filePath,'utf8'));
-  assert.equal(migrated.rankingGeneration,RANKING_GENERATION);
-  assert.deepEqual(migrated.matches,[],'ranking antigo deve ser descartado ao inaugurar a Temporada 1');
+  assert.deepEqual(migrated.matches,oldFile.matches,'init não pode substituir ou zerar partidas legadas');
+  assert.equal(migrated.rankingGeneration,'v40.8-season1');
+  assert.equal(migrated.previousRankingGeneration,'v-old');
+  assert(fs.existsSync(`${filePath}.pre-v406982.bak`),'criar backup do JSON anterior');
+  assert.equal(store.backend.data.matches.length,1,'vitórias antigas devem sobreviver à inicialização');
+  assert.equal(store.backend.data.matches[0].matchId,'antigo');
 
   const now=Date.parse('2026-09-08T16:00:00Z'); // terça-feira, meio-dia em RO
   assert.strictEqual(periodStart('day',now),'2026-09-08T04:00:00.000Z');
@@ -80,5 +89,5 @@ const {RankingStore,periodStart,buildMatchRecord,RANKING_GENERATION}=require('..
   assert(first.matchId.endsWith('-1')); assert(replay.matchId.endsWith('-2'));
   assert.equal(first.mode,'official');
 
-  console.log('✓ V40.8: ranking zerado, vitórias apenas, Conta Google única, OFICIAL/TREINO e períodos validados.');
+  console.log('✓ V40.69.8.2: histórico preservado, vitórias, Conta Google única, OFICIAL/TREINO e períodos validados.');
 })().catch(e=>{console.error(e);process.exit(1)});

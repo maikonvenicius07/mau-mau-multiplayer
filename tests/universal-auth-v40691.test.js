@@ -16,7 +16,7 @@ const U=require('../universal-auth');
   const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
   const css=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
 
-  assert.strictEqual(pkg.version,'40.69.8-rank.1');
+  assert.strictEqual(pkg.version,'40.69.8-rank.2');
   assert.strictEqual(normalizeEmail('  Jogador@Exemplo.COM '),'jogador@exemplo.com');
   assert.strictEqual(normalizeEmail('invalido'),'');
 

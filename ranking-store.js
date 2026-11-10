@@ -62,31 +62,66 @@ class JsonBackend {
   }
   async init() {
     fs.mkdirSync(path.dirname(this.filePath), {recursive:true});
-    let parsed=null;
+    let parsed;
     try {
       parsed = JSON.parse(fs.readFileSync(this.filePath,'utf8'));
-    } catch(e) {
-      if (e.code !== 'ENOENT') console.warn('[ranking] Não foi possível ler JSON:', e.message);
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        // Primeira utilização: cria a base vazia. Nunca substitui um JSON preexistente.
+        this.persist();
+        return;
+      }
+      // Um arquivo existente corrompido não pode ser reiniciado silenciosamente:
+      // isso apagaria vitórias antigas na próxima gravação.
+      throw new Error(`[ranking] Arquivo JSON existente não pôde ser lido; histórico preservado: ${e.message}`);
     }
-    if (parsed && parsed.rankingGeneration === RANKING_GENERATION && Array.isArray(parsed.matches)) {
-      this.data = {...this.data,...parsed};
-    } else {
-      // V40.8: o usuário optou por descartar integralmente o ranking anterior e iniciar a Temporada 1 do zero.
-      this.data = { version:2, rankingGeneration:RANKING_GENERATION, currentSeasonId:CURRENT_SEASON_ID, currentSeasonName:CURRENT_SEASON_NAME, matches:[] };
-      this.persist();
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.matches)) {
+      throw new Error('[ranking] Arquivo JSON incompatível; histórico preservado sem sobrescrita.');
+    }
+    // Uma geração diferente nunca autoriza remover partidas antigas.
+    this.data = { ...this.data, ...parsed };
+    if (parsed.rankingGeneration !== RANKING_GENERATION) {
+      // O código antigo reseta se encontrar um marcador diferente. Normalizar
+      // somente o marcador, com cópia de segurança, torna até um rollback mais seguro.
+      const backup = `${this.filePath}.pre-v406982.bak`;
+      try {
+        try { fs.copyFileSync(this.filePath, backup, fs.constants.COPYFILE_EXCL); }
+        catch (e) { if (e.code !== 'EEXIST') throw e; }
+        this.data = {
+          ...this.data,
+          previousRankingGeneration: parsed.rankingGeneration || 'legacy-sem-marcador',
+          rankingGeneration: RANKING_GENERATION,
+        };
+        this.persist();
+      } catch (e) {
+        // Nunca substituir o JSON de origem se a proteção falhar.
+        this.data = { ...this.data, ...parsed };
+        throw new Error(`[ranking] Migração não destrutiva interrompida; histórico preservado: ${e.message}`);
+      }
     }
   }
   persist() {
     const tmp = `${this.filePath}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data,null,2));
-    fs.renameSync(tmp, this.filePath);
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(this.data,null,2));
+      fs.renameSync(tmp, this.filePath);
+    } catch (e) {
+      try { fs.unlinkSync(tmp); } catch (_) { /* nada a remover */ }
+      throw e;
+    }
   }
   async healthCheck() { return true; }
   async recordMatch(match) {
+    if (!Array.isArray(match?.results) || match.results.length === 0) return false;
     if (this.data.matches.some(m => m.matchId === match.matchId)) return false;
     this.data.matches.push({...match,seasonId:CURRENT_SEASON_ID});
-    if (this.data.matches.length > 20000) this.data.matches.splice(0, this.data.matches.length - 20000);
-    this.persist();
+    // Sem poda automática do histórico: limitar o arquivo eliminava vitórias antigas.
+    try { this.persist(); }
+    catch (e) {
+      // A gravação falhou: desfaz a mudança em memória para permitir um retry real.
+      this.data.matches.pop();
+      throw e;
+    }
     return true;
   }
   filtered(period, mode, now) {
@@ -233,32 +268,36 @@ class PostgresBackend {
         );
       `);
       await client.query(`ALTER TABLE mm_matches ADD COLUMN IF NOT EXISTS season_id INTEGER NOT NULL DEFAULT ${CURRENT_SEASON_ID}`);
-      // Impede dois processos de executarem a migração/reset simultaneamente.
+      // Mantém o lock histórico para serializar a inicialização entre instâncias.
+      // Nenhuma mudança de versão/generation pode excluir partidas ou resultados.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('mau-mau-ranking-v40.8-season1'))");
       const meta=await client.query(`SELECT meta_value FROM mm_ranking_meta WHERE meta_key='ranking_generation'`);
       const generation=meta.rows[0]?.meta_value;
-      if(generation!==RANKING_GENERATION){
-        // Reset ÚNICO da V40.8: descarta partidas/resultados antigos, preservando a identidade autenticada dos jogadores.
-        await client.query('DELETE FROM mm_match_results');
-        await client.query('DELETE FROM mm_matches');
-        await client.query('DELETE FROM mm_seasons');
+      // Guarda o marcador anterior para auditoria sem alterar nenhuma vitória.
+      // O código das versões antigas faria DELETE se visse uma geração diferente;
+      // normalizar a chave torna um rollback menos arriscado.
+      if (generation && generation !== RANKING_GENERATION) {
         await client.query(
-          `INSERT INTO mm_seasons(season_id,name,started_at,is_current) VALUES($1,$2,NOW(),TRUE)`,
-          [CURRENT_SEASON_ID,CURRENT_SEASON_NAME]
+          `INSERT INTO mm_ranking_meta(meta_key,meta_value,updated_at)
+           VALUES('ranking_generation_before_v406982',$1,NOW())
+           ON CONFLICT(meta_key) DO NOTHING`,
+          [generation]
         );
-        await client.query(
-          `INSERT INTO mm_ranking_meta(meta_key,meta_value,updated_at) VALUES('ranking_generation',$1,NOW())
-           ON CONFLICT(meta_key) DO UPDATE SET meta_value=EXCLUDED.meta_value,updated_at=NOW()`,
-          [RANKING_GENERATION]
-        );
-        console.log('[ranking] V40.8: ranking anterior descartado; Temporada 1 iniciada do zero.');
-      }else{
-        await client.query(
-          `INSERT INTO mm_seasons(season_id,name,is_current) VALUES($1,$2,TRUE)
-           ON CONFLICT(season_id) DO UPDATE SET name=EXCLUDED.name,is_current=TRUE`,
-          [CURRENT_SEASON_ID,CURRENT_SEASON_NAME]
-        );
+        console.warn('[ranking] Geração anterior detectada; histórico preservado, somente metadado atualizado.');
       }
+      await client.query(
+        `INSERT INTO mm_ranking_meta(meta_key,meta_value,updated_at)
+         VALUES('ranking_generation',$1,NOW())
+         ON CONFLICT(meta_key) DO UPDATE SET meta_value=EXCLUDED.meta_value,updated_at=NOW()
+         WHERE mm_ranking_meta.meta_value IS DISTINCT FROM EXCLUDED.meta_value`,
+        [RANKING_GENERATION]
+      );
+      // Se a temporada já existe, não sobrescrever nome, datas ou flags históricas.
+      await client.query(
+        `INSERT INTO mm_seasons(season_id,name,is_current) VALUES($1,$2,TRUE)
+         ON CONFLICT(season_id) DO NOTHING`,
+        [CURRENT_SEASON_ID,CURRENT_SEASON_NAME]
+      );
       await client.query(`CREATE INDEX IF NOT EXISTS mm_matches_mode_finished_idx ON mm_matches(mode, finished_at DESC)`);
       await client.query(`CREATE INDEX IF NOT EXISTS mm_matches_season_mode_finished_idx ON mm_matches(season_id, mode, finished_at DESC)`);
       await client.query(`CREATE INDEX IF NOT EXISTS mm_results_player_idx ON mm_match_results(player_key)`);
@@ -273,6 +312,7 @@ class PostgresBackend {
     return Number(rows?.[0]?.ok)===1;
   }
   async recordMatch(match) {
+    if (!Array.isArray(match?.results) || match.results.length === 0) return false;
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');

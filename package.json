@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.1",
-  "description": "Mau-Mau Candeias V40.69.8.1: recuperacao do ranking e reenvio de vitorias pendentes com protecao de revancha.",
+  "version": "40.69.8-rank.2",
+  "description": "Mau-Mau Candeias V40.69.8.2: protege historico do ranking sem reset automatico e reforca persistencia JSON.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -7,7 +7,7 @@ const html=fs.readFileSync('public/index.html','utf8');
 const css=fs.readFileSync('public/styles.css','utf8');
 const server=fs.readFileSync('server.js','utf8');
 
-assert.strictEqual(pkg.version,'40.69.8-rank.1','versão-base do pacote deve continuar compatível com a suíte V40.69.3');
+assert.strictEqual(pkg.version,'40.69.8-rank.2','versão-base do pacote deve continuar compatível com a suíte V40.69.3');
 assert(html.includes('styles.css?v=40.69.2'),'CSS sem cache-busting da V40.69.2');
 assert(html.includes('app.js?v=40.69.2'),'JS sem cache-busting da V40.69.2');
 const pileIndex=html.indexOf('id="pileSideBtn"');
