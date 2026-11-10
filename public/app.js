@@ -555,6 +555,8 @@ function clearCustomAvatarSelection(){
 
 function permanentPlayerKey(){ return authUser?.playerKey || ''; }
 function isSpectatorState(value=state){return value?.viewerRole==='SPECTATOR'||value?.me?.role==='SPECTATOR'}
+let tournamentWatchMode=false;
+function isTournamentWatcher(value=state){return !!(value?.tournamentSpectator||tournamentWatchMode)}
 function profile(){ return {name:$('#nameInput').value.trim()||authUser?.name||'Jogador',avatar:$('#avatarSelect').value,playerKey:permanentPlayerKey()}; }
 function syncPresenceProfile(){
   if(!authUser||!socket.connected)return;
@@ -2133,6 +2135,9 @@ function scheduleOutboundLiveVoiceRecovery(socketId,reason='network'){
 }
 function updateLiveMicUI(){
   const btn=$('#liveMicBtn'),label=$('#liveMicLabel');if(!btn)return;
+  if(typeof isTournamentWatcher==='function'&&isTournamentWatcher()){
+    btn.classList.add('hidden');btn.disabled=true;return;
+  }
   btn.classList.remove('hidden');
   ensureLiveMicRolePosition();
   const supported=liveVoiceSupported(),recovering=liveMicRecoveringPeers.size>0,awaitingRestore=liveMicWanted&&!liveMicOn&&!liveMicStarting;
@@ -2477,6 +2482,7 @@ async function handleLiveVoiceSignal(msg){
   }catch{}
 }
 async function startLiveMic({recovery=false,reason='manual'}={}){
+  if(typeof isTournamentWatcher==='function'&&isTournamentWatcher())return;
   if(liveMicOn||liveMicStarting)return;
   if(!state||!socket.connected){if(recovery&&liveMicWanted)scheduleLiveMicRestart(reason,700);return recovery?undefined:toast('Sem conexão com a sala.');}
   if(!liveVoiceSupported()){liveMicWanted=false;window.MauMediaSession?.failed('mic','Microfone ao vivo indisponível neste navegador.');return toast('Este navegador não oferece conversa por microfone compatível.');}
@@ -3026,11 +3032,13 @@ if(voicePreviewAudio){
 $('#chatForm').addEventListener('submit',e=>{
   e.preventDefault();
   if(!state||!socket.connected)return toast('Sem conexão com a sala.');
+  if(isTournamentWatcher())return;
   const input=$('#chatInput'),text=input.value.trim();
   if(!text)return;
   socket.emit('chatMessage',{text});input.value='';input.focus();
 });
 $$('[data-effect]').forEach(btn=>btn.onclick=()=>{
+  if(isTournamentWatcher())return;
   if(!state||!socket.connected)return toast('Sem conexão com a sala.');
   audioCtx();
   socket.emit('sendEffect',{effect:btn.dataset.effect});
@@ -3227,6 +3235,7 @@ socket.on('joined',data=>{
   // Não apagar o Chat existente quando o observador vira jogador: o servidor
   // não envia um novo chatHistory nessa conversão, apenas o novo estado.
   const spectatorPromotion=data?.source==='spectator-promotion' && data?.role==='PLAYER';
+  tournamentWatchMode=!!data?.tournamentWatch&&data?.role==='SPECTATOR';
   if(!spectatorPromotion){
     for(const m of chatMessages){if(m?.audioUrl)try{URL.revokeObjectURL(m.audioUrl)}catch{}}
     chatMessages=[];unreadChat=0;
@@ -3237,10 +3246,13 @@ socket.on('joined',data=>{
   const joinedRole=data?.role==='SPECTATOR'?'SPECTATOR':'PLAYER';
   // A preferência pertence a esta conta e sala, somente nesta aba.
   const rememberedMedia=window.MauMediaSession?.joined(data.code,permanentPlayerKey());
-  const resumeLiveMic=rememberedMedia?!!rememberedMedia.mic:!!liveMicWanted;
+  const resumeLiveMic=!tournamentWatchMode&&(rememberedMedia?!!rememberedMedia.mic:!!liveMicWanted);
   resetLiveVoice({notify:false,keepWanted:resumeLiveMic});
   liveMicWanted=resumeLiveMic;liveMicRestartAttempts=0;
-  saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,playerKey:permanentPlayerKey()});
+  saveSession({code:data.code,token:data.token,role:joinedRole,name:profile().name,avatar:profile().avatar,
+    playerKey:permanentPlayerKey(),tournamentWatch:tournamentWatchMode,
+    tournamentId:tournamentWatchMode?data.tournamentId:null,
+    stage:tournamentWatchMode?data.stage:null,tableNumber:tournamentWatchMode?data.tableNumber:null});
   closeSpectatorOffer();closeLiveRooms();const joinBtn=$('#spectatorJoinBtn');if(joinBtn){joinBtn.disabled=false;joinBtn.textContent='👁️ ASSISTIR PARTIDA'}
   if(data?.inviteId)removeInviteCard(data.inviteId);
   if(data?.source==='matchmaking'){
@@ -3252,11 +3264,13 @@ socket.on('joined',data=>{
   renderMatchmaking();
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   syncPresenceProfile();
-  socket.emit('liveVoiceReady');
+  if(!tournamentWatchMode)socket.emit('liveVoiceReady');
   if(resumeLiveMic)setTimeout(()=>{if(liveMicWanted&&!liveMicOn&&!liveMicStarting)startLiveMic({recovery:true,reason:'room-rejoined'})},350);
   updateLiveMicUI();
-  window.MauCamera?.onJoined(data?.code,{restoreCamera:!!rememberedMedia?.camera,role:joinedRole});
-  if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
+  window.MauCamera?.onJoined(data?.code,{restoreCamera:!tournamentWatchMode&&!!rememberedMedia?.camera,
+    role:joinedRole,tournamentWatch:tournamentWatchMode});
+  if(tournamentWatchMode)toast('👁️ Assistindo ao torneio. Somente mesa e placar; sem chat ou mídia.');
+  else if(joinedRole==='SPECTATOR')toast('👁️ Você entrou como observador. As cartas privadas não são enviadas ao seu navegador.');
   else if(spectatorPromotion)toast('🎉 Você entrou na partida! Aguarde a próxima rodada para receber suas cartas.');
   else if(data?.source==='auto-resume')toast('🟢 Partida encontrada. Você voltou automaticamente para sua vaga.');
 });
@@ -3276,7 +3290,7 @@ socket.on('state',s=>{
   requestMissingAvatarRefs(collectStateAvatarRefs(s));
   state=s;
   // O evento joined pode preceder o primeiro snapshot state no recarregamento.
-  if(liveMicWanted&&!liveMicOn&&!liveMicStarting&&!liveMicRestartTimer&&socket.connected&&liveMicRestartAttempts<4)
+  if(!isTournamentWatcher(s)&&liveMicWanted&&!liveMicOn&&!liveMicStarting&&!liveMicRestartTimer&&socket.connected&&liveMicRestartAttempts<4)
     scheduleLiveMicRestart('state-received',300);
   updateNetworkDiagnosticsUI();
   syncLiveVoiceRelayCapture();
@@ -3443,6 +3457,7 @@ socket.on('gameError',e=>{
 socket.on('leftRoom',data=>{
   window.MauMediaSession?.clear();
   window.MauCamera?.stop();
+  tournamentWatchMode=false;
   leaveRoomPending=false;
   const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
   // V40.59 — leftRoom é uma saída voluntária confirmada: nunca preserva token
@@ -3511,7 +3526,10 @@ socket.on('connect',()=>{
   if(sess?.code&&sess?.token){
     $('#nameInput').value=sess.name||'Jogador';setAvatarSelection(sess.avatar||'macaco');
     savedSessionResumePending=true;
-    if(sess.role==='SPECTATOR')socket.emit('joinSpectator',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
+    if(sess.role==='SPECTATOR'&&sess.tournamentWatch)
+      socket.emit('watchTournamentTable',{tournamentId:sess.tournamentId,stage:sess.stage,tableNumber:sess.tableNumber,
+        token:sess.token,name:sess.name,avatar:sess.avatar});
+    else if(sess.role==='SPECTATOR')socket.emit('joinSpectator',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar});
     else socket.emit('joinRoom',{code:sess.code,token:sess.token,name:sess.name,avatar:sess.avatar,resumeIntent:'saved-session'});
     return;
   }
@@ -3608,6 +3626,9 @@ let spectatorNodesInDrawer=false;
 function syncSpectatorCompactUI(){
   const game=$('#game');if(!game)return;
   const spectator=isSpectatorState(),shell=$('#game .table-shell');
+  const tournamentWatch=typeof isTournamentWatcher==='function'&&isTournamentWatcher();
+  game.classList.toggle('tournament-watch',tournamentWatch);
+  if(tournamentWatch&&spectatorDrawerActive==='chat')spectatorDrawerActive=null;
   const score=$('#scoreboard'),side=$('#sidePanel');
   if(spectator)closePlayerAuxPanels();
   if(spectator&&!spectatorNodesInDrawer){
@@ -3631,6 +3652,7 @@ function syncSpectatorCompactUI(){
   drawer?.setAttribute('aria-hidden',String(!opened));
   for(const key of ['score','events','chat','watchers']){
     const btn=document.querySelector(`[data-spectator-panel="${key}"]`);
+    if(key==='chat')btn?.classList.toggle('hidden',tournamentWatch);
     btn?.classList.toggle('active',opened&&spectatorDrawerActive===key);
     btn?.setAttribute('aria-expanded',String(opened&&spectatorDrawerActive===key));
   }
@@ -3643,7 +3665,8 @@ function syncSpectatorCompactUI(){
   if($('#spectatorDrawerTitle'))$('#spectatorDrawerTitle').textContent=titles[spectatorDrawerActive]||'Informações';
 }
 function openSpectatorDrawer(key,force=false){
-  if(!isSpectatorState()||!['score','events','chat','watchers'].includes(key))return;
+  if(!isSpectatorState()||!['score','events','chat','watchers'].includes(key)||
+    (key!=='score'&&typeof isTournamentWatcher==='function'&&isTournamentWatcher()))return;
   spectatorDrawerActive=!force&&spectatorDrawerActive===key?null:key;
   if(spectatorDrawerActive==='events'||spectatorDrawerActive==='chat'){
     // Mantém os mesmos conteúdos e ações da aba Mesa/Chat já existente.
@@ -3738,6 +3761,10 @@ function render(force=false){
   $('#game').classList.toggle('my-turn',!!myTurnNow);$('#game').classList.toggle('spectator-mode',spectator);
   window.MauControlsLayout?.onGameState?.(state.status,state.code,spectator);
   $('#spectatorModeBanner')?.classList.toggle('hidden',!spectator);
+  const banner=$('#spectatorModeBanner .spectator-mode-copy strong');
+  if(banner)banner.textContent=(typeof isTournamentWatcher==='function'&&isTournamentWatcher())?'OBSERVANDO TORNEIO':'OBSERVADOR';
+  const bannerHint=$('#spectatorModeBanner .spectator-mode-copy small');
+  if(bannerHint)bannerHint.textContent=(typeof isTournamentWatcher==='function'&&isTournamentWatcher())?'Somente mesa e placar · sem participar':'Acompanhando a mesa · cartas privadas protegidas';
   syncSpectatorCompactUI();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
@@ -4138,7 +4165,7 @@ function renderHand(){
 }
 let spectatorSeatRequested=false;
 $('#spectatorSeatBtn')?.addEventListener('click',()=>{
-  if(!isSpectatorState()||spectatorSeatRequested||!socket.connected)return;
+  if(!isSpectatorState()||isTournamentWatcher()||spectatorSeatRequested||!socket.connected)return;
   if(state?.spectatorSeat && !state.spectatorSeat.canRequest)return;
   socket.emit('requestSpectatorSeat');
 });
@@ -4162,6 +4189,9 @@ function renderSpectatorLivePanel(){
   $('#spectatorLiveRound').textContent=`${state.round}/${state.rounds}`;
   $('#spectatorLiveWatching').textContent=state.spectatorCount||0;
   const seatBtn=$('#spectatorSeatBtn'),seatNote=$('#spectatorSeatNote');
+  if(isTournamentWatcher()){
+    seatBtn?.classList.add('hidden');seatNote?.classList.add('hidden');
+  }else{
   // Desde a Etapa 2 o servidor é a única fonte de vagas e posição na fila.
   // A indicação vem no estado do observador e é recuperada ao reconectar.
   const seat=state.spectatorSeat;
@@ -4190,6 +4220,7 @@ function renderSpectatorLivePanel(){
       : available>0 ? `${vacancy} · entre no intervalo${waiting?` · ${waiting} na fila`:''}`
       : 'Sem vagas: cadeiras e convites reservados';
     seatNote.title=seat?.message||'O servidor confere novamente as vagas quando a rodada terminar.';
+  }
   }
   const people=$('#spectatorPeople');
   if(people){

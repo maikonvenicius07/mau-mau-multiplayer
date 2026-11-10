@@ -112,8 +112,25 @@
             setTimeout(()=>{join.disabled=false;},2500);
           });card.append(join);
         }else{
-          const note=document.createElement('p');note.className='tournament-note';
-          note.textContent=game?.created?'Mesa em andamento.':'Aguardando entrada dos participantes sorteados.';card.append(note);
+          const live=game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
+          if(live){
+            const watch=document.createElement('button');watch.type='button';
+            watch.className='tournament-watch-table';watch.textContent='👁️ ASSISTIR PARTIDA';
+            watch.addEventListener('click',()=>{
+              if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para assistir à mesa.';return;}
+              watch.disabled=true;message.textContent='Entrando como observador...';
+              socket.emit('watchTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number});
+              setTimeout(()=>{watch.disabled=false;},2500);
+            });
+            card.append(watch);
+            const watchers=document.createElement('small');watchers.className='tournament-watch-count';
+            watchers.textContent=`👁️ ${Number(game?.spectatorCount||0)}/${Number(game?.spectatorLimit||5)} assistindo`;
+            card.append(watchers);
+          }else{
+            const note=document.createElement('p');note.className='tournament-note';
+            note.textContent=game?.created?'Mesa aguardando início.':'Aguardando entrada dos participantes sorteados.';
+            card.append(note);
+          }
         }
         tablesList.append(card);
       }
@@ -173,9 +190,12 @@
     finally{setBusy(false);}
   }
   if(typeof socket!=='undefined'){
-    socket.on('joined',data=>{if(data?.source==='tournament'&&dialog.open)dialog.close();});
+    socket.on('joined',data=>{
+      if((data?.source==='tournament'||data?.tournamentWatch)&&dialog.open)dialog.close();
+    });
     socket.on('gameError',data=>{
-      if(dialog.open&&message.textContent==='Conectando à sua mesa...')message.textContent=data?.message||'Não foi possível entrar na mesa.';
+      if(dialog.open&&['Conectando à sua mesa...','Entrando como observador...'].includes(message.textContent))
+        message.textContent=data?.message||'Não foi possível entrar na mesa.';
     });
     socket.on('tournamentTableResume',data=>{
       if(!data?.code)return;

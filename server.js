@@ -836,7 +836,9 @@ app.get('/api/tournament', async(req,res)=>{
       liveTableStatus.set(n,{
         liveStatus:room.status,
         connectedPlayers:room.players.filter(p=>!p.isBot&&p.connected).length,
-        expectedPlayers:room.tournament.rosterKeys.length
+        expectedPlayers:room.tournament.rosterKeys.length,
+        spectatorCount:ensureSpectators(room).filter(s=>s.connected).length,
+        spectatorLimit:MAX_SPECTATORS_PER_ROOM
       });
     }
     const games=Object.fromEntries(displayTables.map(t=>[
@@ -1234,7 +1236,11 @@ function emitRoom(room) {
     emitRoomAvatarAssets(target,room);
     const spectatorState=Engine.roomSpectatorState(room,spectator);
     ensureInviteReservations(room);
-    spectatorState.spectatorSeat=SpectatorSeatAdmission.seatStatus(room,spectator);
+    spectatorState.tournamentSpectator=!!room.tournament;
+    if(room.tournament){
+      spectatorState.roundReview=null; // Nunca enviar mãos reveladas a espectadores do torneio.
+      spectatorState.spectatorSeat={eligible:false,canRequest:false,status:'unavailable'};
+    }else spectatorState.spectatorSeat=SpectatorSeatAdmission.seatStatus(room,spectator);
     StateDelivery.emitState(target,`SPECTATOR:${room.code}:${Number(room.matchSerial||1)}:${spectator.id}`,AvatarWire.leanStateAvatars(spectatorState));
   }
   scheduleBotTurn(room);
@@ -1670,10 +1676,19 @@ function retireReplacedSocket(socketId,{roomCode=null}={}){
   setImmediate(()=>{if(stale.connected)stale.disconnect(true);});
   return true;
 }
+// Os observadores de torneio recebem exclusivamente o estado público da mesa:
+// chat, áudios rápidos e efeitos sociais não chegam a esses sockets.
+function emitRoomSocial(room,event,payload){
+  const excluded=room.tournament?ensureSpectators(room)
+    .filter(s=>s.connected&&s.socketId).map(s=>s.socketId):[];
+  const channel=io.to(room.code);
+  if(excluded.length)channel.except(excluded).emit(event,payload);
+  else channel.emit(event,payload);
+}
 function appendSystemChat(room,text){
   ensureSocial(room);const now=Date.now();
   const message={id:`chat-system-${now}-${Math.random().toString(36).slice(2,8)}`,at:now,playerId:null,name:'Mesa',avatar:'👁️',text:cleanChatText(text),role:'SYSTEM',system:true};
-  room.chat.push(message);if(room.chat.length>60)room.chat.splice(0,room.chat.length-60);io.to(room.code).emit('chatMessage',message);return message;
+  room.chat.push(message);if(room.chat.length>60)room.chat.splice(0,room.chat.length-60);emitRoomSocial(room,'chatMessage',message);return message;
 }
 function removeSpectator(room,spectator,{announce=true}={}){
   ensureSpectators(room);cancelSpectatorReconnectTimer(room.code,spectator.id);
@@ -1688,7 +1703,7 @@ function scheduleSpectatorRemoval(room,spectator){
     spectatorReconnectTimers.delete(key);const liveRoom=rooms.get(room.code);if(!liveRoom)return;
     ensureSpectators(liveRoom);const stale=liveRoom.spectators.find(s=>s.id===spectator.id);
     if(!stale||stale.connected)return;
-    removeSpectator(liveRoom,stale,{announce:true});emitRoom(liveRoom);
+    removeSpectator(liveRoom,stale,{announce:!liveRoom.tournament});emitRoom(liveRoom);
   },runtimeReconnectGraceMs());
   if(typeof timer.unref==='function')timer.unref();spectatorReconnectTimers.set(key,timer);
 }
@@ -2320,7 +2335,7 @@ function detachSocketFromRoom(socket,{emitLeft=false,message=''}={}) {
   const code=socket.data.roomCode,playerId=socket.data.playerId,room=rooms.get(code);
   if(!room){socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;if(emitLeft)socket.emit('leftRoom',{message});return;}
   if(socket.data.role===ROLE_SPECTATOR){
-    const spectator=spectatorForSocket(room,socket);if(spectator)removeSpectator(room,spectator,{announce:true});
+    const spectator=spectatorForSocket(room,socket);if(spectator)removeSpectator(room,spectator,{announce:!room.tournament});
     socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;emitRoom(room);
     if(emitLeft)socket.emit('leftRoom',{message});broadcastPresence();return;
   }
@@ -2442,6 +2457,7 @@ function currentVoiceParticipant(socket) {
   const room = rooms.get(socket.data.roomCode);
   if (!room) return null;
   if (socket.data.role === ROLE_SPECTATOR) {
+    if(room.tournament)return null; // Torneio: assistir sem voz, WebRTC ou relay.
     const spectator = spectatorForSocket(room,socket);
     if (!spectator || !spectator.connected || spectator.socketId !== socket.id) return null;
     return {room, actor:{id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}, socket};
@@ -2555,6 +2571,7 @@ io.on('connection', socket => {
       const code=socket.data.roomCode,room=rooms.get(code);
       const actor=room&&socialActorForSocket(room,socket);
       if(!actor || (actor.role!==ROLE_PLAYER && actor.role!==ROLE_SPECTATOR))return answer({ok:false,message:'Entre em uma sala para usar a câmera.'});
+      if(room.tournament&&actor.role===ROLE_SPECTATOR)return answer({ok:false,message:'Observadores de torneio não usam câmera.'});
       const now=Date.now();
       if(now-Number(socket.data.cameraLastTokenRequestAt||0)<2500)return answer({ok:false,message:'Aguarde antes de reconectar a câmera.'});
       socket.data.cameraLastTokenRequestAt=now;
@@ -3061,16 +3078,24 @@ io.on('connection', socket => {
     } catch(e){err(socket,e);}
   });
 
-  socket.on('joinSpectator', async payload => {
+  // V40.69.8.4.2: espectadores de torneios compartilham o modo seguro de
+  // observação, mas entram exclusivamente pelo ID de torneio/fase/mesa.
+  async function joinSpectatorSocket(payload,{tournamentWatch=false}={}) {
     let releaseSpectatorSlot=null;
     try{
       const code=InputSafety.cleanRoomCode(payload?.code);
       const room=rooms.get(code);
       if(!room)throw new Error('Sala não encontrada.');ensureSocial(room);
-      if(Number(room.round||0)<=0||room.status==='lobby')throw new Error('O Modo Observador fica disponível depois que a partida começar.');
+      if(!!room.tournament!==tournamentWatch)
+        throw new Error(room.tournament?'Assista pelo painel do torneio.':'Esta não é uma mesa de torneio.');
+      if(Number(room.round||0)<=0||room.status==='lobby'||(tournamentWatch&&room.status==='finished'))
+        throw new Error('Você poderá assistir quando a mesa estiver em andamento.');
       const key=socket.data.auth.playerKey;
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');
+      // Assistir jamais cancela silenciosamente uma cadeira competitiva ativa.
+      if(tournamentWatch&&playerHasActiveRoom(key,code))
+        throw new Error('Saia da partida atual antes de assistir a outra mesa.');
       const token=InputSafety.cleanOpaqueId(payload?.token,160)||crypto.randomUUID();
       let spectator=room.spectators.find(s=>s.token===token||s.playerKey===key);
       if(spectator&&spectator.playerKey!==key)throw new Error('Esta vaga de observador pertence a outra conta.');
@@ -3098,16 +3123,44 @@ io.on('connection', socket => {
       }
       // A posse da conta é validada pela autenticação Socket.IO. Apenas então
       // um pedido recuperado do snapshot pode ser associado à nova sessão.
-      SpectatorSeatAdmission.claimRestoredSeatRequest(room,spectator);
+      if(!tournamentWatch)SpectatorSeatAdmission.claimRestoredSeatRequest(room,spectator);
       removeFromMatchmaking(key,{reason:'Busca encerrada porque você entrou como observador.',notify:true});
       socket.data.roomCode=code;socket.data.playerId=null;socket.data.spectatorId=spectator.id;socket.data.role=ROLE_SPECTATOR;socket.join(code);
       updatePresenceFromSocket(socket,{name:spectator.name,avatar:spectator.avatar});
-      StateDelivery.invalidate(socket);socket.emit('joined',{code,spectatorId:spectator.id,token:spectator.token,role:ROLE_SPECTATOR});
-      emitChatHistory(socket,room);
-      if(firstJoin)appendSystemChat(room,`👁️ ${spectator.name} entrou como observador.`);
+      StateDelivery.invalidate(socket);
+      socket.emit('joined',{code,spectatorId:spectator.id,token:spectator.token,role:ROLE_SPECTATOR,
+        tournamentWatch,tournamentId:room.tournament?.id||null,
+        stage:room.tournament?.phase||null,tableNumber:room.tournament?.tableNumber||null});
+      if(!tournamentWatch)emitChatHistory(socket,room);
+      if(firstJoin&&!tournamentWatch)appendSystemChat(room,`👁️ ${spectator.name} entrou como observador.`);
       emitRoom(room);broadcastPresence();
     }catch(e){err(socket,e);}
     finally{if(releaseSpectatorSlot)releaseSpectatorSlot();}
+  }
+  socket.on('joinSpectator',payload=>joinSpectatorSocket(payload));
+
+  socket.on('watchTournamentTable',async payload=>{
+    try{
+      if(!await tournamentBracketReady)throw new Error('Mesas do torneio temporariamente indisponíveis.');
+      const id=String(payload?.tournamentId||'');
+      const stage=String(payload?.stage||'');
+      const tableNumber=Number(payload?.tableNumber);
+      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!['qualifier','quarter','semi','final'].includes(stage)
+        ||!Number.isInteger(tableNumber)||tableNumber<1)
+        throw new Error('Mesa do torneio inválida.');
+      const cup=await tournamentCatalog.get(id);
+      if(!cup||cup.status!=='closed')throw new Error('Torneio indisponível para observação.');
+      const bracket=await tournamentBracket.summary(id,await tournamentDraw.get(id));
+      if(bracket.champion||stage!==bracket.currentStage)
+        throw new Error('Esta fase não está mais em andamento.');
+      const binding=stage==='qualifier'?await tournamentGames.get(id,tableNumber):
+        await tournamentBracket.getBinding(id,stage,tableNumber);
+      const room=binding?.roomCode?rooms.get(binding.roomCode):null;
+      if(binding?.result||!room||!room.tournament||room.tournament.id!==id
+        ||room.tournament.phase!==stage||room.tournament.tableNumber!==tableNumber)
+        throw new Error('Esta mesa ainda não começou ou já foi encerrada.');
+      await joinSpectatorSocket({...payload,code:room.code},{tournamentWatch:true});
+    }catch(e){err(socket,e);}
   });
 
   // Entrada de observadores: pedidos em ordem de chegada, somente em mesas comuns.
@@ -3196,7 +3249,7 @@ io.on('connection', socket => {
       }
       if(socket.data.role===ROLE_SPECTATOR){
         const spectator=spectatorForSocket(room,socket);
-        if(spectator)removeSpectator(room,spectator,{announce:true});
+        if(spectator)removeSpectator(room,spectator,{announce:!room.tournament});
         socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
         socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});confirmLeave({keepSeat:false});emitRoom(room);broadcastPresence();return;
       }
@@ -3411,6 +3464,8 @@ io.on('connection', socket => {
       if (!room) throw new Error('Sala não encontrada.');
       const actor = socialActorForSocket(room,socket);
       if (!actor) throw new Error('Participante não disponível para conversar.');
+      if(room.tournament&&actor.role===ROLE_SPECTATOR)
+        throw new Error('O modo observador de torneio não possui chat.');
       ensureSocial(room);
 
       const now = Date.now();
@@ -3432,7 +3487,7 @@ io.on('connection', socket => {
       };
       room.chat.push(message);
       if (room.chat.length > 60) room.chat.splice(0, room.chat.length - 60);
-      io.to(room.code).emit('chatMessage', message);
+      emitRoomSocial(room,'chatMessage',message);
     } catch(e) { err(socket,e); }
   });
 
@@ -3469,7 +3524,7 @@ io.on('connection', socket => {
       if (audio.length < 80 || audio.length > QUICK_AUDIO_MAX_BYTES) throw new Error('O arquivo de áudio ficou grande demais. Grave novamente.');
 
       socket.data.lastVoiceAt = now;
-      io.to(room.code).emit('voiceMessage', {
+      emitRoomSocial(room,'voiceMessage',{
         id: `voice-${now}-${Math.random().toString(36).slice(2,8)}`,
         at: now,
         playerId: player.id,
@@ -3488,13 +3543,15 @@ io.on('connection', socket => {
       if (!room) throw new Error('Sala não encontrada.');
       const actor = socialActorForSocket(room,socket);
       if (!actor) throw new Error('Participante não disponível para enviar efeito.');
+      if(room.tournament&&actor.role===ROLE_SPECTATOR)
+        throw new Error('O modo observador de torneio não possui reações.');
       const effect = InputSafety.cleanEnumToken(payload?.effect,32);
       if (!SOCIAL_EFFECTS.has(effect)) throw new Error('Efeito sonoro inválido.');
 
       const now = Date.now();
       if (socket.data.lastEffectAt && now - socket.data.lastEffectAt < 900) return;
       socket.data.lastEffectAt = now;
-      io.to(room.code).emit('soundEffect', {
+      emitRoomSocial(room,'soundEffect',{
         id: `fx-${now}-${Math.random().toString(36).slice(2,8)}`,
         at: now,
         playerId: actor.id,

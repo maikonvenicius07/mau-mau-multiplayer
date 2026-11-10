@@ -11,6 +11,7 @@
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
   let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false;
   let suspendedRoomCode=''; // Retorno do bfcache no iOS/Safari sem novo evento joined.
+  let tournamentWatchMode=false;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
   // FASE 2B: evita reconstruir o <video> quando LiveKit reapresenta a mesma faixa.
   const videoTrackRefs=new Map(); // identidade da MediaStreamTrack, sem persistência.
@@ -88,7 +89,7 @@
     const button=document.getElementById('liveCameraBtn');if(!button)return;
     const active=!!getState()&&!!code();
     const wasHidden=button.classList.contains('hidden');
-    button.classList.toggle('hidden',!active);
+    button.classList.toggle('hidden',!active||tournamentWatchMode);
     button.disabled=!enabled||busy||!socket?.connected;
     const cameraTransmitting=!!publishing&&!!localCameraTrack()?.mediaStreamTrack&&localCameraTrack().mediaStreamTrack.readyState!=='ended';
     button.classList.toggle('camera-on',cameraTransmitting);
@@ -367,7 +368,7 @@
     closeRoom();updateButton();
   }
   async function toggle(){
-    if(busy||!enabled||!socket?.connected||!code())return;
+    if(busy||!enabled||!socket?.connected||!code()||tournamentWatchMode)return;
     if(isSpectator()){
       spectatorWatchEnabled=!spectatorWatchEnabled;
       if(spectatorWatchEnabled&&watchedIds.size)ensureConnected().catch(()=>notice('Câmeras indisponíveis.'));
@@ -476,7 +477,7 @@
     }
   }
   function onPresence(payload){
-    if(!payload||payload.code!==code())return;
+    if(!payload||payload.code!==code()||tournamentWatchMode)return;
     watchedIds=new Set((payload.playerIds||[]).map(String));
     if(!enabled)return;
     if(watchedIds.size && (!isSpectator()||spectatorWatchEnabled)){
@@ -484,9 +485,11 @@
     }else if(!publishing&&!cameraWanted&&!busy)closeRoom();
     updateButton();
   }
-  function onJoined(newRoomCode,{restoreCamera=false,role='PLAYER'}={}){
+  function onJoined(newRoomCode,{restoreCamera=false,role='PLAYER',tournamentWatch=false}={}){
     stop({keepWanted:true});joinedRoomCode=String(newRoomCode||'');
-    cameraWanted=!!restoreCamera&&role==='PLAYER';restoreAttempts=0;
+    tournamentWatchMode=!!tournamentWatch;
+    if(tournamentWatchMode)spectatorWatchEnabled=false;
+    cameraWanted=!tournamentWatchMode&&!!restoreCamera&&role==='PLAYER';restoreAttempts=0;
     if(socket?.connected)socket.emit('cameraPresenceRequest');
     updateButton();
     if(cameraWanted)scheduleRestore(450);
