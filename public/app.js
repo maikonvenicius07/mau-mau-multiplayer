@@ -2460,8 +2460,20 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
   try{
     // Solicita a captura NO MESMO gesto do clique; esperar o fetch do TURN antes
     // do getUserMedia faz alguns navegadores móveis perderem a ativação do usuário.
-    const [,stream]=await Promise.all([loadLiveVoiceRtcConfig(),navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints())]);
-    if(!stream.getAudioTracks().some(track=>track.readyState!=='ended')){stream.getTracks().forEach(track=>track.stop());throw new DOMException('Trilha de áudio indisponível','NotReadableError');}
+    const [configResult,captureResult]=await Promise.allSettled([
+      loadLiveVoiceRtcConfig(),navigator.mediaDevices.getUserMedia(liveVoiceAudioConstraints())
+    ]);
+    // Se o carregamento da configuração falhar depois da captura, getUserMedia
+    // já pode ter ligado o microfone. Liberar a faixa impede LED/microfone preso.
+    const stream=captureResult.status==='fulfilled'?captureResult.value:null;
+    if(configResult.status==='rejected'||captureResult.status==='rejected'){
+      try{stream?.getTracks?.().forEach(track=>track.stop())}catch{}
+      throw captureResult.status==='rejected'?captureResult.reason:configResult.reason;
+    }
+    if(!stream?.getAudioTracks?.().some(track=>track.readyState!=='ended')){
+      try{stream?.getTracks?.().forEach(track=>track.stop())}catch{}
+      throw new DOMException('Trilha de áudio indisponível','NotReadableError');
+    }
     if(captureId!==liveMicCaptureRequestId||!state||!socket.connected||!liveMicWanted){stream.getTracks().forEach(x=>x.stop());return;}
     liveMicStream=stream;liveMicSessionId=liveVoiceSession();liveMicOn=true;liveMicRestartAttempts=0;clearLiveMicRestartTimer();
     if(typeof window!=='undefined')window.MauMediaSession?.ready('mic');
@@ -2481,6 +2493,9 @@ async function startLiveMic({recovery=false,reason='manual'}={}){
   }catch(e){
     // Uma tentativa antiga não pode desligar a sessão mais nova nem reiniciar o microfone.
     if(captureId!==liveMicCaptureRequestId)return;
+    // A falha pode ocorrer após a captura e antes de anunciar a sessão.
+    // Nesse caso também devemos liberar qualquer track ainda adquirida.
+    try{liveMicStream?.getTracks?.().forEach(track=>{track.onended=null;track.stop()})}catch{}
     liveMicOn=false;liveMicSessionId=null;liveMicStream=null;
     const denied=['NotAllowedError','SecurityError'].includes(String(e?.name||''));
     const unavailable=['NotFoundError','NotReadableError','OverconstrainedError'].includes(String(e?.name||''));

@@ -73,7 +73,7 @@ function makeCamera(){
   const track={id:'v1',readyState:'live',getSettings:()=>({facingMode:'user'}),addEventListener(){}};
   const published={mediaStreamTrack:track};
   const sdk={Track:{Source:{Camera:'camera'},Kind:{Video:'video'}},
-    RoomEvent:{TrackSubscribed:'sub',TrackUnsubscribed:'unsub',ParticipantDisconnected:'gone',Disconnected:'disconnected'},
+    RoomEvent:{TrackSubscribed:'sub',TrackUnsubscribed:'unsub',ParticipantDisconnected:'gone',Disconnected:'disconnected',Reconnected:'reconnected'},
     Room:class{
       constructor(){created++;this.state='disconnected';this.handlers=new Map();currentRoom=this;
         this.localParticipant={getTrackPublication:()=>enabled?{track:published}:null,
@@ -93,7 +93,8 @@ function makeCamera(){
     timeout(){return{emit(_event,_request,ack){ack(null,{ok:true,url:'wss://local.invalid',token:'mock'})}}}};
   const state={code:'ROOM-A',viewerRole:'PLAYER',me:{id:'me',role:'PLAYER'},players:[
     {id:'me',connected:true},{id:'other',connected:true}]};
-  const win={LivekitClient:sdk,innerWidth:500,MauCameraFloating:{reclamp(){}},addEventListener(){},
+  const pageEvents=new Map();
+  const win={LivekitClient:sdk,innerWidth:500,MauCameraFloating:{reclamp(){}},addEventListener(kind,fn){pageEvents.set(kind,fn)},
     matchMedia:()=>({matches:true}),MauMediaSession:{setDesired(...args){wanted.push(args)},
       failed(...args){blocked.push(args)},ready(...args){success.push(args)}}};
   let tasks=[],tid=0;
@@ -109,6 +110,7 @@ function makeCamera(){
     Promise,Set,Map,String,Number,Date});
   return {api:win.MauCamera,els,clock,socket,state,myAvatar,remoteAvatar,track,wanted,blocked,success,sent,
     stats:()=>({created,attempts,enabled,room:currentRoom}),online(value){connected=value},deny(value){failPermission=value},
+    pageEvent(name){assert(pageEvents.has(name),`handler ${name} ausente`);return pageEvents.get(name)({persisted:true})},
     async init(){await win.MauCamera.init(socket,{getState:()=>state,toast:()=>{}})}};
 }
 async function testCamera(){
@@ -134,6 +136,32 @@ async function testCamera(){
   c.stats().room.handlers.get('disconnected')();
   await c.clock.tick();
   assert.equal(c.stats().enabled,true,'LiveKit reconectado e republicado');
+  // O LiveKit pode reconectar sem evento joined do Socket.IO.
+  const announces=c.sent.filter(([event,value])=>event==='cameraPublishState'&&value?.active).length;
+  c.stats().room.handlers.get('reconnected')();
+  assert.equal(c.sent.filter(([event,value])=>event==='cameraPublishState'&&value?.active).length,announces+1,
+    'LiveKit reconnected reafirma publicação com trilha ativa');
+  // Safari/iOS: restauração do bfcache não dispara joined quando o socket permaneceu aberto.
+  c.pageEvent('pagehide');
+  assert.equal(c.stats().enabled,false,'pagehide libera câmera e LiveKit');
+  const beforePageRestore=c.stats().attempts;
+  c.pageEvent('pageshow');
+  await c.clock.tick();
+  assert.equal(c.stats().enabled,true,'pageshow recupera câmera sem joined adicional');
+  assert.equal(c.stats().attempts,beforePageRestore+1,'somente uma republicação no retorno do bfcache');
+  c.pageEvent('pageshow');
+  await c.clock.tick();
+  assert.equal(c.stats().attempts,beforePageRestore+1,'pageshow repetido não duplica vídeo');
+  c.pageEvent('pagehide');
+  c.online(false);
+  const beforeOfflineReturn=c.stats().attempts;
+  c.pageEvent('pageshow');
+  await c.clock.tick();
+  assert.equal(c.stats().attempts,beforeOfflineReturn,'sem Socket.IO não publica antes de reentrar na sala');
+  c.online(true);
+  c.api.onJoined('ROOM-A',{role:'PLAYER',restoreCamera:true});
+  await c.clock.tick();
+  assert.equal(c.stats().enabled,true,'reentrada posterior restaura câmera após pageshow offline');
   await c.els.liveCameraBtn.click(); // desligamento voluntário
   const count=c.stats().attempts;
   c.api.stop({keepWanted:true});c.api.onJoined('ROOM-A',{role:'PLAYER',restoreCamera:false});
@@ -151,7 +179,7 @@ async function testCamera(){
 
 async function testMicrophone(){
   const received=[],stopped=[],errors=[],issued=[];
-  let sequence=0,denied=false;
+  let sequence=0,denied=false,configFail=false;
   const ctx=vm.createContext({
     window:{MauMediaSession:{ready:kind=>received.push(kind),failed:(...args)=>errors.push(args),setDesired:()=>{}}},
     navigator:{mediaDevices:{getUserMedia(){
@@ -161,7 +189,7 @@ async function testMicrophone(){
     }}},
     socket:{connected:true,id:'local-socket',emit(...parts){issued.push(parts)}},
     state:{me:{id:'p1'}},voiceRecorder:null,
-    liveVoiceSupported:()=>true,loadLiveVoiceRtcConfig:async()=>{},liveVoiceAudioConstraints:()=>({audio:true}),
+    liveVoiceSupported:()=>true,loadLiveVoiceRtcConfig:async()=>{if(configFail)throw new Error('Config indisponível')},liveVoiceAudioConstraints:()=>({audio:true}),
     liveVoiceSession:()=>`voice-session-${++sequence}`,updateLiveMicUI:()=>{},syncLiveVoiceRelayCapture:()=>{},
     clearLiveMicRestartTimer:()=>{},refreshQuickAudioMusicDuck:()=>{},requestUnhealthyInboundLiveVoiceRefresh:()=>{},
     isSpectatorState:()=>false,toast:()=>{},scheduleLiveMicRestart:()=>{},closeOutboundLivePeer:()=>{},
@@ -193,6 +221,16 @@ async function testMicrophone(){
   await vm.runInContext('startLiveMic()',ctx);
   assert.equal(vm.runInContext('liveMicOn',ctx),false,'sem ícone ativo para captura negada');
   assert(errors.some(([kind])=>kind==='mic'),'bloqueio oferece recuperação manual');
+  denied=false;configFail=true;
+  const tracksStoppedBeforeConfigFailure=stopped.length;
+  await vm.runInContext('startLiveMic()',ctx);
+  assert.equal(stopped.length,tracksStoppedBeforeConfigFailure+1,
+    'falha na configuração concorrente deve encerrar getUserMedia já concedido');
+  assert.equal(vm.runInContext('liveMicOn',ctx),false,'configuração com falha não anuncia microfone ativo');
+  configFail=false;
+  await vm.runInContext("startLiveMic({recovery:true,reason:'user-gesture'})",ctx);
+  assert.equal(vm.runInContext('liveMicOn',ctx),true,'novo gesto recupera microfone após falha');
+  vm.runInContext('stopLiveMic({notify:false})',ctx);
 }
 async function testOutboundVoicePeer(){
   let created=0,trackAdds=0;
@@ -236,5 +274,5 @@ async function testOutboundVoicePeer(){
   assert(app.includes('socket.emit(\'liveVoiceJoin\')'));
   assert(app.includes('closeOtherInboundLivePeers(from,key)'));
   await testSession();await testCamera();await testMicrophone();await testOutboundVoicePeer();
-  console.log('✓ Reconexão de mídia: F5, preferências, segurança por sala/conta, publicação, recepção mock, queda, duplicação e bloqueio.');
+  console.log('✓ Reconexão de mídia: F5, bfcache iOS, LiveKit reconnected, tracks liberadas em falhas, reconexão e bloqueio.');
 })().catch(error=>{console.error(error);process.exitCode=1});

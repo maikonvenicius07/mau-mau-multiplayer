@@ -1,5 +1,14 @@
 ## V40.69.6 — Segurança do servidor
 
+## V40.69.7 — Mídia após reconexão (10/11/2026)
+
+- Câmera: restauração ao voltar de uma página suspensa no bfcache (especialmente Safari/iOS), sem exigir outro `joined` quando o socket ainda está conectado.
+- LiveKit: ao evento `Reconnected`, republicação da presença apenas quando existe vídeo local ativo; recuperação da faixa se tiver terminado.
+- Microfone: se a configuração WebRTC falhar após `getUserMedia` ter concedido captura, encerrar a track para evitar microfone preso.
+- Testes de regressão: página suspensa/retomada, LiveKit reconectado, permissão e falha de configuração concorrente.
+- Sem alterações de regras, cartas, placar, interface ou backend. A confirmação da mídia recebida exige homologação entre dois aparelhos reais.
+
+
 - Validação de certificados TLS PostgreSQL por padrão, política centralizada para pools e CA configurável.
 - Limite específico de sinalização WebRTC por conta, com aviso controlado e preservação das chamadas válidas.
 - Quota de torneios por conta com serialização transacional e limite de frequência no endpoint HTTP.

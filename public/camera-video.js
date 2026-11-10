@@ -10,6 +10,7 @@
   let sdkPromise=null, room=null, connecting=null, roomCode='', joinedRoomCode='', publishing=false;
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
   let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false;
+  let suspendedRoomCode=''; // Retorno do bfcache no iOS/Safari sem novo evento joined.
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
   // FASE 2B: evita reconstruir o <video> quando LiveKit reapresenta a mesma faixa.
   const videoTrackRefs=new Map(); // identidade da MediaStreamTrack, sem persistência.
@@ -256,6 +257,17 @@
       newRoom.on(events.ParticipantDisconnected,participant=>{
         const id=playerByIdentity(participant?.identity);if(id)removeVideo(id);
       });
+      // O LiveKit pode recuperar sua própria conexão sem outro evento joined do jogo.
+      // Só consideramos publicação válida com uma trilha local realmente ativa.
+      if(events.Reconnected)newRoom.on(events.Reconnected,()=>{
+        if(room!==newRoom||!socket?.connected)return;
+        const track=localCameraTrack()?.mediaStreamTrack;
+        if(cameraWanted&&!isSpectator()&&(!track||track.readyState==='ended')){
+          publishing=false;updateLocalVideo();updateButton();scheduleRestore(400);
+        }else if(publishing&&track?.readyState==='live'){
+          socket.emit('cameraPublishState',{active:true});updateLocalVideo();updateButton();
+        }
+      });
       newRoom.on(events.Disconnected,()=>{
         if(room===newRoom){
           generation++;room=null;roomCode='';publishing=false;
@@ -348,6 +360,7 @@
     if(old){try{old.disconnect()}catch{}}
   }
   function stop({keepWanted=false}={}){
+    suspendedRoomCode='';
     clearRestoreTimer();restoreDeferred=false;restoreAttempts=0;if(!keepWanted)cameraWanted=false;
     generation++;publishing=false;watchedIds.clear();busy=false;joinedRoomCode='';cameraFacing='user';
     if(socket?.connected)socket.emit('cameraPublishState',{active:false});
@@ -478,6 +491,24 @@
     updateButton();
     if(cameraWanted)scheduleRestore(450);
   }
+  function onPageHide(){
+    // Safari/iOS pode manter a página viva no bfcache, mas encerrar a captura.
+    // Preservamos apenas a intenção e o código confirmado; nunca mantemos tracks.
+    const priorCode=joinedRoomCode;
+    if(!priorCode)return;
+    stop({keepWanted:true});
+    joinedRoomCode=priorCode;
+    suspendedRoomCode=priorCode;
+  }
+  function onPageShow(){
+    // Não publicar em outra sala nem antes de um novo joined se o socket caiu.
+    const priorCode=suspendedRoomCode;
+    if(!priorCode)return;
+    suspendedRoomCode='';
+    if(!socket?.connected||String(getState()?.code||'')!==priorCode)return;
+    socket.emit('cameraPresenceRequest');
+    if(cameraWanted&&!isSpectator())scheduleRestore(450);
+  }
   function onState(){
     const track=localCameraTrack()?.mediaStreamTrack;
     if(publishing&&(!track||track.readyState==='ended')){
@@ -490,7 +521,8 @@
   async function init(sock,options={}){
     socket=sock;getState=options.getState||getState;notice=options.toast||notice;
     socket.on('cameraPresence',onPresence);
-    window.addEventListener('pagehide',stop);
+    window.addEventListener('pagehide',onPageHide);
+    window.addEventListener('pageshow',onPageShow);
     document.getElementById('liveCameraBtn')?.addEventListener('click',toggle);
     document.getElementById('cameraOpponentClose')?.addEventListener('click',()=>closeExpanded(true));
     document.getElementById('cameraOpponentOverlay')?.addEventListener('click',event=>{
