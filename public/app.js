@@ -3996,8 +3996,6 @@ function renderCenter(){
   $('#turnBanner').classList.toggle('reconnect-wait',!!reconnectBannerText());
   $('#suitRequest').classList.toggle('hidden',!state.requestedSuit);if(state.requestedSuit)$('#suitRequest').textContent=`Naipe pedido: ${suitGlyph[state.requestedSuit]} ${suitName[state.requestedSuit]}`;
   $('#sevenPenalty').classList.toggle('hidden',!state.pendingSeven);if(state.pendingSeven)$('#sevenPenalty').textContent=`⚠️ Cadeia de 7: comprar ${state.pendingSeven} ou rebater com outro 7`;
-  const canChooseAfterDraw=state.status==='playing'&&!state.paused&&current?.id===state.me?.id&&!!state.me?.justDrawnCardId;
-  $('#drawChoice').classList.toggle('hidden',!canChooseAfterDraw);
 }
 
 function renderHand(){
