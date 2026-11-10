@@ -26,7 +26,7 @@ const ctx={
   clearClosedSpectatorSeatRequests(){}, processSpectatorSeatRequests(){},
   maybeRecordFinished(){},refreshOfflineRoomExpiry(){},
   emitRoomAvatarAssets(){},ensureSpectators(r){return r.spectators},
-  ensureInviteReservations(){},SpectatorSeatAdmission:{seatStatus(){return {status:'available'}}},
+  ensureInviteReservations(){},SpectatorSeatAdmission:{pruneRestoredSeatRequests(){return 0},seatStatus(){return {status:'available'}}},
   scheduleBotTurn(){},refreshInviteReadiness(){},broadcastPresence(){},setTimeout(){},
   criticalSnapshotSignatures:new Map(),
   roomSnapshotStore:{saveNow(){return Promise.resolve()},queueSave(){}},

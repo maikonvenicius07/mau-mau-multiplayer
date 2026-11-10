@@ -1098,12 +1098,18 @@ function emitRoomAvatarAssets(socket, room, requestedRefs=null) {
 // a vaga só é atribuída a um observador efetivamente conectado.
 function processSpectatorSeatRequests(room){
   if(room.status!=='between-rounds'||room.tournament||!Array.isArray(room.spectatorSeatRequests))return;
+  SpectatorSeatAdmission.pruneRestoredSeatRequests(room);
   const requests=room.spectatorSeatRequests.splice(0);
   const awaitingReconnect=[];
   const promotedKeys=[];
   for(const request of requests){
     const spectator=ensureSpectators(room).find(s=>s.id===request.spectatorId&&s.playerKey===request.playerKey);
-    if(!spectator)continue;
+    if(!spectator){
+      // Após restart, aguarda o observador provar a posse da mesma conta.
+      if(request.spectatorId===null && Number(request.recoveryExpiresAt||0)>Date.now())
+        awaitingReconnect.push(request);
+      continue;
+    }
     if(!spectator.connected||!spectator.socketId){awaitingReconnect.push(request);continue;}
     const target=io.sockets.sockets.get(spectator.socketId);
     if(!target||target.data.role!==ROLE_SPECTATOR||target.data.spectatorId!==spectator.id
@@ -1168,6 +1174,7 @@ function notifySpectatorsSeatAvailability(room){
 // Fase 4A: cada cliente mantém seu próprio último state; a sala continua
 // gerando estados privados separados e preserva todos os efeitos de emitRoom.
 function emitRoom(room) {
+  SpectatorSeatAdmission.pruneRestoredSeatRequests(room);
   clearClosedSpectatorSeatRequests(room);
   if(room.status==='between-rounds'&&Array.isArray(room.spectatorSeatRequests)&&room.spectatorSeatRequests.length)processSpectatorSeatRequests(room);
   maybeRecordFinished(room);
@@ -3051,6 +3058,9 @@ io.on('connection', socket => {
         spectator={id:`s_${crypto.randomUUID()}`,token,playerKey:key,name:cleanPresenceName(payload?.name||socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),socketId:socket.id,connected:true,joinedAt:Date.now(),disconnectedAt:null,role:ROLE_SPECTATOR};
         room.spectators.push(spectator);
       }
+      // A posse da conta é validada pela autenticação Socket.IO. Apenas então
+      // um pedido recuperado do snapshot pode ser associado à nova sessão.
+      SpectatorSeatAdmission.claimRestoredSeatRequest(room,spectator);
       removeFromMatchmaking(key,{reason:'Busca encerrada porque você entrou como observador.',notify:true});
       socket.data.roomCode=code;socket.data.playerId=null;socket.data.spectatorId=spectator.id;socket.data.role=ROLE_SPECTATOR;socket.join(code);
       updatePresenceFromSocket(socket,{name:spectator.name,avatar:spectator.avatar});

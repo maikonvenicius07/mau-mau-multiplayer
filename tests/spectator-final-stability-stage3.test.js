@@ -35,6 +35,7 @@ function scenario({disconnectedFirst=false, reservations=0, playersCount=4}={}){
   }
   const context={
     ROLE_SPECTATOR:'SPECTATOR',ROLE_PLAYER:'PLAYER',
+    SpectatorSeatAdmission:Seats,
     ensureSpectators(r){return r.spectators;},
     ensureInviteReservations(r){return r.inviteReservations;},
     io:{sockets:{sockets}},

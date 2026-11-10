@@ -50,15 +50,18 @@ assert.equal(Seats.seatStatus(r,spectator).queuePosition,1,'Remoção mantém or
 Seats.removeRequestForSpectator(r,'s_abc');
 assert.equal(Seats.seatStatus(r,spectator).queuePosition,null);
 
-// Um pedido temporário NÃO deve ser persistido como se fosse uma identidade
-// válida após reinício do processo Node no Render.
+// A intenção de entrada é persistida apenas como chave de conta, sem token nem sessão.
+// A cadeira só é atribuída depois de a conta autenticada retornar ao observador.
 r=room();
 r.spectatorSeatRequests=[{spectatorId:'s_abc',playerKey:'account-a',at:1000}];
 const snapshot=buildRoomSnapshot(r).snapshot;
 assert.equal(Object.prototype.hasOwnProperty.call(snapshot,'spectatorSeatRequests'),false);
 const restored=restoreRoomSnapshot(snapshot);
 assert(restored,'Snapshot de partida deve continuar restaurável');
-assert.deepEqual(restored.spectatorSeatRequests,[]);
+assert.equal(snapshot.pendingSpectatorSeatRequests.length,1);
+assert.deepEqual(Object.keys(snapshot.pendingSpectatorSeatRequests[0]).sort(),['at','expiresAt','playerKey']);
+assert.equal(restored.spectatorSeatRequests.length,1);
+assert.equal(restored.spectatorSeatRequests[0].spectatorId,null);
 const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
 const part=server.slice(server.indexOf('function processSpectatorSeatRequests(room)'),server.indexOf('\n\nfunction emitRoom(room)'));
 assert(part.includes('awaitingReconnect.push(request)'),'Queda transitória não deve cancelar o pedido');

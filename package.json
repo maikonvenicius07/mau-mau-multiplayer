@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.7",
-  "description": "Mau-Mau Candeias V40.69.7: recuperacao de camera e microfone apos reconexao, com protecao de recursos e retorno do navegador movel.",
+  "version": "40.69.8",
+  "description": "Mau-Mau Candeias V40.69.8: recuperacao segura da fila de espectadores apos reinicio, mantendo validacao de vagas e identidade.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

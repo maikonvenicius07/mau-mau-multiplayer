@@ -61,4 +61,63 @@ function removeRequestForSpectator(room, spectatorId) {
   room.spectatorSeatRequests = room.spectatorSeatRequests.filter(x => x.spectatorId !== spectatorId);
 }
 
-module.exports = { MAX_SEATS, countAvailableSeats, seatRequests, isEligibleRound, seatStatus, removeRequestForSpectator };
+// A fila fica vinculada à conta autenticada, nunca ao socket nem ao token.
+// Durante um restart, não são restaurados espectadores nem credenciais; o pedido
+// pode ser reivindicado somente depois de a conta voltar à mesma sala.
+const RESTORED_REQUEST_GRACE_MS = 2 * 60 * 1000;
+function persistableSeatRequests(room, now=Date.now()) {
+  if (!isEligibleRound(room)) return [];
+  const seen=new Set();
+  return seatRequests(room).filter(r=>{
+    if (!r || typeof r.playerKey!=='string' || !r.playerKey || r.playerKey.length>256) return false;
+    if(seen.has(r.playerKey))return false;
+    if(room.players.some(p=>!p.isBot&&p.playerKey===r.playerKey))return false;
+    if(Number(r.recoveryExpiresAt||0)>0 && r.recoveryExpiresAt<=now)return false;
+    seen.add(r.playerKey);return true;
+  }).slice(0,MAX_SEATS).map(r=>({
+    playerKey:r.playerKey,
+    at:Number.isFinite(Number(r.at)) ? Number(r.at) : now,
+    expiresAt:Number(r.recoveryExpiresAt||0)>0 ? Number(r.recoveryExpiresAt) : now+RESTORED_REQUEST_GRACE_MS,
+  }));
+}
+function restoreSeatRequests(room, snapshot, now=Date.now()) {
+  if(!isEligibleRound(room))return [];
+  const savedAt=Number(snapshot?.savedAt||0);
+  if(savedAt<=0 || now-savedAt>RESTORED_REQUEST_GRACE_MS || savedAt-now>60000)return [];
+  const seen=new Set();
+  return (Array.isArray(snapshot.pendingSpectatorSeatRequests)?snapshot.pendingSpectatorSeatRequests:[])
+    .filter(r=>{
+      if(!r || typeof r.playerKey!=='string' || !r.playerKey || r.playerKey.length>256)return false;
+      if(seen.has(r.playerKey) || room.players.some(p=>!p.isBot&&p.playerKey===r.playerKey))return false;
+      if(!Number.isFinite(Number(r.expiresAt))||Number(r.expiresAt)<=now)return false;
+      seen.add(r.playerKey);return true;
+    }).slice(0,MAX_SEATS).map(r=>({
+      spectatorId:null,playerKey:r.playerKey,
+      at:Number.isFinite(Number(r.at))?Number(r.at):now,
+      recoveryExpiresAt:Math.min(Number(r.expiresAt),now+RESTORED_REQUEST_GRACE_MS),
+    }));
+}
+function pruneRestoredSeatRequests(room,now=Date.now()){
+  if(!Array.isArray(room?.spectatorSeatRequests))return 0;
+  const before=room.spectatorSeatRequests.length;
+  room.spectatorSeatRequests=room.spectatorSeatRequests.filter(r=>
+    r && (!r.recoveryExpiresAt || Number(r.recoveryExpiresAt)>now));
+  return before-room.spectatorSeatRequests.length;
+}
+function claimRestoredSeatRequest(room,spectator,now=Date.now()){
+  if(!isEligibleRound(room)||!spectator?.id||!spectator?.playerKey)return false;
+  pruneRestoredSeatRequests(room,now);
+  const req=seatRequests(room).find(r=>
+    r.spectatorId===null && r.playerKey===spectator.playerKey &&
+    Number(r.recoveryExpiresAt||0)>now);
+  if(!req)return false;
+  req.spectatorId=spectator.id;
+  delete req.recoveryExpiresAt;
+  return true;
+}
+
+module.exports = {
+  MAX_SEATS, countAvailableSeats, seatRequests, isEligibleRound, seatStatus, removeRequestForSpectator,
+  RESTORED_REQUEST_GRACE_MS,persistableSeatRequests,restoreSeatRequests,
+  pruneRestoredSeatRequests,claimRestoredSeatRequest,
+};

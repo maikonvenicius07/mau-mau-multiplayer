@@ -1,3 +1,11 @@
+## V40.69.8 — Recuperação de pedidos de espectadores (10/11/2026)
+
+- Salva intenções de vaga vinculadas à conta autenticada, sem guardar sessões/tokens de espectadores.
+- Após reinício, permite recuperar o pedido dentro de 2 minutos ao voltar como observador, sem reservar cadeira nem pular validações de capacidade.
+- Mantém privacidade das mãos, proibição em torneios, limites de jogadores, convites reservados e regras das rodadas 1–4.
+- Inclui teste de reinício com concorrência por vaga e diagnóstico somente de leitura para investigar vitórias não contadas no ranking.
+- Não modifica ranking ou dados antigos; problema relatado exige evidência do PostgreSQL/Render para correção segura.
+
 ## V40.69.6 — Segurança do servidor
 
 ## V40.69.7 — Mídia após reconexão (10/11/2026)

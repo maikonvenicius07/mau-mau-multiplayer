@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const Seats = require('../spectator-seat-admission');
 const source = fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
 const from = source.indexOf('function processSpectatorSeatRequests(room){');
 const until = source.indexOf('\n\n// A fila é efêmera:',from);
@@ -30,6 +31,7 @@ function scenario({free=1, disconnectedFirst=false,reserve=0}={}) {
   }
   const ctx={
     ROLE_SPECTATOR:'SPECTATOR',ROLE_PLAYER:'PLAYER',
+    SpectatorSeatAdmission:Seats,
     ensureSpectators(room){return room.spectators;},
     io:{sockets:{sockets}},
     roomHasInviteCapacity(room,key){return room.players.length + [...room.inviteReservations.keys()].filter(k=>k!==key).length < 5;},

@@ -7,6 +7,7 @@ const RankingMode = require('./ranking-mode');
 const InputSafety = require('./input-safety');
 const RetentionPolicy = require('./retention-policy');
 const BotDifficulty = require('./bot-difficulty');
+const SpectatorSeatAdmission = require('./spectator-seat-admission');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
@@ -28,6 +29,7 @@ function buildRoomSnapshot(room) {
   snapshot.savedAt = Date.now();
   snapshot.players = room.players.map(p => ({...p, socketId:null}));
   snapshot.spectators = [];
+  snapshot.pendingSpectatorSeatRequests = SpectatorSeatAdmission.persistableSeatRequests(room);
 
   const avatarAssets = new Map();
   const serialized = JSON.stringify(snapshot, (_key,value) => {
@@ -69,7 +71,9 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   room.botTimer = null;
   room.inviteReservations = new Map();
   room.spectators = [];
-  room.spectatorSeatRequests = []; // pedidos temporários não sobrevivem ao reinício do servidor
+  // Somente as intenções por conta são restauradas, sem token ou sessão de observador.
+  room.spectatorSeatRequests = SpectatorSeatAdmission.restoreSeatRequests(room,snapshot,now);
+  delete room.pendingSpectatorSeatRequests;
   room._presenceSignature = null;
   room.rankingRecording = false;
   // V40.62 — snapshots novos já carregam a categoria congelada. Para uma
