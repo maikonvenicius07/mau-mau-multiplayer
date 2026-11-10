@@ -37,7 +37,7 @@ const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
   assert(server.includes('auth-session-secret-required'),'produção deve reprovar readiness sem AUTH_SESSION_SECRET');
   assert(server.includes('authFromCookieHeaderVerified'),'sessões devem ser comparadas com versão persistida');
   assert(server.includes('disconnectStaleAuthSockets(user.playerKey)'),'troca de senha deve derrubar sockets antigos');
-  assert(server.includes('roomSnapshotStore.saveNow(room)).then(()=>rankingReady'),'resultado final deve persistir antes do ranking');
+  assert(server.includes('roomSnapshotStore.saveNow(room)).then(saved=>') && server.includes('return ensureRankingReady();'),'resultado final deve persistir antes do ranking e recuperar inicialização');
   assert(server.includes('falha ao salvar transição crítica'),'transições críticas devem usar persistência imediata');
 
   // Decisão do usuário: V49.9 NÃO altera a política de logs do observador.

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8",
-  "description": "Mau-Mau Candeias V40.69.8: recuperacao segura da fila de espectadores apos reinicio, mantendo validacao de vagas e identidade.",
+  "version": "40.69.8-rank.1",
+  "description": "Mau-Mau Candeias V40.69.8.1: recuperacao do ranking e reenvio de vitorias pendentes com protecao de revancha.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -8,7 +8,7 @@ const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require('../package.json');
 
-assert.strictEqual(pkg.version,'40.69.8');
+assert.strictEqual(pkg.version,'40.69.8-rank.1');
 assert(html.includes('app.js?v=40.69.2')&&html.includes('styles.css?v=40.69.2'),'cache-busting V40.58 ausente');
 
 // CORS/handshake: não pode voltar ao curinga global.

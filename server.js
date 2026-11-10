@@ -19,6 +19,7 @@ const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
+const { createRetryableInitialization } = require('./ranking-init-retry');
 const { evaluateReadiness, databaseRequired } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
 const RoomGovernance = require('./room-governance');
@@ -279,7 +280,14 @@ const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADM
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
 async function tournamentCanManage(session,id){return !!(session?.playerKey&&(tournamentIsAdmin(session)||await tournamentCatalog.isOwner(id,session.playerKey)));}
-const rankingReady = rankingStore.init().then(()=>{console.log(`[ranking] armazenamento: ${rankingStore.kind}`);return true}).catch(e=>{console.error('[ranking] falha ao iniciar:',e);return false});
+// V40.69.8.1 — falhas transitórias de inicialização não ficam memorizadas para sempre.
+const {ensureReady:ensureRankingReady}=createRetryableInitialization({
+  initialize:()=>rankingStore.init(),
+  cooldownMs:10000,
+  onSuccess:()=>console.log(`[ranking] armazenamento: ${rankingStore.kind}`),
+  onFailure:e=>console.error('[ranking] inicialização indisponível; nova tentativa em até 10 s:',e),
+});
+void ensureRankingReady();
 // V40.69.1 — identidade universal. O playerKey continua sendo a chave canônica do ranking
 // e agora pode ser resolvido por Google, Apple ou e-mail verificado.
 const authIdentityStore = new AuthIdentityStore({pool:appDatabasePool});
@@ -774,7 +782,7 @@ app.get('/health', (_, res) => {
 });
 app.get('/ready', async (_,res)=>{
   res.setHeader('Cache-Control','no-store');
-  const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,roomSnapshotsReady,env:process.env,timeoutMs:2000});
+  const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady:ensureRankingReady(),roomSnapshotsReady,env:process.env,timeoutMs:2000});
   let authOk=await authIdentityReady,authReason=authOk?'ok':'identity-store-init-failed';
   if(authOk){try{authOk=await Promise.race([authIdentityStore.healthCheck(),new Promise(resolve=>setTimeout(()=>resolve(false),2000))]);authReason=authOk?'ok':'identity-store-health-failed';}catch(e){authOk=false;authReason='identity-store-health-failed';}}
   const sessionSecretOk=!DATABASE_REQUIRED||AUTH_SESSION_SECRET_CONFIGURED;
@@ -954,7 +962,7 @@ app.get('/api/ranking', async (req,res)=>{
   try {
     const period=normalizePeriod(req.query.period);
     const mode=normalizeMode(req.query.mode);
-    if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
+    if(!(await ensureRankingReady())) throw new Error('Armazenamento do ranking indisponível.');
     const rows=await rankingStore.getLeaderboard({period,mode,limit:50});
     res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,timezone:'America/Porto_Velho',rows});
   } catch(e) {
@@ -970,7 +978,7 @@ app.get('/api/me/stats', async (req,res)=>{
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta para ver seu perfil.'});
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
-    if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
+    if(!(await ensureRankingReady()))throw new Error('Armazenamento do ranking indisponível.');
     const stats=await rankingStore.getDetailedPlayerStats({playerKey:session.playerKey,period,mode});
     res.setHeader('Cache-Control','private, no-store');
     res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats:{...stats,
@@ -992,7 +1000,7 @@ app.get('/api/players/stats', async (req,res)=>{
     if(!playerKey||playerKey.length>80)return res.status(400).json({ok:false,message:'Jogador inválido.'});
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
-    if(!(await rankingReady))throw new Error('Armazenamento do ranking indisponível.');
+    if(!(await ensureRankingReady()))throw new Error('Armazenamento do ranking indisponível.');
     const stats=await rankingStore.getDetailedPlayerStats({playerKey,period,mode});
     res.json({ok:true,period,mode,seasonName:CURRENT_SEASON_NAME,stats});
   }catch(e){
@@ -1007,7 +1015,7 @@ app.get('/api/profile', async (req,res)=>{
     if(!playerKey) return res.status(400).json({ok:false,message:'Jogador não informado.'});
     const period=normalizePeriod(req.query.period||'season');
     const mode=normalizeMode(req.query.mode);
-    if(!(await rankingReady)) throw new Error('Armazenamento do ranking indisponível.');
+    if(!(await ensureRankingReady())) throw new Error('Armazenamento do ranking indisponível.');
     const stats=await rankingStore.getPlayerStats({playerKey,period,mode});
     res.json({ok:true,period,mode,seasonId:CURRENT_SEASON_ID,seasonName:CURRENT_SEASON_NAME,stats});
   } catch(e) {
@@ -1028,8 +1036,15 @@ function roomCode() {
 
 function maybeRecordFinished(room) {
   if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
-  const record=buildMatchRecord(room);
   const matchSerial=Number(room.matchSerial||1);
+  // O resultado final precisa continuar imutável caso um jogador saia
+  // da mesa enquanto o PostgreSQL estiver temporariamente indisponível.
+  // A identificação da partida evita reutilização na revanche seguinte.
+  const freshRecord=buildMatchRecord(room);
+  const record=room.pendingRankingRecord?.matchId===freshRecord.matchId
+    ?room.pendingRankingRecord
+    :freshRecord;
+  room.pendingRankingRecord=record;
   if(room.tournament){
     room.rankingRecording=true;
     Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>tournamentBracketReady).then(async ok=>{
@@ -1054,7 +1069,10 @@ function maybeRecordFinished(room) {
   room.rankingRecording=true;
   // V49.9 — primeiro persiste o resultado final ainda pendente. Se o processo cair
   // antes do COMMIT do ranking, o boot restaura este snapshot e tenta novamente.
-  Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>rankingReady).then(ready=>{
+  Promise.resolve(roomSnapshotStore.saveNow(room)).then(saved=>{
+    if(saved===false)throw new Error('Snapshot final não persistido; resultado continua pendente.');
+    return ensureRankingReady();
+  }).then(ready=>{
     if(!ready)throw new Error('Armazenamento do ranking indisponível.');
     return rankingStore.recordMatch(record);
   }).then(inserted=>{
@@ -1062,16 +1080,26 @@ function maybeRecordFinished(room) {
       room.rankingRecorded=true;
       room.rankingRecording=false;
       if(inserted) Engine.appendLog(room, `🏆 Vitória registrada no ranking ${record.mode==='official'?'OFICIAL':'TREINO'}.`, 'system');
-      // recordMatch é idempotente por matchId; depois do sucesso o snapshot final
-      // pendente deixa de ser necessário. Uma nova partida na mesma sala é protegida
-      // pelo matchSerial acima.
-      roomSnapshotStore.delete(room.code).catch(e=>console.error('[ranking] falha ao limpar snapshot final',room.code,e?.message||e));
+      // Persistir a confirmação em vez de apagar a chave da sala. A exclusão
+      // bloqueava snapshots de futuras revanches que usam o mesmo room.code.
+      // Snapshots concluídos são descartados ao restaurar no próximo boot.
+      roomSnapshotStore.saveNow(room).catch(e=>console.error('[ranking] falha ao confirmar snapshot final',room.code,e?.message||e));
     }
   }).catch(e=>{
     console.error('[ranking] gravação falhou:',e);
     if(Number(room.matchSerial||1)===matchSerial) room.rankingRecording=false;
   });
 }
+
+// V40.69.8.1 — mesmo sem jogadas/eventos Socket.IO depois do término,
+// uma vitória pendente é reenviada quando a conexão voltar. O matchId é
+// idempotente no PostgreSQL; rankingRecording impede tentativas paralelas.
+const rankingRecoveryTimer=setInterval(()=>{
+  for(const room of rooms.values()){
+    if(room.status==='finished'&&!room.rankingRecorded&&!room.rankingRecording)maybeRecordFinished(room);
+  }
+},15000);
+rankingRecoveryTimer.unref?.();
 
 // V40.52 — imagens personalizadas deixam de viajar dentro de cada estado da sala.
 // O estado usa uma referência curta por conteúdo; o arquivo é enviado uma única vez
@@ -1431,7 +1459,7 @@ function ensureHost(room) {
 }
 
 function replayEligible(room) {
-  return !!(room && room.status==='finished' && room.players.filter(p=>!p.isBot).length>=2 && room.players.every(p=>!p.isBot));
+  return !!(room && room.status==='finished' && room.rankingRecorded && room.players.filter(p=>!p.isBot).length>=2 && room.players.every(p=>!p.isBot));
 }
 
 function maybeStartReplay(room) {
@@ -2603,7 +2631,7 @@ io.on('connection', socket => {
   // presença/convite continuam efêmeros e são calculados no momento da consulta.
   socket.on('requestRecentPlayers', async () => {
     try{
-      if(!(await rankingReady))throw new Error('Histórico de partidas indisponível.');
+      if(!(await ensureRankingReady()))throw new Error('Histórico de partidas indisponível.');
       const rows=await rankingStore.getRecentPlayers({playerKey:socket.data.auth.playerKey,limit:12});
       const players=rows.map(row=>{
         const status=presenceStatusForKey(row.playerKey),rec=presenceFor(row.playerKey);
@@ -3197,6 +3225,7 @@ io.on('connection', socket => {
 
   socket.on('playAgain', () => withRoom(socket,(room,p)=>{
     if(room.tournament)throw new Error('Uma mesa de torneio disputa somente uma partida.');
+    if(room.status==='finished'&&!room.rankingRecorded)throw new Error('Aguardando a confirmação do resultado no ranking. Tente novamente em instantes.');
     if(!replayEligible(room)) throw new Error('Jogar de novo está disponível somente após uma partida entre jogadores humanos.');
     if(p.isBot || !p.connected) throw new Error('Jogador não disponível para continuar.');
     if(!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
