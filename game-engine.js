@@ -570,6 +570,16 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (!card) throw new Error('Carta não encontrada.');
   if (!legalCard(room, card, player)) throw new Error('Essa carta não pode ser jogada agora.');
 
+  // V40.69.8.10.1 — Um clique comum não pode evitar a compra vinculada à
+  // Queima obrigatória. Se a carta normal é idêntica ao topo e o jogador não
+  // dispõe de NENHUMA outra carta legal, a ação é a mesma do botão Queima.
+  // Com outra opção legal na mão, a escolha entre jogada comum e Queima
+  // continua livre; cadeias de 7, continuação e regra desativada também
+  // preservam a validação original de cada ação.
+  if (mustBurnOnNormalPlay(room, player, card)) {
+    return burnMatch(room, playerId, cardId);
+  }
+
   const wasContinuation = room.continuationPlayerId === player.id;
   // V31: uma Queima válida transfere a jogada para quem queimou. Por isso, a
   // segunda carta pode ser especial e deve executar o mesmo efeito da jogada normal.
@@ -1177,6 +1187,14 @@ function finalizeRound(room) {
     const winners = room.players.filter(p => p.score === min);
     log(room, `Fim das 5 rodadas. ${winners.map(p=>p.name).join(' e ')} ${winners.length>1?'empataram':'venceu'} com ${min} ponto(s).`, 'champion');
   }
+}
+
+// Uma Queima é obrigatória para o clique direto apenas quando a própria
+// carta idêntica é a única carta jogável na mão. A decisão pertence ao motor
+// (e, portanto, ao servidor), não ao evento enviado pelo navegador.
+function mustBurnOnNormalPlay(room, player, card) {
+  if (!card || !player || !canBurnMatch(room, player).some(c => c.id === card.id)) return false;
+  return !player.hand.some(other => other.id !== card.id && legalCard(room, other, player));
 }
 
 function canBurnMatch(room, player) {

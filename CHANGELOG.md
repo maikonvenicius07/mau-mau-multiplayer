@@ -1,3 +1,10 @@
+## V40.69.8.10.1 — Queima obrigatória não pode ser contornada por clique direto (11/11/2026)
+
+- O evento `playCard` agora usa o próprio motor para identificar quando a carta normal idêntica ao topo é a única opção legal do jogador. Nessa situação, encaminha a jogada para `burnMatch`, mantendo a continuação e a obrigação existente de comprar uma carta antes de passar.
+- Com outras cartas legais, a Queima continua opcional; cartas especiais, penalidade de 7, continuação em andamento, Queima desativada, ×2 Dupla e Jogada Rápida permanecem nas regras anteriores.
+- Mantida a validação do anúncio Mau-Mau, sem duplicar descartes ou compras. O número interno `40.69.8-rank.10` foi preservado por compatibilidade com os testes legados de versão exata.
+- Testes novos verificam clique direto, botão Queima, compra e passe, diferentes cartas/naipes, exceções e sincronização do estado público/privado.
+
 ## V40.69.8.10 — Auditoria final e estabilidade da verificação de saúde (11/11/2026)
 
 - Conferidos os módulos de servidor, motor de jogo, ranking, reconexão, snapshots, torneios, mídia e interface responsiva. Nenhuma regra de carta ou resultado histórico foi alterado.

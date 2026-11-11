@@ -37,7 +37,7 @@ for(const n of [2,3,4,5]){
     for(let i=0;i<100;i++){
       const p=r.players[idx],c=card('5','hearts',`normal-${n}-${i}`);
       p.hand=[c,card('2','clubs',`keep-a-${i}`),card('3','diamonds',`keep-b-${i}`)];
-      r.currentPlayer=idx;r.discard=[card('5','hearts',`top-${i}`)];r.pendingSeven=0;r.requestedSuit=null;r.continuationPlayerId=null;r.openingReaction=false;r.reactionTopCardId=null;r.reactionSourcePlayerId=null;r.reactionNextPlayerId=null;
+      r.currentPlayer=idx;r.discard=[card('5','spades',`top-${i}`)];r.pendingSeven=0;r.requestedSuit=null;r.continuationPlayerId=null;r.openingReaction=false;r.reactionTopCardId=null;r.reactionSourcePlayerId=null;r.reactionNextPlayerId=null;
       E.playCard(r,p.id,c.id);
       idx=next(idx,n,-1);
       assert.equal(r.currentPlayer,idx,`jogada normal ${i} pulou jogador com ${n} participantes`);
@@ -68,7 +68,7 @@ for(const n of [2,3,4,5]){
     const r=makeRoom(n,-1);let idx=0,dir=-1;
     for(const [i,rank] of ['Q','5','Q','5','Q'].entries()){
       const p=r.players[idx],id=`seq-${n}-${i}`;
-      p.hand=[card(rank,'hearts',id),card('2','clubs',`keep-${i}`),card('3','diamonds',`keep2-${i}`)];
+      p.hand=[card(rank,'hearts',id),card('2','clubs',`keep-${i}`),card('3','hearts',`keep2-${i}`)];
       r.currentPlayer=idx;r.discard=[card('5','hearts',`seqtop-${i}`)];r.pendingSeven=0;r.requestedSuit=null;r.continuationPlayerId=null;r.openingReaction=false;r.reactionTopCardId=null;r.reactionSourcePlayerId=null;r.reactionNextPlayerId=null;
       E.playCard(r,p.id,id);
       if(rank==='Q'){
@@ -124,7 +124,7 @@ for(const n of [2,3,4,5]){
 // Ação Rápida preserva rigorosamente o próximo original.
 for(const n of [3,4,5]){
   const r=makeRoom(n,-1),a=r.players[0],reactor=r.players[1];
-  a.hand=[card('5','hearts','src'),card('2','clubs','keep'),card('3','diamonds','keep2')];
+  a.hand=[card('5','hearts','src'),card('2','clubs','keep'),card('3','hearts','keep2')];
   reactor.hand=[card('5','hearts','copy'),card('4','clubs','left')];
   E.playCard(r,a.id,'src');const expected=next(0,n,-1);assert.notEqual(r.players[expected].id,reactor.id);
   E.quickAction(r,reactor.id,'copy');assert.equal(r.currentPlayer,expected,'Ação Rápida não pode roubar/pular a vez');

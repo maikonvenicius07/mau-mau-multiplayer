@@ -49,6 +49,14 @@ Na regra normal, a Queima com direito a continuação acontece na própria vez d
 
 Depois da primeira ação normal, volta a valer a regra comum: a Queima com continuação fica restrita à própria vez, e a intervenção fora da vez é feita pela Ação Rápida.
 
+Quando uma carta normal idêntica à mesa for a **única carta legal da mão** na própria vez,
+seu descarte será tratado como **Queima obrigatória**, mesmo que o jogador toque
+na carta sem pressionar o botão Queima. Se houver outra carta legal na mão,
+a Queima continua opcional: o toque normal não inicia uma Queima. A obrigação
+é comprar **uma carta antes de passar**, caso não utilize a continuação;
+não se trata de compra automática no instante do descarte. O anúncio de Mau-Mau
+continua obrigatório nos casos já previstos.
+
 Depois da Queima:
 - pode jogar uma segunda carta válida ou passar a vez;
 - a segunda carta pode ser especial e seu efeito vale normalmente;

@@ -72,7 +72,7 @@ for(const n of [2,3,4,5]) {
   const p=r.players[(r.currentPlayer+1)%4];
   p.hand=[card('5','hearts','late'),card('3','clubs','keep')];
   const current=r.players[r.currentPlayer];
-  current.hand=[card('5','hearts','first-normal'),card('9','clubs','keep')];
+  current.hand=[card('5','hearts','first-normal'),card('9','hearts','keep')]; // outra carta legal torna a Queima opcional
   assert(E.canQuickAction(r,p).some(c=>c.id==='late'));
   E.playCard(r,current.id,'first-normal');
   assert.equal(r.openingReaction,false);
