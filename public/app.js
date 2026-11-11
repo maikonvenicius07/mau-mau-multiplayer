@@ -3076,7 +3076,7 @@ $('#chatForm').addEventListener('submit',e=>{
   if(isTournamentWatcher())return;
   const input=$('#chatInput'),text=input.value.trim();
   if(!text)return;
-  socket.emit('chatMessage',{text});input.value='';input.focus();
+  socket.emit('chatMessage',{text});input.value='';focusChatInputWithoutPageJump();
 });
 $$('[data-effect]').forEach(btn=>btn.onclick=()=>{
   if(isTournamentWatcher())return;
@@ -3642,6 +3642,11 @@ function togglePlayerScoreboard(){
   }
   updatePlayerAuxButtons();
 }
+// Evita que o foco do chat desloque a mesa/mão no navegador móvel.
+function focusChatInputWithoutPageJump(){
+  const field=$('#chatInput');if(!field)return;
+  try{field.focus({preventScroll:true});}catch{field.focus();}
+}
 function openPlayerSide(tab='log',focusChat=false){
   if(isSpectatorState())return;
   const desired=tab==='chat'?'chat':'log';
@@ -3659,7 +3664,7 @@ function openPlayerSide(tab='log',focusChat=false){
   updatePlayerAuxButtons();
   if(desired==='chat'){
     unreadChat=0;renderChatBadge();
-    if(focusChat)setTimeout(()=>$('#chatInput')?.focus(),30);
+    if(focusChat)setTimeout(focusChatInputWithoutPageJump,30);
   }
 }
 
@@ -3740,7 +3745,11 @@ function setSideTab(tab,openMobile=false){
     if(isSpectatorState())openSpectatorDrawer(activeSideTab==='chat'?'chat':'events',true);
     else openPlayerSide(activeSideTab==='chat'?'chat':'log',activeSideTab==='chat');
   }
-  if(activeSideTab==='chat'){unreadChat=0;renderChatBadge();if(openMobile)setTimeout(()=>$('#chatInput')?.focus(),30)}
+  if(activeSideTab==='chat'){
+    unreadChat=0;renderChatBadge();
+    // openPlayerSide já agendou o foco no jogador; evita dois focos e saltos no celular.
+    if(openMobile&&isSpectatorState())setTimeout(focusChatInputWithoutPageJump,30);
+  }
   updatePlayerAuxButtons();
 }
 function renderChatBadge(){

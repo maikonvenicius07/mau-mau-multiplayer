@@ -9,7 +9,7 @@
   let socket=null, getState=()=>null, notice=()=>{}, enabled=false;
   let sdkPromise=null, room=null, connecting=null, roomCode='', joinedRoomCode='', publishing=false;
   let watchedIds=new Set(), spectatorWatchEnabled=true, busy=false, generation=0;
-  let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false;
+  let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false,wakeCheckTimer=null;
   let suspendedRoomCode=''; // Retorno do bfcache no iOS/Safari sem novo evento joined.
   let tournamentWatchMode=false;
   const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
@@ -91,7 +91,8 @@
     const wasHidden=button.classList.contains('hidden');
     button.classList.toggle('hidden',!active||tournamentWatchMode);
     button.disabled=!enabled||busy||!socket?.connected;
-    const cameraTransmitting=!!publishing&&!!localCameraTrack()?.mediaStreamTrack&&localCameraTrack().mediaStreamTrack.readyState!=='ended';
+    const cameraTrack=localCameraTrack()?.mediaStreamTrack;
+    const cameraTransmitting=!!publishing&&!!cameraTrack&&cameraTrack.readyState==='live'&&cameraTrack.muted!==true&&cameraTrack.enabled!==false;
     button.classList.toggle('camera-on',cameraTransmitting);
     button.classList.toggle('camera-loading',busy);
     const label=document.getElementById('liveCameraLabel');
@@ -288,6 +289,25 @@
     return connecting;
   }
   function clearRestoreTimer(){if(restoreTimer)clearTimeout(restoreTimer);restoreTimer=null;}
+  function clearWakeCheck(){if(wakeCheckTimer)clearTimeout(wakeCheckTimer);wakeCheckTimer=null;}
+  // A troca de aplicativo no celular pode silenciar uma track sem disparar ended
+  // ou pagehide. Confere a publicação ao voltar, sem tocar em dispositivo desligado.
+  function scheduleWakeCheck(delay=950){
+    if(!cameraWanted||!joinedRoomCode||!socket?.connected||isSpectator()||tournamentWatchMode)return;
+    clearWakeCheck();
+    const seq=generation,expectedCode=joinedRoomCode;
+    wakeCheckTimer=setTimeout(()=>{
+      wakeCheckTimer=null;
+      if(seq!==generation||expectedCode!==joinedRoomCode||!cameraWanted||
+         !socket?.connected||isSpectator()||tournamentWatchMode||document.visibilityState==='hidden')return;
+      const track=localCameraTrack()?.mediaStreamTrack;
+      if(publishing&&track&&track.readyState==='live'&&track.muted!==true&&track.enabled!==false){updateButton();return;}
+      // Ícone e presença não podem indicar vídeo ativo quando a captura foi silenciada.
+      publishing=false;
+      socket.emit('cameraPublishState',{active:false});
+      updateLocalVideo();updateButton();scheduleRestore(250);
+    },delay);
+  }
   function scheduleRestore(delay=500){
     if(!cameraWanted||!socket?.connected||!joinedRoomCode||isSpectator()||publishing||restoreTimer)return;
     if(busy){restoreDeferred=true;return;}
@@ -301,6 +321,14 @@
     // Quando o SO retira a câmera em segundo plano, não manter ícone verde.
     if(!track.__mauCameraWatch){
       try{Object.defineProperty(track,'__mauCameraWatch',{value:true,configurable:true})}catch{}
+      track.addEventListener?.('mute',()=>{
+        if(localCameraTrack()?.mediaStreamTrack!==track||!publishing)return;
+        updateButton();
+        if(document.visibilityState!=='hidden')scheduleWakeCheck(1200);
+      });
+      track.addEventListener?.('unmute',()=>{
+        if(localCameraTrack()?.mediaStreamTrack===track)updateButton();
+      });
       track.addEventListener?.('ended',()=>{
         if(localCameraTrack()?.mediaStreamTrack!==track||!publishing)return;
         publishing=false;if(socket?.connected)socket.emit('cameraPublishState',{active:false});
@@ -319,7 +347,10 @@
       const current=await ensureConnected();
       if(!current||seq!==generation||!cameraWanted||!socket?.connected)return;
       // Faixa encerrada pelo SO não pode ser reaproveitada como publicação ativa.
-      if(localCameraTrack()?.mediaStreamTrack?.readyState==='ended')
+      if(localCameraTrack()?.mediaStreamTrack && (
+           localCameraTrack().mediaStreamTrack.readyState==='ended'||
+           localCameraTrack().mediaStreamTrack.muted===true||
+           localCameraTrack().mediaStreamTrack.enabled===false))
         await current.localParticipant.setCameraEnabled(false);
       await current.localParticipant.setCameraEnabled(true,captureOptions());
       if(seq!==generation||room!==current||!cameraWanted||!socket?.connected){
@@ -362,7 +393,7 @@
   }
   function stop({keepWanted=false}={}){
     suspendedRoomCode='';
-    clearRestoreTimer();restoreDeferred=false;restoreAttempts=0;if(!keepWanted)cameraWanted=false;
+    clearRestoreTimer();clearWakeCheck();restoreDeferred=false;restoreAttempts=0;if(!keepWanted)cameraWanted=false;
     generation++;publishing=false;watchedIds.clear();busy=false;joinedRoomCode='';cameraFacing='user';
     if(socket?.connected)socket.emit('cameraPublishState',{active:false});
     closeRoom();updateButton();
@@ -506,11 +537,13 @@
   function onPageShow(){
     // Não publicar em outra sala nem antes de um novo joined se o socket caiu.
     const priorCode=suspendedRoomCode;
-    if(!priorCode)return;
-    suspendedRoomCode='';
-    if(!socket?.connected||String(getState()?.code||'')!==priorCode)return;
-    socket.emit('cameraPresenceRequest');
-    if(cameraWanted&&!isSpectator())scheduleRestore(450);
+    if(priorCode){
+      suspendedRoomCode='';
+      if(!socket?.connected||String(getState()?.code||'')!==priorCode)return;
+      socket.emit('cameraPresenceRequest');
+      if(cameraWanted&&!isSpectator())scheduleRestore(450);
+    }
+    scheduleWakeCheck(1000);
   }
   function onState(){
     const track=localCameraTrack()?.mediaStreamTrack;
@@ -526,6 +559,10 @@
     socket.on('cameraPresence',onPresence);
     window.addEventListener('pagehide',onPageHide);
     window.addEventListener('pageshow',onPageShow);
+    document.addEventListener?.('visibilitychange',()=>{
+      if(document.visibilityState==='visible')scheduleWakeCheck(1000);
+      else clearWakeCheck();
+    });
     document.getElementById('liveCameraBtn')?.addEventListener('click',toggle);
     document.getElementById('cameraOpponentClose')?.addEventListener('click',()=>closeExpanded(true));
     document.getElementById('cameraOpponentOverlay')?.addEventListener('click',event=>{

@@ -1,3 +1,13 @@
+## V40.69.8.9 — Retorno da câmera e foco do chat sem deslocar a mesa (11/11/2026)
+
+- Ao voltar de uma página suspensa no celular, o cliente verifica se a track de câmera permaneceu ativa ou foi silenciada (`muted`) sem evento `ended`.
+- Se a câmera era desejada, mas não está transmitindo, o cliente informa ao servidor que não há vídeo ativo e tenta republicar com a proteção de tentativas já existente, sem iniciar câmera de quem a desligou.
+- O indicador da câmera não fica verde quando a captura está silenciada ou desabilitada; listeners de retomada respeitam a sala e a conexão atuais, evitando reativação em sala diferente.
+- O chat do jogador foca o campo com `preventScroll`, sem solicitar que o navegador desloque verticalmente a mão; também evita foco duplicado ao abrir pela mudança de aba.
+- Regras das cartas, dimensão das cartas, ranking, snapshots PostgreSQL, revanche e observador de torneios preservados.
+- Regressão local: 180 testes executados e aprovados; teste Socket.IO não executado neste ambiente por dependência ausente.
+- Em Chromium controlado, nas larguras 320/360/390/430 px, `preventScroll` manteve o deslocamento vertical em 0 px. A transmissão real de câmera e microfone entre celulares exige homologação física.
+
 ## V40.69.8.8 — Renderização incremental da mão de cartas (11/11/2026)
 
 - Cartas já existentes na mão conservam seu nó DOM durante atualizações da partida; a interface atualiza as classes de jogabilidade, Queima, Jogada Rápida, Dupla e destaque de compra sem remontar a mão inteira.

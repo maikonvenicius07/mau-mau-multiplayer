@@ -70,7 +70,9 @@ function makeCamera(){
   els.playersRing=element('playersRing');els.playersRing.querySelectorAll=()=>[mySeat,remoteSeat];
   let enabled=false,failPermission=false,created=0,attempts=0;
   let currentRoom;
-  const track={id:'v1',readyState:'live',getSettings:()=>({facingMode:'user'}),addEventListener(){}};
+  const trackListeners=new Map();
+  const track={id:'v1',readyState:'live',enabled:true,muted:false,getSettings:()=>({facingMode:'user'}),
+    addEventListener(kind,fn){trackListeners.set(kind,fn)}};
   const published={mediaStreamTrack:track};
   const sdk={Track:{Source:{Camera:'camera'},Kind:{Video:'video'}},
     RoomEvent:{TrackSubscribed:'sub',TrackUnsubscribed:'unsub',ParticipantDisconnected:'gone',Disconnected:'disconnected',Reconnected:'reconnected'},
@@ -80,7 +82,7 @@ function makeCamera(){
           setCameraEnabled:async on=>{
             attempts++;
             if(on&&failPermission){const err=new Error('Negado');err.name='NotAllowedError';throw err}
-            enabled=on;
+            enabled=on;track.enabled=on;if(on)track.muted=false;
           }};
       }
       on(k,fn){this.handlers.set(k,fn)}
@@ -102,8 +104,9 @@ function makeCamera(){
     const batch=tasks;tasks=[];for(const task of batch)task.fn();
     for(let i=0;i<20;i++)await Promise.resolve();
   },get pending(){return tasks.length}};
-  const document={getElementById:id=>els[id]||null,querySelectorAll:()=>[],createElement:tag=>element(tag),
-    head:{appendChild(){}},addEventListener(){}};
+  const documentEvents=new Map();
+  const document={visibilityState:'visible',getElementById:id=>els[id]||null,querySelectorAll:()=>[],createElement:tag=>element(tag),
+    head:{appendChild(){}},addEventListener(name,fn){documentEvents.set(name,fn)}};
   class MediaStream{constructor(tracks){this.tracks=tracks}}
   vm.runInNewContext(cameraSource,{window:win,document,socket,console,MediaStream,navigator:{userAgent:'iPhone',mediaDevices:{}},
     fetch:async()=>({json:async()=>({enabled:true})}),setTimeout:fn=>clock.set(fn),clearTimeout:id=>clock.clear(id),
@@ -111,6 +114,8 @@ function makeCamera(){
   return {api:win.MauCamera,els,clock,socket,state,myAvatar,remoteAvatar,track,wanted,blocked,success,sent,
     stats:()=>({created,attempts,enabled,room:currentRoom}),online(value){connected=value},deny(value){failPermission=value},
     pageEvent(name){assert(pageEvents.has(name),`handler ${name} ausente`);return pageEvents.get(name)({persisted:true})},
+    visible(value){document.visibilityState=value?'visible':'hidden';documentEvents.get('visibilitychange')?.()},
+    trackEvent(name){trackListeners.get(name)?.()},
     async init(){await win.MauCamera.init(socket,{getState:()=>state,toast:()=>{}})}};
 }
 async function testCamera(){
@@ -175,6 +180,24 @@ async function testCamera(){
   c.deny(false);await c.api.restore({userGesture:true});
   assert.equal(c.stats().enabled,true,'um toque depois da permissão republica vídeo');
   assert(c.success.some(([kind])=>kind==='camera'));
+  // Navegadores móveis podem silenciar a captura sem terminar a track nem
+  // disparar pagehide. O indicador não deve mentir e o retorno tenta recuperar.
+  c.visible(false);c.track.muted=true;c.trackEvent('mute');
+  assert.equal(c.els.liveCameraBtn.classList.contains('camera-on'),false,
+    'vídeo silenciado em segundo plano não aparece como transmissão ativa');
+  assert.equal(c.clock.pending,0,'não solicitar nova captura enquanto a página está oculta');
+  const previousAttempts=c.stats().attempts;
+  c.visible(true);await c.clock.tick(); // check ao voltar: detecta muted
+  assert.equal(c.els.liveCameraBtn.classList.contains('camera-on'),false);
+  await c.clock.tick(); // desativa a track anterior e publica uma nova
+  assert.equal(c.stats().enabled,true,'captura deve ser recuperada ao voltar ao primeiro plano');
+  assert.equal(c.track.muted,false,'nova captura elimina estado de vídeo silenciado no mock');
+  assert.equal(c.stats().attempts,previousAttempts+2,'um desligamento e uma republicação, sem duplicidade');
+  c.pageEvent('pageshow');await c.clock.tick();
+  assert.equal(c.stats().attempts,previousAttempts+2,'pageshow com mídia saudável não reinicia a câmera');
+  await c.els.liveCameraBtn.click();
+  c.visible(false);c.visible(true);await c.clock.tick();
+  assert.equal(c.clock.pending,0,'desligamento voluntário não agenda recuperação da câmera');
 }
 
 async function testMicrophone(){
