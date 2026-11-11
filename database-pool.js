@@ -28,12 +28,20 @@ function createDatabasePoolConfig(databaseUrl,{env=process.env}={}) {
     if(url.searchParams.has(key))throw new Error(`${key} na DATABASE_URL não é suportado: configure PGSSLROOTCERT ou o certificado por variável segura.`);
   }
   const connectionString=urlMode?url.toString():raw;
-  if(mode==='disable')return {connectionString,ssl:false};
+  // Evita espera infinita para adquirir uma conexão com PostgreSQL durante
+  // picos/quedas no Render. Não altera TLS nem capacidade do pool.
+  const connectionTimeoutMillis=8000;
+  // Rede interrompida não pode manter consultas nem inicializações presas.
+  // O PostgreSQL cancela a operação antes do timeout do cliente; snapshots
+  // usam limite ainda menor (SET LOCAL) para liberar a revanche rapidamente.
+  const statement_timeout=55000;
+  const query_timeout=60000;
+  if(mode==='disable')return {connectionString,ssl:false,connectionTimeoutMillis,statement_timeout,query_timeout};
   const caPath=String(env.PGSSLROOTCERT||'').trim();
   const caInline=String(env.DATABASE_SSL_CA||'').trim();
   if(caPath&&caInline)throw new Error('Escolha somente PGSSLROOTCERT ou DATABASE_SSL_CA.');
   const ca=caPath?fs.readFileSync(caPath,'utf8'):(caInline?caInline.replace(/\\n/g,'\n'):null);
-  return {connectionString,ssl:{rejectUnauthorized:true,...(ca?{ca}:{})}};
+  return {connectionString,ssl:{rejectUnauthorized:true,...(ca?{ca}:{})},connectionTimeoutMillis,statement_timeout,query_timeout};
 }
 
 // Um pool por processo; stores independentes podem usar a mesma política TLS.

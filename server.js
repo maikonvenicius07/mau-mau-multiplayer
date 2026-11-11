@@ -298,14 +298,30 @@ const authIdentityStore = new AuthIdentityStore({pool:appDatabasePool});
 const authIdentityReady = authIdentityStore.init().then(()=>{console.log(`[auth] identidades: ${authIdentityStore.kind}`);return true}).catch(e=>{console.error('[auth] falha ao iniciar identidades:',e);return false});
 // V40.53 — snapshots das salas ativas sobrevivem a deploy/restart quando DATABASE_URL existe.
 const roomSnapshotStore = new RoomSnapshotStore({pool:appDatabasePool});
-const roomSnapshotsReady = roomSnapshotStore.init().then(()=>{console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`);return true}).catch(e=>{console.error('[rooms] falha ao iniciar snapshots:',e);return false});
+// V40.69.8.11 — uma falha na inicialização dos snapshots não deve exigir
+// reiniciar o Render. Novas entradas aguardam também a restauração das salas.
+const {ensureReady:ensureRoomSnapshotsInitialized}=createRetryableInitialization({
+  initialize:()=>roomSnapshotStore.init(),
+  cooldownMs:10000,
+  onSuccess:()=>console.log(`[rooms] snapshots: ${roomSnapshotStore.kind}`),
+  onFailure:e=>console.error('[rooms] inicialização dos snapshots indisponível; nova tentativa em até 10 s:',e),
+});
+void ensureRoomSnapshotsInitialized();
+let snapshotsRestored=false;
+let snapshotsRestorePromise=null;
 const DATABASE_REQUIRED = databaseRequired(process.env);
 if(DATABASE_REQUIRED && !String(process.env.DATABASE_URL||'').trim()){
   console.error('[ready] CRÍTICO: DATABASE_URL ausente em ambiente de produção. Ranking e snapshots não podem usar JSON local.');
 }
 async function requireRoomPersistenceReady(){
-  const ready=await roomSnapshotsReady;
+  const ready=await ensureRoomSnapshotsInitialized();
   if(!ready)throw new Error('Persistência das salas indisponível. Tente novamente em instantes.');
+  // Em caso de recuperação tardia do PostgreSQL, primeiro restaurar as salas
+  // antigas, depois autorizar novas salas/alterações duráveis.
+  if(!snapshotsRestored){
+    await restorePersistedRooms();
+    if(!snapshotsRestored)throw new Error('As salas anteriores ainda não puderam ser restauradas. Tente novamente em instantes.');
+  }
 }
 function cleanupRoomResources(room,message='A mesa foi encerrada.'){
   if(!room)return false;
@@ -786,7 +802,7 @@ app.get('/health', (_, res) => {
 });
 app.get('/ready', async (_,res)=>{
   res.setHeader('Cache-Control','no-store');
-  const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady:ensureRankingReady(),roomSnapshotsReady,env:process.env,timeoutMs:2000});
+  const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady:ensureRankingReady(),roomSnapshotsReady:ensureRoomSnapshotsInitialized(),env:process.env,timeoutMs:2000});
   const identity=await probeIdentityReadiness(authIdentityStore,authIdentityReady,2000);
   const authOk=identity.ok,authReason=identity.reason;
   const sessionSecretOk=!DATABASE_REQUIRED||AUTH_SESSION_SECRET_CONFIGURED;
@@ -1095,9 +1111,17 @@ function maybeRecordFinished(room) {
     return;
   }
   if (!record.results.length) {
-    room.rankingRecorded=true;
+    // Não permitir revanche com uma partida marcada como registrada sem
+    // nenhuma linha no histórico! Preserva o resultado pendente e informa a
+    // inconsistência para investigação (sem fabricar ou apagar vitórias).
+    room.rankingRecorded=false;
+    room.rankingRecording=false;
+    room.rankingLastFailureAt=Date.now();
+    room.rankingFailureCount=Math.max(0,Number(room.rankingFailureCount)||0)+1;
+    room.rankingRetryAt=Date.now()+60000;
+    console.error('[ranking] resultado sem participantes elegíveis; registro NÃO confirmado',room.code,record.matchId);
     if(rooms.get(room.code)===room){
-      roomSnapshotStore.saveNow(room).catch(e=>console.error('[ranking] falha ao salvar partida sem resultados',room.code,e?.message||e));
+      Engine.appendLog(room,'⚠️ Resultado pendente: não há participantes identificados para registrar no ranking.','system');
       emitRoom(room);
     }
     return;
@@ -3766,9 +3790,11 @@ function scheduleRestoredPlayerGrace(room,player){
 }
 
 async function restorePersistedRooms(){
-  const ready=await roomSnapshotsReady;if(!ready)return 0;
-  let restored=0;
-  try{
+  if(snapshotsRestored)return 0;
+  if(snapshotsRestorePromise)return snapshotsRestorePromise;
+  snapshotsRestorePromise=(async()=>{
+    const ready=await ensureRoomSnapshotsInitialized();if(!ready)return 0;
+    let restored=0;
     const snapshots=await roomSnapshotStore.loadActive();
     for(const snapshot of snapshots){
       const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:runtimeReconnectGraceMs()});
@@ -3792,17 +3818,31 @@ async function restorePersistedRooms(){
       refreshOfflineRoomExpiry(room);
       roomSnapshotStore.queueSave(room);
     }
-  }catch(e){console.error('[rooms] falha ao restaurar snapshots:',e?.message||e);}
-  if(restored)console.log(`[rooms] ${restored} sala(s) restaurada(s) após reinício.`);
-  return restored;
+    snapshotsRestored=true;
+    if(restored)console.log(`[rooms] ${restored} sala(s) restaurada(s) após reinício.`);
+    return restored;
+  })().catch(e=>{
+    // O servidor continua no ar para verificar prontidão e recuperar sem
+    // reboot. Nenhuma sala nova será admitida até restaurar com sucesso.
+    console.error('[rooms] falha ao restaurar snapshots; recuperação será repetida:',e?.message||e);return 0;
+  })
+    .finally(()=>{snapshotsRestorePromise=null;});
+  return snapshotsRestorePromise;
 }
+
+// Se o banco falhou no boot e voltou depois, recuperar salas automaticamente,
+// mesmo que nenhum jogador tente criar outra mesa nesse intervalo.
+const restoredRoomsRecoveryTimer=setInterval(()=>{
+  if(!snapshotsRestored)void restorePersistedRooms();
+},15000);
+restoredRoomsRecoveryTimer.unref?.();
 
 let shuttingDown=false;
 async function gracefulShutdown(signal){
   if(shuttingDown)return;shuttingDown=true;
   console.log(`[server] ${signal}: salvando ${rooms.size} sala(s) antes de encerrar...`);
   const force=setTimeout(()=>process.exit(1),8000);force.unref?.();
-  try{await roomSnapshotsReady;await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
+  try{await ensureRoomSnapshotsInitialized();await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
   catch(e){console.error('[rooms] erro no snapshot final:',e?.message||e);}
   try{io.close();}catch{}
   server.close(async()=>{

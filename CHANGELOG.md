@@ -1,3 +1,12 @@
+## V40.69.8.11 — Persistência e recuperação das salas (11/11/2026)
+
+- Corrige bloqueio indefinido da fila por sala quando uma gravação de snapshot nunca termina; prazo de 15 s e retentativas limitadas.
+- Mantém revisões monotônicas, proteção contra regravação de estado antigo e tombstones de salas excluídas, inclusive em operações tardias.
+- Operações irreversíveis de abandono/exclusão aguardam confirmação do banco, com limites de conexão/consulta no PostgreSQL.
+- Recupera a inicialização dos snapshots e as salas antigas após indisponibilidade temporária, antes de permitir novas salas; tenta novamente em segundo plano.
+- Não marca como registrada uma partida com zero participantes elegíveis. Preserva estado pendente e informa erro; não inventa vitórias.
+- Regras, Queima V40.69.8.10.1, Jogada Rápida, ranking histórico e interface preservados.
+
 ## V40.69.8.10.1 — Queima obrigatória não pode ser contornada por clique direto (11/11/2026)
 
 - O evento `playCard` agora usa o próprio motor para identificar quando a carta normal idêntica ao topo é a única opção legal do jogador. Nessa situação, encaminha a jogada para `burnMatch`, mantendo a continuação e a obrigação existente de comprar uma carta antes de passar.

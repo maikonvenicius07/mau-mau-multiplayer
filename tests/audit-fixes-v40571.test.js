@@ -8,7 +8,7 @@ const env=fs.readFileSync(path.join(root,'.env.example'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.69.8-rank.10');
+assert.strictEqual(pkg.version,'40.69.8-rank.11');
 assert(html.includes('app.js?v=40.69.2')&&html.includes('styles.css?v=40.69.2'),'cache-busting V40.58.4 ausente');
 
 // Arquivos/configuração recuperados da V40.56/V40.54.1.

@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.10",
-  "description": "Mau-Mau Candeias V40.69.8.10: auditoria final, readiness de autenticação com timeout e avisos de interface sem conflito.",
+  "version": "40.69.8-rank.11",
+  "description": "Mau-Mau Candeias V40.69.8.11: persistência sem bloqueio, filas com prazo, recuperação de snapshots e proteção do ranking.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

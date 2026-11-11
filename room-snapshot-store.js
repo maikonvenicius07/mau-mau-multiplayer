@@ -16,6 +16,15 @@ const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
 const DEFAULT_DEBOUNCE_MS = 250;
 // Retentativas de falhas transitórias sem escrever snapshots antigos sobre estados novos.
 const SNAPSHOT_RETRY_DELAYS_MS = [500,1000,2000,4000,8000,15000];
+// V40.69.8.11: libera a fila se o driver/banco nunca concluir uma chamada.
+// A gravação abandonada ainda pode completar depois: as revisões monotônicas
+// e os tombstones impedem que ela sobrescreva uma versão mais recente.
+const DEFAULT_WRITE_TIMEOUT_MS = 15000;
+function snapshotWriteTimeoutMs(value) {
+  const ms=Number(value);
+  return Number.isFinite(ms)&&ms>=10&&ms<=60000?Math.floor(ms):DEFAULT_WRITE_TIMEOUT_MS;
+}
+
 const MIN_LIFECYCLE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function buildRoomSnapshot(room) {
@@ -258,6 +267,9 @@ class PostgresSnapshotBackend {
     const client=await this.pool.connect();
     try{
       await client.query('BEGIN');
+      // O PostgreSQL cancela consultas travadas no servidor antes do prazo
+      // da fila JS (15 s). Não depende apenas de Promise.race no Node.
+      await client.query('SET LOCAL statement_timeout = 12000');
       // Serializa transações da mesma sala inclusive entre processos/instâncias.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
       const {rows}=await client.query(`
@@ -304,6 +316,7 @@ class PostgresSnapshotBackend {
     const client=await this.pool.connect();
     try{
       await client.query('BEGIN');
+      await client.query('SET LOCAL statement_timeout = 12000');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
       await client.query('DELETE FROM mm_room_snapshots WHERE room_code=$1',[code]);
       await client.query('COMMIT');
@@ -322,6 +335,7 @@ class PostgresSnapshotBackend {
     const client=await this.pool.connect();
     try{
       await client.query('BEGIN');
+      await client.query('SET LOCAL statement_timeout = 12000');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
       await client.query(`
         INSERT INTO mm_room_lifecycle_tombstones(room_code,subject_key,kind,event_at,expires_at)
@@ -387,12 +401,14 @@ function convertStaleMembershipToBot(player){
 }
 
 class RoomSnapshotStore {
-  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=RetentionPolicy.snapshotTtlMs(process.env),debounceMs=DEFAULT_DEBOUNCE_MS,pool=null}={}){
+  constructor({databaseUrl=process.env.DATABASE_URL,filePath=process.env.ROOM_SNAPSHOT_FILE||path.join(__dirname,'data','room-snapshots.json'),ttlMs=RetentionPolicy.snapshotTtlMs(process.env),debounceMs=DEFAULT_DEBOUNCE_MS,pool=null,writeTimeoutMs=process.env.ROOM_SNAPSHOT_WRITE_TIMEOUT_MS,retryDelaysMs=SNAPSHOT_RETRY_DELAYS_MS}={}){
     this.kind=(pool||databaseUrl)?'postgres':'json';
     this.backend=(pool||databaseUrl)?new PostgresSnapshotBackend(databaseUrl,pool):new JsonSnapshotBackend(filePath);
     this.ttlMs=Math.max(5*60*1000,ttlMs);
     this.lifecycleTtlMs=Math.max(MIN_LIFECYCLE_TTL_MS,this.ttlMs*2);
     this.debounceMs=debounceMs;
+    this.writeTimeoutMs=snapshotWriteTimeoutMs(writeTimeoutMs);
+    this.retryDelaysMs=Array.isArray(retryDelaysMs)&&retryDelaysMs.length?retryDelaysMs:SNAPSHOT_RETRY_DELAYS_MS;
     this.pending=new Map();
     this.roomWriteQueues=new Map();
     this.latestSnapshotParts=new Map();
@@ -425,11 +441,42 @@ class RoomSnapshotStore {
     const built=buildRoomSnapshot(room);
     return {...built,assetSignature:assetSignature(built.avatarAssets)};
   }
-  // Uma operação falha não cancela as próximas. Cada código de sala possui
-  // sua própria fila: salas diferentes continuam persistindo em paralelo.
-  enqueueRoomWrite(code,operation){
+  // Mantém a ordem quando o banco responde normalmente. Se uma operação
+  // nunca se resolver, a fila avança após prazo controlado. O trabalho antigo
+  // NÃO é cancelado pelo Promise.race: por isso o backend precisa manter
+  // revisão monotônica e tombstone (PostgreSQL/JSON já fazem essa guarda).
+  enqueueRoomWrite(code,operation,{onTimeout=null}={}){
     const previous=this.roomWriteQueues.get(code)||Promise.resolve();
-    const task=previous.catch(()=>{}).then(operation);
+    const task=previous.catch(()=>{}).then(()=>{
+      // Tombstones/abandono/exclusão possuem efeito irreversível. Não liberar
+      // a espera JS dessas operações antes da confirmação: uma operação tardia
+      // poderia invalidar uma cadeira/sala que o cliente acredita ativa.
+      // O pool PostgreSQL tem limites reais de conexão/consulta para elas.
+      if(typeof onTimeout!=='function')return Promise.resolve().then(operation);
+      return new Promise((resolve,reject)=>{
+      let finished=false;
+      const timer=setTimeout(()=>{
+        if(finished)return;
+        finished=true;
+        const error=new Error(`Snapshot da sala ${code}: gravação excedeu ${this.writeTimeoutMs} ms; nova tentativa controlada.`);
+        error.code='ROOM_SNAPSHOT_WRITE_TIMEOUT';
+        console.error('[rooms] prazo excedido para persistência',code,this.writeTimeoutMs);
+        try{if(typeof onTimeout==='function')onTimeout(error);}catch(e){console.error('[rooms] recuperação de snapshot falhou',code,e?.message||e);}
+        reject(error);
+      },this.writeTimeoutMs);
+      // Os listeners continuam ligados ao trabalho antigo, absorvendo seu
+      // resultado tardio sem lançar rejeições não tratadas.
+      Promise.resolve().then(operation).then(value=>{
+        clearTimeout(timer);
+        if(finished)return;
+        finished=true;resolve(value);
+      },error=>{
+        clearTimeout(timer);
+        if(finished)return;
+        finished=true;reject(error);
+      });
+      });
+    });
     this.roomWriteQueues.set(code,task);
     void task.finally(()=>{
       if(this.roomWriteQueues.get(code)===task)this.roomWriteQueues.delete(code);
@@ -451,7 +498,7 @@ class RoomSnapshotStore {
     const previous=this.snapshotRetries.get(code);
     if(previous?.timer)return; // Uma única espera por sala; não multiplicar temporizadores.
     const attempt=Number(previous?.attempt||0)+1;
-    if(attempt>SNAPSHOT_RETRY_DELAYS_MS.length){
+    if(attempt>this.retryDelaysMs.length){
       console.error('[rooms] snapshot sem confirmação após retentativas limitadas:',code);
       this.snapshotRetries.delete(code);
       this.latestSnapshotParts.delete(code);
@@ -467,9 +514,9 @@ class RoomSnapshotStore {
       const parts=this.latestSnapshotParts.get(code);
       if(!parts){this.clearSnapshotRetry(code);return;}
       const revision=this.nextRevision(code);
-      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision))
+      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision),{onTimeout:()=>this.scheduleSnapshotRetry(code)})
         .catch(error=>console.error('[rooms] retentativa de snapshot falhou',code,error?.message||error));
-    },SNAPSHOT_RETRY_DELAYS_MS[attempt-1]);
+    },this.retryDelaysMs[attempt-1]);
     retry.timer.unref?.();
     this.snapshotRetries.set(code,retry);
   }
@@ -479,9 +526,15 @@ class RoomSnapshotStore {
       const assetsForSave=this.persistedAssetSignatures.get(code)===parts.assetSignature?null:parts.avatarAssets;
       const saved=await this.backend.save(code,parts.snapshot,Date.now()+this.ttlMs,assetsForSave,revision);
       if(saved!==false){
-        if(assetsForSave!==null)this.persistedAssetSignatures.set(code,parts.assetSignature);
-        if(this.latestSnapshotParts.get(code)===parts)this.latestSnapshotParts.delete(code);
-        this.clearSnapshotRetry(code);
+        // Uma escrita antiga pode concluir depois do seu timeout. Nunca
+        // atualizar o cache de assets se outra revisão já foi emitida;
+        // nem cancelar a retentativa do estado novo.
+        if(assetsForSave!==null && this.revisions.get(code)===revision)
+          this.persistedAssetSignatures.set(code,parts.assetSignature);
+        if(this.latestSnapshotParts.get(code)===parts){
+          this.latestSnapshotParts.delete(code);
+          this.clearSnapshotRetry(code);
+        }
       }
       return saved!==false;
     }catch(error){
@@ -503,7 +556,7 @@ class RoomSnapshotStore {
       this.pending.delete(code);
       if(this.isRoomDeleted(code))return;
       const revision=this.nextRevision(code);
-      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision))
+      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision),{onTimeout:()=>this.scheduleSnapshotRetry(code)})
         .catch(e=>console.error('[rooms] falha ao salvar snapshot',code,e?.message||e));
     },this.debounceMs);
     entry.timer.unref?.();
@@ -518,7 +571,7 @@ class RoomSnapshotStore {
     if(!parts.snapshot)return false;
     this.latestSnapshotParts.set(code,parts);
     const revision=this.nextRevision(code);
-    return this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision));
+    return this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision),{onTimeout:()=>this.scheduleSnapshotRetry(code)});
   }
   async markPlayerAbandoned(code,playerKey,playerId,eventAt=Date.now()){
     code=String(code||'');playerKey=String(playerKey||'');playerId=String(playerId||'');
