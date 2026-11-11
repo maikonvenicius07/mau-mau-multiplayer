@@ -1,3 +1,12 @@
+## V40.69.8.6 — Recuperação da revanche após reinício do Render (11/11/2026)
+
+- Salas comuns finalizadas e com resultado confirmado voltam a ser restauradas do snapshot para permitir **JOGAR NOVAMENTE** após deploy, desde que a reserva esteja válida.
+- `flushAll` passa a persistir também as salas finalizadas; conclusão de torneio permanece sem revanche.
+- Retorno por conta autenticada inclui a sala finalizada, e o prazo de reconexão após restauração libera vagas ausentes inclusive no estado `finished`.
+- Teste novo simula gravar, fechar e reabrir o armazenamento, reconectar jogadores, iniciar uma única revanche e contar vitórias em duas partidas sem duplicação; torneios e prazos também verificados.
+- Pacote interno atualizado para `40.69.8-rank.6`. Sem migração de banco e sem alterações de regras, UI, ranking matemático ou mídia.
+- Suíte local: **175 arquivos de teste aprovados**, **0 falhas**; integração Socket.IO não executada pela ausência de dependências no ambiente. Validar PostgreSQL/Render e aparelhos reais antes de considerar homologado.
+
 ## V40.69.8.5.1 — Jogar novamente na mesma sala (11/11/2026)
 
 - Recuperado o fluxo existente `playAgain`: cada jogador humano pode confirmar a revanche **antes** de o registro final no ranking terminar; o servidor aguarda o commit e então verifica automaticamente as confirmações.

@@ -61,9 +61,11 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
   if (!snapshot || snapshot.snapshotVersion !== SNAPSHOT_VERSION) return null;
   if (!snapshot.code || !Array.isArray(snapshot.players) || !snapshot.players.length) return null;
   if (!['lobby','playing','between-rounds','finished'].includes(snapshot.status)) return null;
-  // V49.9 — partida finalizada mas ainda não gravada no ranking pode ser
-  // restaurada apenas para concluir o registro idempotente do resultado.
-  if (snapshot.status === 'finished' && snapshot.rankingRecorded) return null;
+  // V40.69.8.6 — em sala comum, o resultado confirmado não encerra a
+  // associação dos jogadores: eles podem voltar e pedir JOGAR NOVAMENTE.
+  // Torneios finalizados continuam sem revanche (fluxo competitivo separado).
+  // Resultados pendentes em ambos os modos seguem recuperáveis para retry.
+  if (snapshot.status === 'finished' && snapshot.rankingRecorded && snapshot.tournament) return null;
   const room = JSON.parse(JSON.stringify(snapshot));
   delete room.snapshotVersion;
   delete room.savedAt;
@@ -548,7 +550,9 @@ class RoomSnapshotStore {
     return out;
   }
   async flushAll(rooms){
-    const list=[...rooms.values()].filter(r=>r&&r.status!=='finished'&&!this.isRoomDeleted(r.code));
+    // SIGTERM/deploy também precisa confirmar o último voto de revanche de
+    // salas finalizadas. Sem isso, apenas snapshots antigos eram mantidos.
+    const list=[...rooms.values()].filter(r=>r&&!this.isRoomDeleted(r.code)&&!(r.status==='finished'&&r.tournament&&r.rankingRecorded));
     await Promise.all(list.map(r=>this.saveNow(r)));
   }
   async close(){

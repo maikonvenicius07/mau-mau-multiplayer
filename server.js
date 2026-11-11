@@ -1953,7 +1953,9 @@ function recoverablePlayerSeatForKey(playerKey) {
   if(!key)return null;
   let best=null;
   for(const room of rooms.values()){
-    if(!room||room.status==='finished')continue;
+    // Uma sala comum já encerrada ainda tem uma vaga de revanche reservada
+    // após deploy; não recuperar mesas de torneio que já terminaram.
+    if(!room||(room.status==='finished'&&room.tournament))continue;
     const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
     if(!player)continue;
     const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
@@ -3721,7 +3723,9 @@ function scheduleRestoredPlayerGrace(room,player){
   const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
   const timer=setTimeout(async ()=>{
     reconnectTimers.delete(key);
-    const liveRoom=rooms.get(room.code);if(!liveRoom||!['lobby','between-rounds'].includes(liveRoom.status))return;
+    // A revanche restaurada mantém a mesma janela de reconexão da sala.
+    // Não deixar um jogador ausente bloquear os votos para sempre após deploy.
+    const liveRoom=rooms.get(room.code);if(!liveRoom||liveRoom!==room||!['lobby','between-rounds','finished'].includes(liveRoom.status))return;
     const stale=liveRoom.players.find(p=>p.id===player.id);
     if(!stale||stale.connected||stale.isBot)return;
     const leavingName=stale.name;

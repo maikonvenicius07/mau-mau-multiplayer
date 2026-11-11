@@ -24,12 +24,17 @@ const {plainRoomSnapshot,restoreRoomSnapshot}=require('../room-snapshot-store');
   await store.close();
   fs.rmSync(tmp,{recursive:true,force:true});
 
-  // Resultado final pendente pode sobreviver a restart apenas para retry do ranking.
+  // V40.69.8.6 — resultado pendente sobrevive para retry; resultado
+  // confirmado em sala COMUM também sobrevive para permitir revanche.
   const finalRoom={code:'ABC123',status:'finished',rankingRecorded:false,rankingRecording:false,players:[{id:'p1',playerKey:'u_1',isBot:false,host:true,connected:true,hand:[],name:'A',avatar:'macaco'}]};
   const snap=plainRoomSnapshot(finalRoom);
   assert(restoreRoomSnapshot(snap,{now:5000,reconnectGraceMs:60000}),'snapshot final pendente deve ser restaurável para retry');
   snap.rankingRecorded=true;
-  assert.strictEqual(restoreRoomSnapshot(snap,{now:5000,reconnectGraceMs:60000}),null,'snapshot final já gravado não deve voltar');
+  const confirmed=restoreRoomSnapshot(snap,{now:5000,reconnectGraceMs:60000});
+  assert(confirmed&&confirmed.status==='finished','sala comum finalizada deve sobreviver ao deploy para revanche');
+  assert(confirmed.players.every(p=>!p.connected&&p.reconnectEligible),'salas restauradas aguardam reconexão autenticada');
+  snap.tournament={id:'torneio-finalizado'};
+  assert.strictEqual(restoreRoomSnapshot(snap,{now:5000,reconnectGraceMs:60000}),null,'torneio finalizado não pode reabrir após registro');
 
   assert(server.includes("function authIp(req){return String(req.ip"),'rate limit deve usar req.ip com trust proxy');
   assert(server.includes("const UI_VERSION = '49.11'"),'versão visual V49.11 ausente');
