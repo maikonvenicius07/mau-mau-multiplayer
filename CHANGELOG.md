@@ -1,3 +1,12 @@
+## V40.69.8.8 — Renderização incremental da mão de cartas (11/11/2026)
+
+- Cartas já existentes na mão conservam seu nó DOM durante atualizações da partida; a interface atualiza as classes de jogabilidade, Queima, Jogada Rápida, Dupla e destaque de compra sem remontar a mão inteira.
+- Novas cartas são criadas somente quando entram na mão, cartas jogadas são removidas e a ordenação reutiliza os elementos existentes.
+- Foco e rolagem horizontal ficam preservados quando as cartas não mudam; tecla Enter/Espaço não acumula listeners e continua respeitando as permissões atuais.
+- A mão é zerada na troca de sala, partida, papel ou no modo espectador, sem vazar cartas de jogadores.
+- Regras do motor, ranking, persistência PostgreSQL, revanche, câmera e microfone não foram modificados.
+- Incluído teste de regressão sem novas dependências; validação e benchmarks controlados em Chromium devem ser acompanhados de homologação no celular real.
+
 ## V40.69.8.7 — Retentativa segura de snapshots após falhas transitórias (11/11/2026)
 
 - Corrigido o caso em que falha temporária no armazenamento deixava o último snapshot sem nova tentativa de gravação quando ninguém fazia outra ação.

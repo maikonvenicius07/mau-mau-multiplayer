@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.7",
-  "description": "Mau-Mau Candeias V40.69.8.7: retentativas limitadas de snapshots após falhas transitórias, preservando rankings e revanches.",
+  "version": "40.69.8-rank.8",
+  "description": "Mau-Mau Candeias V40.69.8.8: reconciliação eficiente da mão de cartas no celular, mantendo a estabilidade dos snapshots e do ranking.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

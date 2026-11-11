@@ -4091,9 +4091,38 @@ function focusCardWithinHandHorizontally(hand, selector, delayMs) {
   },delayMs);
 }
 
+// V40.69.8.8 — reconciliação da mão por ID: cartas que continuam na mão
+// mantêm o mesmo elemento DOM, foco e posição de rolagem. O servidor continua
+// determinando todas as permissões; estas classes são apenas apresentação.
+function makeHandCardElement(card){
+  const wrap=document.createElement('div');
+  wrap.innerHTML=cardHTML(card,true);
+  const el=wrap.firstElementChild;
+  el.dataset.cardFace=`${card.rank}:${card.suit}`;
+  el.dataset.cardId=String(card.id);
+  if(!previousHandIds.has(card.id))el.classList.add('deal-in');
+  // Instalar o listener uma única vez: a permissão atual é lida de onclick.
+  el.addEventListener('keydown',ev=>{
+    if(el.onclick&&(ev.key==='Enter'||ev.key===' ')){
+      ev.preventDefault();el.click();
+    }
+  });
+  return el;
+}
+function reconcileHandCardPosition(hand,element,index){
+  // Não desanexar cartas já posicionadas: isso evita recomeçar animações,
+  // perder foco ou deslocar horizontalmente a mão a cada evento Socket.IO.
+  if(hand.children[index]!==element)hand.insertBefore(element,hand.children[index]||null);
+}
+let handDomContextKey='';
 function renderHand(){
-  const h=$('#hand');h.innerHTML='';
+  const h=$('#hand');
+  // Outra sala, outra partida ou promoção de espectador precisam de mão nova.
+  if(handDomContextKey!==renderContextKey){
+    h.replaceChildren();previousHandIds=new Set();handDomContextKey=renderContextKey;
+  }
   if(isSpectatorState()){
+    h.replaceChildren();
     previousHandIds=new Set();lastBurnFocusKey='';lastDoubleFocusKey='';
     $('#mauBtn').disabled=true;$('#batendoBtn').disabled=true;$('#passTurnBtn').disabled=true;
     $('#passTurnBtn').classList.remove('hidden');updateHandOverflowHint();
@@ -4114,16 +4143,21 @@ function renderHand(){
     const focusCard=visibleHand.find(card=>pairSet.has(card.id));
     if(focusCard) doubleFocusCardIds.add(focusCard.id);
   });
-  visibleHand.forEach(card=>{
-    const wrap=document.createElement('div');wrap.innerHTML=cardHTML(card,true);const el=wrap.firstElementChild;
-    if(!previousHandIds.has(card.id)) el.classList.add('deal-in');
+  const existingCards=new Map([...h.children].filter(el=>el.dataset.cardId)
+    .map(el=>[el.dataset.cardId,el]));
+  visibleHand.forEach((card,index)=>{
+    const old=existingCards.get(String(card.id));
+    const face=`${card.rank}:${card.suit}`;
+    const el=old?.dataset.cardFace===face?old:makeHandCardElement(card);
     const ok=legal.has(card.id)&&canAct();
     const canBurn=burn.has(card.id)&&socket.connected&&!state.paused&&!state.me.justDrawnCardId;
     const canQuick=quick.has(card.id)&&socket.connected&&!state.paused&&!state.me.justDrawnCardId;
-    el.classList.add(ok?'playable':'disabled');
-    if(canBurn) el.classList.add('burnable');
-    if(canQuick) el.classList.add('quickable');
-    el.dataset.cardId=card.id;
+    el.classList.toggle('playable',ok);
+    el.classList.toggle('disabled',!ok);
+    el.classList.toggle('burnable',canBurn);
+    el.classList.toggle('quickable',canQuick);
+    el.classList.remove('quick-direct','double-available','double-focus-owner','double-mate','burn-and-double');
+    el.onclick=null;
     // Fora da vez (inclusive na abertura), tocar na carta idêntica executa
     // somente Ação Rápida. Na própria vez, tocar executa a jogada comum;
     // o botão de Queima continua oferecendo a continuação especial.
@@ -4136,10 +4170,9 @@ function renderHand(){
     el.setAttribute('aria-label',`${card.rank} de ${suitName[card.suit]||card.suit}${el.onclick?' — tocar para jogar':''}`);
     if(el.onclick){
       el.setAttribute('role','button');el.tabIndex=0;
-      el.addEventListener('keydown',ev=>{
-        if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();el.click()}
-      });
-    }else el.setAttribute('role','img');
+    }else{
+      el.setAttribute('role','img');el.removeAttribute('tabindex');
+    }
     const doublePair=doubleByCard.get(card.id);
     const canDouble=!!(doublePair&&canAct()&&!state.paused&&!state.continuationPlayerId);
     if(canDouble){
@@ -4148,9 +4181,14 @@ function renderHand(){
       else el.classList.add('double-mate');
       if(canBurn) el.classList.add('burn-and-double');
     }
-    if(card.id===state.me.justDrawnCardId)el.style.outline='3px solid #65dc96';
-    h.appendChild(el);
+    el.style.outline=card.id===state.me.justDrawnCardId?'3px solid #65dc96':'';
+    reconcileHandCardPosition(h,el,index);
   });
+  // Remover somente cartas que saíram da mão: nunca limpar o contêiner inteiro.
+  const currentFaces=new Map(visibleHand.map(card=>[String(card.id),`${card.rank}:${card.suit}`]));
+  for(const el of [...h.children]){
+    if(currentFaces.get(el.dataset.cardId)!==el.dataset.cardFace)el.remove();
+  }
   const burnIds=state.me.burnableCardIds||[];
   const burnOpportunity=burnIds.length>0;
   // V40.17: os avisos grandes abaixo dos controles foram removidos para liberar espaço no celular.
