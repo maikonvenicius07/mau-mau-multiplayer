@@ -1301,15 +1301,25 @@ async function loadRanking(){
   if(!body||!mine)return;
   const requestId=++rankingRequestId;
   const period=rankingPeriod,mode=rankingMode,category=rankingCategory;
-  const performance=category==='performance';
+  const performance=category==='performance',skill=category==='skill';
   const header=$('#rankingDialog .ranking-table thead th:last-child');
-  if(header)header.textContent=performance?'Desempenho':'Vitórias';
+  if(header)header.textContent=skill?'Rating / RD':performance?'Desempenho':'Vitórias';
   const method=$('#rankingMethodNote');
-  if(method)method.textContent=performance
-    ?'Índice de 0 a 100: 50 significa resultado esperado para o tamanho da mesa; maior é melhor. Considera partidas, empates e amostras pequenas. Provisórios não lideram.'
+  if(method)method.textContent=skill
+    ?'Rating global Glicko-2: compara a força dos adversários. A classificação usa Rating − 2 × RD. Partidas e evolução correspondem ao período; o rating global não zera.'
+    :performance?'Índice de 0 a 100: 50 significa resultado esperado para o tamanho da mesa; maior é melhor. Considera partidas, empates e amostras pequenas. Provisórios não lideram.'
     :'Vitórias acumuladas das partidas concluídas, sem alterar o histórico.';
+  const description=$('#rankingDescription');
+  if(description)description.textContent=skill?'Habilidade Glicko-2: rating, incerteza RD, evolução e títulos oficiais. Histórico de vitórias preservado.':'Vitórias históricas preservadas. Escolha entre quantidade de vitórias e aproveitamento ajustado.';
+  $('#rankingLeagues')?.classList.toggle('hidden',category!=='wins');
+  const awardsSection=$('#rankingAwards');
+  awardsSection?.classList.toggle('hidden',!skill);
+  if(skill){
+    const awardBody=$('#rankingAwardsBody');
+    if(awardBody)awardBody.textContent=mode==='official'?'Carregando títulos...':'Os títulos são exclusivos de partidas OFICIAIS.';
+  }
   body.innerHTML='<tr><td colspan="3" class="ranking-empty">Carregando ranking...</td></tr>';
-  mine.innerHTML=`<span class="ranking-loading">Consultando ${performance?'seu aproveitamento':'suas vitórias'}...</span>`;
+  mine.innerHTML=`<span class="ranking-loading">Consultando ${skill?'sua habilidade':performance?'seu aproveitamento':'suas vitórias'}...</span>`;
   $('#rankingScopeLabel').textContent=`${rankPeriodLabel[period]} • ${rankModeLabel[mode]} • Temporada 1`;
   try{
     const q=`period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}&category=${encodeURIComponent(category)}`;
@@ -1323,13 +1333,20 @@ async function loadRanking(){
     rankingPlayerRows=Array.isArray(rank.rows)?rank.rows:[];
     const seasonName=rank.seasonName||'Temporada 1';
     $('#rankingScopeLabel').textContent=`${rankPeriodLabel[period]} • ${rankModeLabel[mode]} • ${seasonName}`;
-    if(period==='history'){
+    if(period==='history'&&!skill){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">📚 O histórico começa agora. Ainda não existe temporada encerrada.</td></tr>';
       mine.innerHTML='<div class="ranking-new-player">🏆 A Temporada 1 está em andamento. Quando ela for encerrada, seu resultado será guardado aqui.</div>';
       return;
     }
     if(!rank.rows?.length){
       body.innerHTML='<tr><td colspan="3" class="ranking-empty">Ainda não há partidas concluídas neste ranking.</td></tr>';
+    }else if(skill){
+      body.innerHTML=rank.rows.map((r,i)=>{
+        const provisional=!!r.provisional;
+        const badge=provisional?`<small class="rank-performance-provisional">PROVISÓRIO${Number(r.gamesNeeded)>0?` • faltam ${Number(r.gamesNeeded)} partida(s)`:''}${r.uncertain?' • RD elevado':''}</small>`:'<small class="rank-performance-qualified">CLASSIFICADO</small>';
+        const delta=Number(r.periodDelta)||0;
+        return `<tr class="rank-skill-row ${r.playerKey===permanentPlayerKey()?'ranking-me-row ':''}${provisional?'rank-is-provisional':''}"><td class="rank-pos" data-label="Posição">${provisional?'—':rankMedal(r.rank)}</td><td data-label="Jogador"><button type="button" class="rank-player rank-profile-trigger" data-rank-player-index="${i}" title="Ver perfil de ${esc(r.name)}" aria-label="Ver perfil de ${esc(r.name)}">${avatarHTML(r.avatar,'sm')}<div class="rank-player-copy"><span>${esc(r.name)}</span>${badge}<span class="rank-profile-cta" aria-hidden="true">👤 Ver perfil <span class="rank-profile-chevron">›</span></span></div></button></td><td class="rank-wins rank-skill-metric" data-label="Rating e incerteza"><strong>${Number(r.rating).toFixed(0)}</strong><small>RD ${Number(r.rd).toFixed(0)} · seguro ${Number(r.conservative).toFixed(0)}</small><small>${Number(r.games)||0} partida(s) · ${Number(r.wins)||0} vitória(s)</small><small>Evolução ${delta>=0?'+':''}${delta.toFixed(1)} no período</small></td></tr>`;
+      }).join('');
     }else if(performance){
       body.innerHTML=rank.rows.map((r,i)=>{
         const provisional=!!r.provisional;
@@ -1341,7 +1358,11 @@ async function loadRanking(){
     }
     if(prof.ok&&prof.stats){
       const r=prof.stats;
-      if(performance){
+      if(skill){
+        const qualification=r.provisional?`<em class="rank-performance-provisional">PROVISÓRIO${Number(r.gamesNeeded)>0?` • faltam ${Number(r.gamesNeeded)} partida(s)`:''}${r.uncertain?' • RD elevado':''}</em>`:'<em class="rank-performance-qualified">CLASSIFICADO</em>';
+        const delta=Number(r.periodDelta)||0;
+        mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SUA HABILIDADE</small><strong>${esc(r.name)}</strong><span>${Number(r.games)||0} partida(s) no período • evolução ${delta>=0?'+':''}${delta.toFixed(1)}</span><span>Rating global ${Number(r.rating).toFixed(0)} • RD ${Number(r.rd).toFixed(0)}</span>${qualification}</div><div class="mine-rank">${Number(r.conservative).toFixed(0)}<small>rating conservador</small></div>`;
+      }else if(performance){
         const qualification=r.provisional?`<em class="rank-performance-provisional">PROVISÓRIO • faltam ${Number(r.gamesNeeded)||0} partida(s)</em>`:'<em class="rank-performance-qualified">CLASSIFICADO</em>';
         mine.innerHTML=`<div class="mine-avatar">${avatarHTML(r.avatar,'md')}</div><div><small>SEU APROVEITAMENTO</small><strong>${esc(r.name)}</strong><span>${Number(r.wins)||0} vitórias em ${Number(r.games)||0} partidas • Taxa real ${Number(r.winRate).toFixed(1)}%</span>${qualification}</div><div class="mine-rank">${Number(r.performanceIndex).toFixed(1)}<small>índice (0–100)</small></div>`;
       }else{
@@ -1350,10 +1371,30 @@ async function loadRanking(){
     }else{
       mine.innerHTML='<div class="ranking-new-player">🎯 Você ainda não possui partidas registradas neste período e modalidade.</div>';
     }
+    if(skill && mode==='official')loadRankingAwards(requestId);
   }catch(e){
     if(requestId!==rankingRequestId)return;
     body.innerHTML=`<tr><td colspan="3" class="ranking-empty">${esc(e.message||'Não foi possível carregar o ranking.')}</td></tr>`;
     mine.innerHTML='<div class="ranking-new-player">Tente novamente em alguns instantes.</div>';
+  }
+}
+async function loadRankingAwards(requestId){
+  const el=$('#rankingAwardsBody');
+  if(!el)return;
+  try{
+    const response=await fetch('/api/ranking/awards');
+    const json=await response.json();
+    if(requestId!==rankingRequestId||rankingCategory!=='skill'||rankingMode!=='official')return;
+    if(!json.ok)throw new Error(json.message||'Títulos indisponíveis');
+    el.innerHTML=(json.awards||[]).map(a=>{
+      const w=a.winner;
+      const metric=w?(a.title.includes('Revelação')?` • evolução ${Number(w.gain)>=0?'+':''}${Number(w.gain).toFixed(1)}`:a.title.includes('Consistente')?` • consistência ${Number(w.consistencyScore).toFixed(1)}`:''):'';
+      const details=w?`<strong>${esc(w.name)}</strong><small>${Number(w.games)} partidas • ${Number(w.wins)} vitórias • Rating ${Number(w.rating).toFixed(0)} / RD ${Number(w.rd).toFixed(0)}${metric}</small>`:'<span class="ranking-award-empty">Ainda não há jogador classificado neste período.</span>';
+      return `<div class="ranking-award-card"><span>${esc(a.title)}</span><small>${esc(a.periodLabel)} • mínimo ${Number(a.minimumGames)} partidas</small>${details}</div>`;
+    }).join('');
+  }catch(e){
+    if(requestId!==rankingRequestId)return;
+    el.textContent='Não foi possível consultar os títulos agora. O ranking continua disponível.';
   }
 }
 function openRanking(){
@@ -1361,7 +1402,7 @@ function openRanking(){
   dlg.showModal(); loadRanking();
 }
 $$('[data-rank-category]').forEach(btn=>btn.onclick=()=>{
-  rankingCategory=btn.dataset.rankCategory==='performance'?'performance':'wins';
+  rankingCategory=['performance','skill'].includes(btn.dataset.rankCategory)?btn.dataset.rankCategory:'wins';
   $$('[data-rank-category]').forEach(x=>{const active=x===btn;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
   loadRanking();
 });

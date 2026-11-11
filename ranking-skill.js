@@ -122,7 +122,8 @@ function calculateSkillHistory(matches,{tau=DEFAULT_TAU,maxHistoryRows=DEFAULT_H
       const key=r.playerKey,prior=before.get(key),state=updated.get(key);
       players.set(key,{...state,playerKey:key,name:r.name||players.get(key)?.name||'Jogador',avatar:r.avatar||players.get(key)?.avatar||'macaco'});
       if(!events.has(key))events.set(key,[]);
-      events.get(key).push({at,seasonId:Number(match.seasonId)||1,delta:state.rating-prior.rating,won:!!r.won});
+      events.get(key).push({at,seasonId:Number(match.seasonId)||1,delta:state.rating-prior.rating,won:!!r.won,
+        ratingAfter:state.rating,rdAfter:state.rd});
     }
     ratedMatches++;
   }

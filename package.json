@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.4",
-  "description": "Mau-Mau Candeias V40.69.8.4: motor Glicko-2 multiplayer somente de leitura, histórico de vitórias preservado.",
+  "version": "40.69.8-rank.5",
+  "description": "Mau-Mau Candeias V40.69.8.5: classificação de habilidade e títulos competitivos, preservando histórico de vitórias.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

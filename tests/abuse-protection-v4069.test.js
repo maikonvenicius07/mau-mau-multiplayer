@@ -9,7 +9,7 @@ const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const pkg=JSON.parse(read('package.json'));
 const server=read('server.js');
 
-assert.strictEqual(pkg.version,'40.69.8-rank.4','package.json deve identificar V40.69.3');
+assert.strictEqual(pkg.version,'40.69.8-rank.5','package.json deve identificar V40.69.3');
 assert.strictEqual(Gov.DEFAULT_MAX_ROOMS,10,'V40.69.2 deve usar 10 salas por padrão');
 assert.strictEqual(Abuse.DEFAULT_MAX_SPECTATORS_PER_ROOM,5,'V40.69.2 deve usar 5 observadores por sala');
 assert.strictEqual(Abuse.maxSpectatorsPerRoom({}),5);

@@ -12,7 +12,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const pkg=require(path.join(root,'package.json'));
 
-assert.strictEqual(pkg.version,'40.69.8-rank.4');
+assert.strictEqual(pkg.version,'40.69.8-rank.5');
 assert(html.includes('app.js?v=40.69.2')&&html.includes('styles.css?v=40.69.2'),'cache-busting V40.59 ausente');
 
 function makeRoom(count=4,code='R57'){

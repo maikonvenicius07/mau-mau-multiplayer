@@ -121,7 +121,7 @@ function match(id,position,mode='official',day=10,seasonId=1){
     const html=fs.readFileSync(path.join(__dirname,'..','public','index.html'),'utf8');
     assert(html.includes('data-rank-category="wins"'));
     assert(html.includes('data-rank-category="performance"'));
-    assert(!html.includes('data-rank-category="skill"'),'aba de interface pertence à fase V40.69.8.5');
+    assert(html.includes('data-rank-category="skill"'),'aba de habilidade disponível na V40.69.8.5');
     console.log('✓ V40.69.8.4: Glicko-2 de referência, mesas multiplayer, empates, períodos, deduplicação, persistência, perfis e API.');
   } finally {fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exit(1);});

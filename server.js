@@ -962,6 +962,19 @@ app.post('/api/tournaments/:id/draw', async(req,res)=>{
   }
 });
 
+// Títulos competitivos: somente resultados oficiais já registrados, sem novos writes.
+app.get('/api/ranking/awards', async (_req,res)=>{
+  try{
+    if(!(await ensureRankingReady()))throw new Error('Ranking indisponível.');
+    const awards=await rankingStore.getSkillAwards();
+    res.setHeader('Cache-Control','private, no-store');
+    res.json({ok:true,mode:'official',timezone:'America/Porto_Velho',awards});
+  }catch(e){
+    console.error('[ranking] títulos indisponíveis:',e);
+    res.status(500).json({ok:false,message:'Não foi possível carregar os títulos agora.'});
+  }
+});
+
 app.get('/api/ranking', async (req,res)=>{
   try {
     const period=normalizePeriod(req.query.period);

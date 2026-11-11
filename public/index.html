@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-mobile7-4069843" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-mobile7-4069843-rank845" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -699,7 +699,7 @@
         <p>As máquinas seguem as mesmas regras dos jogadores humanos, inclusive Mau-Mau, cadeia de 7, Queima, Ação Rápida e Carta Dupla.</p>
 
         <h3>🏆 Ranking</h3>
-        <p>O ranking do <strong>MAU-MAU CANDEIAS</strong> conta <strong>somente vitórias</strong>. O modo <strong>👥 OFICIAL</strong> registra apenas partidas entre pessoas; partidas com máquina ficam separadas em <strong>🤖 TREINO</strong>. Os filtros disponíveis são <strong>Hoje, Semana, Mês, Temporada e Histórico</strong>.</p>
+        <p>O ranking do <strong>MAU-MAU CANDEIAS</strong> oferece <strong>Vitórias, Aproveitamento e Habilidade (Glicko-2)</strong>. Somente partidas completas registradas contribuem para as estatísticas. O modo <strong>👥 OFICIAL</strong> registra apenas partidas entre pessoas; partidas com máquina ficam separadas em <strong>🤖 TREINO</strong>. Os filtros disponíveis são <strong>Hoje, Semana, Mês, Temporada e Histórico</strong>.</p>
         <p>A identidade do ranking é a <strong>conta autenticada</strong>: mudar o nome na mesa ou o avatar não cria outro jogador nem separa as vitórias. Empates em número de vitórias ocupam a mesma posição.</p>
       </article>
     </div>
@@ -765,13 +765,14 @@
       <div>
         <div class="eyebrow">CAMPEONATO MAU-MAU CANDEIAS</div>
         <h2>🏆 Ranking</h2>
-        <p id="rankingDescription">Vitórias históricas preservadas. Escolha entre quantidade de vitórias e aproveitamento ajustado.</p>
+        <p id="rankingDescription">Vitórias históricas preservadas. Compare conquistas, aproveitamento e habilidade sem reiniciar os resultados.</p>
       </div>
       <div id="rankingScopeLabel" class="ranking-scope">Hoje • Oficial • Temporada 1</div>
     </div>
     <div class="ranking-category-switch" role="group" aria-label="Tipo de classificação">
       <button type="button" class="active" data-rank-category="wins" aria-pressed="true">🏆 VITÓRIAS</button>
       <button type="button" data-rank-category="performance" aria-pressed="false">🎯 APROVEITAMENTO</button>
+      <button type="button" data-rank-category="skill" aria-pressed="false">👑 HABILIDADE</button>
     </div>
     <p id="rankingMethodNote" class="ranking-method-note" aria-live="polite">Vitórias acumuladas das partidas concluídas.</p>
     <div class="ranking-filters ranking-filters-v408">
@@ -787,7 +788,7 @@
         <button data-rank-period="history">HISTÓRICO</button>
       </div>
     </div>
-    <div class="ranking-leagues" aria-label="Faixas visuais do ranking">
+    <div id="rankingLeagues" class="ranking-leagues" aria-label="Faixas visuais do ranking">
       <div class="ranking-league-card tier-bronze"><span class="ranking-league-icon">🥉</span><strong>Bronze</strong><small>Novato</small></div>
       <div class="ranking-league-card tier-silver"><span class="ranking-league-icon">🥈</span><strong>Prata</strong><small>Competidor</small></div>
       <div class="ranking-league-card tier-gold"><span class="ranking-league-icon">🏆</span><strong>Ouro</strong><small>Mestre</small></div>
@@ -795,6 +796,11 @@
       <div class="ranking-league-card tier-legend"><span class="ranking-league-icon">👑</span><strong>Lenda</strong><small>de Candeias</small></div>
     </div>
     <div id="rankingMine" class="ranking-mine"></div>
+    <section id="rankingAwards" class="ranking-awards hidden" aria-live="polite" aria-label="Premiações competitivas">
+      <h3>🏅 Títulos competitivos</h3>
+      <p>Somente partidas oficiais completas e registradas. Títulos provisórios até encerrar o período.</p>
+      <div id="rankingAwardsBody" class="ranking-awards-grid"></div>
+    </section>
     <button id="profileStatsOpenRanking" type="button" class="ranking-link-btn profile-rank-link">📊 Abrir Meu Perfil</button>
     <div class="ranking-table-wrap">
       <p class="ranking-profile-tip">Toque em <strong>Ver perfil</strong> para consultar as estatísticas do jogador.</p>
@@ -868,7 +874,7 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="media-session.js?v=1-midia-reconexao"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b-restore1-v40697"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845"></script>
   <script src="controls-positioning.js?v=53.12-mobile-left-stack"></script>
   <script src="tournament-dashboard.js?v=51.6"></script>
   <script src="tournament-ui.js?v=51.6-watch-tournament"></script>

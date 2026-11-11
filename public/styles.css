@@ -4943,3 +4943,34 @@ button.bot-primary{
 
 /* V40.69.8.4.2: observação de torneio somente mesa, placar e saída. */
 #game.tournament-watch [data-spectator-panel="chat"],#game.tournament-watch [data-spectator-panel="events"],#game.tournament-watch [data-spectator-panel="watchers"],#game.tournament-watch #chatTabBtn,#game.tournament-watch #chatView,#game.tournament-watch #chatForm,#game.tournament-watch #liveMicBtn,#game.tournament-watch #liveCameraBtn,#game.tournament-watch #mediaRestorePrompt,#game.tournament-watch #quickReactionsWidget,#game.tournament-watch #spectatorSeatBtn,#game.tournament-watch #spectatorSeatNote{display:none!important}
+
+/* V40.69.8.5 — Terceiro ranking e títulos; não afeta mesa, cartas ou placar. */
+.ranking-category-switch{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ranking-category-switch button{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:9px 5px}
+.rank-skill-metric{white-space:normal;min-width:154px}
+.rank-skill-metric strong{display:block;color:#ffe099;font-size:18px}
+.rank-skill-metric small{display:block;font-size:10px;color:#bbd5c7;line-height:1.35;margin-top:3px}
+.ranking-awards{border:1px solid #395e48;background:#10281edc;border-radius:14px;padding:12px;margin:12px 0}
+.ranking-awards h3{margin:0;font-size:15px;color:#f4d182}
+.ranking-awards>p{font-size:11px;color:#aec5b5;margin:6px 0 10px;line-height:1.4}
+.ranking-awards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+.ranking-award-card{border:1px solid #385947;border-radius:11px;padding:9px;background:#0e211b;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ranking-award-card>span:first-child{color:#f8d88a;font-weight:800;font-size:12px}
+.ranking-award-card strong{overflow-wrap:anywhere;color:#fff1c9;font-size:13px}
+.ranking-award-card small{font-size:10px;line-height:1.4;color:#a9c4b4}
+.ranking-award-empty{font-size:11px;color:#c1b9a1}
+@media(max-width:650px){
+  .ranking-category-switch{gap:4px}
+  .ranking-category-switch button{font-size:10px;padding:8px 3px;min-height:42px}
+  .ranking-table .rank-skill-row{grid-template-columns:39px minmax(0,1fr) 112px}
+  .ranking-table .rank-skill-row td:nth-child(3){justify-content:center!important;text-align:center!important}
+  .rank-skill-metric{min-width:0}
+  .rank-skill-metric strong{font-size:15px}
+  .rank-skill-metric small{font-size:9px;overflow-wrap:anywhere}
+  .ranking-awards-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:360px){
+  .ranking-category-switch button{font-size:9px}
+  .ranking-awards-grid{grid-template-columns:1fr}
+  .ranking-table .rank-skill-row{grid-template-columns:36px minmax(0,1fr) 102px}
+}

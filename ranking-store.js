@@ -3,6 +3,7 @@
 const RankingMode = require('./ranking-mode');
 const {performanceSettings,aggregatePerformanceMatches,rankPerformanceRows}=require('./ranking-performance');
 const {skillSettings,calculateSkillHistory,skillLeaderboardView}=require('./ranking-skill');
+const {rankAwards}=require('./ranking-awards');
 
 const fs = require('fs');
 const path = require('path');
@@ -557,6 +558,10 @@ class RankingStore {
     const history=await this._skillHistory({mode:opts.mode||'official',...(opts.now===undefined?{}:{now})});
     return skillLeaderboardView(history,{period,periodStart:periodStart(period,now),
       minimumGames:settings.minimumGames,maxRD:settings.maxRD,seasonId:CURRENT_SEASON_ID});
+  }
+  async getSkillAwards(opts={}){
+    const snapshot=await this._skillHistory({mode:'official',...(opts.now===undefined?{}:{now:opts.now})});
+    return rankAwards(snapshot,{now:opts.now??Date.now()});
   }
   async getSkillLeaderboard(opts={}){
     return (await this._skillRows(opts)).slice(0,Math.max(1,Math.min(100,Number(opts.limit)||50)));

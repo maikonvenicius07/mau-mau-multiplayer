@@ -1,3 +1,12 @@
+## V40.69.8.5 — Ranking de Habilidade e títulos competitivos (11/11/2026)
+
+- Terceira aba **HABILIDADE** integrada ao painel usando API Glicko-2 existente; exibe rating, RD, índice conservador, evolução no filtro e status PROVISÓRIO.
+- Premiações somente de partidas OFICIAIS completas e gravadas: Rei do Mês, Rei do Ano, Mais Vitorioso, Revelação e Mais Consistente. Cálculo derivado dos resultados, sem escrita ou migração no banco.
+- Proteção estatística: mínimos configuráveis de 10 partidas mensais e 30 anuais, RD máximo 200 por padrão; sem premiar jogadores sem amostra suficiente.
+- Os títulos do mês/ano corrente são **dinâmicos**, não premiações históricas permanentes. A habilidade global não reinicia com os filtros.
+- Interface compacta de três abas validada em Chromium controlado nas larguras 320, 360, 390 e 430 pixels; sem sobreposição horizontal na fixture.
+- As regras do jogo, a penalidade do 7, a Jogada Rápida, o modo observador de torneio, câmera/microfone, ranking histórico e persistência permanecem sem alterações funcionais.
+
 ## V40.69.8.4.3 — Correção do salto vertical da mão após cadeia de 7 (11/11/2026)
 
 - No layout mobile em pé, a penalidade do 7 não aumenta mais a altura do feltro; o aviso permanece dentro da mesa e a mão não é empurrada para baixo.
