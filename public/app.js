@@ -4025,6 +4025,27 @@ function renderCenter(){
   $('#sevenPenalty').classList.toggle('hidden',!state.pendingSeven);if(state.pendingSeven)$('#sevenPenalty').textContent=`⚠️ Cadeia de 7: comprar ${state.pendingSeven} ou rebater com outro 7`;
 }
 
+// V40.69.8.4.3 — rolar SOMENTE a mão na horizontal.
+// scrollIntoView() também pode deslocar verticalmente a página no Safari/Android.
+function focusCardWithinHandHorizontally(hand, selector, delayMs) {
+  setTimeout(() => {
+    const card=hand?.querySelector(selector);
+    if(!card || !hand.clientWidth || hand.scrollWidth<=hand.clientWidth+1)return;
+    const handBox=hand.getBoundingClientRect();
+    const cardBox=card.getBoundingClientRect();
+    const margin=8;
+    const maxLeft=Math.max(0,hand.scrollWidth-hand.clientWidth);
+    let target=hand.scrollLeft;
+    if(cardBox.left<handBox.left+margin)target-=handBox.left+margin-cardBox.left;
+    else if(cardBox.right>handBox.right-margin)target+=cardBox.right-(handBox.right-margin);
+    target=Math.max(0,Math.min(maxLeft,target));
+    if(Math.abs(target-hand.scrollLeft)>1){
+      if(typeof hand.scrollTo==='function')hand.scrollTo({left:target,behavior:'smooth'});
+      else hand.scrollLeft=target;
+    }
+  },delayMs);
+}
+
 function renderHand(){
   const h=$('#hand');h.innerHTML='';
   if(isSpectatorState()){
@@ -4094,7 +4115,7 @@ function renderHand(){
     const focusKey=`${state.openingReaction?'opening':'turn'}:${[...burnIds].sort().join(',')}:${state.currentPlayerId||''}`;
     if(focusKey!==lastBurnFocusKey){
       lastBurnFocusKey=focusKey;
-      setTimeout(()=>h.querySelector('.playing-card.burnable')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),40);
+      focusCardWithinHandHorizontally(h,'.playing-card.burnable',40);
     }
   }else{
     lastBurnFocusKey='';
@@ -4107,7 +4128,7 @@ function renderHand(){
     // Se houver Queima ao mesmo tempo, a Queima mantém prioridade de foco automático.
     if(!burnOpportunity&&focusKey!==lastDoubleFocusKey){
       lastDoubleFocusKey=focusKey;
-      setTimeout(()=>h.querySelector('.playing-card.double-focus-owner')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),60);
+      focusCardWithinHandHorizontally(h,'.playing-card.double-focus-owner',60);
     }
   }else{
     lastDoubleFocusKey='';

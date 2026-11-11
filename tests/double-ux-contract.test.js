@@ -13,7 +13,7 @@ assert(html.includes('id="floatingDoubleBtn"'),'botão flutuante de Carta Dupla 
 assert(app.includes('triggerFloatingDouble'),'ação do botão flutuante de Carta Dupla ausente');
 assert(app.includes("el.classList.add('burn-and-double')"),'identificação de Queima e Carta Dupla simultâneas ausente');
 assert(app.includes('doubleFocusCardIds'),'controle de foco de uma cópia da dupla ausente');
-assert(app.includes("h.querySelector('.playing-card.double-focus-owner')?.scrollIntoView"),'foco automático na Carta Dupla ausente');
+assert(app.includes("focusCardWithinHandHorizontally(h,'.playing-card.double-focus-owner',60)"),'foco horizontal na Carta Dupla ausente');
 assert(!app.includes("$('#doubleOpportunityNotice')"),'lógica do aviso inferior de Carta Dupla ainda está presente');
 assert(css.includes('.floating-double-action'),'estilo do botão flutuante de Carta Dupla ausente');
 assert(css.includes('@keyframes doublePulseStrong'),'destaque reforçado da Carta Dupla ausente');

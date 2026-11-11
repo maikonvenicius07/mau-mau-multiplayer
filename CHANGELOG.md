@@ -1,3 +1,11 @@
+## V40.69.8.4.3 — Correção do salto vertical da mão após cadeia de 7 (11/11/2026)
+
+- No layout mobile em pé, a penalidade do 7 não aumenta mais a altura do feltro; o aviso permanece dentro da mesa e a mão não é empurrada para baixo.
+- O foco automático das cartas de Queima e ×2 Dupla desloca somente o scroll horizontal da mão, sem usar `scrollIntoView()` para rolar a página.
+- Preservados tamanho das cartas V53.3, posição do placar, botões flutuantes, regras, ranking, reconexão e observadores de torneio.
+- Validação: 172 testes automatizados aprovados; um teste de integração Socket.IO não executado (dependência não instalada). Simulação visual Chromium com CSS original e alterado: deslocamento da mão após 7 caiu de 108/96/61,5/84 px para 0 px em 320/360/390/430 px, respectivamente. Necessário homologar em celulares reais.
+- Identificação de pacote Node.js mantida como `40.69.8-rank.4` deliberadamente; esta entrega é um hotfix incremental de interface (V40.69.8.4.3), sem migração de banco.
+
 ## V40.69.8 — Recuperação de pedidos de espectadores (10/11/2026)
 
 - Salva intenções de vaga vinculadas à conta autenticada, sem guardar sessões/tokens de espectadores.

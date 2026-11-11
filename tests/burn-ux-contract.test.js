@@ -13,7 +13,7 @@ assert(html.includes('id="floatingBurnBtn"'),'botão flutuante de Queima ausente
 assert(app.includes('triggerFloatingBurn'),'ação do botão flutuante de Queima ausente');
 assert(app.includes("el.classList.add('quick-direct')"),'toque direto da Ação Rápida de abertura ausente');
 assert(!app.includes("el.classList.add('burn-direct')"),'atalho antigo de Queima fora da vez ainda presente');
-assert(app.includes("scrollIntoView({behavior:'smooth'"),'foco automático da carta queimável ausente');
+assert(app.includes("focusCardWithinHandHorizontally(h,'.playing-card.burnable',40)"),'foco horizontal da carta queimável ausente');
 assert(!app.includes("$('#burnOpportunityNotice')"),'lógica do aviso inferior de Queima ainda está presente');
 assert(css.includes('.floating-burn-action'),'estilo do botão flutuante de Queima ausente');
 assert(css.includes('@keyframes burnPulseStrong'),'destaque reforçado da carta queimável ausente');

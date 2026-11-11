@@ -3614,11 +3614,9 @@ button.bot-primary{
   #game .hand .playing-card:not(:first-child) { margin-left: -12px !important; }
 
 
-/* Penalidades e controles de fim de rodada podem exigir espaço extra. */
+/* Somente controles complexos de fim de rodada podem exigir espaço extra.
+   O 7 não pode deslocar verticalmente a mão; compactação na zona central. */
 
-  #game .felt:has(#sevenPenalty:not(.hidden)) {
-    height: clamp(475px, calc(100svh - 330px), 610px) !important;
-  }
   #game .felt:has(#hostControls > :nth-child(3)) {
     height: clamp(490px, calc(100svh - 320px), 650px) !important;
   }
@@ -3634,9 +3632,6 @@ button.bot-primary{
   #game .suit-request,
   #game .penalty { font-size: 10.5px !important; }
 
-  #game .felt:has(#sevenPenalty:not(.hidden)) {
-    height: clamp(465px, calc(100svh - 330px), 590px) !important;
-  }
   #game .felt:has(#hostControls > :nth-child(3)) {
     height: clamp(480px, calc(100svh - 320px), 620px) !important;
   }
@@ -4065,6 +4060,8 @@ button.bot-primary{
 
   /* Evita a margem direita de 14px herdada do painel de desktop. */
   #game:not(.spectator-mode) .table-shell {
+    /* Evita que a injeção do aviso de 7 reancore a página no meio da jogada. */
+    overflow-anchor: none !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 7px !important;
@@ -4232,11 +4229,12 @@ button.bot-primary{
   #game:not(.spectator-mode) .hand .playing-card:not(:first-child) { margin-left: -9px !important; }
 
 
-/* A tela pode rolar verticalmente com penalidades e controles extras;
-   não escondemos funções apenas para encaixar no espaço da foto. */
-
-  #game:not(.spectator-mode) .felt:has(#sevenPenalty:not(.hidden)) {
-    height: max(510px, 130vw) !important;
+/* V40.69.8.4.3 — a cadeia de 7 não aumenta a altura da mesa.
+   O espaço para o aviso vem do padding interno da zona central; a mão
+   mantém sua posição abaixo do feltro e as cartas mantêm seu tamanho. */
+  #game:not(.spectator-mode) .felt:has(#sevenPenalty:not(.hidden)) .center-zone {
+    padding-top: 66px !important;
+    padding-bottom: 10px !important;
   }
   #game:not(.spectator-mode) .felt:has(#hostControls > :nth-child(3)) {
     height: max(560px, 145vw) !important;
