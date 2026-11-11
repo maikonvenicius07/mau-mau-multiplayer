@@ -1281,7 +1281,15 @@ function playSocialEffect(effect){
   }
 }
 
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+let toastHideTimer=null;
+function toast(msg){
+  const t=$('#toast');
+  if(!t)return;
+  if(toastHideTimer!==null){clearTimeout(toastHideTimer);toastHideTimer=null;}
+  t.textContent=msg;
+  t.classList.add('show');
+  toastHideTimer=setTimeout(()=>{toastHideTimer=null;t.classList.remove('show');},2800);
+}
 
 
 let rankingPlayerRows=[]; // Apenas jogadores recebidos na tabela do ranking atual.

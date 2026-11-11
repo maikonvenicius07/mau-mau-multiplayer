@@ -24,7 +24,7 @@ const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_
 const {performanceSettings}=require('./ranking-performance');
 const {skillSettings}=require('./ranking-skill');
 const { createRetryableInitialization } = require('./ranking-init-retry');
-const { evaluateReadiness, databaseRequired } = require('./service-readiness');
+const { evaluateReadiness, databaseRequired, probeIdentityReadiness } = require('./service-readiness');
 const RetentionPolicy = require('./retention-policy');
 const RoomGovernance = require('./room-governance');
 const AbuseGuard = require('./abuse-guard');
@@ -787,8 +787,8 @@ app.get('/health', (_, res) => {
 app.get('/ready', async (_,res)=>{
   res.setHeader('Cache-Control','no-store');
   const report=await evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady:ensureRankingReady(),roomSnapshotsReady,env:process.env,timeoutMs:2000});
-  let authOk=await authIdentityReady,authReason=authOk?'ok':'identity-store-init-failed';
-  if(authOk){try{authOk=await Promise.race([authIdentityStore.healthCheck(),new Promise(resolve=>setTimeout(()=>resolve(false),2000))]);authReason=authOk?'ok':'identity-store-health-failed';}catch(e){authOk=false;authReason='identity-store-health-failed';}}
+  const identity=await probeIdentityReadiness(authIdentityStore,authIdentityReady,2000);
+  const authOk=identity.ok,authReason=identity.reason;
   const sessionSecretOk=!DATABASE_REQUIRED||AUTH_SESSION_SECRET_CONFIGURED;
   const ok=report.ok&&authOk&&sessionSecretOk;
   res.status(ok?200:503).json({

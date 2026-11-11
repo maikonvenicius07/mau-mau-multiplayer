@@ -1,3 +1,11 @@
+## V40.69.8.10 — Auditoria final e estabilidade da verificação de saúde (11/11/2026)
+
+- Conferidos os módulos de servidor, motor de jogo, ranking, reconexão, snapshots, torneios, mídia e interface responsiva. Nenhuma regra de carta ou resultado histórico foi alterado.
+- Corrigido o endpoint `/ready`: a espera pela inicialização da identidade, assim como o ping de saúde do banco, agora possui tempo máximo de 2 segundos e retorna `503` quando indisponível, em vez de deixar o monitoramento do Render pendente indefinidamente.
+- Corrigida a disputa entre temporizadores de avisos na interface: um aviso anterior não pode esconder o mais recente antes de completar seu prazo de exibição.
+- Adicionados testes de regressão para operação pendente da identidade, falha de saúde e sequência de avisos; atualizadas a identificação interna da versão e a URL de recurso JS.
+- Não houve alteração no registro de vitórias, na persistência de snapshots, na regra JOGAR NOVAMENTE, nos espectadores de torneios ou na lógica das cartas. Testes com PostgreSQL do Render e aparelhos reais continuam sendo necessários.
+
 ## V40.69.8.9 — Retorno da câmera e foco do chat sem deslocar a mesa (11/11/2026)
 
 - Ao voltar de uma página suspensa no celular, o cliente verifica se a track de câmera permaneceu ativa ou foi silenciada (`muted`) sem evento `ended`.

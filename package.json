@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.9",
-  "description": "Mau-Mau Candeias V40.69.8.8: reconciliação eficiente da mão de cartas no celular, mantendo a estabilidade dos snapshots e do ranking.",
+  "version": "40.69.8-rank.10",
+  "description": "Mau-Mau Candeias V40.69.8.10: auditoria final, readiness de autenticação com timeout e avisos de interface sem conflito.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

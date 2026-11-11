@@ -38,6 +38,26 @@ async function probeStore(name,store,readyPromise,timeoutMs){
     return {ok:false,kind:String(store?.kind||'unknown'),initialized:true,reason:'probe-error',message:String(error?.message||error).slice(0,160)};
   }
 }
+// A checagem de identidade deve ter o mesmo limite da checagem do ranking.
+// Se a inicialização/consulta ao PostgreSQL ficar pendente, /ready precisa
+// responder 503 em tempo limitado, nunca deixar o Render aguardando sem resposta.
+async function probeIdentityReadiness(store,readyPromise,timeoutMs=2000){
+  let initialized;
+  try{
+    initialized=await withTimeout(readyPromise,timeoutMs,'identidades: inicialização');
+  }catch(error){
+    return {ok:false,reason:'identity-store-init-timeout'};
+  }
+  if(!initialized)return {ok:false,reason:'identity-store-init-failed'};
+  if(typeof store?.healthCheck!=='function')return {ok:false,reason:'identity-store-health-unavailable'};
+  try{
+    const ok=await withTimeout(store.healthCheck(),timeoutMs,'identidades: banco');
+    return {ok:ok===true||ok?.ok===true,reason:ok===true||ok?.ok===true?'ok':'identity-store-health-failed'};
+  }catch(error){
+    return {ok:false,reason:'identity-store-health-failed'};
+  }
+}
+
 async function evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,roomSnapshotsReady,env=process.env,timeoutMs=2000}={}){
   const required=databaseRequired(env);
   const [ranking,roomSnapshots]=await Promise.all([
@@ -56,4 +76,4 @@ async function evaluateReadiness({rankingStore,roomSnapshotStore,rankingReady,ro
   };
 }
 
-module.exports={truthy,falsy,isProductionLike,databaseRequired,withTimeout,probeStore,evaluateReadiness};
+module.exports={truthy,falsy,isProductionLike,databaseRequired,withTimeout,probeStore,probeIdentityReadiness,evaluateReadiness};
