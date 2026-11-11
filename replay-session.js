@@ -14,6 +14,8 @@ function replayInfo(room, viewerId=null) {
     meReady:!!(viewerId&&ready.has(viewerId)),
     waitingForReconnect:humans.filter(p=>!p.connected).length,
     waitingForRanking:!!(room?.status==='finished'&&!room.rankingRecorded),
+    rankingRetrying:!!(room?.status==='finished'&&!room.rankingRecorded&&Number(room.rankingLastFailureAt||0)>0),
+    rankingRetrySeconds:Math.max(0,Math.ceil((Number(room?.rankingRetryAt||0)-Date.now())/1000)),
     participantCount:players.length,
   };
 }

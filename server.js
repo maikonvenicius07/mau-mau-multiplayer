@@ -19,6 +19,7 @@ const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const ReplaySession = require('./replay-session');
+const RankingFinalization = require('./ranking-finalization');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 const {performanceSettings}=require('./ranking-performance');
 const {skillSettings}=require('./ranking-skill');
@@ -1062,6 +1063,8 @@ function roomCode() {
 
 function maybeRecordFinished(room) {
   if (!room || room.status !== 'finished' || room.rankingRecorded || room.rankingRecording) return;
+  // Um erro anterior exige nova tentativa controlada, não um loop de broadcasts.
+  if(Number(room.rankingRetryAt||0)>Date.now())return;
   const matchSerial=Number(room.matchSerial||1);
   // O resultado final precisa continuar imutável caso um jogador saia
   // da mesa enquanto o PostgreSQL estiver temporariamente indisponível.
@@ -1100,18 +1103,32 @@ function maybeRecordFinished(room) {
     return;
   }
   room.rankingRecording=true;
+  room.rankingRetryAt=0;
+  room.rankingProcessingSince=Date.now();
+  let stage='snapshot final';
   // V49.9 — primeiro persiste o resultado final ainda pendente. Se o processo cair
   // antes do COMMIT do ranking, o boot restaura este snapshot e tenta novamente.
-  Promise.resolve(roomSnapshotStore.saveNow(room)).then(saved=>{
+  // O timeout cobre TAMBÉM uma Promise que nunca resolve, sem registrar vitória
+  // antecipadamente. Repetir o mesmo matchId é idempotente no PostgreSQL/JSON.
+  const operation=Promise.resolve(roomSnapshotStore.saveNow(room)).then(saved=>{
     if(saved===false)throw new Error('Snapshot final não persistido; resultado continua pendente.');
+    stage='inicialização do ranking';
     return ensureRankingReady();
   }).then(ready=>{
     if(!ready)throw new Error('Armazenamento do ranking indisponível.');
+    stage='confirmação do resultado';
     return rankingStore.recordMatch(record);
+  });
+  RankingFinalization.withTimeout(operation,{
+    timeoutMs:RankingFinalization.finalizationTimeoutMs(),getStage:()=>stage,
   }).then(inserted=>{
     if(Number(room.matchSerial||1)===matchSerial){
       room.rankingRecorded=true;
       room.rankingRecording=false;
+      room.rankingRetryAt=0;
+      room.rankingFailureCount=0;
+      room.rankingLastFailureAt=0;
+      room.rankingProcessingSince=0;
       if(inserted) Engine.appendLog(room, `🏆 Vitória registrada no ranking ${record.mode==='official'?'OFICIAL':'TREINO'}.`, 'system');
       // Sem mudar a sala ou o código de convite: comunicar aos jogadores que
       // o resultado foi confirmado e iniciar a revanche se todos já votaram.
@@ -1122,8 +1139,16 @@ function maybeRecordFinished(room) {
       }
     }
   }).catch(e=>{
-    console.error('[ranking] gravação falhou:',e);
-    if(Number(room.matchSerial||1)===matchSerial) room.rankingRecording=false;
+    console.error(`[ranking] resultado ${record.matchId}, etapa ${stage}:`,e);
+    if(Number(room.matchSerial||1)!==matchSerial)return;
+    room.rankingRecording=false;
+    room.rankingProcessingSince=0;
+    room.rankingLastFailureAt=Date.now();
+    room.rankingFailureCount=Math.max(0,Number(room.rankingFailureCount)||0)+1;
+    room.rankingRetryAt=Date.now()+RankingFinalization.retryDelayMs(room.rankingFailureCount);
+    // Enviar um estado CLARO sobre o erro. emitRoom respeita rankingRetryAt,
+    // portanto não inicia nova gravação em loop; o timer fará o próximo retry.
+    if(rooms.get(room.code)===room)emitRoom(room);
   });
 }
 

@@ -282,6 +282,10 @@ function resetMatch(room) {
   room.rankingRecorded = false;
   room.rankingRecording = false;
   room.pendingRankingRecord = null;
+  room.rankingFailureCount = 0;
+  room.rankingLastFailureAt = 0;
+  room.rankingRetryAt = 0;
+  room.rankingProcessingSince = 0;
   // V40.62 — revanche é uma nova partida e recebe uma nova classificação
   // quando a primeira rodada dessa nova partida começar.
   room.rankingModeAtStart = null;

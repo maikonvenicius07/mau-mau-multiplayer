@@ -3152,7 +3152,9 @@ function updateReplayControls(){
       info.textContent=replay.waitingForReconnect
         ? `Aguardando ${replay.waitingForReconnect} jogador(es) reconectar ou sair (${ready}/${required} confirmados).`
         : replay.waitingForRanking
-          ? `Resultado sendo registrado no ranking (${ready}/${required} confirmados). Pode confirmar agora.`
+          ? replay.rankingRetrying
+            ? `Não foi possível registrar o resultado. Nova tentativa automática${replay.rankingRetrySeconds>0?` em até ${replay.rankingRetrySeconds}s`:''}. Confirmações preservadas (${ready}/${required}).`
+            : `Resultado sendo registrado no ranking (${ready}/${required} confirmados). Pode confirmar agora.`
           : replay.meReady
             ? `Aguardando os demais jogadores confirmarem (${ready}/${required}).`
             : 'Nova partida nesta sala, com o mesmo grupo e placar zerado.';
@@ -4342,7 +4344,9 @@ function renderControls(){
     replayInfo.textContent=state.replay.waitingForReconnect
       ? `Aguardando reconexão (${state.replay.readyCount||0}/${state.replay.requiredCount||0} confirmados).`
       : state.replay.waitingForRanking
-        ? 'Registrando o resultado anterior. Você já pode confirmar.'
+        ? state.replay.rankingRetrying
+          ? `Não foi possível registrar o resultado. Nova tentativa automática${state.replay.rankingRetrySeconds>0?` em até ${state.replay.rankingRetrySeconds}s`:''}. Sua confirmação foi preservada.`
+          : 'Registrando o resultado anterior. Você já pode confirmar.'
         : state.replay.meReady
           ? `Aguardando os demais jogadores (${state.replay.readyCount||0}/${state.replay.requiredCount||0}).`
           : 'Nova partida na mesma sala, com placar zerado.';
