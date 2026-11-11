@@ -260,10 +260,12 @@ class PostgresSnapshotBackend {
       await client.query("SELECT pg_advisory_xact_lock(hashtext('mm_room_snapshots'),hashtext($1))",[code]);
       const {rows}=await client.query(`
         INSERT INTO mm_room_snapshots(room_code,snapshot,status,updated_at,expires_at,revision)
-        SELECT $1,$2::jsonb,$3,NOW(),$4,$5
+        -- $1 aparece em SELECT (room_code VARCHAR) e em comparacao com outra coluna.
+        -- O cast explicito elimina a inferencia conflitante text/varchar pelo PostgreSQL.
+        SELECT $1::text,$2::jsonb,$3,NOW(),$4,$5
         WHERE NOT EXISTS (
           SELECT 1 FROM mm_room_lifecycle_tombstones
-          WHERE room_code=$1 AND subject_key='*' AND kind='room-deleted' AND expires_at>NOW()
+          WHERE room_code=$1::text AND subject_key='*' AND kind='room-deleted' AND expires_at>NOW()
         )
         ON CONFLICT(room_code) DO UPDATE
         SET snapshot=EXCLUDED.snapshot,status=EXCLUDED.status,
