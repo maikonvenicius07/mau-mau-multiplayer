@@ -1,3 +1,12 @@
+## V40.69.8.7 — Retentativa segura de snapshots após falhas transitórias (11/11/2026)
+
+- Corrigido o caso em que falha temporária no armazenamento deixava o último snapshot sem nova tentativa de gravação quando ninguém fazia outra ação.
+- Adicionadas até seis retentativas com intervalos limitados, sempre usando o estado mais recente da sala, respeitando a fila e a revisão monotônica.
+- Cancelamento das retentativas após exclusão/tombstone ou fechamento da sala; sem novos timers duplicados.
+- Preservado o SQL `$1::text` da V40.69.8.6.2, que corrigiu a operação de snapshots no PostgreSQL.
+- Ranking de Vitórias, Aproveitamento e Habilidade, revanche, torneios, regras e interface sem mudanças funcionais.
+- 178 testes locais aprovados, 0 falhas; integração Socket.IO não executada por dependência ausente. A recuperação ainda não elimina a janela de debounce em queda abrupta.
+
 ## V40.69.8.6 — Recuperação da revanche após reinício do Render (11/11/2026)
 
 - Salas comuns finalizadas e com resultado confirmado voltam a ser restauradas do snapshot para permitir **JOGAR NOVAMENTE** após deploy, desde que a reserva esteja válida.

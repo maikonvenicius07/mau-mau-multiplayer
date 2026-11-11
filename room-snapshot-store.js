@@ -14,6 +14,8 @@ const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
 // ROOM_SNAPSHOT_TTL_MS continua suportado em desenvolvimento/testes pela política central;
 // em produção/Render a V40.67 fixa o prazo oficial em 8 horas.
 const DEFAULT_DEBOUNCE_MS = 250;
+// Retentativas de falhas transitórias sem escrever snapshots antigos sobre estados novos.
+const SNAPSHOT_RETRY_DELAYS_MS = [500,1000,2000,4000,8000,15000];
 const MIN_LIFECYCLE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function buildRoomSnapshot(room) {
@@ -393,6 +395,8 @@ class RoomSnapshotStore {
     this.debounceMs=debounceMs;
     this.pending=new Map();
     this.roomWriteQueues=new Map();
+    this.latestSnapshotParts=new Map();
+    this.snapshotRetries=new Map();
     this.revisions=new Map();
     this.persistedAssetSignatures=new Map();
     this.deletedRooms=new Map();
@@ -437,18 +441,62 @@ class RoomSnapshotStore {
     this.revisions.set(code,revision);
     return revision;
   }
+  clearSnapshotRetry(code){
+    const entry=this.snapshotRetries.get(code);
+    if(entry?.timer)clearTimeout(entry.timer);
+    this.snapshotRetries.delete(code);
+  }
+  scheduleSnapshotRetry(code){
+    if(this.closed||this.isRoomDeleted(code)||!this.latestSnapshotParts.has(code))return;
+    const previous=this.snapshotRetries.get(code);
+    if(previous?.timer)return; // Uma única espera por sala; não multiplicar temporizadores.
+    const attempt=Number(previous?.attempt||0)+1;
+    if(attempt>SNAPSHOT_RETRY_DELAYS_MS.length){
+      console.error('[rooms] snapshot sem confirmação após retentativas limitadas:',code);
+      this.snapshotRetries.delete(code);
+      this.latestSnapshotParts.delete(code);
+      return;
+    }
+    const retry={attempt,timer:null};
+    retry.timer=setTimeout(()=>{
+      if(this.snapshotRetries.get(code)!==retry)return;
+      retry.timer=null;
+      if(this.closed||this.isRoomDeleted(code)){this.clearSnapshotRetry(code);return;}
+      // Uma ação mais recente já agendou gravação: não reenviar estado antigo.
+      if(this.pending.has(code)){this.clearSnapshotRetry(code);return;}
+      const parts=this.latestSnapshotParts.get(code);
+      if(!parts){this.clearSnapshotRetry(code);return;}
+      const revision=this.nextRevision(code);
+      this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision))
+        .catch(error=>console.error('[rooms] retentativa de snapshot falhou',code,error?.message||error));
+    },SNAPSHOT_RETRY_DELAYS_MS[attempt-1]);
+    retry.timer.unref?.();
+    this.snapshotRetries.set(code,retry);
+  }
   async writeSnapshot(code,parts,revision){
     if(this.isRoomDeleted(code))return false;
-    const assetsForSave=this.persistedAssetSignatures.get(code)===parts.assetSignature?null:parts.avatarAssets;
-    const saved=await this.backend.save(code,parts.snapshot,Date.now()+this.ttlMs,assetsForSave,revision);
-    if(saved!==false&&assetsForSave!==null)this.persistedAssetSignatures.set(code,parts.assetSignature);
-    return saved!==false;
+    try{
+      const assetsForSave=this.persistedAssetSignatures.get(code)===parts.assetSignature?null:parts.avatarAssets;
+      const saved=await this.backend.save(code,parts.snapshot,Date.now()+this.ttlMs,assetsForSave,revision);
+      if(saved!==false){
+        if(assetsForSave!==null)this.persistedAssetSignatures.set(code,parts.assetSignature);
+        if(this.latestSnapshotParts.get(code)===parts)this.latestSnapshotParts.delete(code);
+        this.clearSnapshotRetry(code);
+      }
+      return saved!==false;
+    }catch(error){
+      // Mantém o erro visível para quem pediu saveNow (ranking), mas tenta
+      // persistir depois o snapshot MAIS RECENTE, mesmo sem novas jogadas.
+      this.scheduleSnapshotRetry(code);
+      throw error;
+    }
   }
   queueSave(room){
     if(this.closed||!room?.code||this.isRoomDeleted(room.code))return;
     const code=room.code;
     const existing=this.pending.get(code);if(existing)clearTimeout(existing.timer);
     const parts=this.snapshotParts(room);if(!parts.snapshot)return;
+    this.latestSnapshotParts.set(code,parts);
     const entry={timer:null,parts};
     entry.timer=setTimeout(()=>{
       if(this.pending.get(code)!==entry)return;
@@ -468,6 +516,7 @@ class RoomSnapshotStore {
     if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
     const parts=this.snapshotParts(room);
     if(!parts.snapshot)return false;
+    this.latestSnapshotParts.set(code,parts);
     const revision=this.nextRevision(code);
     return this.enqueueRoomWrite(code,()=>this.writeSnapshot(code,parts,revision));
   }
@@ -484,6 +533,8 @@ class RoomSnapshotStore {
   async markRoomDeleted(code,eventAt=Date.now()){
     code=String(code||'');if(!code)return;
     const pending=this.pending.get(code);if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
+    this.clearSnapshotRetry(code);
+    this.latestSnapshotParts.delete(code);
     // Bloqueia novas gravações ANTES de aguardar uma escrita já em andamento.
     const intent=Symbol('markRoomDeleted');
     this.deletingRooms.set(code,intent);
@@ -504,6 +555,8 @@ class RoomSnapshotStore {
   async delete(code){
     code=String(code||'');if(!code)return;
     const pending=this.pending.get(code);if(pending){clearTimeout(pending.timer);this.pending.delete(code);}
+    this.clearSnapshotRetry(code);
+    this.latestSnapshotParts.delete(code);
     // Exclusão simples (fim de partida): impede que um callback tardio salve
     // novamente o estado, sem introduzir um novo tombstone persistido.
     const intent=Symbol('delete');
@@ -561,6 +614,8 @@ class RoomSnapshotStore {
     this.closed=true;
     for(const x of this.pending.values())clearTimeout(x.timer);
     this.pending.clear();
+    for(const code of this.snapshotRetries.keys())this.clearSnapshotRetry(code);
+    this.latestSnapshotParts.clear();
     // O pool compartilhado só pode ser encerrado após todas as escritas iniciadas.
     const operations=[...this.roomWriteQueues.values()];
     await Promise.allSettled(operations);

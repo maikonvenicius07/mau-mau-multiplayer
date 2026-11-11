@@ -1,7 +1,7 @@
 {
   "name": "mau-mau-multiplayer",
-  "version": "40.69.8-rank.6",
-  "description": "Mau-Mau Candeias V40.69.8.5: classificação de habilidade e títulos competitivos, preservando histórico de vitórias.",
+  "version": "40.69.8-rank.7",
+  "description": "Mau-Mau Candeias V40.69.8.7: retentativas limitadas de snapshots após falhas transitórias, preservando rankings e revanches.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
