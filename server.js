@@ -18,6 +18,7 @@ const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
+const ReplaySession = require('./replay-session');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
 const {performanceSettings}=require('./ranking-performance');
 const {skillSettings}=require('./ranking-skill');
@@ -1090,7 +1091,14 @@ function maybeRecordFinished(room) {
     }).catch(e=>{console.error('[tournament] gravação de resultado falhou',e);room.rankingRecording=false;});
     return;
   }
-  if (!record.results.length) { room.rankingRecorded=true; roomSnapshotStore.delete(room.code).catch(()=>{}); return; }
+  if (!record.results.length) {
+    room.rankingRecorded=true;
+    if(rooms.get(room.code)===room){
+      roomSnapshotStore.saveNow(room).catch(e=>console.error('[ranking] falha ao salvar partida sem resultados',room.code,e?.message||e));
+      emitRoom(room);
+    }
+    return;
+  }
   room.rankingRecording=true;
   // V49.9 — primeiro persiste o resultado final ainda pendente. Se o processo cair
   // antes do COMMIT do ranking, o boot restaura este snapshot e tenta novamente.
@@ -1105,10 +1113,13 @@ function maybeRecordFinished(room) {
       room.rankingRecorded=true;
       room.rankingRecording=false;
       if(inserted) Engine.appendLog(room, `🏆 Vitória registrada no ranking ${record.mode==='official'?'OFICIAL':'TREINO'}.`, 'system');
-      // Persistir a confirmação em vez de apagar a chave da sala. A exclusão
-      // bloqueava snapshots de futuras revanches que usam o mesmo room.code.
-      // Snapshots concluídos são descartados ao restaurar no próximo boot.
-      roomSnapshotStore.saveNow(room).catch(e=>console.error('[ranking] falha ao confirmar snapshot final',room.code,e?.message||e));
+      // Sem mudar a sala ou o código de convite: comunicar aos jogadores que
+      // o resultado foi confirmado e iniciar a revanche se todos já votaram.
+      // A fila de snapshots ordena a confirmação e o início da nova partida.
+      if(rooms.get(room.code)===room){
+        roomSnapshotStore.saveNow(room).catch(e=>console.error('[ranking] falha ao confirmar snapshot final',room.code,e?.message||e));
+        emitRoom(room);
+      }
     }
   }).catch(e=>{
     console.error('[ranking] gravação falhou:',e);
@@ -1231,6 +1242,9 @@ function emitRoom(room) {
   clearClosedSpectatorSeatRequests(room);
   if(room.status==='between-rounds'&&Array.isArray(room.spectatorSeatRequests)&&room.spectatorSeatRequests.length)processSpectatorSeatRequests(room);
   maybeRecordFinished(room);
+  // O fim da gravação no ranking e as reconexões podem completar as
+  // confirmações sem um novo clique. A transição é síncrona e ocorre uma vez.
+  if(room.status==='finished'&&room.rankingRecorded)maybeStartReplay(room);
   // V40.68.1 — toda partida ativa sem nenhum humano conectado recebe apenas
   // 5 minutos de reserva. O marco é salvo no snapshot e não reinicia após deploy.
   refreshOfflineRoomExpiry(room);
@@ -1487,20 +1501,10 @@ function ensureHost(room) {
   if (nextHost) nextHost.host = true;
 }
 
-function replayEligible(room) {
-  return !!(room && room.status==='finished' && room.rankingRecorded && room.players.filter(p=>!p.isBot).length>=2 && room.players.every(p=>!p.isBot));
-}
-
 function maybeStartReplay(room) {
-  if(!replayEligible(room)) return false;
-  const connectedHumans=room.players.filter(p=>!p.isBot&&p.connected);
-  if(connectedHumans.length<2) return false;
-  const ready=new Set(Array.isArray(room.replayReadyPlayerIds)?room.replayReadyPlayerIds:[]);
-  if(!connectedHumans.every(p=>ready.has(p.id))) return false;
-
-  // Quem já saiu/desconectou depois do fim da partida não bloqueia o grupo que
-  // confirmou continuar. A nova partida começa somente com humanos conectados.
-  room.players=room.players.filter(p=>p.isBot||p.connected);
+  // Não perder a cadeira de quem está no prazo de reconexão: só jogadores que
+  // saíram voluntariamente (e foram removidos) deixam de votar.
+  if(!ReplaySession.canStartReplay(room))return false;
   ensureHost(room);
   Engine.resetMatch(room);
   // V40.58.3 — a conversa é da sala. Revanche na mesma sala preserva o
@@ -3301,13 +3305,10 @@ io.on('connection', socket => {
 
   socket.on('playAgain', () => withRoom(socket,(room,p)=>{
     if(room.tournament)throw new Error('Uma mesa de torneio disputa somente uma partida.');
-    if(room.status==='finished'&&!room.rankingRecorded)throw new Error('Aguardando a confirmação do resultado no ranking. Tente novamente em instantes.');
-    if(!replayEligible(room)) throw new Error('Jogar de novo está disponível somente após uma partida entre jogadores humanos.');
-    if(p.isBot || !p.connected) throw new Error('Jogador não disponível para continuar.');
-    if(!Array.isArray(room.replayReadyPlayerIds)) room.replayReadyPlayerIds=[];
-    if(!room.replayReadyPlayerIds.includes(p.id)){
-      room.replayReadyPlayerIds.push(p.id);
-      Engine.appendLog(room, `🔁 ${p.name} confirmou que quer jogar de novo.`, 'system');
+    // O jogador pode confirmar enquanto o ranking grava a vitória. O servidor
+    // só reinicia a partida após o registro, sem exigir outro clique.
+    if(ReplaySession.confirmReplay(room,p)){
+      Engine.appendLog(room, `🔁 ${p.name} confirmou JOGAR NOVAMENTE.`, 'system');
     }
     maybeStartReplay(room);
     broadcastPresence();
@@ -3643,7 +3644,7 @@ io.on('connection', socket => {
       const timer=setTimeout(async () => {
         reconnectTimers.delete(reconnectTimerKey(code,playerId));
         const currentRoom = rooms.get(code);
-        if (!currentRoom || !['lobby','between-rounds'].includes(currentRoom.status)) return;
+        if (!currentRoom || !['lobby','between-rounds','finished'].includes(currentRoom.status)) return;
         const stale = currentRoom.players.find(x => x.id === playerId);
         if (!stale || stale.connected || stale.autoControlled) return;
 

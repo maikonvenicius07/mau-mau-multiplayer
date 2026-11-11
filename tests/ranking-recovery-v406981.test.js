@@ -35,7 +35,7 @@ const {createRetryableInitialization}=require('../ranking-init-retry');
   assert(server.includes('return ensureRankingReady()'),'gravação deve tentar recuperar inicialização');
   assert(server.includes('rankingRecoveryTimer=setInterval'),'partidas pendentes devem ter retry sem evento de socket');
   assert(server.includes("room.status==='finished'&&!room.rankingRecorded&&!room.rankingRecording"),'retry não deve duplicar gravação ativa');
-  assert(server.includes("room.status==='finished' && room.rankingRecorded && room.players.filter"),'revanche não deve descartar resultado pendente');
+  assert(server.includes('if(!ReplaySession.canStartReplay(room))return false;'),'revanche não deve iniciar antes do ranking registrar o resultado');
   assert(server.includes('roomSnapshotStore.saveNow(room).catch(e=>console.error(\'[ranking] falha ao confirmar snapshot final\''),'após ranking, snapshots devem permanecer reutilizáveis para revanche');
   assert(!server.includes("roomSnapshotStore.delete(room.code).catch(e=>console.error('[ranking] falha ao limpar snapshot final'"));
   // Confirma que, depois de contabilizar a primeira vitória, a mesma sala

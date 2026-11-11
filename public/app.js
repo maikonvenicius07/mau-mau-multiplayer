@@ -3129,31 +3129,33 @@ $$('#suitDialog [data-suit]').forEach(btn=>btn.onclick=()=>{
 
 function requestPlayAgain(){
   if(!socket.connected)return toast('Sem conexão com o servidor.');
-  if(!state?.replay?.eligible)return toast('Jogar de novo está disponível após uma partida entre jogadores.');
+  if(!state?.replay?.eligible)return toast('Jogar novamente está disponível após o fim da partida.');
   socket.emit('playAgain');
 }
 function updateReplayControls(){
   const replay=state?.replay||{};
-  const eligible=!!(state?.status==='finished'&&replay.eligible);
+  const eligible=!!(state?.viewerRole==='PLAYER'&&state?.status==='finished'&&replay.eligible);
   const btn=$('#roundReviewReplay');
   const info=$('#roundReviewReplayInfo');
   if(btn){
     btn.classList.toggle('hidden',!eligible);
-    btn.disabled=!eligible||!!replay.meReady||Number(replay.requiredCount||0)<2;
+    btn.disabled=!socket.connected||!eligible||!!replay.meReady||Number(replay.participantCount||0)<2;
     btn.textContent=replay.meReady
       ? `✅ CONFIRMADO • ${replay.readyCount||0}/${replay.requiredCount||0}`
-      : '🔁 JOGAR DE NOVO';
+      : '🔁 JOGAR NOVAMENTE';
   }
   if(info){
     info.classList.toggle('hidden',!eligible);
     if(eligible){
       const required=Number(replay.requiredCount||0);
       const ready=Number(replay.readyCount||0);
-      info.textContent=required<2
-        ? 'Aguardando pelo menos mais 1 jogador conectado.'
-        : replay.meReady
-          ? `Aguardando os demais jogadores confirmarem (${ready}/${required}).`
-          : 'Continue na mesma sala com o mesmo grupo. A nova partida terá 5 rodadas e placar zerado.';
+      info.textContent=replay.waitingForReconnect
+        ? `Aguardando ${replay.waitingForReconnect} jogador(es) reconectar ou sair (${ready}/${required} confirmados).`
+        : replay.waitingForRanking
+          ? `Resultado sendo registrado no ranking (${ready}/${required} confirmados). Pode confirmar agora.`
+          : replay.meReady
+            ? `Aguardando os demais jogadores confirmarem (${ready}/${required}).`
+            : 'Nova partida nesta sala, com o mesmo grupo e placar zerado.';
     }
   }
 }
@@ -4331,17 +4333,19 @@ function renderControls(){
   if(state.status==='finished'&&state.replay?.eligible){
     const replayWrap=document.createElement('div');replayWrap.className='replay-controls';
     const replayBtn=document.createElement('button');replayBtn.className='replay-btn';
-    replayBtn.disabled=!socket.connected||state.replay.meReady||Number(state.replay.requiredCount||0)<2;
+    replayBtn.disabled=!socket.connected||state.replay.meReady||Number(state.replay.participantCount||0)<2;
     replayBtn.textContent=state.replay.meReady
       ? `✅ Confirmado • ${state.replay.readyCount||0}/${state.replay.requiredCount||0}`
-      : '🔁 JOGAR DE NOVO';
+      : '🔁 JOGAR NOVAMENTE';
     replayBtn.onclick=requestPlayAgain;
     const replayInfo=document.createElement('div');replayInfo.className='replay-info';
-    replayInfo.textContent=Number(state.replay.requiredCount||0)<2
-      ? 'Aguardando pelo menos mais 1 jogador conectado.'
-      : state.replay.meReady
-        ? `Aguardando os demais jogadores (${state.replay.readyCount||0}/${state.replay.requiredCount||0}).`
-        : 'Nova partida na mesma sala, com placar zerado.';
+    replayInfo.textContent=state.replay.waitingForReconnect
+      ? `Aguardando reconexão (${state.replay.readyCount||0}/${state.replay.requiredCount||0} confirmados).`
+      : state.replay.waitingForRanking
+        ? 'Registrando o resultado anterior. Você já pode confirmar.'
+        : state.replay.meReady
+          ? `Aguardando os demais jogadores (${state.replay.readyCount||0}/${state.replay.requiredCount||0}).`
+          : 'Nova partida na mesma sala, com placar zerado.';
     replayWrap.append(replayBtn,replayInfo);box.appendChild(replayWrap);
   }
 

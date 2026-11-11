@@ -1,3 +1,14 @@
+## V40.69.8.5.1 — Jogar novamente na mesma sala (11/11/2026)
+
+- Recuperado o fluxo existente `playAgain`: cada jogador humano pode confirmar a revanche **antes** de o registro final no ranking terminar; o servidor aguarda o commit e então verifica automaticamente as confirmações.
+- O término assíncrono da gravação do ranking agora reenviará o estado a todos na sala, liberando o início da revanche sem exigir que alguém saia, entre novamente ou clique outra vez.
+- Mantida a mesma sala, código de convite, sockets, chat, câmera, microfone, ordem de cadeiras e identidade dos participantes. Cada revanche recebe `matchSerial` novo, baralho embaralhado, cinco rodadas e placar zerado pelo motor já existente.
+- Ampliação do fluxo de revanche para mesas com bots, preservando OFICIAL/TREINO conforme a nova composição, sem transformar observadores em jogadores. Somente humanos confirmam; bots não precisam votar.
+- Um jogador temporariamente desconectado conserva a cadeira/voto durante o prazo de reconexão. Saída voluntária libera o voto; o servidor reavalia o quórum. Torneios continuam sem revanche.
+- A interface final exibe **JOGAR NOVAMENTE**, progresso de confirmações, espera pelo ranking ou reconexão, e não oferece a ação a observadores.
+- Teste `tests/replay-resume-v4069851.test.js` cobre atraso do ranking, votos repetidos, mesmo código, novo `matchSerial`, bots, reconexão, saída, torneios e sigilo para espectadores.
+- O número interno de pacote `40.69.8-rank.5` foi mantido para evitar alterações em testes antigos que exigem a versão exata; hotfix identificado no changelog e nos arquivos de entrega. Nenhuma migração de banco.
+
 ## V40.69.8.5 — Ranking de Habilidade e títulos competitivos (11/11/2026)
 
 - Terceira aba **HABILIDADE** integrada ao painel usando API Glicko-2 existente; exibe rating, RD, índice conservador, evolução no filtro e status PROVISÓRIO.

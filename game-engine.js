@@ -2,6 +2,7 @@
 
 const RankingMode = require('./ranking-mode');
 const InputSafety = require('./input-safety');
+const ReplaySession = require('./replay-session');
 const BotDifficulty = require('./bot-difficulty');
 
 const crypto = require('crypto');
@@ -1269,10 +1270,7 @@ function quickAction(room, playerId, cardId) {
 function roomPublicState(room, viewerId) {
   const viewer = room.players.find(p => p.id === viewerId);
   const top = topCard(room);
-  const replayHumans = room.players.filter(p => !p.isBot);
-  const replayReady = new Set(Array.isArray(room.replayReadyPlayerIds) ? room.replayReadyPlayerIds : []);
-  const replayConnected = replayHumans.filter(p => p.connected);
-  const replayEligible = room.status === 'finished' && replayHumans.length >= 2 && room.players.every(p => !p.isBot);
+  const replay = ReplaySession.replayInfo(room,viewerId);
   return {
     code: room.code,
     viewerRole: 'PLAYER',
@@ -1310,12 +1308,7 @@ function roomPublicState(room, viewerId) {
     roundRoles: room.roundRoles,
     // As cartas dos adversarios so sao reveladas quando a rodada terminou.
     roundReview: (room.status === 'between-rounds' || room.status === 'finished') ? room.roundReview : null,
-    replay: {
-      eligible: replayEligible,
-      readyCount: replayConnected.filter(p => replayReady.has(p.id)).length,
-      requiredCount: replayConnected.length,
-      meReady: !!(viewer && replayReady.has(viewer.id)),
-    },
+    replay,
     players: room.players.map(p => ({
       id:p.id,
       name:p.name,
@@ -1396,6 +1389,7 @@ function roomSpectatorState(room, spectator) {
     log: spectatorPublicLog(publicState.log),
     replay: {
       ...publicState.replay,
+      eligible: false,
       meReady: false,
     },
     me: spectator ? {
