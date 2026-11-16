@@ -1,3 +1,11 @@
+## V40.69.8.17 — Proteção de resultados pendentes de torneios (16/11/2026)
+
+- Mesas de torneio com resultado competitivo ainda não confirmado ficam protegidas contra exclusão e contra a criação de tombstones de sala; auditoria, inatividade e limpeza por reconexão respeitam a proteção.
+- Registro de resultado pendente ganha tentativa automática independente de jogadores conectados, a cada 60 segundos; falhas e timeouts seguem retentativas controladas sem confirmar vitórias antecipadamente.
+- Snapshot competitivo pendente permanece armazenado por até 30 dias desde a última gravação válida; demais salas mantêm TTL já existente. Snapshots pendentes inválidos não são apagados automaticamente.
+- Regra de partidas normais, observadores, classificação, desistência sem máquinas e Ranking Oficial preservados. Sem alterações de esquema do banco.
+- **191 testes locais aprovados, 0 falhas, 1 teste Socket.IO não executado** (dependência ausente no ambiente). PostgreSQL/Render ainda exigem homologação.
+
 ## V40.69.8.16 — Recuperação segura dos torneios sem máquinas (16/11/2026)
 
 - Snapshots antigos de torneios com tombstone de abandono passam a reconstruir a desistência na mesa e no resultado, sem converter o participante em Máquina.

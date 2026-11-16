@@ -17,6 +17,7 @@ const StaticAssetVersioning = require('./static-asset-versioning');
 const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
 const TournamentForfeit = require('./tournament-forfeit');
+const TournamentRoomRetention = require('./tournament-room-retention');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const TournamentLobbyRecovery = require('./tournament-lobby-recovery');
@@ -406,13 +407,18 @@ function cleanupRoomResources(room,message='A mesa foi encerrada.'){
 }
 async function removeRoomDurably(code,eventAt=Date.now(),message='A mesa foi encerrada.'){
   const room=rooms.get(code);
+  // Torneio encerrado sem confirmacao: nunca gravar tombstone de exclusao.
+  if(room && !TournamentRoomRetention.mayRemoveRoom(room))return false;
   await requireRoomPersistenceReady();
+  // Revalidar depois da espera pelo banco, pois o resultado pode ter mudado.
+  if(room && !TournamentRoomRetention.mayRemoveRoom(room))return false;
   await roomSnapshotStore.markRoomDeleted(code,eventAt);
   if(room)cleanupRoomResources(room,message);
   return rooms.delete(code);
 }
 function removeRoom(code,message='A mesa foi encerrada.'){
   const room=rooms.get(code);
+  if(room && !TournamentRoomRetention.mayRemoveRoom(room))return false;
   if(room)cleanupRoomResources(room,message);
   const existed=rooms.delete(code);
   if(existed)roomSnapshotStore.delete(code).catch(e=>console.error('[rooms] falha ao excluir snapshot',code,e?.message||e));
@@ -1142,8 +1148,16 @@ function maybeRecordFinished(room) {
   room.pendingRankingRecord=record;
   if(room.tournament){
     room.rankingRecording=true;
-    Promise.resolve(roomSnapshotStore.saveNow(room)).then(()=>ensureTournamentBracketReady()).then(async ok=>{
+    room.rankingProcessingSince=Date.now();
+    room.rankingRetryAt=0;
+    let stage='snapshot final do torneio';
+    const operation=Promise.resolve(roomSnapshotStore.saveNow(room)).then(saved=>{
+      if(saved===false)throw new Error('Snapshot final do torneio não persistido; resultado permanece pendente.');
+      stage='inicialização do torneio';
+      return ensureTournamentBracketReady();
+    }).then(async ok=>{
       if(!ok)throw new Error('Resultados do torneio indisponíveis.');
+      stage='gravação e avanço do torneio';
       const phase=room.tournament.phase||'qualifier';
       const roster=room.tournament.rosterKeys.map(playerKey=>{
         const p=room.players.find(x=>x.playerKey===playerKey);
@@ -1159,11 +1173,24 @@ function maybeRecordFinished(room) {
         try{await notifyTournamentSeats(room.tournament.id,advanced.currentStage,next?.tables||[]);}
         catch(e){console.error('[tournament] aviso da fase seguinte falhou; avanço preservado:',e.message);}
       }
+    });
+    RankingFinalization.withTimeout(operation,{
+      timeoutMs:RankingFinalization.finalizationTimeoutMs(),getStage:()=>stage,
     }).then(()=>{
-      if(Number(room.matchSerial||1)===matchSerial){room.rankingRecorded=true;room.rankingRecording=false;
+      if(Number(room.matchSerial||1)===matchSerial){
+        room.rankingRecorded=true;room.rankingRecording=false;
+        room.rankingProcessingSince=0;room.rankingRetryAt=0;room.rankingFailureCount=0;
         Engine.appendLog(room,'🏆 Resultado da mesa registrado no torneio, sem alterar o Ranking Oficial.','system');
-        roomSnapshotStore.delete(room.code).catch(e=>console.error('[tournament] snapshot',e));}
-    }).catch(e=>{console.error('[tournament] gravação de resultado falhou',e);room.rankingRecording=false;});
+        roomSnapshotStore.delete(room.code).catch(e=>console.error('[tournament] snapshot',e));
+      }
+    }).catch(e=>{
+      console.error('[tournament] gravação de resultado falhou; nova tentativa automática',room.code,e?.message||e);
+      if(Number(room.matchSerial||1)!==matchSerial)return;
+      room.rankingRecording=false;room.rankingProcessingSince=0;
+      room.rankingLastFailureAt=Date.now();
+      room.rankingFailureCount=Math.max(0,Number(room.rankingFailureCount)||0)+1;
+      room.rankingRetryAt=Date.now()+RankingFinalization.retryDelayMs(room.rankingFailureCount);
+    });
     return;
   }
   if (!record.results.length) {
@@ -1447,6 +1474,10 @@ function refreshOfflineRoomExpiry(room) {
     const liveStartedAt=Number(liveRoom.allHumansOfflineStartedAt||liveRoom.soloDisconnectStartedAt||0);
     if(liveStartedAt!==startedAt)return refreshOfflineRoomExpiry(liveRoom);
     if(Date.now()<deadline)return refreshOfflineRoomExpiry(liveRoom);
+    if(TournamentRoomRetention.hasPendingTournamentResult(liveRoom)){
+      maybeRecordFinished(liveRoom);
+      return; // A limpeza das salas só é permitida após confirmação da classificação.
+    }
 
     if(liveRoom.botTimer){clearTimeout(liveRoom.botTimer);liveRoom.botTimer=null;}
     clearReconnectTimersForRoom(liveRoom.code);
@@ -1669,8 +1700,7 @@ function addBotToRoom(room) {
 // ou entrada em outra sala encerra definitivamente essa reserva.
 function deleteRoomIfNoHumanMembers(room) {
   if(!room || RoomLifecycle.hasHumanMembers(room)) return false;
-  removeRoom(room.code,'A sala foi encerrada porque não restou nenhum jogador humano.');
-  return true;
+  return removeRoom(room.code,'A sala foi encerrada porque não restou nenhum jogador humano.');
 }
 
 function convertHumanSeatToPermanentBot(room, player, reason='saiu da sala') {
@@ -3878,6 +3908,7 @@ io.on('connection', socket => {
         if (!currentRoom || !['lobby','between-rounds','finished'].includes(currentRoom.status)) return;
         const stale = currentRoom.players.find(x => x.id === playerId);
         if (!stale || stale.connected || stale.autoControlled) return;
+        if(currentRoom.tournament && TournamentRoomRetention.hasPendingTournamentResult(currentRoom))return;
 
         const leavingName = stale.name;
         currentRoom.players = currentRoom.players.filter(x => x.id !== playerId);
@@ -3903,6 +3934,18 @@ io.on('connection', socket => {
   });
 });
 
+// V40.69.8.17 — a classificação não pode depender de novo clique/emitRoom.
+// Retenta resultados de torneio com jogador ausente e renova a expiração do
+// snapshot pendente; não registra vitórias nem altera partidas comuns.
+const pendingTournamentRetryTimer=setInterval(()=>{
+  for(const room of rooms.values()){
+    if(!TournamentRoomRetention.hasPendingTournamentResult(room))continue;
+    if(!room.rankingRecording)maybeRecordFinished(room);
+    roomSnapshotStore.saveNow(room).catch(e=>console.error('[tournament] falha ao renovar snapshot pendente',room.code,e?.message||e));
+  }
+},60000);
+pendingTournamentRetryTimer.unref?.();
+
 let roomAuditRunning=false;
 async function auditRoomLifecycle(){
   if(roomAuditRunning)return 0;
@@ -3912,8 +3955,7 @@ async function auditRoomLifecycle(){
     for(const [code,room] of [...rooms]){
       if(!RoomGovernance.shouldCleanupRoom(room))continue;
       try{
-        await removeRoomDurably(code,Date.now(),'A sala foi encerrada automaticamente porque não restou nenhum jogador humano.');
-        cleaned++;
+        if(await removeRoomDurably(code,Date.now(),'A sala foi encerrada automaticamente porque não restou nenhum jogador humano.'))cleaned++;
       }catch(e){console.error('[rooms] auditoria não conseguiu excluir sala inconsistente',code,e?.message||e);}
     }
   }finally{roomAuditRunning=false;}
@@ -3930,7 +3972,9 @@ setInterval(()=>{
     const activeMatch=room.status==='playing' || (room.status==='between-rounds' && Number(room.round||0)>0);
     // V40.57.1 — uma partida ativa não expira por idade. A cadeira humana segue
     // reservada até o encerramento da partida, mesmo que todos estejam offline/AUTO.
-    if(!activeMatch && allHumansGone && now-room.createdAt>6*60*60*1000) {
+    if(!activeMatch && allHumansGone && now-room.createdAt>6*60*60*1000){
+      // Mantem a regra historica e acrescenta a protecao de resultado pendente.
+      if(!TournamentRoomRetention.mayRemoveRoom(room))continue;
       if (room.botTimer) clearTimeout(room.botTimer);
       clearReconnectTimersForRoom(code);
       closeSpectatorsForRoom(room);
@@ -3957,6 +4001,7 @@ function scheduleRestoredPlayerGrace(room,player){
     const liveRoom=rooms.get(room.code);if(!liveRoom||liveRoom!==room||!['lobby','between-rounds','finished'].includes(liveRoom.status))return;
     const stale=liveRoom.players.find(p=>p.id===player.id);
     if(!stale||stale.connected||stale.isBot)return;
+    if(liveRoom.tournament && TournamentRoomRetention.hasPendingTournamentResult(liveRoom))return;
     const leavingName=stale.name;
     liveRoom.players=liveRoom.players.filter(p=>p.id!==stale.id);
     if(!liveRoom.players.length||liveRoom.players.every(p=>p.isBot)){
@@ -3979,7 +4024,9 @@ async function restorePersistedRooms(){
     for(const snapshot of snapshots){
       const room=restoreRoomSnapshot(snapshot,{reconnectGraceMs:runtimeReconnectGraceMs()});
       if(!room){
-        if(snapshot?.code)roomSnapshotStore.delete(snapshot.code).catch(e=>console.error('[rooms] falha ao remover snapshot inválido',snapshot.code,e?.message||e));
+        if(snapshot?.code && TournamentRoomRetention.hasPendingTournamentResult(snapshot))
+          console.error('[tournament] snapshot pendente inválido preservado para auditoria:',snapshot.code);
+        else if(snapshot?.code)roomSnapshotStore.delete(snapshot.code).catch(e=>console.error('[rooms] falha ao remover snapshot inválido',snapshot.code,e?.message||e));
         continue;
       }
       if(rooms.has(room.code))continue;

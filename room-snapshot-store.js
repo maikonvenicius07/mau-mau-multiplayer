@@ -9,6 +9,7 @@ const RetentionPolicy = require('./retention-policy');
 const BotDifficulty = require('./bot-difficulty');
 const SpectatorSeatAdmission = require('./spectator-seat-admission');
 const TournamentForfeit = require('./tournament-forfeit');
+const TournamentRoomRetention = require('./tournament-room-retention');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
@@ -531,7 +532,7 @@ class RoomSnapshotStore {
     if(this.isRoomDeleted(code))return false;
     try{
       const assetsForSave=this.persistedAssetSignatures.get(code)===parts.assetSignature?null:parts.avatarAssets;
-      const saved=await this.backend.save(code,parts.snapshot,Date.now()+this.ttlMs,assetsForSave,revision);
+      const saved=await this.backend.save(code,parts.snapshot,Date.now()+TournamentRoomRetention.snapshotTtlMs(parts.snapshot,this.ttlMs),assetsForSave,revision);
       if(saved!==false){
         // Uma escrita antiga pode concluir depois do seu timeout. Nunca
         // atualizar o cache de assets se outra revisão já foi emitida;

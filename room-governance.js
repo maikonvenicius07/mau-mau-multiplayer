@@ -1,4 +1,5 @@
 'use strict';
+const TournamentRoomRetention=require('./tournament-room-retention');
 
 const DEFAULT_MAX_ROOMS = 10;
 const MIN_MAX_ROOMS = 10;
@@ -22,6 +23,7 @@ function hasHumanMembers(room) {
 }
 
 function shouldCleanupRoom(room) {
+  if(TournamentRoomRetention.hasPendingTournamentResult(room))return false;
   if(!room || !Array.isArray(room.players)) return true;
   return !hasHumanMembers(room);
 }
