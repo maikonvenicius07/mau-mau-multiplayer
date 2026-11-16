@@ -52,7 +52,8 @@
           for(const p of table.result.results){
             const li=document.createElement('li');
             let note='';
-            if(p.advanced===true)note=' · Classificado';
+            if(p.forfeited)note=' · Desclassificado por desistência';
+            else if(p.advanced===true)note=' · Classificado';
             else if(p.advanced===false)note=' · Eliminado';
             li.textContent=p.position+'º '+p.name+' · '+p.score+' pontos'+note;
             if(p.advanced===true)li.className='tournament-advanced';

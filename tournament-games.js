@@ -37,7 +37,7 @@ class TournamentGames {
     // Guarda somente nomes, posições, pontuação e vencedores da partida já encerrada.
     const safe={matchId:String(result.matchId||'').slice(0,160),finishedAt:result.finishedAt,
       complete:result.results.length===Number(expectedPlayers||result.results.length),
-      results:result.results.map(p=>({name:String(p.name||'Jogador').slice(0,24),score:Number(p.score)||0,position:Number(p.position)||0,won:!!p.won})).sort((a,b)=>a.position-b.position||a.score-b.score)};
+      results:result.results.map(p=>({name:String(p.name||'Jogador').slice(0,24),score:Number(p.score)||0,position:Number(p.position)||0,won:!!p.won&&!p.forfeited,forfeited:!!p.forfeited})).sort((a,b)=>a.position-b.position||a.score-b.score)};
     if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_table_games SET result_json=$4::jsonb,finished_at=NOW()
       WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND result_json IS NULL`,[id,number,roomCode,JSON.stringify(safe)]);
       if(!r.rowCount){const prev=await this.get(id,number);if(!prev||prev.roomCode!==roomCode)throw fail('Mesa incompatível.');}

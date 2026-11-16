@@ -16,6 +16,7 @@ const MatchmakingDelivery = require('./matchmaking-delivery');
 const StaticAssetVersioning = require('./static-asset-versioning');
 const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
+const TournamentForfeit = require('./tournament-forfeit');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const ReplaySession = require('./replay-session');
@@ -1109,7 +1110,9 @@ function maybeRecordFinished(room) {
   // O resultado final precisa continuar imutável caso um jogador saia
   // da mesa enquanto o PostgreSQL estiver temporariamente indisponível.
   // A identificação da partida evita reutilização na revanche seguinte.
-  const freshRecord=buildMatchRecord(room);
+  const freshRecord=room.tournament
+    ?TournamentForfeit.tournamentMatchRecord(room,buildMatchRecord(room))
+    :buildMatchRecord(room);
   const record=room.pendingRankingRecord?.matchId===freshRecord.matchId
     ?room.pendingRankingRecord
     :freshRecord;
@@ -1492,6 +1495,30 @@ function recoverAutomatedTurn(room, player) {
 function scheduleReconnectTakeover(room, player) {
   const matchActive=room && (room.status==='playing' || (room.status==='between-rounds' && room.round>0));
   if(!matchActive || !RoomLifecycle.canAutoReconnect(player)) return;
+  if(room.tournament){
+    // Não existe AUTO nem Máquina em torneio: após a tolerância de reconexão,
+    // quem ainda estiver ausente desiste, desde que haja adversário conectado.
+    cancelReconnectTimer(room.code,player.id);
+    const key=reconnectTimerKey(room.code,player.id);
+    const check=async()=>{
+      reconnectTimers.delete(key);
+      const liveRoom=rooms.get(room.code);
+      const stale=liveRoom?.players.find(p=>p.id===player.id);
+      if(!liveRoom||liveRoom!==room||!RoomLifecycle.isActiveMatch(liveRoom)||
+         !stale||stale.connected||!stale.reconnectEligible)return;
+      if(!liveRoom.players.some(p=>p.id!==stale.id&&p.connected&&!p.isBot)){
+        // Não declarar vencedor se todos estiverem sem conexão.
+        const retry=setTimeout(()=>void check(),15000);retry.unref?.();
+        reconnectTimers.set(key,retry);return;
+      }
+      try{
+        await abandonHumanSeatDurably(liveRoom,stale,{reason:'não retornou no prazo de reconexão e desistiu do torneio'});
+        broadcastPresence();
+      }catch(e){console.error('[tournament] falha ao registrar desistência após desconexão',e);}
+    };
+    const timer=setTimeout(()=>void check(),Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now()));
+    timer.unref?.();reconnectTimers.set(key,timer);return;
+  }
   cancelReconnectTimer(room.code,player.id);
   const key=reconnectTimerKey(room.code,player.id);
   const delay=Math.max(0,Number(player.reconnectDeadlineAt||Date.now())-Date.now());
@@ -1511,7 +1538,7 @@ function scheduleReconnectTakeover(room, player) {
 }
 
 function scheduleBotTurn(room) {
-  if (!room || room.status !== 'playing' || room.botTimer) return;
+  if (!room || room.status !== 'playing' || room.botTimer || room.tournament) return;
   // Durante os 60 s de tolerância, ninguém joga. Depois, a vaga desconectada
   // passa a ser tratada pelo mesmo motor da Máquina, sem virar um jogador-bot.
   if (roomWaitingForReconnect(room)) return;
@@ -1619,6 +1646,7 @@ function deleteRoomIfNoHumanMembers(room) {
 
 function convertHumanSeatToPermanentBot(room, player, reason='saiu da sala') {
   if(!room||!player||player.isBot)return false;
+  if(room.tournament)throw new Error('Máquinas nunca podem substituir participantes de torneio.');
   const oldName=player.name;
   const botInfo=nextBotInfo(room);
   cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
@@ -1640,7 +1668,14 @@ function abandonHumanSeat(room, player, {reason='saiu voluntariamente da sala',s
   if(oldSocketId && (!socket || oldSocketId!==socket.id)) retireReplacedSocket(oldSocketId,{roomCode:room.code});
 
   const activeMatch=RoomLifecycle.isActiveMatch(room);
-  if(activeMatch){
+  if(room.tournament && activeMatch){
+    TournamentForfeit.forfeitActiveSeat(room,player);
+  }else if(room.tournament && room.status==='finished'){
+    // Após o fim, preservar a identidade e a pontuação até a gravação do resultado.
+    player.connected=false;player.socketId=null;player.reconnectEligible=false;
+    player.autoControlled=false;player.voluntaryLeftAt=Date.now();
+    Engine.appendLog(room,`${oldName} saiu após o encerramento da mesa.`,'system');
+  }else if(activeMatch){
     convertHumanSeatToPermanentBot(room,player,reason);
   }else{
     RoomLifecycle.removeHumanSeat(room,player.id);
@@ -2471,6 +2506,7 @@ async function createRoomForSocket(socket,profileData={}) {
 async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   const key=socket.data.auth.playerKey;
   if(room.tournament && !room.tournament.rosterKeys.includes(key))throw new Error('Mesa restrita aos sorteados.');
+  if(room.tournament?.forfeits?.some(p=>p.playerKey===key))throw new Error('Você já desistiu desta mesa e não pode retornar como jogador.');
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   await prepareForRoomSwitch(socket,room.code);
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
@@ -2969,6 +3005,8 @@ io.on('connection', socket => {
       const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
         await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
+      // A validação da desistência é repetida no caminho de entrada abaixo,
+      // após identificar a sala persistida (evita o retorno entre rodadas).
       const event=await tournamentCatalog.get(id);
       if(!event||event.status!=='closed')throw new Error('O torneio deve estar com as inscrições encerradas.');
       if(tournamentTableJoinLocks.has(lockKey))throw new Error('A mesa está sendo preparada. Tente entrar novamente.');
@@ -2977,13 +3015,15 @@ io.on('connection', socket => {
         let binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
         let room=binding?rooms.get(binding.roomCode):null;
         if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
+        if(room?.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
+          throw new Error('Você desistiu desta mesa e não pode retornar ao torneio.');
         if(binding&&!room)throw new Error('A sala desta mesa está em recuperação ou expirou. O organizador deverá verificar a situação.');
         if(!room){
           enforceActionRate(socket,'createRoom','Aguarde antes de criar outra mesa.');
           const code=roomCode();
           const candidate=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),
             name:cleanPresenceName(socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
-          candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey)};
+          candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),forfeits:[]};
           candidate.isPublic=false;ensureSocial(candidate);
           await prepareForRoomSwitch(socket,code);
           binding=phase==='qualifier'?await tournamentGames.claim(id,number,code):await tournamentBracket.claim(id,phase,number,code);
@@ -3065,6 +3105,8 @@ io.on('connection', socket => {
       if(!room) throw new Error('Sala não encontrada.');
       if(room.tournament && !room.tournament.rosterKeys.includes(socket.data.auth?.playerKey))
         throw new Error('Somente os participantes sorteados podem ocupar vagas nesta mesa.');
+      if(room.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
+        throw new Error('Você foi desclassificado por desistência e não pode retornar à mesa.');
       ensureSocial(room);
 
       let p=null;
@@ -3360,8 +3402,8 @@ io.on('connection', socket => {
 
       const leaving = room.players[idx];
       // V40.59 — SAIR é abandono definitivo, nunca uma reconexão automática.
-      // Se a rodada já começou, a cadeira vira uma Máquina comum para não quebrar
-      // a mesa dos demais; a identidade/token humano são removidos imediatamente.
+      // Partidas comuns usam Máquina após saída; torneios registram desistência
+      // e continuam apenas com participantes humanos, sem substituir a cadeira.
       await abandonHumanSeatDurably(room,leaving,{reason:'saiu voluntariamente da sala',socket});
 
       socket.leave(code);

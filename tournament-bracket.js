@@ -15,7 +15,7 @@ function publicStage(row,advancedKeys=null){
   return {stage:row.stage,number:row.number,players:row.players.map(p=>({name:p.name,seat:p.seat})),
     created:!!row.roomCode,finished:!!row.result,
     result:row.result?{complete:true,results:row.result.results.map(p=>({
-      name:p.name,position:p.position,score:p.score,won:p.won,
+      name:p.name,position:p.position,score:p.score,won:p.won,forfeited:!!p.forfeited,
       ...(advancedKeys?{advanced:advancedKeys.has(p.playerKey)}:{})
     }))}:null};
 }
@@ -23,7 +23,8 @@ function candidatesFromStage(rows,quota){
   const candidates=[];
   for(const table of rows){
     if(!table.result||table.result.results.length!==table.players.length)throw fail('Há resultado ausente ou parcial. Conclua todas as partidas antes da classificação.');
-    const ordered=[...table.result.results].sort((a,b)=>a.score-b.score || a.position-b.position);
+    // Desistentes nunca podem ocupar as vagas de classificação.
+    const ordered=table.result.results.filter(p=>!p.forfeited).sort((a,b)=>a.score-b.score || a.position-b.position);
     // Empate no limite: sorteio automático, sem escolha do organizador.
     const randomized=[];
     for(let i=0;i<ordered.length;){let j=i+1;while(j<ordered.length&&ordered[i].score===ordered[j].score)j++;
@@ -86,7 +87,7 @@ class TournamentBracket{
     validate(id,stage,number);
     if(!roomCode||!Array.isArray(result?.results)||!result.results.length||!Array.isArray(players)||!players.length)throw fail('Resultado de torneio inválido.',400);
     const byKey=new Map(players.map(p=>[p.playerKey,p]));
-    const mapped=result.results.map(p=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),score:Number(p.score),position:Number(p.position),won:!!p.won}));
+    const mapped=result.results.map(p=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),score:Number(p.score),position:Number(p.position),won:!!p.won&&!p.forfeited,forfeited:!!p.forfeited}));
     if(mapped.length!==players.length||new Set(mapped.map(p=>p.playerKey)).size!==players.length||
        mapped.some(p=>!byKey.has(p.playerKey)||!Number.isFinite(p.score)||p.score<0||!Number.isInteger(p.position)||p.position<1))
       throw fail('A partida não tem o resultado completo dos jogadores sorteados. Avanço bloqueado.');

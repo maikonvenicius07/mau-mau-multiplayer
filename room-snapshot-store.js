@@ -111,6 +111,12 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
     p.name=InputSafety.cleanPresenceName(p.name,p.isBot?'Máquina':'Jogador');
     p.avatar=InputSafety.cleanAvatar(p.avatar,p.isBot?'preta':'macaco');
     if(p.token)p.token=InputSafety.cleanOpaqueId(p.token,160)||`restored-${p.id}`;
+    if (!p.isBot && Number(p.voluntaryLeftAt || 0) > 0 && room.tournament) {
+      // Torneio encerrado: a identidade competitiva não vira Máquina no restore.
+      p.connected=false;p.autoControlled=false;p.reconnectEligible=false;
+      p.disconnectedAt=now;p.reconnectDeadlineAt=null;
+      continue;
+    }
     if (!p.isBot && Number(p.voluntaryLeftAt || 0) > 0) {
       p.isBot = true;
       p.connected = true;
