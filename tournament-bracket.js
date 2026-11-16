@@ -212,7 +212,7 @@ class TournamentBracket{
     const terminalStage=latest&&!nextStage(latest.stage,latest.tables);
     if(terminalStage&&completeInitial&&latest.tables.length===1&&latest.tables[0].finished){
       const winners=latest.tables[0].result.results.filter(p=>p.won).map(p=>({name:p.name,score:p.score}));
-      if(winners.length)champion={names:winners,stage:latest.stage,standings:latest.tables[0].result.results.map(p=>({name:p.name,position:p.position,score:p.score})).sort((a,b)=>a.position-b.position||a.score-b.score)};
+      if(winners.length)champion={names:winners,stage:latest.stage,standings:latest.tables[0].result.results.map(p=>({name:p.name,position:p.position,score:p.score,forfeited:!!p.forfeited})).sort((a,b)=>a.position-b.position||a.score-b.score)};
     }
     // Partidas intermediárias com apenas uma mesa só são finais se não houver fase seguinte.
     return {stages,currentStage:latest?.stage||'qualifier',champion};

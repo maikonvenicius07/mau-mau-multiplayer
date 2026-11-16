@@ -1003,7 +1003,7 @@ app.get('/api/tournaments/champions', async(req,res)=>{
       const initial=await tournamentDraw.get(cup.id);
       if(!initial.length)continue;
       const bracket=await tournamentBracket.summary(cup.id,initial);
-      if(bracket.champion)completed.push({id:cup.id,name:cup.name,champion:bracket.champion});
+      if(bracket.champion)completed.push({id:cup.id,name:cup.name,champion:bracket.champion,stages:bracket.stages});
     }
     res.json({ok:true,completed});
   }catch(e){console.error('[tournament] campeões indisponíveis:',e);res.status(503).json({ok:false,message:'Resultados indisponíveis.'});}

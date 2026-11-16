@@ -208,6 +208,66 @@
     });
   }
   button.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();loadList().catch(e=>state.textContent=e.message);});
+  // V40.69.8.15 — Resultado completo do torneio dentro do Ranking.
+  // A pontuação e a posição são as registradas, sem recalcular o ranking oficial.
+  function appendRankingStandings(container,standings){
+    if(!Array.isArray(standings)||!standings.length){
+      const info=document.createElement('p');info.className='ranking-cup-muted';
+      info.textContent='A classificação detalhada não está disponível para esta mesa.';container.append(info);return;
+    }
+    const table=document.createElement('table');table.className='ranking-cup-table';
+    const head=document.createElement('thead');const headRow=document.createElement('tr');
+    for(const label of ['Posição','Jogador','Pontos']){
+      const cell=document.createElement('th');cell.scope='col';cell.textContent=label;headRow.append(cell);
+    }
+    head.append(headRow);table.append(head);
+    const body=document.createElement('tbody');
+    // Não limitar a 5 jogadores; a posição gravada pelo jogo é a fonte de verdade.
+    for(const player of standings){
+      const row=document.createElement('tr');
+      const position=Number(player.position);
+      if(position===1)row.className='ranking-cup-first';
+      if(player.forfeited)row.className+=' ranking-cup-forfeited';
+      const place=document.createElement('td');
+      const medal=position===1?'🥇 ':position===2?'🥈 ':position===3?'🥉 ':'';
+      place.textContent=medal+(Number.isInteger(position)&&position>0?position+'º':'—');
+      const nameCell=document.createElement('td');nameCell.textContent=String(player.name||'Jogador');
+      if(player.forfeited){const hint=document.createElement('small');hint.textContent=' · Desclassificado por desistência';nameCell.append(hint);}
+      const score=document.createElement('td');score.textContent=Number.isFinite(Number(player.score))?Number(player.score).toLocaleString('pt-BR'):'—';
+      row.append(place,nameCell,score);body.append(row);
+    }
+    table.append(body);container.append(table);
+  }
+  function renderTournamentRankingResults(target,cup){
+    const card=document.createElement('article');card.className='ranking-cup-card';
+    const title=document.createElement('h3');title.textContent='🏆 '+String(cup.name||'Torneio');card.append(title);
+    const winner=document.createElement('p');winner.className='ranking-cup-winner';
+    const names=Array.isArray(cup.champion?.names)?cup.champion.names.map(p=>p.name).join(', '):'';
+    winner.textContent=(cup.champion?.names?.length>1?'Campeões: ':'Campeão: ')+(names||'Não identificado');card.append(winner);
+    const stageList=Array.isArray(cup.stages)?cup.stages:[];
+    const isMultiStage=stageList.length>1;
+    const subheading=document.createElement('h4');
+    subheading.textContent=isMultiStage?'Classificação da final':'Classificação final do torneio';card.append(subheading);
+    appendRankingStandings(card,cup.champion?.standings);
+    // Para campeonatos com várias mesas, os resultados anteriores ficam disponíveis
+    // por fase. Não criamos uma classificação geral fictícia entre mesas distintas.
+    const previous=stageList.filter(stage=>stage.stage!==cup.champion?.stage&&stage.tables?.some(t=>t.result?.results?.length));
+    if(previous.length){
+      const details=document.createElement('details');details.className='ranking-cup-earlier';
+      const summary=document.createElement('summary');summary.textContent='Ver resultados das outras fases';details.append(summary);
+      for(const stage of previous){
+        const heading=document.createElement('h5');heading.textContent=stage.label||'Fase anterior';details.append(heading);
+        for(const table of stage.tables||[]){
+          if(!table.result?.results?.length)continue;
+          const tableHeading=document.createElement('p');tableHeading.className='ranking-cup-table-label';
+          tableHeading.textContent='Mesa '+table.number;details.append(tableHeading);
+          appendRankingStandings(details,table.result.results);
+        }
+      }
+      card.append(details);
+    }
+    target.append(card);
+  }
   const champions=document.getElementById('tournamentResultsInfo');
   if(champions)champions.addEventListener('toggle',async()=>{
     if(!champions.open)return;
@@ -215,10 +275,8 @@
     target.textContent='Consultando campeonatos...';
     try{const response=await request('/api/tournaments/champions');target.replaceChildren();
       if(!response.completed?.length){target.textContent='Nenhum torneio concluído até o momento.';return;}
-      for(const cup of response.completed){const item=document.createElement('p');
-        item.textContent='🏆 '+cup.name+' — '+cup.champion.names.map(p=>p.name).join(', ');target.append(item);
-        const podium=document.createElement('small');podium.textContent='Classificação: '+(cup.champion.standings||[]).slice(0,5).map(p=>p.position+'º '+p.name+' ('+p.score+' pts)').join(' · ');target.append(podium);}
-    }catch(e){target.textContent='Não foi possível consultar os campeões.';}
+      for(const cup of response.completed)renderTournamentRankingResults(target,cup);
+    }catch(e){target.textContent='Não foi possível consultar os resultados dos torneios.';}
   });
   if(refresh)refresh.addEventListener('click',async()=>{
     if(pending||!picker.value)return;

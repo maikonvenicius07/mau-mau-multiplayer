@@ -2641,6 +2641,27 @@ button.bot-primary{
 .ranking-tournament-champions small{display:block;color:#b9cbb9;font-size:11px;line-height:1.5;margin:0 12px 12px}
 
 
+/* V40.69.8.15 — Classificação legível dos torneios no Ranking. */
+.ranking-tournament-champions{display:grid;gap:12px;margin-top:10px}
+.ranking-cup-card{min-width:0;padding:13px;border:1px solid #3f614b;border-radius:11px;background:#10281e;color:#ecf2e8}
+.ranking-cup-card h3{margin:0 0 8px;color:#f1d183;font-size:15px;overflow-wrap:anywhere}
+.ranking-cup-card h4{margin:13px 0 6px;font-size:12px;color:#cde7ce}
+.ranking-cup-card .ranking-cup-winner{margin:0;padding:8px 10px;background:#263c24;border:1px solid #6b713a;border-radius:8px;color:#f0d788;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.ranking-cup-table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px;color:#e9f0e4}
+.ranking-cup-table th{background:#0d2119;color:#e0c477;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.025em;padding:9px 7px}
+.ranking-cup-table td{border-bottom:1px solid #2c4a38;padding:9px 7px;vertical-align:top;overflow-wrap:anywhere}
+.ranking-cup-table th:first-child,.ranking-cup-table td:first-child{width:72px}
+.ranking-cup-table th:last-child,.ranking-cup-table td:last-child{width:60px;text-align:right;font-variant-numeric:tabular-nums}
+.ranking-cup-table .ranking-cup-first{background:rgba(179,142,46,.13);font-weight:700}
+.ranking-cup-table .ranking-cup-forfeited{color:#b1bbb0}
+.ranking-cup-table small{color:#deb887;font-size:10px}
+.ranking-cup-earlier{margin-top:12px;border-top:1px solid #426049;padding-top:10px}
+.ranking-cup-earlier summary{color:#dfc88d;cursor:pointer;font-size:12px;font-weight:750;padding:6px 0}
+.ranking-cup-earlier h5{color:#d3e1d4;font-size:12px;margin:13px 0 5px}
+.ranking-cup-earlier .ranking-cup-table-label{color:#d7bf81;margin:8px 0 4px;padding:0;border:0;font-weight:700}
+.ranking-cup-muted{font-size:12px;color:#bccdbf}
+@media(max-width:450px){.ranking-cup-card{padding:9px}.ranking-cup-table{font-size:11px}.ranking-cup-table th:first-child,.ranking-cup-table td:first-child{width:59px}.ranking-cup-table th:last-child,.ranking-cup-table td:last-child{width:50px}.ranking-cup-table td,.ranking-cup-table th{padding:8px 4px}}
+
 /* V51.6 — painel compacto de acompanhamento; cada fase pode ser expandida. */
 .tournament-overview{margin:14px 0;padding:12px;border:1px solid #41684e;border-radius:13px;background:#10261c}
 .tournament-overview[hidden]{display:none}
