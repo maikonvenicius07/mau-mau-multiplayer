@@ -19,6 +19,7 @@ const RoomLifecycle = require('./room-lifecycle');
 const TournamentForfeit = require('./tournament-forfeit');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
+const TournamentLobbyRecovery = require('./tournament-lobby-recovery');
 const ReplaySession = require('./replay-session');
 const RankingFinalization = require('./ranking-finalization');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
@@ -304,6 +305,7 @@ const {ensureReady:ensureTournamentBracketReady}=createRetryableInitialization({
 });
 void ensureTournamentBracketReady();
 const tournamentTableJoinLocks=new Set();
+const tournamentRoundStartLocks=new Set();
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
@@ -1721,8 +1723,12 @@ function withRoom(socket, fn) {
     if (!player.isBot && player.playerKey && player.playerKey !== socket.data.auth?.playerKey) throw new Error('Esta vaga pertence a outra conta.');
     if (!player.isBot && player.socketId !== socket.id) throw new Error('Esta conexão foi substituída por uma sessão mais recente.');
     if (!player.isBot && !player.connected) throw new Error('Esta vaga não está conectada por esta sessão.');
-    fn(room, player);
-    emitRoom(room);
+    const outcome=fn(room, player);
+    // Apenas ações que exigem confirmação durável podem retornar Promise.
+    // Não anunciar estado novo antes de o armazenamento autorizar a transição.
+    if(outcome&&typeof outcome.then==='function'){
+      outcome.then(()=>{if(rooms.get(room.code)===room)emitRoom(room);}).catch(e=>err(socket,e));
+    }else emitRoom(room);
   } catch(e) { err(socket,e); }
 }
 
@@ -3017,7 +3023,19 @@ io.on('connection', socket => {
         if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
         if(room?.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
           throw new Error('Você desistiu desta mesa e não pode retornar ao torneio.');
-        if(binding&&!room)throw new Error('A sala desta mesa está em recuperação ou expirou. O organizador deverá verificar a situação.');
+        let recoveringLobby=false;
+        if(binding&&!room){
+          // Somente após restaurar todos os snapshots: caso contrário uma mesa
+          // ainda ativa poderia ser recriada com o mesmo roster.
+          await requireRoomPersistenceReady();
+          const activeSnapshots=await roomSnapshotStore.loadActive();
+          recoveringLobby=TournamentLobbyRecovery.canRecoverMissingLobby(binding,{
+            snapshotsReady:snapshotsRestored,
+            activeSnapshot:activeSnapshots.some(s=>s?.code===binding.roomCode),
+            deleted:roomSnapshotStore.isRoomDeleted(binding.roomCode)
+          });
+          if(!recoveringLobby)throw new Error('A sala está em recuperação ou a partida já começou. Não é seguro recriá-la automaticamente.');
+        }
         if(!room){
           enforceActionRate(socket,'createRoom','Aguarde antes de criar outra mesa.');
           const code=roomCode();
@@ -3026,9 +3044,13 @@ io.on('connection', socket => {
           candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),forfeits:[]};
           candidate.isPublic=false;ensureSocial(candidate);
           await prepareForRoomSwitch(socket,code);
-          binding=phase==='qualifier'?await tournamentGames.claim(id,number,code):await tournamentBracket.claim(id,phase,number,code);
+          binding=recoveringLobby?
+            (phase==='qualifier'?await tournamentGames.reclaimLobby(id,number,binding.roomCode,code):
+              await tournamentBracket.reclaimLobby(id,phase,number,binding.roomCode,code)):
+            (phase==='qualifier'?await tournamentGames.claim(id,number,code):await tournamentBracket.claim(id,phase,number,code));
           if(binding.roomCode!==code)throw new Error('Esta mesa já foi criada em outra instância. Tente novamente.');
           rooms.set(code,candidate);room=candidate;
+          if(recoveringLobby)console.info('[tournament] lobby sem partida recuperado',{id,phase,number});
           removeFromMatchmaking(socket.data.auth.playerKey,{reason:'Você entrou no torneio.',notify:true});
           const p=room.players[0];socket.data.roomCode=code;socket.data.playerId=p.id;
           socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(code);
@@ -3431,7 +3453,7 @@ io.on('connection', socket => {
     broadcastPresence();
   }));
 
-  socket.on('startRound', () => withRoom(socket,(room,p)=>{
+  socket.on('startRound', () => withRoom(socket,async(room,p)=>{
     if(room.status==='playing') throw new Error('A rodada já está em andamento.');
 
     // Failover do anfitrião: se o anfitrião atual estiver realmente desconectado,
@@ -3449,7 +3471,30 @@ io.on('connection', socket => {
          room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
         throw new Error('Aguarde todos os participantes sorteados antes de iniciar a primeira rodada.');
     }
-    Engine.startRound(room);
+    // A primeira rodada é irreversível para recovery: registrar no PostgreSQL
+    // ANTES de distribuir as cartas. Uma falha de banco impede o início.
+    if(room.tournament&&room.round===0){
+      if(tournamentRoundStartLocks.has(room.code))throw new Error('Esta mesa já está iniciando.');
+      tournamentRoundStartLocks.add(room.code);
+      try{
+        await requireRoomPersistenceReady();
+        if(!await ensureTournamentBracketReady())throw new Error('O sistema de torneios está indisponível.');
+        if(rooms.get(room.code)!==room||room.status==='playing'||room.round>0||
+           !p.connected||p.socketId!==socket.id||
+           room.players.length!==room.tournament.rosterKeys.length||
+           room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
+          throw new Error('A mesa mudou durante a preparação. Confira os jogadores.');
+        if(room.tournament.phase==='qualifier')
+          await tournamentGames.markStarted(room.tournament.id,room.tournament.tableNumber,room.code);
+        else await tournamentBracket.markStarted(room.tournament.id,room.tournament.phase,room.tournament.tableNumber,room.code);
+        if(rooms.get(room.code)!==room||room.status==='playing'||room.round>0||
+           !p.connected||p.socketId!==socket.id||
+           room.players.length!==room.tournament.rosterKeys.length||
+           room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
+          throw new Error('A sala ou os participantes mudaram durante o início.');
+        Engine.startRound(room);
+      }finally{tournamentRoundStartLocks.delete(room.code);}
+    }else Engine.startRound(room);
     broadcastPresence();
   }));
 

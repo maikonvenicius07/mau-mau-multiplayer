@@ -14,23 +14,48 @@ class TournamentGames {
       table_number INTEGER NOT NULL CHECK(table_number>=1),
       room_code VARCHAR(10) NOT NULL UNIQUE,
       result_json JSONB,
+      room_state VARCHAR(16) NOT NULL DEFAULT 'legacy',
+      claimed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       finished_at TIMESTAMPTZ,
       PRIMARY KEY(tournament_id,table_number)
-    )`);}
+    )`);
+      // Existing bindings cannot be assumed to be in the lobby.
+      await this.pool.query(`ALTER TABLE mm_tournament_table_games ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
+      await this.pool.query(`ALTER TABLE mm_tournament_table_games ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
+    }
     else {fs.mkdirSync(path.dirname(this.filePath),{recursive:true});this.reload();}
   }
   reload(){if(this.pool)return;try{this.local=JSON.parse(fs.readFileSync(this.filePath,'utf8'));}catch(e){if(e.code==='ENOENT')this.local={};else throw e;}}
   save(){const tmp=this.filePath+'.tmp';fs.writeFileSync(tmp,JSON.stringify(this.local,null,2));fs.renameSync(tmp,this.filePath);}
   key(id,number){return `${id}:${number}`;}
   async get(id,number){
-    if(this.pool){const r=await this.pool.query(`SELECT room_code AS "roomCode",result_json AS result FROM mm_tournament_table_games WHERE tournament_id=$1 AND table_number=$2`,[id,number]);return r.rows[0]||null;}
+    if(this.pool){const r=await this.pool.query(`SELECT room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt" FROM mm_tournament_table_games WHERE tournament_id=$1 AND table_number=$2`,[id,number]);return r.rows[0]||null;}
     this.reload();return this.local[this.key(id,number)]||null;
   }
   async claim(id,number,roomCode){
     if(!id||!Number.isInteger(number)||number<1||!roomCode)throw fail('Mesa inválida.',400);
-    if(this.pool){await this.pool.query(`INSERT INTO mm_tournament_table_games(tournament_id,table_number,room_code) VALUES($1,$2,$3) ON CONFLICT (tournament_id,table_number) DO NOTHING`,[id,number,roomCode]);return this.get(id,number);}
-    this.reload();const key=this.key(id,number);if(!this.local[key]){this.local[key]={roomCode,result:null};this.save();}return this.local[key];
+    if(this.pool){await this.pool.query(`INSERT INTO mm_tournament_table_games(tournament_id,table_number,room_code,room_state,claimed_at)
+      VALUES($1,$2,$3,'lobby',NOW()) ON CONFLICT (tournament_id,table_number) DO NOTHING`,[id,number,roomCode]);return this.get(id,number);}
+    this.reload();const key=this.key(id,number);if(!this.local[key]){this.local[key]={roomCode,result:null,roomState:'lobby',claimedAt:Date.now()};this.save();}return this.local[key];
+  }
+  async markStarted(id,number,code){
+    if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_table_games SET room_state='started'
+      WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND result_json IS NULL RETURNING room_code`,[id,number,code]);
+      if(!r.rowCount)throw fail('Não foi possível confirmar o início desta mesa.');return true;}
+    this.reload();const row=this.local[this.key(id,number)];
+    if(!row||row.roomCode!==code||row.result)throw fail('Mesa alterada ou já encerrada.');
+    row.roomState='started';this.save();return true;
+  }
+  async reclaimLobby(id,number,oldCode,newCode){
+    if(!oldCode||!newCode||oldCode===newCode)throw fail('Código de recuperação inválido.',400);
+    if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_table_games
+      SET room_code=$4, claimed_at=NOW() WHERE tournament_id=$1 AND table_number=$2
+      AND room_code=$3 AND room_state='lobby' AND result_json IS NULL RETURNING room_code`,[id,number,oldCode,newCode]);
+      if(!r.rowCount)throw fail('A mesa mudou de estado durante a recuperação. Tente novamente.');return this.get(id,number);}
+    this.reload();const row=this.local[this.key(id,number)];
+    if(!row||row.roomCode!==oldCode||row.roomState!=='lobby'||row.result)throw fail('A mesa mudou de estado durante a recuperação.');
+    row.roomCode=newCode;row.claimedAt=Date.now();this.save();return row;
   }
   async finish({id,number,roomCode,result,expectedPlayers=null}){
     if(!Array.isArray(result?.results)||!result.results.length)throw fail('Resultado inválido.',400);

@@ -61,14 +61,19 @@ class TournamentBracket{
       players_json JSONB NOT NULL,
       room_code VARCHAR(10) UNIQUE,
       result_json JSONB,
+      room_state VARCHAR(16) NOT NULL DEFAULT 'legacy',
+      claimed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY(tournament_id,stage,table_number))`);}
+      PRIMARY KEY(tournament_id,stage,table_number))`);
+      await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
+      await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
+    }
     else {fs.mkdirSync(path.dirname(this.filePath),{recursive:true});this.reload();}
   }
   reload(){if(this.pool)return;try{this.local=JSON.parse(fs.readFileSync(this.filePath,'utf8'));}catch(e){if(e.code==='ENOENT')this.local={};else throw e;}}
   save(){const tmp=this.filePath+'.tmp';fs.writeFileSync(tmp,JSON.stringify(this.local,null,2));fs.renameSync(tmp,this.filePath);}
   async rows(id,client=null){
-    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'semi' THEN 2 ELSE 3 END,table_number`,[id]);return r.rows;}
+    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt" FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'semi' THEN 2 ELSE 3 END,table_number`,[id]);return r.rows;}
     this.reload();return this.local[id]||[];
   }
   async seatFor(id,phase,number,playerKey){
@@ -79,9 +84,30 @@ class TournamentBracket{
   async getBinding(id,phase,number){const rows=await this.rows(id);return rows.find(t=>t.stage===phase&&t.number===number)||null;}
   async claim(id,phase,number,roomCode){
     validate(id,phase,number);if(phase==='qualifier')throw fail('Mesa inicial usa o sorteio original.');
-    if(this.pool){await this.pool.query(`UPDATE mm_tournament_stage_tables SET room_code=$4 WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code IS NULL`,[id,phase,number,roomCode]);return this.getBinding(id,phase,number);}
+    if(this.pool){await this.pool.query(`UPDATE mm_tournament_stage_tables SET room_code=$4,room_state='lobby',claimed_at=NOW()
+      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code IS NULL`,[id,phase,number,roomCode]);return this.getBinding(id,phase,number);}
     this.reload();const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);if(!row)throw fail('Mesa não encontrada.',404);
-    if(!row.roomCode){row.roomCode=roomCode;this.save();}return row;
+    if(!row.roomCode){row.roomCode=roomCode;row.roomState='lobby';row.claimedAt=Date.now();this.save();}return row;
+  }
+  async markStarted(id,phase,number,code){
+    validate(id,phase,number);
+    if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_stage_tables SET room_state='started'
+      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND result_json IS NULL RETURNING room_code`,[id,phase,number,code]);
+      if(!r.rowCount)throw fail('Não foi possível confirmar o início desta mesa.');return true;}
+    this.reload();const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);
+    if(!row||row.roomCode!==code||row.result)throw fail('Mesa alterada ou já encerrada.');
+    row.roomState='started';this.save();return true;
+  }
+  async reclaimLobby(id,phase,number,oldCode,newCode){
+    validate(id,phase,number);
+    if(!oldCode||!newCode||oldCode===newCode)throw fail('Código de recuperação inválido.',400);
+    if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_stage_tables
+      SET room_code=$5,claimed_at=NOW() WHERE tournament_id=$1 AND stage=$2 AND table_number=$3
+      AND room_code=$4 AND room_state='lobby' AND result_json IS NULL RETURNING room_code`,[id,phase,number,oldCode,newCode]);
+      if(!r.rowCount)throw fail('A mesa mudou de estado durante a recuperação. Tente novamente.');return this.getBinding(id,phase,number);}
+    this.reload();const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);
+    if(!row||row.roomCode!==oldCode||row.roomState!=='lobby'||row.result)throw fail('A mesa mudou de estado durante a recuperação.');
+    row.roomCode=newCode;row.claimedAt=Date.now();this.save();return row;
   }
   async recordResult({id,stage='qualifier',number,roomCode,result,players}){
     validate(id,stage,number);
