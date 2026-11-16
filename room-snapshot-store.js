@@ -8,6 +8,7 @@ const InputSafety = require('./input-safety');
 const RetentionPolicy = require('./retention-policy');
 const BotDifficulty = require('./bot-difficulty');
 const SpectatorSeatAdmission = require('./spectator-seat-admission');
+const TournamentForfeit = require('./tournament-forfeit');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
@@ -635,19 +636,51 @@ class RoomSnapshotStore {
     const map=this.abandonedPlayers.get(String(snapshot.code));
     if(!map?.size)return snapshot;
     const activeMatch=snapshot.status==='playing'||(snapshot.status==='between-rounds'&&Number(snapshot.round||0)>0);
+    const isAbandonedMembership=(original,tombstone)=>{
+      if(!tombstone||original.isBot||!original.playerKey)return false;
+      const abandonedAt=Number(tombstone.eventAt||0);
+      const membershipStartedAt=Number(original.membershipStartedAt||0);
+      // O id de cadeira distingue uma associação antiga de um novo ingresso
+      // pela mesma conta. A compatibilidade legada só usa a data do evento.
+      return tombstone.playerId
+        ?String(original.id||'')===String(tombstone.playerId)
+        :abandonedAt>0&&membershipStartedAt<=abandonedAt;
+    };
+
+    if(snapshot.tournament){
+      // V40.69.8.16: um tombstone novo com um snapshot de torneio antigo
+      // representa desistência competitiva, NUNCA autorização para Máquina.
+      // Reconstruir a desistência no estado da partida preserva o roster
+      // original e permite registrar a classificação mesmo após um crash.
+      const departures=(Array.isArray(snapshot.players)?snapshot.players:[])
+        .filter(p=>isAbandonedMembership(p,map.get(String(p.playerKey))))
+        .map(p=>({id:p.id,playerKey:p.playerKey,
+          at:Number(map.get(String(p.playerKey)).eventAt||0)}))
+        .sort((a,b)=>a.at-b.at);
+      for(const departure of departures){
+        const player=snapshot.players.find(p=>p.id===departure.id&&p.playerKey===departure.playerKey);
+        if(!player)continue; // Outro tombstone já pode ter finalizado a mesa.
+        if(activeMatch && (snapshot.status==='playing'||snapshot.status==='between-rounds')){
+          TournamentForfeit.forfeitActiveSeat(snapshot,player,{now:departure.at||Date.now()});
+        }else if(snapshot.status==='finished'){
+          // Quem saiu após o término não perde retroativamente a classificação.
+          player.voluntaryLeftAt=departure.at||Date.now();
+          player.connected=false;player.autoControlled=false;
+          player.reconnectEligible=false;player.socketId=null;
+        }else{
+          // Antes da primeira rodada, a cadeira não é transformada em robô.
+          snapshot.players=snapshot.players.filter(p=>p.id!==player.id);
+        }
+      }
+      if(!snapshot.players.some(p=>!p.isBot))return null;
+      return snapshot;
+    }
+
     const players=[];
     for(const original of Array.isArray(snapshot.players)?snapshot.players:[]){
-      if(original.isBot||!original.playerKey){players.push(original);continue;}
-      const tombstone=map.get(String(original.playerKey))||null;
-      const abandonedAt=Number(tombstone?.eventAt||0);
-      const membershipStartedAt=Number(original.membershipStartedAt||0);
-      const exactMembership=!!(tombstone?.playerId&&String(original.id||'')===String(tombstone.playerId));
-      const legacyMembership=!tombstone?.playerId&&abandonedAt>0&&membershipStartedAt<=abandonedAt;
-      if(exactMembership||legacyMembership){
+      if(isAbandonedMembership(original,map.get(String(original.playerKey)))){
         if(activeMatch)players.push(convertStaleMembershipToBot(original));
-        continue;
-      }
-      players.push(original);
+      }else players.push(original);
     }
     snapshot.players=players;
     if(!players.some(p=>!p.isBot))return null;
@@ -658,7 +691,23 @@ class RoomSnapshotStore {
     const out=[];
     for(const row of rows){
       const raw=row&&Object.prototype.hasOwnProperty.call(row,'snapshot')?hydrateSnapshotAvatars(row.snapshot,row.avatarAssets||{}):row;
-      const filtered=this.applyLifecycle(raw);
+      if(raw?.tournament && Array.isArray(raw.players) && raw.players.some(p=>p.isBot||p.autoControlled)){
+        // Snapshot legado já corrompido por Máquina/AUTO: não é seguro
+        // reconstruir um participante sem playerKey nem inventar seu placar.
+        // Mantemos o registro no armazenamento para investigação, sem
+        // restaurar a mesa como partida competitiva incorreta.
+        console.error('[tournament] snapshot contém Máquina/AUTO; recuperação suspensa, dados preservados:',raw.code);
+        continue;
+      }
+      let filtered;
+      try{filtered=this.applyLifecycle(raw);}
+      catch(e){
+        if(!raw?.tournament)throw e;
+        // Um estado competitivo incoerente deve permanecer armazenado para
+        // correção administrativa; não interrompe o restore das demais mesas.
+        console.error('[tournament] snapshot não pôde recuperar desistência; dados preservados:',raw.code,e?.message||e);
+        continue;
+      }
       if(filtered)out.push(filtered);
     }
     return out;

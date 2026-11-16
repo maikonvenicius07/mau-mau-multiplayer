@@ -1,3 +1,12 @@
+## V40.69.8.16 — Recuperação segura dos torneios sem máquinas (16/11/2026)
+
+- Snapshots antigos de torneios com tombstone de abandono passam a reconstruir a desistência na mesa e no resultado, sem converter o participante em Máquina.
+- Desistentes não voltam ao sorteio nem ao turno; em mesas com apenas um jogador remanescente a vitória por desistência é mantida.
+- Snapshots legados já corrompidos por Máquina/AUTO não são restaurados como partidas competitivas; os dados persistidos ficam preservados para análise.
+- A recuperação das partidas comuns e das salas de revanche permanece inalterada. Sem mudança no esquema do PostgreSQL.
+- Teste novo cobre reinício entre tombstone e snapshot, partidas com 2 e 4 pessoas, múltiplas desistências, entre rodadas, saída após final, lobby, registro legado e sala comum.
+- Testes locais: 190 aprovados, nenhum erro executado; integração Socket.IO não executada por dependência ausente. Requer homologação no Render.
+
 ## V40.69.8.11 — Persistência e recuperação das salas (11/11/2026)
 
 - Corrige bloqueio indefinido da fila por sala quando uma gravação de snapshot nunca termina; prazo de 15 s e retentativas limitadas.
