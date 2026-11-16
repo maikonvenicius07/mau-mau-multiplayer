@@ -109,27 +109,63 @@ class TournamentBracket{
     if(!row||row.roomCode!==oldCode||row.roomState!=='lobby'||row.result)throw fail('A mesa mudou de estado durante a recuperação.');
     row.roomCode=newCode;row.claimedAt=Date.now();this.save();return row;
   }
-  async recordResult({id,stage='qualifier',number,roomCode,result,players}){
+  async recordResult({id,stage='qualifier',number,roomCode,result,players,client=null}){
     validate(id,stage,number);
     if(!roomCode||!Array.isArray(result?.results)||!result.results.length||!Array.isArray(players)||!players.length)throw fail('Resultado de torneio inválido.',400);
     const byKey=new Map(players.map(p=>[p.playerKey,p]));
     const mapped=result.results.map(p=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),score:Number(p.score),position:Number(p.position),won:!!p.won&&!p.forfeited,forfeited:!!p.forfeited}));
-    if(mapped.length!==players.length||new Set(mapped.map(p=>p.playerKey)).size!==players.length||
-       mapped.some(p=>!byKey.has(p.playerKey)||!Number.isFinite(p.score)||p.score<0||!Number.isInteger(p.position)||p.position<1))
+    if(players.some(p=>!p.playerKey))throw fail('Participantes inválidos.',400);
+    if(byKey.size!==players.length||mapped.length!==players.length||new Set(mapped.map(p=>p.playerKey)).size!==players.length||
+       mapped.some(p=>!p.playerKey||!byKey.has(p.playerKey)||!Number.isFinite(p.score)||p.score<0||!Number.isInteger(p.position)||p.position<1))
       throw fail('A partida não tem o resultado completo dos jogadores sorteados. Avanço bloqueado.');
     const record={matchId:String(result.matchId||'').slice(0,160),finishedAt:String(result.finishedAt||new Date().toISOString()),results:mapped};
     const seats=players.map((p,i)=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),seat:i+1}));
+    const normalizedRows=rows=>rows.map(p=>({playerKey:p.playerKey,name:p.name,score:p.score,
+      position:p.position,won:p.won,forfeited:p.forfeited})).sort((a,b)=>a.playerKey.localeCompare(b.playerKey));
+    const same=(saved)=>!!saved && saved.matchId===record.matchId && Array.isArray(saved.results) &&
+      JSON.stringify(normalizedRows(saved.results))===JSON.stringify(normalizedRows(record.results));
+    const sameRoster=(stored)=>Array.isArray(stored)&&stored.length===seats.length&&
+      stored.every(p=>byKey.has(p.playerKey))&&new Set(stored.map(p=>p.playerKey)).size===seats.length;
     if(this.pool){
-      if(stage==='qualifier')await this.pool.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json,room_code,result_json)
-        VALUES($1,$2,$3,$4::jsonb,$5,$6::jsonb) ON CONFLICT(tournament_id,stage,table_number) DO NOTHING`,[id,stage,number,JSON.stringify(seats),roomCode,JSON.stringify(record)]);
-      else await this.pool.query(`UPDATE mm_tournament_stage_tables SET result_json=$5::jsonb WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND result_json IS NULL`,[id,stage,number,roomCode,JSON.stringify(record)]);
-    }else{
-      this.reload();const list=this.local[id]||[];let row=list.find(t=>t.stage===stage&&t.number===number);
-      if(!row&&stage==='qualifier'){row={stage,number,players:seats,roomCode,result:record};list.push(row);this.local[id]=list;this.save();}
-      else if(!row||row.roomCode!==roomCode)throw fail('Mesa não encontrada ou diferente.',409);
-      else if(!row.result){row.result=record;this.save();}
+      const query=client||this.pool;
+      let saved;
+      if(stage==='qualifier'){
+        const inserted=await query.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json,room_code,result_json)
+          VALUES($1,$2,$3,$4::jsonb,$5,$6::jsonb) ON CONFLICT(tournament_id,stage,table_number) DO NOTHING
+          RETURNING result_json AS result`,[id,stage,number,JSON.stringify(seats),roomCode,JSON.stringify(record)]);
+        if(inserted.rowCount)return inserted.rows[0].result;
+      }else{
+        // Verifica o roster persistido ANTES do UPDATE. Uma mesa com o mesmo
+        // código, mas participantes divergentes, nunca pode receber resultado.
+        const bound=await query.query(`SELECT players_json AS players,room_code AS "roomCode",result_json AS result
+          FROM mm_tournament_stage_tables WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 FOR UPDATE`,[id,stage,number]);
+        const binding=bound.rows[0];
+        if(!binding||binding.roomCode!==roomCode||!sameRoster(binding.players))
+          throw fail('Participantes ou mesa incompatíveis com a fase sorteada.');
+        if(binding.result){
+          if(!same(binding.result))throw fail('Esta fase já possui resultado conflitante.');
+          return binding.result;
+        }
+        const updated=await query.query(`UPDATE mm_tournament_stage_tables SET result_json=$5::jsonb
+          WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND result_json IS NULL
+          RETURNING result_json AS result`,[id,stage,number,roomCode,JSON.stringify(record)]);
+        if(updated.rowCount)return updated.rows[0].result;
+      }
+      // ON CONFLICT DO NOTHING e UPDATE com 0 linhas não significam sucesso.
+      const existing=await query.query(`SELECT players_json AS players,room_code AS "roomCode",result_json AS result
+        FROM mm_tournament_stage_tables WHERE tournament_id=$1 AND stage=$2 AND table_number=$3`,[id,stage,number]);
+      saved=existing.rows[0];
+      if(!saved||saved.roomCode!==roomCode||!sameRoster(saved.players)||!same(saved.result))
+        throw fail('O resultado da fase não foi gravado: mesa, participantes ou resultado divergentes.');
+      return saved.result;
     }
-    return record;
+    this.reload();const list=this.local[id]||[];let row=list.find(t=>t.stage===stage&&t.number===number);
+    if(!row&&stage==='qualifier'){
+      row={stage,number,players:seats,roomCode,result:record};list.push(row);this.local[id]=list;this.save();return record;
+    }
+    if(!row||row.roomCode!==roomCode||!sameRoster(row.players))throw fail('Mesa não encontrada ou diferente.',409);
+    if(row.result){if(!same(row.result))throw fail('Resultado já registrado é diferente. A classificação foi bloqueada.');return row.result;}
+    row.result=record;this.save();return record;
   }
   async advance(id,initialTables){
     if(!Array.isArray(initialTables)||!initialTables.length)return this.summary(id,initialTables);

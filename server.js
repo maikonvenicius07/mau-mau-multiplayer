@@ -38,6 +38,7 @@ const { TournamentCatalog } = require('./tournament-catalog');
 const { TournamentDraw } = require('./tournament-draw');
 const { TournamentGames } = require('./tournament-games');
 const { TournamentBracket } = require('./tournament-bracket');
+const { recordTournamentResult } = require('./tournament-result-commit');
 
 const app = express();
 const server = http.createServer(app);
@@ -1148,8 +1149,9 @@ function maybeRecordFinished(room) {
         const p=room.players.find(x=>x.playerKey===playerKey);
         return {playerKey,name:p?.name||record.results.find(x=>x.playerKey===playerKey)?.name||'Jogador'};
       });
-      if(phase==='qualifier')await tournamentGames.finish({id:room.tournament.id,number:room.tournament.tableNumber,roomCode:room.code,result:record,expectedPlayers:roster.length});
-      await tournamentBracket.recordResult({id:room.tournament.id,stage:phase,number:room.tournament.tableNumber,roomCode:room.code,result:record,players:roster});
+      await recordTournamentResult({bracket:tournamentBracket,games:tournamentGames,
+        id:room.tournament.id,phase,number:room.tournament.tableNumber,
+        roomCode:room.code,record,roster});
       const initial=await tournamentDraw.get(room.tournament.id);
       const advanced=await tournamentBracket.advance(room.tournament.id,initial);
       if(!advanced.champion&&advanced.currentStage!==phase){

@@ -47,7 +47,7 @@ async function run(size){
  for(const n of [2,3,4,5,6,7,8,10,11,20,25,26,50,51,100])await run(n);
  const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  assert(source.includes("socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'tournament'});"));
- assert(source.includes('tournamentBracket.recordResult('));
+ assert(source.includes('recordTournamentResult('));
  assert(source.includes('tournamentBracket.advance('));
  console.log('✓ V51.5: 15 tamanhos de torneio, classificação, campeão, fases persistentes e nenhuma identidade privada divulgada.');
 })().catch(e=>{console.error(e);process.exitCode=1});

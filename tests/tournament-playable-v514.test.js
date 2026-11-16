@@ -42,10 +42,13 @@ const {buildMatchRecord}=require('../ranking-store');
     room.status='finished';room.finishedAt=Date.now();
     const rec=buildMatchRecord(room);
     assert(rec.results.length===5);
-    const result=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec});
+    const result=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:5});
     assert.equal(result.results.length,5);assert.equal(result.results.filter(p=>p.won).length,1);
-    const again=await games.finish({id:cup.id,number:1,roomCode:room.code,result:{...rec,results:rec.results.map(p=>({...p,score:999}))}});
-    assert.deepEqual(again,result,'o resultado salvo não pode ser sobrescrito');
+    const again=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:5});
+    assert.deepEqual(again,result,'a repetição idêntica deve ser idempotente');
+    await assert.rejects(games.finish({id:cup.id,number:1,roomCode:room.code,
+      result:{...rec,results:rec.results.map(p=>({...p,score:999}))},expectedPlayers:5}),
+      /resultado diferente|incompleto/i,'resultado conflitante deve ser recusado, nunca sobrescrito');
     const statuses=await games.statuses(cup.id,[1]);assert.equal(statuses[1].finished,true);
     const persisted=new TournamentGames({databaseUrl:'',filePath:path.join(dir,'tournament-games.json')});await persisted.init();
     assert.deepEqual((await persisted.get(cup.id,1)).result,result);
