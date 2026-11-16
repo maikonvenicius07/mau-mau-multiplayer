@@ -1,76 +1,255 @@
-# MAU-MAU CANDEIAS — Auditoria e correção pontual dos torneios — 16/11/2026
+'use strict';
+// V51.6 — acompanhamento visual de fases sem alterar as regras do jogo.
+(() => {
+  const byId=id=>document.getElementById(id);
+  const button=byId('tournamentOpenHome'),dialog=byId('tournamentDialog'),close=byId('tournamentClose');
+  const name=byId('tournamentName'),state=byId('tournamentStatus'),date=byId('tournamentDate');
+  const action=byId('tournamentJoin'),list=byId('tournamentPlayers'),picker=byId('tournamentPicker');
+  const panel=byId('tournamentAdminPanel'),adminName=byId('tournamentAdminName');
+  const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart');
+  const create=byId('tournamentAdminCreate'),save=byId('tournamentAdminSave');
+  const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),message=byId('tournamentAdminMessage');
+  const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
+  if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
+  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
+  const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
+  function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
+  function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
+    if(remove)remove.disabled=value||!config?.canManage;
+    if(drawButton)drawButton.disabled=value||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
+  function setFields(t){
+    adminName.value=t.name||'';capacity.value=t.capacity||20;
+    if(t.startAt){const d=new Date(t.startAt);const inRO=new Date(d.getTime()-4*60*60*1000);start.value=inRO.toISOString().slice(0,16);}
+    else start.value='';
+  }
+  const overview=byId('tournamentOverview'),stageList=byId('tournamentStages'),refresh=byId('tournamentRefresh');
+  function renderOverview(){
+    if(!overview||!stageList)return;
+    stageList.replaceChildren();
+    const dashboard=window.MauMauTournamentDashboard;
+    const stages=dashboard?.summarize({bracket,currentStage,currentTables:drawnTables,games:gameStates})||[];
+    overview.hidden=!stages.length;
+    for(const stage of stages){
+      const details=document.createElement('details');details.className='tournament-stage-overview';
+      const heading=document.createElement('summary');
+      const label=document.createElement('strong');label.textContent=stage.label;
+      const stat=document.createElement('span');stat.textContent=stage.finished+' de '+stage.total+' mesas concluídas';
+      heading.append(label,stat);details.append(heading);
+      const cards=document.createElement('div');cards.className='tournament-stage-cards';
+      for(const table of stage.tables){
+        const entry=document.createElement('div');entry.className='tournament-stage-table';
+        const line=document.createElement('div');line.className='tournament-stage-table-line';
+        const title=document.createElement('strong');title.textContent='Mesa '+table.number;
+        const status=document.createElement('span');status.className='tournament-state tournament-state-'+table.status;
+        status.textContent=table.label;
+        line.append(title,status);entry.append(line);
+        if(table.expectedPlayers!=null&&table.status!=='finished'){
+          const connected=document.createElement('small');
+          connected.textContent=table.connectedPlayers+' de '+table.expectedPlayers+' jogadores conectados';entry.append(connected);
+        }
+        if(table.result?.results?.length){
+          const standings=document.createElement('ul');standings.className='tournament-stage-standings';
+          for(const p of table.result.results){
+            const li=document.createElement('li');
+            let note='';
+            if(p.advanced===true)note=' · Classificado';
+            else if(p.advanced===false)note=' · Eliminado';
+            li.textContent=p.position+'º '+p.name+' · '+p.score+' pontos'+note;
+            if(p.advanced===true)li.className='tournament-advanced';
+            standings.append(li);
+          }
+          entry.append(standings);
+        }
+        cards.append(entry);
+      }
+      details.append(cards);stageList.append(details);
+    }
+  }
+  function render(result){
+    config=result.tournament;name.textContent='🏆 '+config.name;
+    state.textContent=`${config.enrolled} de ${config.capacity} inscritos • ${statusText[config.status]||'Em preparação'}`;
+    date.textContent='Início previsto: '+formatDate(config.startAt);
+    list.replaceChildren();
+    if(!result.players?.length){const li=document.createElement('li');li.textContent='Nenhum jogador inscrito ainda.';list.append(li);}
+    for(const p of result.players||[]){const li=document.createElement('li');li.textContent=p.name;list.append(li);}
+    action.textContent=config.registered?'Cancelar minha inscrição':'Inscrever-me';
+    if(!config.registrationOpen)action.textContent='Inscrições indisponíveis';
+    else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
+    drawnTables=result.tables||[];
+    myTable=result.myTable??null;gameStates=result.games||{};
+    bracket=result.bracket||null;currentStage=bracket?.currentStage||'qualifier';
+    const stagesLabel={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
+    if(tablesPanel){const heading=tablesPanel.querySelector('h3');if(heading)heading.textContent='🎲 '+(stagesLabel[currentStage]||'Mesas sorteadas');}
+    const progress=document.getElementById('tournamentProgress');
+    if(progress){progress.replaceChildren();
+      if(bracket?.champion){const t=document.createElement('strong');t.className='tournament-champion';
+        t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
+      else if(bracket?.stages?.length){const p=document.createElement('p');
+        p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será sorteada automaticamente quando todas as mesas terminarem.';progress.append(p);}
+    }
+    renderOverview();
+    canCreate=Boolean(result.canCreate);
+    if(adminHint)adminHint.hidden=canCreate;
+    // O torneio inicial legado pertence ao sistema, não ao usuário autenticado.
+    // Indique como criar um campeonato próprio em vez de deixá-lo preso no rascunho.
+    if(message&&canCreate&&!config.canManage){
+      message.textContent='Este torneio pertence a outra conta ou é o campeonato inicial do sistema. Para administrá-lo, crie o seu próprio torneio usando o formulário abaixo.';
+    }
 
-## Origem e escopo
-
-Arquivos analisados no ZIP completo do projeto enviado pelo usuário em 16/11/2026. O screenshot mostra um torneio em `Em preparação` e a mensagem `Não foi possível consultar o torneio.`. As alterações se limitam à consulta do campeonato, leitura do status das mesas, declaração correta de campeão, recuperação de inicialização dos módulos e aviso para campeonatos que não pertencem ao usuário.
-
-Não foram alterados: regras das cartas (Queima, Dupla, Rápida), tamanho das cartas, ranking, Socket.IO das partidas regulares, câmera, microfone ou schemas PostgreSQL.
-
-## Falhas identificadas e correções
-
-### 1 — Consultar torneio retorna HTTP 503 apesar de o banco estar disponível (CRÍTICO)
-
-Na rota `GET /api/tournament` o operador `await` antecedia a condição `tournamentBracketReady`, mas **não aguardava** a função assíncrona `tournamentBracket.summary(...)`. O código recebia uma `Promise` em vez do objeto `bracket`. A leitura seguinte de `bracket.stages.find(...)` falhava com TypeError, que era capturado pelo `catch` e convertido na mensagem `Não foi possível consultar o torneio.`.
-
-**Correção:** aguardar explicitamente `tournamentBracket.summary(config.id,tables)`, após validar a prontidão do módulo. Teste isolado da rota verifica resposta HTTP 200 nas fases classificatória e final.
-
-### 2 — Primeira mesa encerrada declara vencedor prematuramente (CRÍTICO)
-
-A função `TournamentBracket.summary(...)` declarava campeão quando a etapa mais recente tinha uma única mesa registrada e terminada, mesmo que o sorteio inicial contivesse muitas mesas e os demais resultados ainda não tivessem sido registrados. Como outros endpoints bloqueiam entradas enquanto `bracket.champion` existe, isso podia congelar torneios com 6 a 100 participantes.
-
-**Correção:** campeão somente em etapa terminal (final ou classificatória única) e, no caso de classificatória, com correspondência a todas as mesas inicialmente sorteadas.
-
-### 3 — Status das partidas registrado como Promise, não como dados (ALTA)
-
-A rota montava `recordedGames` com `tournamentGames.statuses(...)` sem `await`. Por isso, estados persistidos de mesas (`created`, `finished`, `result`) não eram refletidos corretamente na resposta da API quando a sala não estava em memória.
-
-**Correção:** aguardar a consulta assíncrona antes de montar a resposta.
-
-### 4 — Falha transitória do PostgreSQL deixava torneios indisponíveis até reinício (ALTA)
-
-A inicialização de inscrições, catálogo, sorteio, jogos e fases era uma cadeia de `Promise` resolvida uma única vez. Se um módulo falhasse durante a inicialização, a disponibilidade ficava `false` permanentemente, mesmo quando a conexão com o PostgreSQL voltasse.
-
-**Correção:** utilizar o mecanismo existente `createRetryableInitialization` para cada módulo, com tentativa única concorrente e intervalo mínimo de 5 segundos após falha. As chamadas de API e WebSocket agora podem desencadear a reavaliação da prontidão.
-
-### 5 — Torneio padrão/legado não pertence ao jogador (USABILIDADE)
-
-O catálogo inclui por padrão uma Copa com `createdBy='legacy-v51.1'`. Um jogador autenticado comum não tem permissão para alterar, abrir inscrições, sortear ou excluir essa Copa. Na lista, ela aparece como `Em preparação`, o que pode parecer um torneio bloqueado.
-
-**Correção:** ao selecionar um torneio que não pode administrar, a interface informa que é preciso criar um próprio campeonato; permissões existentes permanecem as mesmas.
-
-## Fluxo esperado após atualização
-
-1. Jogador autenticado abre **Torneios** e consulta a lista normalmente.
-2. Preenche nome, número de vagas (2 a 100) e data/hora opcional, clica **Criar torneio**.
-3. No torneio de sua autoria, clica **Abrir inscrições**. Jogadores autenticados fazem inscrição pelo botão **Inscrever-me**.
-4. Organizador clica **Encerrar inscrições** quando houver pelo menos duas pessoas.
-5. Organizador aciona **Sortear mesas**. O sorteio é único; participantes e cadeiras são registrados.
-6. Cada jogador sorteado clica **Entrar na minha mesa**; todos devem estar presentes para iniciar a primeira rodada.
-7. Ao terminar as partidas, o resultado é gravado, os classificados passam automaticamente às próximas fases quando todas as mesas necessárias forem concluídas; o campeão só aparece na etapa final.
-8. Observadores podem assistir às mesas ativas, sem ocupar vagas, sem chat, câmera ou microfone, conforme o modo já implantado.
-
-## Validação executada
-
-- Testes específicos de `TournamentCatalog`, `TournamentStore`, `TournamentDraw`, `TournamentGames`, `TournamentBracket` e observação de torneio: aprovados.
-- Novo teste `tournament-operational-flow-hotfix.test.js`: aprovado com casos de API HTTP simulada (fases classificatória/final), estados de jogos, 6/9/20/100 jogadores com apenas uma mesa concluída, mesa única com campeão e retomada após falha temporária.
-- Suíte local: **184 testes aprovados**; **1 teste Socket.IO não executado**, pois `socket.io-client` não está instalado neste ambiente.
-- `node --check server.js`, `tournament-bracket.js` e `public/tournament-ui.js`: sem erros de sintaxe.
-
-## Limitações e riscos residuais
-
-- Não foi possível executar sessões reais entre múltiplos navegadores nem acessar o Render e o PostgreSQL de produção. O teste integral de criação, inscrições, sorteio, primeira rodada, fechamento, gravação de resultados, reinício do servidor e avanço de fase deve ser feito em homologação após deploy.
-- A persistência real de torneios requer PostgreSQL (`DATABASE_URL`); o modo JSON local não garante sobrevivência aos ciclos de instância gratuita no Render.
-- Se a sala de torneio terminar e o snapshot não for recuperável após reinício, a vinculação persistida do número da mesa com um código de sala anterior poderá impedir entrada; este caso não foi reestruturado para não interferir no mecanismo global de reconexão e deve integrar o próximo teste de carga/failover.
-- Resultados incompletos, participantes ausentes e abandono precisam de uma política operacional explícita para desempate/WO; o sistema atual bloqueia avanço com resultado incompleto, evitando classificação fictícia.
-- Logs de produção devem ser revisados para afastar outras possíveis causas de `503`, como permissões ou indisponibilidade de banco.
-
-## Instalação
-
-1. Fazer backup da versão atual.
-2. Substituir no repositório somente os arquivos contidos no ZIP incremental, respeitando a estrutura de pastas.
-3. Fazer commit/push, conferir deploy `Live` no Render e atualizar a página do jogo.
-4. Usar **duas ou mais contas autenticadas**; para testar avanço de várias mesas, usar pelo menos seis contas.
-5. Conferir a sequência: criar → abrir inscrições → inscrever → fechar inscrições → sortear → entrar nas mesas → iniciar a partida → registrar resultados → avançar fases → campeão.
-6. Se o Render ainda retornar `503`, procurar nos logs a marca `[tournament]` e a exceção subsequente; não apagar torneios ou dados do PostgreSQL sem backup.
-
-O `package.json` não foi alterado, para preservar o versionamento interno e as dependências da versão enviada.
+    if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
+      for(const t of drawnTables){
+        const card=document.createElement('div');card.className='tournament-table-card';
+        const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
+        const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);
+        const game=gameStates[t.number];
+        if(game?.finished){
+          const result=document.createElement('div');result.className='tournament-table-result';
+          const h=document.createElement('strong');h.textContent=game.result?.complete===false?'⚠️ Resultado parcial (participante ausente)':'🏆 Resultado da mesa';result.append(h);
+          for(const p of game.result?.results||[]){const line=document.createElement('p');
+            line.textContent=`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
+          card.append(result);
+        }else if(t.number===myTable){
+          const join=document.createElement('button');join.type='button';join.className='tournament-enter-table';
+          join.textContent=game?.created?'🎮 Voltar à minha mesa':'🎮 Entrar na minha mesa';
+          join.disabled=pending;join.addEventListener('click',()=>{
+            if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se ao jogo para entrar na mesa.';return;}
+            join.disabled=true;message.textContent='Conectando à sua mesa...';
+            socket.emit('enterTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number});
+            setTimeout(()=>{join.disabled=false;},2500);
+          });card.append(join);
+        }else{
+          const live=game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
+          if(live){
+            const watch=document.createElement('button');watch.type='button';
+            watch.className='tournament-watch-table';watch.textContent='👁️ ASSISTIR PARTIDA';
+            watch.addEventListener('click',()=>{
+              if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para assistir à mesa.';return;}
+              watch.disabled=true;message.textContent='Entrando como observador...';
+              socket.emit('watchTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number});
+              setTimeout(()=>{watch.disabled=false;},2500);
+            });
+            card.append(watch);
+            const watchers=document.createElement('small');watchers.className='tournament-watch-count';
+            watchers.textContent=`👁️ ${Number(game?.spectatorCount||0)}/${Number(game?.spectatorLimit||5)} assistindo`;
+            card.append(watchers);
+          }else{
+            const note=document.createElement('p');note.className='tournament-note';
+            note.textContent=game?.created?'Mesa aguardando início.':'Aguardando entrada dos participantes sorteados.';
+            card.append(note);
+          }
+        }
+        tablesList.append(card);
+      }
+    }
+    panel.hidden=!canCreate;
+    if(canCreate){
+      if(config.canManage)setFields(config);
+      else {adminName.value='';capacity.value=20;start.value='';}
+      toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
+      toggle.disabled=pending||!config.canManage||config.status==='cancelled';save.disabled=pending||!config.canManage||config.status==='cancelled';cancel.disabled=pending||!config.canManage||config.status==='cancelled';
+      if(remove)remove.disabled=pending||!config.canManage;
+      for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=!config.canManage;
+      if(drawButton?.parentElement)drawButton.parentElement.hidden=!config.canManage;
+      create.disabled=pending;
+    }
+    action.disabled=pending||!config.registrationOpen||(!config.registered&&config.spotsRemaining===0);
+    if(drawButton)drawButton.disabled=pending||!config.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;
+  }
+  async function request(url,options={}){
+    const res=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
+    const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível concluir a operação.');return data;
+  }
+  async function loadList(selectId=''){
+    const response=await request('/api/tournaments');items=response.tournaments||[];canCreate=Boolean(response.canCreate);
+    picker.replaceChildren();
+    for(const t of items){const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name+' — '+(statusText[t.status]||t.status);picker.append(opt);}
+    if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
+    picker.value=items.some(t=>t.id===selectId)?selectId:(items[0]?.id||'');
+    panel.hidden=!canCreate;create.disabled=!canCreate;
+    if(adminHint)adminHint.hidden=canCreate;
+    if(!picker.value){config=null;if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
+    await loadSelected();
+  }
+  async function loadSelected(){if(!picker.value)return;
+    state.textContent='Carregando...';const result=await request('/api/tournament?id='+encodeURIComponent(picker.value));render(result);
+  }
+  function fields(){
+    // datetime-local expresses a wall-clock time in Rondônia (UTC-04).
+    const d=start.value?new Date(start.value+':00-04:00'):null;
+    if(d&&!Number.isFinite(d.getTime()))throw new Error('Data inválida.');
+    return {name:adminName.value.trim(),capacity:Number(capacity.value),startAt:d?d.toISOString():null};
+  }
+  async function adminRequest(kind){
+    if(pending||panel.hidden)return;
+    if(!config&&kind!=='create')return;
+    if(kind==='cancel'&&!confirm('Cancelar este torneio? Ele continuará no histórico, mas as inscrições serão encerradas.'))return;
+    if(kind==='delete'&&!confirm('Excluir DEFINITIVAMENTE este torneio, todas as inscrições e as mesas sorteadas? Esta ação não pode ser desfeita.'))return;
+    const payload=kind==='create'?fields():kind==='save'?fields():kind==='delete'?null:{status:kind==='cancel'?'cancelled':config.status==='open'?'closed':'open'};
+    setBusy(true);message.textContent='Salvando...';
+    try{
+      const data=await request(kind==='create'?'/api/tournaments':'/api/tournaments/'+encodeURIComponent(config.id),{
+        method:kind==='create'?'POST':kind==='delete'?'DELETE':'PATCH',
+        ...(payload===null?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})});
+      await loadList(kind==='delete'?'':data.tournament.id);
+      message.textContent=kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
+    }catch(e){message.textContent=e.message;}
+    finally{setBusy(false);}
+  }
+  if(typeof socket!=='undefined'){
+    socket.on('joined',data=>{
+      if((data?.source==='tournament'||data?.tournamentWatch)&&dialog.open)dialog.close();
+    });
+    socket.on('gameError',data=>{
+      if(dialog.open&&['Conectando à sua mesa...','Entrando como observador...'].includes(message.textContent))
+        message.textContent=data?.message||'Não foi possível entrar na mesa.';
+    });
+    socket.on('tournamentTableResume',data=>{
+      if(!data?.code)return;
+      if(dialog.open)dialog.close();
+      socket.emit('joinRoom',{code:data.code,resumeIntent:'tournament'});
+    });
+  }
+  button.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();loadList().catch(e=>state.textContent=e.message);});
+  const champions=document.getElementById('tournamentResultsInfo');
+  if(champions)champions.addEventListener('toggle',async()=>{
+    if(!champions.open)return;
+    const target=document.getElementById('tournamentChampionsList');if(!target)return;
+    target.textContent='Consultando campeonatos...';
+    try{const response=await request('/api/tournaments/champions');target.replaceChildren();
+      if(!response.completed?.length){target.textContent='Nenhum torneio concluído até o momento.';return;}
+      for(const cup of response.completed){const item=document.createElement('p');
+        item.textContent='🏆 '+cup.name+' — '+cup.champion.names.map(p=>p.name).join(', ');target.append(item);
+        const podium=document.createElement('small');podium.textContent='Classificação: '+(cup.champion.standings||[]).slice(0,5).map(p=>p.position+'º '+p.name+' ('+p.score+' pts)').join(' · ');target.append(podium);}
+    }catch(e){target.textContent='Não foi possível consultar os campeões.';}
+  });
+  if(refresh)refresh.addEventListener('click',async()=>{
+    if(pending||!picker.value)return;
+    refresh.disabled=true;refresh.textContent='Atualizando...';
+    try{await loadSelected();}
+    catch(e){state.textContent=e.message;}
+    finally{refresh.disabled=false;refresh.textContent='↻ Atualizar';}
+  });
+  close.addEventListener('click',()=>dialog.close());
+  picker.addEventListener('change',()=>loadSelected().catch(e=>state.textContent=e.message));
+  action.addEventListener('click',async()=>{
+    if(pending||!config||!config.registrationOpen)return;
+    setBusy(true);state.textContent='Aguarde...';
+    try{const data=await request('/api/tournament/registration',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:config.registered?'leave':'join',tournamentId:config.id})});render(data);}
+    catch(e){state.textContent=e.message;}
+    finally{setBusy(false);}
+  });
+  if(drawButton)drawButton.addEventListener('click',async()=>{
+    if(pending||panel.hidden||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length)return;
+    if(!confirm('Sortear as mesas agora? O sorteio não poderá ser repetido neste torneio.'))return;
+    setBusy(true);message.textContent='Sorteando mesas...';
+    try{await request('/api/tournaments/'+encodeURIComponent(config.id)+'/draw',{method:'POST'});
+      await loadSelected();message.textContent='Mesas sorteadas e salvas.';}
+    catch(e){message.textContent=e.message;}finally{setBusy(false);}
+  });
+  create.addEventListener('click',()=>adminRequest('create'));
+  save.addEventListener('click',()=>adminRequest('save'));
+  toggle.addEventListener('click',()=>adminRequest('toggle'));
+  cancel.addEventListener('click',()=>adminRequest('cancel'));
+  if(remove)remove.addEventListener('click',()=>adminRequest('delete'));
+})();
