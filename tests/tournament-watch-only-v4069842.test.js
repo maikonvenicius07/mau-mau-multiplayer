@@ -77,6 +77,12 @@ async function run(){
     await listeners.get('watchTournamentTable')(bad);
     assert.equal(sent.filter(x=>x.k==='joined').length,before,'Mesa inválida não deve liberar observação');
   }
+  // Tournament spectator may enter while the assigned room is still waiting in lobby.
+  room.status='lobby';room.round=0;errors.length=0;
+  await listeners.get('watchTournamentTable')({tournamentId:'tor-123',stage:'semi',tableNumber:2,token:old.token});
+  assert.equal(errors.length,0,'Observação do lobby deve ser permitida');
+  assert.equal(room.spectators.length,1,'F5 no lobby não duplica observadores');
+  room.status='playing';room.round=2;
   // Security contract, server side rather than UI-only:
   for(const expected of [
     "if(room.tournament)throw new Error('Não é possível entrar em torneios como observador.')",

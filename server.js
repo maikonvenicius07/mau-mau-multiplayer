@@ -310,6 +310,24 @@ const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADM
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
 async function tournamentCanManage(session,id){return !!(session?.playerKey&&(tournamentIsAdmin(session)||await tournamentCatalog.isOwner(id,session.playerKey)));}
+// A vaga pertence à identidade autenticada, nunca a um nome digitado ou código de sala.
+// Notifica somente os sorteados (o cliente solicita a entrada; o servidor revalida tudo).
+async function notifyTournamentSeats(id,stage,tables){
+  // As mesas da API são públicas e NÃO contêm playerKey por razões de segurança.
+  // Buscar as identidades reservadas somente nas tabelas privadas do servidor.
+  const allowed=new Set((tables||[]).map(t=>Number(t.number)));
+  const assigned=stage==='qualifier'
+    ?await tournamentDraw.seatAssignments(id)
+    :(await tournamentBracket.rows(id)).filter(t=>t.stage===stage)
+      .flatMap(t=>t.players.map(p=>({playerKey:p.playerKey,tableNumber:t.number})));
+  for(const player of assigned){
+    if(!player.playerKey||!allowed.has(Number(player.tableNumber)))continue;
+    emitToPlayerKey(player.playerKey,'tournamentSeatAssigned',{
+      tournamentId:id,stage,tableNumber:Number(player.tableNumber)
+    });
+  }
+}
+
 // V40.69.8.1 — falhas transitórias de inicialização não ficam memorizadas para sempre.
 const {ensureReady:ensureRankingReady}=createRetryableInitialization({
   initialize:()=>rankingStore.init(),
@@ -999,6 +1017,8 @@ app.post('/api/tournaments/:id/draw', async(req,res)=>{
     if(!await tournamentCanManage(session,req.params.id))return res.status(403).json({ok:false,message:'Somente o criador pode sortear mesas.'});
     if(!await ensureTournamentDrawReady())throw new Error('Sorteio indisponível.');
     const tables=await tournamentDraw.draw(req.params.id);
+    try{await notifyTournamentSeats(req.params.id,'qualifier',tables);}
+    catch(e){console.error('[tournament] aviso de vagas falhou; sorteio preservado:',e.message);}
     res.json({ok:true,tables});
   }catch(e){
     const status=[400,403,404,409].includes(e.status)?e.status:503;
@@ -1131,7 +1151,12 @@ function maybeRecordFinished(room) {
       if(phase==='qualifier')await tournamentGames.finish({id:room.tournament.id,number:room.tournament.tableNumber,roomCode:room.code,result:record,expectedPlayers:roster.length});
       await tournamentBracket.recordResult({id:room.tournament.id,stage:phase,number:room.tournament.tableNumber,roomCode:room.code,result:record,players:roster});
       const initial=await tournamentDraw.get(room.tournament.id);
-      await tournamentBracket.advance(room.tournament.id,initial);
+      const advanced=await tournamentBracket.advance(room.tournament.id,initial);
+      if(!advanced.champion&&advanced.currentStage!==phase){
+        const next=advanced.stages.find(stage=>stage.stage===advanced.currentStage);
+        try{await notifyTournamentSeats(room.tournament.id,advanced.currentStage,next?.tables||[]);}
+        catch(e){console.error('[tournament] aviso da fase seguinte falhou; avanço preservado:',e.message);}
+      }
     }).then(()=>{
       if(Number(room.matchSerial||1)===matchSerial){room.rankingRecorded=true;room.rankingRecording=false;
         Engine.appendLog(room,'🏆 Resultado da mesa registrado no torneio, sem alterar o Ranking Oficial.','system');
@@ -2509,7 +2534,7 @@ async function createRoomForSocket(socket,profileData={}) {
   StateDelivery.invalidate(socket);socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite-host'});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
   return room;
 }
-async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
+async function joinSocketIntoRoom(socket,room,{inviteId=null,source='invite'}={}) {
   const key=socket.data.auth.playerKey;
   if(room.tournament && !room.tournament.rosterKeys.includes(key))throw new Error('Mesa restrita aos sorteados.');
   if(room.tournament?.forfeits?.some(p=>p.playerKey===key))throw new Error('Você já desistiu desta mesa e não pode retornar como jogador.');
@@ -2526,7 +2551,7 @@ async function joinSocketIntoRoom(socket,room,{inviteId=null}={}) {
   }
   releaseReservation(room,key,inviteId);socket.data.roomCode=room.code;socket.data.playerId=p.id;socket.data.spectatorId=null;socket.data.role=ROLE_PLAYER;socket.join(room.code);
   updatePresenceFromSocket(socket,{name:p.name,avatar:p.avatar});
-  StateDelivery.invalidate(socket);socket.emit('joined',{code:room.code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'invite',inviteId});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
+  StateDelivery.invalidate(socket);socket.emit('joined',{code:room.code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source,inviteId});emitChatHistory(socket,room);emitRoom(room);broadcastPresence();
   return p;
 }
 function reserveInviteSeat(invite) {
@@ -2995,6 +3020,43 @@ io.on('connection', socket => {
     }catch(e){err(socket,e);}
   });
 
+  // V40.69.8.13 — jogador sorteado que chegou depois do sorteio/reiniciou o navegador.
+  // Nunca altera a sala atual, nunca entrega códigos privados e ignora desistentes.
+  socket.on('locateTournamentSeat',async()=>{
+    try{
+      const key=socket.data.auth?.playerKey;
+      if(!key||socket.data.role===ROLE_SPECTATOR)return;
+      const now=Date.now();
+      if(now-Number(socket.data.lastTournamentSeatLookup||0)<2000)return;
+      socket.data.lastTournamentSeatLookup=now;
+      const playing=activePlayerRoomForKey(key);
+      if(playing)return; // recuperar a própria vaga pelo fluxo regular de reconexão.
+      if(!await ensureTournamentBracketReady())return;
+      const tournaments=await tournamentCatalog.list();
+      for(const cup of tournaments){
+        if(cup.status!=='closed')continue;
+        const original=await tournamentDraw.get(cup.id);
+        if(!original.length)continue;
+        const bracket=await tournamentBracket.summary(cup.id,original);
+        if(bracket.champion)continue;
+        const stage=bracket.currentStage;
+        const number=stage==='qualifier'?(await tournamentDraw.assignedTableFor(cup.id,key)):
+          (await tournamentBracket.rows(cup.id)).find(row=>row.stage===stage&&row.players.some(p=>p.playerKey===key))?.number;
+        if(!Number.isInteger(number)||number<1)continue;
+        // Confere que a mesa ainda integra a fase atual, evitando estado obsoleto.
+        const tables=stage==='qualifier'?original:(bracket.stages.find(x=>x.stage===stage)?.tables||[]);
+        if(!tables.some(table=>table.number===number))continue;
+        const binding=stage==='qualifier'?await tournamentGames.get(cup.id,number):
+          await tournamentBracket.getBinding(cup.id,stage,number);
+        if(binding?.result)continue;
+        const room=binding?.roomCode?rooms.get(binding.roomCode):null;
+        if(room?.tournament?.forfeits?.some(p=>p.playerKey===key))continue;
+        socket.emit('tournamentSeatAssigned',{tournamentId:cup.id,stage,tableNumber:number});
+        return;
+      }
+    }catch(e){console.error('[tournament] localização automática da mesa falhou:',e.message);}
+  });
+
   // V51.4: entrada autenticada na mesa atribuída pelo sorteio, sem aceitar código de terceiros.
   socket.on('enterTournamentTable', async payload=>{
     const id=String(payload?.tournamentId||'').trim();
@@ -3011,6 +3073,11 @@ io.on('connection', socket => {
       const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
         await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
+      if(payload?.automatic){
+        const other=activePlayerRoomForKey(socket.data.auth.playerKey);
+        if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number))
+          throw new Error('Você está em outra partida. Saia dela antes de participar da mesa do torneio.');
+      }
       // A validação da desistência é repetida no caminho de entrada abaixo,
       // após identificar a sala persistida (evita o retorno entre rodadas).
       const event=await tournamentCatalog.get(id);
@@ -3064,7 +3131,7 @@ io.on('connection', socket => {
             socket.emit('tournamentTableResume',{code:room.code});
             return;
           }
-          await joinSocketIntoRoom(socket,room);
+          await joinSocketIntoRoom(socket,room,{source:'tournament'});
         }
       }finally{tournamentTableJoinLocks.delete(lockKey);}
     }catch(e){err(socket,e);}
@@ -3244,8 +3311,8 @@ io.on('connection', socket => {
       if(!room)throw new Error('Sala não encontrada.');ensureSocial(room);
       if(!!room.tournament!==tournamentWatch)
         throw new Error(room.tournament?'Assista pelo painel do torneio.':'Esta não é uma mesa de torneio.');
-      if(Number(room.round||0)<=0||room.status==='lobby'||(tournamentWatch&&room.status==='finished'))
-        throw new Error('Você poderá assistir quando a mesa estiver em andamento.');
+      if(tournamentWatch?room.status==='finished':(Number(room.round||0)<=0||room.status==='lobby'))
+        throw new Error(tournamentWatch?'Esta mesa já terminou.':'Você poderá assistir quando a mesa estiver em andamento.');
       const key=socket.data.auth.playerKey;
       const playerSeat=room.players.find(p=>!p.isBot&&p.playerKey===key);
       if(playerSeat)throw new Error('Você já possui uma vaga de jogador nesta sala. Reconecte como jogador.');

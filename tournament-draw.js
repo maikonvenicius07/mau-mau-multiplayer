@@ -64,6 +64,22 @@ class TournamentDraw{
       group.players.push({name:x.name,seat:x.seatNumber});}
     return groups;
   }
+  // Apenas para o servidor: as identidades NÃO devem integrar publicTables/HTTP.
+  async seatAssignments(id){
+    if(typeof id!=='string'||!id||id.length>64)return [];
+    if(this.pool){
+      const {rows}=await this.pool.query(`SELECT player_key AS "playerKey", table_number AS "tableNumber"
+        FROM mm_tournament_table_seats WHERE tournament_id=$1 ORDER BY table_number,seat_number`,[id]);
+      return rows;
+    }
+    this.reloadLocal();
+    return (this.local[id]||[]).flatMap(table=>table.players.map(p=>({playerKey:p.playerKey,tableNumber:table.number})));
+  }
+  async assignedTableFor(id,playerKey){
+    if(!playerKey)return null;
+    const seats=await this.seatAssignments(id);
+    return seats.find(p=>p.playerKey===playerKey)?.tableNumber||null;
+  }
   // Retorna identidade privada apenas ao servidor; nunca expor chaves aos clientes.
   async seatFor(id,number,playerKey){
     if(typeof id!=='string'||!id||id.length>64||!Number.isInteger(number)||number<1||!playerKey)return null;

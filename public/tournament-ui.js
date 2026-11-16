@@ -110,19 +110,15 @@
             line.textContent=`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
           card.append(result);
         }else if(t.number===myTable){
-          const join=document.createElement('button');join.type='button';join.className='tournament-enter-table';
-          join.textContent=game?.created?'🎮 Voltar à minha mesa':'🎮 Entrar na minha mesa';
-          join.disabled=pending;join.addEventListener('click',()=>{
-            if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se ao jogo para entrar na mesa.';return;}
-            join.disabled=true;message.textContent='Conectando à sua mesa...';
-            socket.emit('enterTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number});
-            setTimeout(()=>{join.disabled=false;},2500);
-          });card.append(join);
+          const note=document.createElement('p');note.className='tournament-note';
+          note.textContent='🎮 Vaga reservada. A entrada na mesa é automática para os inscritos.';
+          card.append(note);
         }else{
-          const live=game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
-          if(live){
+          // Observadores podem entrar assim que a sala é criada, inclusive no lobby.
+          const available=game?.liveStatus==='lobby'||game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
+          if(available){
             const watch=document.createElement('button');watch.type='button';
-            watch.className='tournament-watch-table';watch.textContent='👁️ ASSISTIR PARTIDA';
+            watch.className='tournament-watch-table';watch.textContent='👁️ ASSISTIR AO TORNEIO';
             watch.addEventListener('click',()=>{
               if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para assistir à mesa.';return;}
               watch.disabled=true;message.textContent='Entrando como observador...';
@@ -135,7 +131,7 @@
             card.append(watchers);
           }else{
             const note=document.createElement('p');note.className='tournament-note';
-            note.textContent=game?.created?'Mesa aguardando início.':'Aguardando entrada dos participantes sorteados.';
+            note.textContent=game?.created?'Mesa em recuperação. Observação disponível quando reaparecer.':'Aguardando criação da mesa pelos inscritos.';
             card.append(note);
           }
         }
@@ -170,6 +166,7 @@
     if(adminHint)adminHint.hidden=canCreate;
     if(!picker.value){config=null;if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
     await loadSelected();
+    if(typeof socket!=='undefined'&&socket.connected)socket.emit('locateTournamentSeat');
   }
   async function loadSelected(){if(!picker.value)return;
     state.textContent='Carregando...';const result=await request('/api/tournament?id='+encodeURIComponent(picker.value));render(result);
