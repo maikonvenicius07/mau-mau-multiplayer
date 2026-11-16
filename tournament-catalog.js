@@ -32,6 +32,21 @@ function maxTournamentsPerAccount(env=process.env){
   return Number.isInteger(requested)&&requested>=1?Math.min(50,requested):10;
 }
 function sanitizeStatus(value){if(!STATES.has(value))throw fail('Situação de torneio inválida.');return value;}
+// V40.69.8.19: historico competitivo nao pode ser apagado quando a sala
+// desapareceu da memoria apos um reinicio. Um lobby ainda nao iniciado pode
+// continuar sendo excluido pelo criador.
+function hasUnfinishedCompetition(entry){
+  if(!entry || typeof entry!=='object')return false;
+  // Resultado integral ja confirmado: a exclusao administrativa existente
+  // continua permitida. Uma mesa iniciada sem resultado deve ser preservada.
+  if(entry.result && entry.result.complete!==false)return false;
+  return !!(entry.roomState==='started' ||
+    (entry.roomCode && entry.roomState!=='lobby'));
+}
+function readOptionalJson(file,fallback){
+  try{return JSON.parse(fs.readFileSync(file,'utf8'));}
+  catch(error){if(error.code==='ENOENT')return fallback;throw error;}
+}
 class TournamentCatalog {
   constructor({databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournaments.json'),signupsFilePath=path.join(__dirname,'data','tournament-signups.json'),pool=null,maxPerAccount=maxTournamentsPerAccount()}={}){
     this.filePath=filePath;this.signupsFilePath=signupsFilePath;this.local=[];this.pool=pool;
@@ -113,6 +128,18 @@ class TournamentCatalog {
         const row=await conn.query('SELECT created_by FROM mm_tournaments WHERE id=$1 FOR UPDATE',[id]);
         if(!row.rowCount)throw fail('Torneio não encontrado.',404);
         if(row.rows[0].created_by!==actor&&!isAdmin)throw fail('Somente o criador pode excluir este torneio.',403);
+        // Consultar os registros PERSISTIDOS dentro da transacao de exclusao.
+        // Uma sala iniciada pode nao existir mais no mapa de salas do Render.
+        const activity=await conn.query(`SELECT (
+          EXISTS (SELECT 1 FROM mm_tournament_table_games WHERE tournament_id=$1 AND
+            ((result_json IS NULL OR result_json->>'complete'='false') AND
+             (room_state='started' OR (room_code IS NOT NULL AND room_state<>'lobby'))))
+          OR EXISTS (SELECT 1 FROM mm_tournament_stage_tables WHERE tournament_id=$1 AND
+            ((result_json IS NULL OR result_json->>'complete'='false') AND
+             (room_state='started' OR (room_code IS NOT NULL AND room_state<>'lobby'))))
+        ) AS "hasCompetitiveActivity"`,[id]);
+        if(activity.rows[0]?.hasCompetitiveActivity)
+          throw fail('Este torneio possui uma partida iniciada sem resultado confirmado. A exclusao foi bloqueada para preservar o andamento.',409);
         await conn.query('DELETE FROM mm_tournament_table_seats WHERE tournament_id=$1',[id]);
         await conn.query('DELETE FROM mm_tournament_signups WHERE tournament_id=$1',[id]);
         await conn.query('DELETE FROM mm_tournaments WHERE id=$1',[id]);
@@ -123,6 +150,12 @@ class TournamentCatalog {
       if(!row)throw fail('Torneio não encontrado.',404);
       if(row.createdBy!==actor&&!isAdmin)throw fail('Somente o criador pode excluir este torneio.',403);
       const directory=path.dirname(this.filePath);
+      const games=readOptionalJson(path.join(directory,'tournament-games.json'),{});
+      const brackets=readOptionalJson(path.join(directory,'tournament-bracket.json'),{});
+      const activeGame=Object.entries(games).some(([key,game])=>key.startsWith(`${id}:`) && hasUnfinishedCompetition(game));
+      const activeStage=Array.isArray(brackets[id]) && brackets[id].some(hasUnfinishedCompetition);
+      if(activeGame||activeStage)
+        throw fail('Este torneio possui uma partida iniciada sem resultado confirmado. A exclusao foi bloqueada para preservar o andamento.',409);
       const persist=(file,data)=>{const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(data,null,2));fs.renameSync(tmp,file);};
       const signupsPath=this.signupsFilePath;
       let signups=[];

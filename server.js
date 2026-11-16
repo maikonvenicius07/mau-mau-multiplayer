@@ -984,7 +984,8 @@ app.delete('/api/tournaments/:id', async(req,res)=>{
   try{
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
     if(!session)return res.status(401).json({ok:false,message:'Entre na sua conta.'});
-    if(!await ensureTournamentCatalogReady()||!await ensureTournamentDrawReady())throw new Error('Catálogo indisponível.');
+    // O historico de jogos e fases deve estar acessivel antes de autorizar exclusao.
+    if(!await ensureTournamentBracketReady())throw new Error('Histórico do torneio indisponível.');
     if([...rooms.values()].some(r=>r.tournament?.id===req.params.id&&r.status!=='finished'))
       return res.status(409).json({ok:false,message:'Encerre as partidas ativas antes de excluir este torneio.'});
     const result=await tournamentCatalog.delete({id:req.params.id,actor:session.playerKey,isAdmin:tournamentIsAdmin(session)});
