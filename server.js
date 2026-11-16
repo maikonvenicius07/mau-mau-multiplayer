@@ -17,6 +17,7 @@ const StaticAssetVersioning = require('./static-asset-versioning');
 const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
 const TournamentForfeit = require('./tournament-forfeit');
+const TournamentSeatRecovery = require('./tournament-seat-recovery');
 const TournamentRoomRetention = require('./tournament-room-retention');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -2831,6 +2832,10 @@ io.on('connection', socket => {
         socket.emit('resumeActiveSeatResult',{ok:false,reason:'spectating'});
         return;
       }
+      // V40.69.8.20 — no primeiro connect após F5/redeploy, as salas podem
+      // ainda estar sendo carregadas do armazenamento. Não responder 'none'
+      // antes de restaurar: a cadeira legítima poderia ficar invisível.
+      if(!snapshotsRestored)await requireRoomPersistenceReady();
       const seat=recoverablePlayerSeatForKey(socket.data.auth?.playerKey);
       if(!seat){socket.emit('resumeActiveSeatResult',{ok:false,reason:'none'});return;}
       const fromAuto=!!seat.player.autoControlled;
@@ -3160,8 +3165,14 @@ io.on('connection', socket => {
         }else{
           if(room.status==='finished')throw new Error('A partida desta mesa já terminou.');
           if(room.status!=='lobby'){
-            // Durante uma rodada, a retomada usa o vínculo persistente e a reconexão existente.
-            socket.emit('tournamentTableResume',{code:room.code});
+            // V40.69.8.20 — a partida iniciada não aceita novas cadeiras.
+            // A atribuição autenticada pode apenas retomar uma cadeira humana
+            // que já pertença a esta conta (inclusive F5, outra aba e reconexão).
+            // Antes havia um evento tournamentTableResume sem receptor no cliente:
+            // a interface aguardava até esgotar as tentativas sem retornar à mesa.
+            const existing=TournamentSeatRecovery.memberForResume(room,socket.data.auth?.playerKey);
+            if(!existing)throw new Error('A partida já começou e sua cadeira não está disponível para retomada. Confira a situação do torneio.');
+            await resumeReservedPlayerSeat(socket,room,existing,{source:'tournament-resume'});
             return;
           }
           await joinSocketIntoRoom(socket,room,{source:'tournament'});

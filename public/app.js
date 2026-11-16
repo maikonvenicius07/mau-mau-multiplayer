@@ -3592,6 +3592,18 @@ socket.on('resumeActiveSeatResult',info=>{
     accountSeatResumeRetryTimer=setTimeout(()=>requestAccountSeatResume(nextAttempt),nextAttempt===1?350:900);
     return;
   }
+  // V40.69.8.20 — se o Render ainda restaura o armazenamento após deploy,
+  // repetir a busca autenticada por uma janela limitada. Nunca repetir uma
+  // saída voluntária e nunca alterar a vaga de um observador.
+  const restoring=info?.reason==='error' &&
+    /persistência das salas|salas anteriores|restaurad|temporariamente indisponível/i.test(String(info?.message||''));
+  if(restoring&&!state&&socket.connected&&!pendingVoluntaryLeave()&&!leaveRoomPending&&
+     saved()?.role!=='SPECTATOR'&&accountSeatResumeAttempts<6){
+    const nextAttempt=accountSeatResumeAttempts+1;
+    clearAccountSeatResumeRetry();
+    accountSeatResumeRetryTimer=setTimeout(()=>requestAccountSeatResume(nextAttempt),Math.min(6500,1200+nextAttempt*900));
+    return;
+  }
   accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();
   if(info?.reason==='error'&&info?.message)toast(info.message);
   if(!state&&socket.connected)requestTournamentSeatLocation();
