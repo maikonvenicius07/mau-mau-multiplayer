@@ -12,6 +12,14 @@
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
   let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
+  // Auto-refresh must not erase unsaved tournament settings or duplicate requests.
+  let adminEditing=false,lastSelectedPayload=null,detailsInFlight=null,detailsInFlightId='';
+  const autoStatus=byId('tournamentAutoStatus');
+  function setAutoStatus(label,failed=false){
+    if(!autoStatus)return;
+    if(autoStatus.textContent!==label)autoStatus.textContent=label;
+    autoStatus.classList.toggle('tournament-auto-status-error',failed);
+  }
   const statusText={draft:'Em preparação',open:'Inscrições abertas',closed:'Inscrições encerradas',cancelled:'Cancelado'};
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
   function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
@@ -25,12 +33,14 @@
   const overview=byId('tournamentOverview'),stageList=byId('tournamentStages'),refresh=byId('tournamentRefresh');
   function renderOverview(){
     if(!overview||!stageList)return;
+    const expandedStages=new Set(Array.from(stageList.querySelectorAll('details[open]'),node=>node.dataset.stageKey));
     stageList.replaceChildren();
     const dashboard=window.MauMauTournamentDashboard;
     const stages=dashboard?.summarize({bracket,currentStage,currentTables:drawnTables,games:gameStates})||[];
     overview.hidden=!stages.length;
     for(const stage of stages){
       const details=document.createElement('details');details.className='tournament-stage-overview';
+      details.dataset.stageKey=stage.stage;details.open=expandedStages.has(stage.stage);
       const heading=document.createElement('summary');
       const label=document.createElement('strong');label.textContent=stage.label;
       const stat=document.createElement('span');stat.textContent=stage.finished+' de '+stage.total+' mesas concluídas';
@@ -140,8 +150,8 @@
     }
     panel.hidden=!canCreate;
     if(canCreate){
-      if(config.canManage)setFields(config);
-      else {adminName.value='';capacity.value=20;start.value='';}
+      if(config.canManage){if(!adminEditing)setFields(config);}
+      else if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
       toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
       toggle.disabled=pending||!config.canManage||config.status==='cancelled';save.disabled=pending||!config.canManage||config.status==='cancelled';cancel.disabled=pending||!config.canManage||config.status==='cancelled';
       if(remove)remove.disabled=pending||!config.canManage;
@@ -156,20 +166,55 @@
     const res=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
     const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.message||'Não foi possível concluir a operação.');return data;
   }
-  async function loadList(selectId=''){
-    const response=await request('/api/tournaments');items=response.tournaments||[];canCreate=Boolean(response.canCreate);
-    picker.replaceChildren();
-    for(const t of items){const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name+' — '+(statusText[t.status]||t.status);picker.append(opt);}
-    if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
-    picker.value=items.some(t=>t.id===selectId)?selectId:(items[0]?.id||'');
+  async function loadList(selectId='',{silent=false}={}){
+    const response=await request('/api/tournaments');
+    // A response arriving after the dialog was closed must not reopen or redraw it.
+    if(!dialog.open)return;
+    const previous=picker.value;
+    const updatedItems=response.tournaments||[];
+    const changed=JSON.stringify(updatedItems)!==JSON.stringify(items)||Boolean(response.canCreate)!==canCreate;
+    items=updatedItems;canCreate=Boolean(response.canCreate);
+    if(!silent||changed){
+      picker.replaceChildren();
+      for(const t of items){const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name+' — '+(statusText[t.status]||t.status);picker.append(opt);}
+      if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
+      picker.value=items.some(t=>t.id===(selectId||previous))?(selectId||previous):(items[0]?.id||'');
+    }
     panel.hidden=!canCreate;create.disabled=!canCreate;
     if(adminHint)adminHint.hidden=canCreate;
-    if(!picker.value){config=null;if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;adminName.value='';capacity.value=20;start.value='';for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;if(drawButton?.parentElement)drawButton.parentElement.hidden=true;setBusy(false);return;}
-    await loadSelected();
-    if(typeof socket!=='undefined'&&socket.connected)socket.emit('locateTournamentSeat');
+    if(!picker.value){
+      config=null;lastSelectedPayload=null;
+      if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();
+      name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;
+      if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
+      for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;
+      if(drawButton?.parentElement)drawButton.parentElement.hidden=true;
+      setBusy(false);return;
+    }
+    if(!silent||changed||picker.value!==previous)await loadSelected({silent});
+    if(!silent&&typeof socket!=='undefined'&&socket.connected)socket.emit('locateTournamentSeat');
   }
-  async function loadSelected(){if(!picker.value)return;
-    state.textContent='Carregando...';const result=await request('/api/tournament?id='+encodeURIComponent(picker.value));render(result);
+  async function loadSelected({silent=false}={}){
+    const id=picker.value;
+    if(!id)return;
+    // A manual click and a timer firing together share the same request.
+    if(detailsInFlight&&detailsInFlightId===id)return detailsInFlight;
+    if(!silent&&!config)state.textContent='Carregando...';
+    const task=(async()=>{
+      const result=await request('/api/tournament?id='+encodeURIComponent(id));
+      if(!dialog.open||picker.value!==id)return;
+      const fingerprint=JSON.stringify(result);
+      if(fingerprint!==lastSelectedPayload||config?.id!==id){
+        const position=dialog.scrollTop;
+        render(result);
+        lastSelectedPayload=fingerprint;
+        dialog.scrollTop=position;
+      }
+      setAutoStatus('Atualização automática ativa');
+    })();
+    detailsInFlight=task;detailsInFlightId=id;
+    try{return await task;}
+    finally{if(detailsInFlight===task){detailsInFlight=null;detailsInFlightId='';}}
   }
   function fields(){
     // datetime-local expresses a wall-clock time in Rondônia (UTC-04).
@@ -188,6 +233,7 @@
       const data=await request(kind==='create'?'/api/tournaments':'/api/tournaments/'+encodeURIComponent(config.id),{
         method:kind==='create'?'POST':kind==='delete'?'DELETE':'PATCH',
         ...(payload===null?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})});
+      adminEditing=false;lastSelectedPayload=null;
       await loadList(kind==='delete'?'':data.tournament.id);
       message.textContent=kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
     }catch(e){message.textContent=e.message;}
@@ -207,7 +253,28 @@
       socket.emit('joinRoom',{code:data.code,resumeIntent:'tournament'});
     });
   }
-  button.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();loadList().catch(e=>state.textContent=e.message);});
+  // Only poll while the tournament dialog is open and the page is visible.
+  const autoRefresh=window.MauMauTournamentAutoRefresh?.create({
+    refreshDetails:()=>loadSelected({silent:true}),
+    refreshList:()=>loadList('',{silent:true}),
+    canRefresh:()=>dialog.open&&!document.hidden&&navigator.onLine!==false&&!pending,
+    onError:()=>setAutoStatus('Atualização indisponível; use Atualizar.',true)
+  });
+  button.addEventListener('click',()=>{
+    if(!dialog.open)dialog.showModal();
+    setAutoStatus('Atualização automática ativa');
+    autoRefresh?.start();
+    loadList().catch(e=>{state.textContent=e.message;setAutoStatus('Atualização indisponível; use Atualizar.',true);});
+  });
+  dialog.addEventListener('close',()=>autoRefresh?.stop());
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)autoRefresh?.pause();else autoRefresh?.resume();
+  });
+  window.addEventListener('offline',()=>{autoRefresh?.pause();setAutoStatus('Sem conexão; atualização pausada.');});
+  window.addEventListener('online',()=>{setAutoStatus('Atualização automática ativa');autoRefresh?.resume();});
+  if(typeof socket!=='undefined')socket.on('connect',()=>autoRefresh?.resume());
+  // Do not overwrite the organizer's form during background refreshes.
+  for(const field of [adminName,capacity,start])field?.addEventListener('input',()=>{adminEditing=true;});
   // V40.69.8.15 — Resultado completo do torneio dentro do Ranking.
   // A pontuação e a posição são as registradas, sem recalcular o ranking oficial.
   function appendRankingStandings(container,standings){
@@ -286,12 +353,16 @@
     finally{refresh.disabled=false;refresh.textContent='↻ Atualizar';}
   });
   close.addEventListener('click',()=>dialog.close());
-  picker.addEventListener('change',()=>loadSelected().catch(e=>state.textContent=e.message));
+  picker.addEventListener('change',()=>{
+    adminEditing=false;lastSelectedPayload=null;
+    loadSelected().catch(e=>state.textContent=e.message);
+  });
   action.addEventListener('click',async()=>{
     if(pending||!config||!config.registrationOpen)return;
     setBusy(true);state.textContent='Aguarde...';
-    try{const data=await request('/api/tournament/registration',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:config.registered?'leave':'join',tournamentId:config.id})});render(data);}
+    try{await request('/api/tournament/registration',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:config.registered?'leave':'join',tournamentId:config.id})});
+      lastSelectedPayload=null;await loadSelected({silent:true});}
     catch(e){state.textContent=e.message;}
     finally{setBusy(false);}
   });
