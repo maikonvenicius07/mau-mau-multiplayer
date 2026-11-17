@@ -1297,6 +1297,12 @@ function roomPublicState(room, viewerId) {
     code: room.code,
     viewerRole: 'PLAYER',
     status: room.status,
+    // Dados PUBLICOS do torneio, tambem na espera dentro da mesa. O horario
+    // programado nao comanda o inicio da partida.
+    tournamentSchedule:room.tournament?{
+      name:String(room.tournament.name||'Torneio').slice(0,70),
+      startAt:room.tournament.startAt||null,serverNow:Date.now()
+    }:null,
     tournamentWait:room.tournament&&room.status==='lobby'&&Number(room.round||0)===0?
       {deadlineAt:Number(room.tournament.waitDeadlineAt)||null,
         expected:Number(room.tournament.rosterKeys?.length)||0,

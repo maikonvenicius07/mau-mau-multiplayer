@@ -3886,11 +3886,48 @@ function renderWhenChanged(name,dependencies,callback,force=false){
 }
 // Cronômetro visual: somente apresenta o prazo persistido e enviado pelo servidor.
 let tournamentWaitTicker=null;
+// V40.69.8.23 — horário do campeonato (informativo) distinto da espera
+// de 5 minutos da mesa. O tempo decorre do servidor, não do relógio do celular.
+let tournamentScheduleClock=null,tournamentScheduleServerAnchor=null;
+function syncTournamentLobbySchedule(){
+  const section=document.getElementById('tournamentLobbySchedule');
+  if(!section)return;
+  const info=state?.tournamentSchedule;
+  const helper=window.MauMauTournamentSchedule;
+  const detail=helper?.format(info?.startAt);
+  const visible=!!(info&&state?.status==='lobby');
+  section.hidden=!visible;
+  if(!visible)return;
+  const title=document.getElementById('tournamentLobbyScheduleName');
+  const text=document.getElementById('tournamentLobbyScheduleStart');
+  if(title)title.textContent='🏆 '+String(info.name||'Torneio');
+  if(text)text.textContent=detail?
+    `Início programado: ${detail.date} às ${detail.time} (${detail.zone})`:
+    'Início programado: data e horário ainda não definidos';
+  if(!tournamentScheduleClock&&helper)
+    tournamentScheduleClock=helper.clock(()=>typeof performance!=='undefined'?performance.now():Date.now());
+  if(tournamentScheduleClock&&info.serverNow!==tournamentScheduleServerAnchor){
+    tournamentScheduleClock.sync(info.serverNow);
+    tournamentScheduleServerAnchor=info.serverNow;
+  }
+  tickTournamentLobbySchedule();
+}
+function tickTournamentLobbySchedule(){
+  const output=document.getElementById('tournamentLobbyScheduleCountdown');
+  const info=state?.tournamentSchedule,helper=window.MauMauTournamentSchedule;
+  if(!output||!info||!helper||state?.status!=='lobby')return;
+  const deadline=helper.timestamp(info.startAt),now=tournamentScheduleClock?.now();
+  if(deadline===null){output.textContent='Contagem informativa indisponível: horário não definido';return;}
+  const remaining=now===null?null:helper.countdown(deadline,now);
+  output.textContent=remaining?(remaining.expired?'Horário programado atingido · início da partida é manual':
+    'Faltam para o torneio: '+remaining.text):'Sincronizando relógio do servidor...';
+}
 function syncTournamentWaitBanner(){
   if(typeof document==='undefined')return;
   const banner=document.getElementById('tournamentWaitBanner');if(!banner)return;
   const wait=state?.tournamentWait,visible=!!wait&&state?.status==='lobby';
   banner.classList.toggle('hidden',!visible);
+  syncTournamentLobbySchedule();
   if(!visible){if(tournamentWaitTicker)clearInterval(tournamentWaitTicker);tournamentWaitTicker=null;return;}
   const players=document.getElementById('tournamentWaitPlayers');
   const missing=document.getElementById('tournamentWaitMissing');
@@ -3910,6 +3947,7 @@ function syncTournamentWaitBannerTick(){
   const s=Math.max(0,Math.ceil((Number(wait.deadlineAt||0)-Date.now())/1000));
   clock.textContent=wait.deadlineAt?String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):'--:--';
   document.getElementById('tournamentWaitBanner')?.classList.toggle('tournament-wait-urgent',s<=60);
+  tickTournamentLobbySchedule();
   const button=document.getElementById('tournamentManualStartButton');
   if(button)button.disabled=!socket.connected||!isTournamentStartReady();
   const message=document.getElementById('tournamentManualStartHint');

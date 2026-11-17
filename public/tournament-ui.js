@@ -15,6 +15,68 @@
   // Auto-refresh must not erase unsaved tournament settings or duplicate requests.
   let adminEditing=false,lastSelectedPayload=null,detailsInFlight=null,detailsInFlightId='';
   const autoStatus=byId('tournamentAutoStatus');
+  // V40.69.8.23 — horário agendado é diferente do prazo de espera da mesa.
+  const schedule=window.MauMauTournamentSchedule;
+  const scheduleClock=schedule?.clock(()=>typeof performance!=='undefined'?performance.now():Date.now());
+  const schedulePanel=byId('tournamentSchedulePanel'),scheduleDate=byId('tournamentScheduleDate');
+  const scheduleTime=byId('tournamentScheduleTime'),scheduleState=byId('tournamentScheduleState');
+  const scheduleRegistration=byId('tournamentScheduleRegistration'),scheduleMessage=byId('tournamentScheduleMessage');
+  const scheduleZone=byId('tournamentScheduleZone'),scheduleChanged=byId('tournamentScheduleChanged');
+  const scheduleCountdown=byId('tournamentScheduleCountdown'),scheduleClockText=byId('tournamentScheduleClock');
+  const overviewSchedule=byId('tournamentOverviewSchedule');
+  const lastKnownSchedule=new Map(),scheduleNoticeById=new Map();
+  let scheduleInProgress=false;
+  function tickTournamentSchedule(){
+    if(!dialog.open||!config||!schedule||!scheduleClockText||!scheduleCountdown)return;
+    const when=schedule.timestamp(config.startAt),now=scheduleClock?.now();
+    const active=config.status!=='cancelled'&&!bracket?.champion&&!scheduleInProgress&&when!==null&&now!==null;
+    scheduleCountdown.hidden=!active;
+    if(!active)return;
+    const remaining=schedule.countdown(when,now);
+    scheduleClockText.textContent=remaining.expired?'Horário programado atingido':remaining.text;
+    scheduleCountdown.classList.toggle('is-due',remaining.expired);
+    if(remaining.expired){
+      const msg=scheduleMessage;
+      if(msg)msg.textContent=config.registered?
+        'O horário previsto chegou. Sua inscrição está confirmada. Aguarde o organizador; as partidas só começam manualmente.':
+        'O horário previsto chegou. O início das partidas continua manual.';
+    }
+  }
+  function renderSchedule(result){
+    if(!schedule||!config||!schedulePanel)return;
+    const previous=lastKnownSchedule.get(config.id);
+    const newTime=config.startAt||null;
+    if(previous!==undefined&&previous!==newTime){
+      const updated=schedule.format(newTime);
+      scheduleNoticeById.set(config.id,updated?
+        `⚠ Horário alterado pelo organizador: ${updated.date}, às ${updated.time} (${updated.zone}).`:
+        '⚠ O organizador retirou a data e o horário programados.');
+    }
+    if(scheduleChanged){
+      const notice=scheduleNoticeById.get(config.id);
+      scheduleChanged.textContent=notice||'';
+      scheduleChanged.hidden=!notice;
+    }
+    lastKnownSchedule.set(config.id,newTime);
+    const inProgress=(result.tables||[]).some(t=>{
+      const g=result.games?.[t.number];
+      return g?.finished||g?.liveStatus==='playing'||g?.liveStatus==='between-rounds';
+    });
+    scheduleInProgress=inProgress;
+    const info=schedule.state({startAt:newTime,status:config.status,registered:config.registered,
+      started:inProgress,finished:!!result.bracket?.champion,nowMs:scheduleClock?.now()});
+    if(scheduleDate)scheduleDate.textContent=info.date?.date||'A definir';
+    if(scheduleTime)scheduleTime.textContent=info.date?.time||'A definir';
+    if(scheduleZone)scheduleZone.textContent=info.date?.zone||schedule.ZONE_LABEL;
+    if(scheduleState)scheduleState.textContent='Situação: '+info.statusLabel;
+    if(scheduleRegistration)scheduleRegistration.textContent='Sua inscrição: '+info.registrationLabel;
+    if(scheduleMessage)scheduleMessage.textContent=info.message;
+    if(overviewSchedule)overviewSchedule.textContent=info.date?
+      `📅 Início programado: ${info.date.date} às ${info.date.time} (${info.date.zone}).`:
+      '📅 Data e horário do torneio ainda não definidos.';
+    schedulePanel.hidden=false;
+    tickTournamentSchedule();
+  }
   // O prazo é absoluto e persistido no servidor. Atualizar o texto a cada
   // segundo não dispara consultas HTTP nem reinicia a contagem.
   function tickTableWaits(){
@@ -27,7 +89,7 @@
       el.classList.toggle('tournament-wait-urgent',sec<=60);
     }
   }
-  if(typeof setInterval==='function')setInterval(tickTableWaits,1000);
+  if(typeof setInterval==='function')setInterval(()=>{tickTableWaits();tickTournamentSchedule();},1000);
 
   function setAutoStatus(label,failed=false){
     if(!autoStatus)return;
@@ -107,6 +169,7 @@
     drawnTables=result.tables||[];
     myTable=result.myTable??null;gameStates=result.games||{};
     bracket=result.bracket||null;currentStage=bracket?.currentStage||'qualifier';
+    renderSchedule(result);
     const stagesLabel={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
     if(tablesPanel){const heading=tablesPanel.querySelector('h3');if(heading)heading.textContent='🎲 '+(stagesLabel[currentStage]||'Mesas sorteadas');}
     const progress=document.getElementById('tournamentProgress');
@@ -205,7 +268,12 @@
     items=updatedItems;canCreate=Boolean(response.canCreate);
     if(!silent||changed){
       picker.replaceChildren();
-      for(const t of items){const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name+' — '+(statusText[t.status]||t.status);picker.append(opt);}
+      for(const t of items){
+        const opt=document.createElement('option');opt.value=t.id;
+        const programmed=schedule?.format(t.startAt);
+        opt.textContent=t.name+' — '+(programmed?`${programmed.date}, ${programmed.time} (RO)`:'Data a definir')+' — '+(statusText[t.status]||t.status);
+        picker.append(opt);
+      }
       if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
       picker.value=items.some(t=>t.id===(selectId||previous))?(selectId||previous):(items[0]?.id||'');
     }
@@ -215,6 +283,7 @@
       config=null;lastSelectedPayload=null;
       if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();
       name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;
+      if(schedulePanel)schedulePanel.hidden=true;
       if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
       for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;
       if(drawButton?.parentElement)drawButton.parentElement.hidden=true;
@@ -232,13 +301,18 @@
     const task=(async()=>{
       const result=await request('/api/tournament?id='+encodeURIComponent(id));
       if(!dialog.open||picker.value!==id)return;
-      const fingerprint=JSON.stringify(result);
+      // O carimbo de relógio muda a cada resposta, mas NÃO é uma mudança de
+      // torneio: evita reconstruir formulários e fases a cada 15 segundos.
+      if(scheduleClock) scheduleClock.sync(result.serverNow);
+      const {serverNow,...stable}=result;
+      const fingerprint=JSON.stringify(stable);
       if(fingerprint!==lastSelectedPayload||config?.id!==id){
         const position=dialog.scrollTop;
         render(result);
         lastSelectedPayload=fingerprint;
         dialog.scrollTop=position;
       }
+      tickTournamentSchedule();
       setAutoStatus('Atualização automática ativa');
     })();
     detailsInFlight=task;detailsInFlightId=id;
@@ -391,7 +465,11 @@
     setBusy(true);state.textContent='Aguarde...';
     try{await request('/api/tournament/registration',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:config.registered?'leave':'join',tournamentId:config.id})});
-      lastSelectedPayload=null;await loadSelected({silent:true});}
+      lastSelectedPayload=null;await loadSelected({silent:true});
+      // A confirmação é permanente no cartão de programação, não depende de toast.
+      if(scheduleMessage&&config?.registered)
+        scheduleMessage.textContent=schedule?.state({startAt:config.startAt,registered:true,status:config.status}).message||'Sua inscrição está confirmada.';
+    }
     catch(e){state.textContent=e.message;}
     finally{setBusy(false);}
   });

@@ -5017,3 +5017,33 @@ button.bot-primary{
 .tournament-wait-stage{display:block;color:#c6dbbc}
 @media(max-width:560px){.tournament-wait-banner{font-size:.8rem;padding:8px 10px;gap:6px}
  .tournament-wait-banner strong{font-size:.78rem}}
+
+/* V40.69.8.23 — programação pública do torneio, separada da espera da mesa. */
+.tournament-schedule{margin:13px 0 17px;padding:14px;border:1px solid #967638;
+  border-radius:13px;background:linear-gradient(155deg,#193627,#10271d);color:#f6eed5}
+.tournament-schedule[hidden],.tournament-schedule-countdown[hidden],
+.tournament-lobby-schedule[hidden]{display:none!important}
+.tournament-schedule h3{margin:0 0 12px;color:#f5d68c;font-size:15px}
+.tournament-schedule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tournament-schedule-grid>div{padding:10px;border:1px solid #53765a;border-radius:9px;background:#0b2017}
+.tournament-schedule-grid small{display:block;color:#bbd1c1;font-size:11px;margin-bottom:3px}
+.tournament-schedule-grid strong{display:block;font-size:clamp(16px,4vw,21px);color:#ffe3a5;overflow-wrap:anywhere}
+#tournamentScheduleZone{display:block;margin:7px 1px 12px;color:#b9cabb;font-size:11px}
+.tournament-schedule-meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.tournament-schedule-meta span{border-radius:7px;padding:5px 8px;background:#294533;color:#e9f4e6;font-size:12px}
+.tournament-schedule-countdown{margin:9px 0;padding:10px;text-align:center;background:#0b2119;
+  border-radius:10px;border:1px solid #557b60;font-variant-numeric:tabular-nums}
+.tournament-schedule-countdown small{display:block;color:#bcd8bd;font-size:10px;font-weight:700}
+.tournament-schedule-countdown strong{display:block;color:#f6d68f;font-size:clamp(23px,6vw,29px);letter-spacing:.02em}
+.tournament-schedule-countdown.is-due strong{font-size:14px;color:#cbebc7}
+.tournament-schedule .tournament-schedule-changed{padding:8px 10px;background:#463b17;
+  border:1px solid #ae9448;border-radius:7px;color:#ffe8aa;font-weight:700}
+.tournament-schedule .tournament-schedule-manual{display:block;color:#b8ccb9;line-height:1.5;font-size:11px}
+.tournament-overview-schedule{color:#f0d691!important;font-weight:700;margin:6px 0 10px}
+.tournament-lobby-schedule{display:grid;gap:3px;padding:8px 10px;margin-bottom:6px;
+  border:1px solid #9c7a3b;border-radius:9px;background:#132b1e}
+.tournament-lobby-schedule strong{color:#ffe09b}
+.tournament-lobby-schedule span{color:#e8f1df;font-size:12px}
+.tournament-lobby-schedule small{font-size:10px;color:#b7c8b6}
+@media(max-width:360px){.tournament-schedule{padding:10px}.tournament-schedule-grid{gap:6px}}
+.tournament-wait-banner .tournament-lobby-schedule{flex:1 1 100%;width:100%;min-width:0;box-sizing:border-box}

@@ -8,7 +8,7 @@ const crypto = require('crypto');
 
 const VERSIONED_FILES = new Set([
   'styles.css', 'app.js', 'camera-floating.js', 'camera-video.js',
-  'tournament-dashboard.js', 'tournament-ui.js', 'manifest.webmanifest',
+  'tournament-dashboard.js', 'tournament-ui.js', 'tournament-schedule.js', 'manifest.webmanifest',
   'assets/app/icon-64.png', 'assets/app/icon-180.png', 'assets/app/icon-512.png',
   'assets/app/logo-display-512.webp',
 ]);

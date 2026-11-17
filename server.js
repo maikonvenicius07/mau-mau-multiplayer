@@ -954,7 +954,7 @@ app.get('/api/tournaments', async(req,res)=>{
   try{
     if(!await ensureTournamentCatalogReady())throw new Error('Catálogo indisponível.');
     const session=await authFromCookieHeaderVerified(req.headers.cookie);
-    res.json({ok:true,canCreate:!!session?.playerKey,tournaments:await tournamentCatalog.list({actor:session?.playerKey||'',isAdmin:tournamentIsAdmin(session)})});
+    res.json({ok:true,serverNow:Date.now(),canCreate:!!session?.playerKey,tournaments:await tournamentCatalog.list({actor:session?.playerKey||'',isAdmin:tournamentIsAdmin(session)})});
   }catch(e){console.error('[tournament] listagem falhou:',e.message);res.status(503).json({ok:false,message:'Torneios indisponíveis.'});}
 });
 app.get('/api/tournament', async(req,res)=>{
@@ -1014,7 +1014,7 @@ app.get('/api/tournament', async(req,res)=>{
         await tournamentBracket.seatFor(config.id,currentStage,t.number,session.playerKey);
       if(allowed){myTable=t.number;break;}
     }
-    res.json({ok:true,canCreate:!!session?.playerKey,...result,tables:displayTables,games,myTable,bracket});
+    res.json({ok:true,serverNow:Date.now(),canCreate:!!session?.playerKey,...result,tables:displayTables,games,myTable,bracket});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{
@@ -1063,6 +1063,16 @@ app.patch('/api/tournaments/:id', async(req,res)=>{
     if(req.body?.status==='cancelled' && await tournamentGames.hasStarted(req.params.id))
       return res.status(409).json({ok:false,message:'Não cancele o torneio depois que as mesas começaram a jogar.'});
     const tournament=await tournamentCatalog.update({id:req.params.id,data:req.body});
+    // V40.69.8.23 — o horário alterado pelo organizador também chega às
+    // mesas de espera que já estiverem abertas, sem recomeçar nenhum timer.
+    for(const room of rooms.values()){
+      if(room.tournament?.id!==tournament.id)continue;
+      if(room.tournament.startAt!==tournament.startAt||room.tournament.name!==tournament.name){
+        room.tournament.startAt=tournament.startAt;
+        room.tournament.name=tournament.name;
+        emitRoom(room);
+      }
+    }
     res.json({ok:true,tournament});
   }catch(e){
     const status=[400,403,404,409].includes(e.status)?e.status:503;
@@ -3217,6 +3227,9 @@ io.on('connection', socket => {
       try{
         let binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
         let room=binding?rooms.get(binding.roomCode):null;
+        // Uma sala restaurada de snapshot de versão anterior pode ainda não ter
+        // os dados públicos da programação. Sincronize-os com o catálogo real.
+        if(room?.tournament){room.tournament.startAt=event.startAt;room.tournament.name=event.name;}
         if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
         if(room?.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
           throw new Error('Você desistiu desta mesa e não pode retornar ao torneio.');
@@ -3241,7 +3254,7 @@ io.on('connection', socket => {
           const deadlineAt=await tournamentWaitDeadline(id,phase,number,binding);
           candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),
             rosterNames:seat.players.map(p=>({playerKey:p.playerKey,name:p.name})),waitDeadlineAt:deadlineAt,
-            forfeits:[]};
+            startAt:event.startAt,name:event.name,forfeits:[]};
           candidate.isPublic=false;ensureSocial(candidate);
           await prepareForRoomSwitch(socket,code);
           binding=recoveringLobby?

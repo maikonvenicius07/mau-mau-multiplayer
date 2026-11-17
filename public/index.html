@@ -254,7 +254,13 @@
     </header>
 
     <div id="tournamentWaitBanner" class="tournament-wait-banner hidden" role="status" aria-live="off">
-      <strong>⏳ AGUARDANDO JOGADORES</strong>
+      <div id="tournamentLobbySchedule" class="tournament-lobby-schedule" hidden>
+        <strong id="tournamentLobbyScheduleName">🏆 Torneio</strong>
+        <span id="tournamentLobbyScheduleStart"></span>
+        <span id="tournamentLobbyScheduleCountdown"></span>
+        <small>Horário programado do torneio · diferente da espera de 5 minutos da mesa</small>
+      </div>
+      <strong>⏳ AGUARDANDO JOGADORES · ESPERA DA MESA</strong>
       <span id="tournamentWaitPlayers"></span>
       <span id="tournamentWaitClock" aria-label="Tempo restante">05:00</span>
       <small id="tournamentWaitMissing"></small>
@@ -831,6 +837,22 @@
     <p id="tournamentDate" class="tournament-date"></p>
     <label class="tournament-field" for="tournamentPicker">Selecionar campeonato</label>
     <select id="tournamentPicker" class="tournament-select" aria-label="Selecionar campeonato"></select>
+    <section id="tournamentSchedulePanel" class="tournament-schedule" aria-label="Programação do torneio" aria-live="polite" hidden>
+      <h3>📅 Programação do torneio</h3>
+      <div class="tournament-schedule-grid">
+        <div><small>Data</small><strong id="tournamentScheduleDate">A definir</strong></div>
+        <div><small>Horário de início</small><strong id="tournamentScheduleTime">A definir</strong></div>
+      </div>
+      <small id="tournamentScheduleZone">Horário de Rondônia (UTC−04)</small>
+      <div class="tournament-schedule-meta"><span id="tournamentScheduleState"></span><span id="tournamentScheduleRegistration"></span></div>
+      <div id="tournamentScheduleCountdown" class="tournament-schedule-countdown" hidden>
+        <small>⏳ FALTAM PARA O TORNEIO COMEÇAR</small>
+        <strong id="tournamentScheduleClock">--</strong>
+      </div>
+      <p id="tournamentScheduleMessage"></p>
+      <p id="tournamentScheduleChanged" class="tournament-schedule-changed" role="status" hidden></p>
+      <small class="tournament-schedule-manual">O horário é informativo. As partidas só começam com início manual autorizado. O relógio de espera da mesa é separado.</small>
+    </section>
     <section id="tournamentAdminPanel" class="tournament-admin" hidden aria-label="Administração de torneios">
       <h3>🏆 Criar e administrar torneios</h3>
       <p class="tournament-note">Qualquer jogador com conta pode criar. Só o criador pode editar, sortear e excluir seu torneio.</p>
@@ -867,6 +889,7 @@
         <span id="tournamentAutoStatus" class="tournament-auto-status" role="status">Atualização automática ativa</span>
         <button id="tournamentRefresh" type="button" aria-label="Atualizar andamento e resultados">↻ Atualizar</button>
       </div>
+      <p id="tournamentOverviewSchedule" class="tournament-overview-schedule"></p>
       <div id="tournamentStages" class="tournament-stages" aria-live="polite"></div>
     </section>
     <section id="tournamentTables" class="tournament-tables" hidden aria-label="Mesas sorteadas">
@@ -882,10 +905,11 @@
   <script src="camera-floating.js?v=50.2-arraste-camera"></script>
   <script src="media-session.js?v=1-midia-reconexao"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b-restore1-v40697-wake-v406989"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822"></script>
+  <script src="tournament-schedule.js?v=40.69.8.23"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822-schedule-v4069823"></script>
   <script src="controls-positioning.js?v=53.12-mobile-left-stack"></script>
   <script src="tournament-dashboard.js?v=51.6-wait-40.69.8.21"></script>
   <script src="tournament-auto-refresh.js?v=40.69.8.18"></script>
-  <script src="tournament-ui.js?v=51.6-auto-refresh-40.69.8.18-v4069821"></script>
+  <script src="tournament-ui.js?v=51.6-auto-refresh-40.69.8.18-v4069823"></script>
 </body>
 </html>

@@ -1,3 +1,14 @@
+## V40.69.8.23 — Horário público e contagem regressiva dos torneios (17/11/2026)
+
+- Corrigida a visibilidade da programação cadastrada (`startAt`): antes aparecia só em uma linha discreta no painel. Agora a lista de torneios, os detalhes, a inscrição confirmada, a área de acompanhamento e o lobby da mesa exibem data e horário reais.
+- A programação é formatada explicitamente para o fuso `America/Porto_Velho` (horário de Rondônia, UTC−04); torneios sem data mostram **A definir**, sem inventar horário ou impedir inscrições existentes.
+- Relógio informativo até o início programado, atualizado por segundo sem fazer requisições adicionais. A contagem é ancorada em `serverNow` do servidor e avança por relógio monotônico do navegador; F5, fuso do aparelho ou reconexão não reiniciam a data oficial.
+- Mudanças feitas pelo organizador continuam sujeitas às permissões existentes; são propagadas às mesas ativas e às consultas de status. Na tela aberta, atualização periódica detecta a alteração e informa o novo horário sem substituir campos administrativos em edição.
+- A programação é **informativa** e não aciona `startRound`, não altera a espera de 300 segundos das mesas nem libera início automático. O botão de início permanece controlado pela V40.69.8.22.
+- Dados públicos somente: nome do torneio, horário ISO e carimbo temporal de sincronização. Nenhuma informação de mão, senha ou vaga privada é enviada. Snapshots de salas já existentes recebem os metadados públicos do catálogo ao reingressar.
+- Novo módulo público de programação e teste dedicado; cache dos scripts atualizado por conteúdo. Sem migração de banco, sem mudança nas regras do jogo ou no Ranking Oficial.
+- A versão funcional aparece no changelog e nos recursos públicos. `package.json` permanece na identificação legada `40.69.8-rank.11` por compatibilidade com testes antigos que a comparam literalmente.
+
 ## V40.69.8.22 — Início exclusivamente manual de mesas de torneio (17/11/2026)
 
 - Corrigida a partida que começava automaticamente pela presença completa ou pelo vencimento do prazo de cinco minutos. Agora somente o evento autenticado `startRound`, enviado por ação de um anfitrião válido, pode iniciar a primeira rodada.
