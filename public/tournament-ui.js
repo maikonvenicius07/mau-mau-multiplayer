@@ -15,6 +15,20 @@
   // Auto-refresh must not erase unsaved tournament settings or duplicate requests.
   let adminEditing=false,lastSelectedPayload=null,detailsInFlight=null,detailsInFlightId='';
   const autoStatus=byId('tournamentAutoStatus');
+  // O prazo é absoluto e persistido no servidor. Atualizar o texto a cada
+  // segundo não dispara consultas HTTP nem reinicia a contagem.
+  function tickTableWaits(){
+    if(!dialog.open)return;
+    for(const el of tablesList?.querySelectorAll('[data-wait-deadline]')||[]){
+      const deadline=Number(el.dataset.waitDeadline||0);
+      const sec=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+      el.textContent=sec>0?'⏳ Início automático em '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'):
+        '⌛ Tempo encerrado. Verificando participantes.';
+      el.classList.toggle('tournament-wait-urgent',sec<=60);
+    }
+  }
+  if(typeof setInterval==='function')setInterval(tickTableWaits,1000);
+
   function setAutoStatus(label,failed=false){
     if(!autoStatus)return;
     if(autoStatus.textContent!==label)autoStatus.textContent=label;
@@ -53,6 +67,10 @@
         const status=document.createElement('span');status.className='tournament-state tournament-state-'+table.status;
         status.textContent=table.label;
         line.append(title,status);entry.append(line);
+        if(table.wait&&table.status!=='finished'&&table.status!=='playing'){
+          const extra=document.createElement('small');extra.className='tournament-wait-stage';
+          extra.textContent=`⏳ ${table.wait.present} de ${table.wait.expected} presentes`;entry.append(extra);
+        }
         if(table.expectedPlayers!=null&&table.status!=='finished'){
           const connected=document.createElement('small');
           connected.textContent=table.connectedPlayers+' de '+table.expectedPlayers+' jogadores conectados';entry.append(connected);
@@ -113,6 +131,16 @@
         const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
         const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);
         const game=gameStates[t.number];
+        if(game?.wait&&!game?.finished&&game.liveStatus!=='playing'&&game.liveStatus!=='between-rounds'&&game.liveStatus!=='finished'){
+          const details=document.createElement('div');details.className='tournament-wait-detail';
+          const count=document.createElement('strong');count.textContent=`Aguardando jogadores: ${game.wait.present} de ${game.wait.expected}`;
+          details.append(count);
+          const clock=document.createElement('div');clock.dataset.waitDeadline=String(game.wait.deadlineAt);
+          clock.className='tournament-wait-clock';details.append(clock);
+          if(game.wait.requiresAttention){const warning=document.createElement('small');warning.textContent='Nenhum participante compareceu. É necessária uma decisão do organizador; não há vitória automática sem jogador.';details.append(warning);}
+          else if(game.wait.absent?.length){const names=document.createElement('small');names.textContent='Ausentes: '+game.wait.absent.join(', ');details.append(names);}
+          card.append(details);
+        }
         if(game?.finished){
           const result=document.createElement('div');result.className='tournament-table-result';
           const h=document.createElement('strong');h.textContent=game.result?.complete===false?'⚠️ Resultado parcial (participante ausente)':'🏆 Resultado da mesa';result.append(h);
@@ -147,6 +175,7 @@
         }
         tablesList.append(card);
       }
+      tickTableWaits();
     }
     panel.hidden=!canCreate;
     if(canCreate){

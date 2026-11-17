@@ -5000,3 +5000,20 @@ button.bot-primary{
 .tournament-auto-status{font-size:.73rem;color:#a8cfb7;line-height:1.3;margin-left:auto;margin-right:.5rem;}
 .tournament-auto-status-error{color:#edc58a;}
 @media(max-width:540px){.tournament-auto-status{font-size:.67rem;margin-left:0;margin-right:.25rem;}}
+
+/* V40.69.8.21 — espera visível e legível na mesa, sem cobrir as cartas. */
+.tournament-wait-banner{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;
+  margin:6px auto 10px;padding:10px 14px;max-width:980px;border:1px solid #d2b274;
+  border-radius:12px;background:#272b28;color:#fff6e5;font-size:.9rem}
+.tournament-wait-banner.hidden{display:none!important}
+.tournament-wait-banner strong{font-size:.9rem;color:#ffde91}
+.tournament-wait-banner small{flex-basis:100%;color:#ddd3b9}
+#tournamentWaitClock{font-variant-numeric:tabular-nums;font-size:1.25rem;font-weight:800;letter-spacing:.05em}
+.tournament-wait-detail{margin:8px 0;padding:10px;border-radius:10px;background:#20352e;
+  border:1px solid #5b7b66;color:#f3faef;display:grid;gap:5px;font-size:.85rem}
+.tournament-wait-detail small{line-height:1.5;color:#f5dfb5}
+.tournament-wait-clock{font-weight:750;font-variant-numeric:tabular-nums}
+.tournament-wait-urgent #tournamentWaitClock,.tournament-wait-urgent.tournament-wait-clock{color:#ffd067}
+.tournament-wait-stage{display:block;color:#c6dbbc}
+@media(max-width:560px){.tournament-wait-banner{font-size:.8rem;padding:8px 10px;gap:6px}
+ .tournament-wait-banner strong{font-size:.78rem}}

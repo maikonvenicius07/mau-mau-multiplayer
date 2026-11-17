@@ -3884,6 +3884,33 @@ function renderWhenChanged(name,dependencies,callback,force=false){
   renderSignatures.set(name,signature);
   return true;
 }
+// Cronômetro visual: somente apresenta o prazo persistido e enviado pelo servidor.
+let tournamentWaitTicker=null;
+function syncTournamentWaitBanner(){
+  if(typeof document==='undefined')return;
+  const banner=document.getElementById('tournamentWaitBanner');if(!banner)return;
+  const wait=state?.tournamentWait,visible=!!wait&&state?.status==='lobby';
+  banner.classList.toggle('hidden',!visible);
+  if(!visible){if(tournamentWaitTicker)clearInterval(tournamentWaitTicker);tournamentWaitTicker=null;return;}
+  const players=document.getElementById('tournamentWaitPlayers');
+  const missing=document.getElementById('tournamentWaitMissing');
+  if(players)players.textContent=`Presentes: ${wait.present} de ${wait.expected}`;
+  if(missing)missing.textContent=wait.absent?.length?'Ausentes: '+wait.absent.join(', '):'Todos presentes. Início automático em preparação.';
+  const update=()=>{
+    const clock=document.getElementById('tournamentWaitClock');if(!clock)return;
+    const seconds=Math.max(0,Math.ceil((Number(state?.tournamentWait?.deadlineAt||0)-Date.now())/1000));
+    clock.textContent=state?.tournamentWait?.deadlineAt?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'--:--';
+    banner.classList.toggle('tournament-wait-urgent',seconds<=60);
+    if(seconds===0&&missing)missing.textContent=wait.present===0?'Nenhum jogador presente. Aguardando solução segura.':'Tempo encerrado. O servidor está verificando o início.';
+  };
+  update();if(!tournamentWaitTicker)tournamentWaitTicker=setInterval(()=>{if(!state||state.status!=='lobby'){clearInterval(tournamentWaitTicker);tournamentWaitTicker=null;}else syncTournamentWaitBannerTick();},1000);
+}
+function syncTournamentWaitBannerTick(){
+  const wait=state?.tournamentWait,clock=document.getElementById('tournamentWaitClock');if(!wait||!clock)return;
+  const s=Math.max(0,Math.ceil((Number(wait.deadlineAt||0)-Date.now())/1000));
+  clock.textContent=wait.deadlineAt?String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):'--:--';
+  document.getElementById('tournamentWaitBanner')?.classList.toggle('tournament-wait-urgent',s<=60);
+}
 function render(force=false){
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
@@ -3897,6 +3924,7 @@ function render(force=false){
   const bannerHint=$('#spectatorModeBanner .spectator-mode-copy small');
   if(bannerHint)bannerHint.textContent=(typeof isTournamentWatcher==='function'&&isTournamentWatcher())?'Assistindo ao torneio · sem participar':'Acompanhando a mesa · cartas privadas protegidas';
   syncSpectatorCompactUI();
+  syncTournamentWaitBanner();
   $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   // O nome e a quantidade de cartas ja aparecem no assento do jogador.

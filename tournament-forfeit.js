@@ -103,4 +103,4 @@ function tournamentMatchRecord(room,ordinaryRecord){
     throw new Error('Resultado de torneio incompleto: participantes sorteados divergentes.');
   return {...ordinaryRecord,results:rows};
 }
-module.exports={forfeitActiveSeat,tournamentMatchRecord};
+module.exports={recordForfeit,forfeitActiveSeat,tournamentMatchRecord};

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const TournamentWait=require('./tournament-wait');
 
 function fail(message, status=409){return Object.assign(new Error(message),{status});}
 function shuffled(rows, randomInt=crypto.randomInt){
@@ -40,9 +41,13 @@ class TournamentDraw{
         table_number INTEGER NOT NULL CHECK(table_number>=1),
         seat_number INTEGER NOT NULL CHECK(seat_number BETWEEN 1 AND 5),
         drawn_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        wait_deadline_at TIMESTAMPTZ,
         PRIMARY KEY(tournament_id,player_key),
         UNIQUE(tournament_id,table_number,seat_number)
       )`);
+      // Nullable: torneios sorteados antes desta versão não devem ser
+      // desclassificados retroativamente com base em um sorteio antigo.
+      await this.pool.query('ALTER TABLE mm_tournament_table_seats ADD COLUMN IF NOT EXISTS wait_deadline_at TIMESTAMPTZ');
     }else{
       fs.mkdirSync(path.dirname(this.filePath),{recursive:true});
       try{const data=JSON.parse(fs.readFileSync(this.filePath,'utf8'));this.local=data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
@@ -65,6 +70,27 @@ class TournamentDraw{
     return groups;
   }
   // Apenas para o servidor: as identidades NÃO devem integrar publicTables/HTTP.
+  // O sorteio define o marco único da espera, também após reinício do Render.
+  async waitDeadlineAt(id,number){
+    if(typeof id!=='string'||!Number.isInteger(number)||number<1)return null;
+    if(this.pool){
+      const r=await this.pool.query(`SELECT EXTRACT(EPOCH FROM MIN(wait_deadline_at))*1000 AS "deadlineAt"
+        FROM mm_tournament_table_seats WHERE tournament_id=$1 AND table_number=$2`,[id,number]);
+      return Number(r.rows[0]?.deadlineAt)||null;
+    }
+    this.reloadLocal();const t=(this.local[id]||[]).find(x=>x.number===number);
+    return Number(t?.waitDeadlineAt)||null;
+  }
+  async waitStartedAt(id,number){
+    if(typeof id!=='string'||!Number.isInteger(number)||number<1)return null;
+    if(this.pool){
+      const r=await this.pool.query(`SELECT EXTRACT(EPOCH FROM MIN(drawn_at))*1000 AS "startedAt"
+        FROM mm_tournament_table_seats WHERE tournament_id=$1 AND table_number=$2`,[id,number]);
+      return Number(r.rows[0]?.startedAt)||null;
+    }
+    this.reloadLocal();const t=(this.local[id]||[]).find(x=>x.number===number);
+    return Number(t?.drawnAt)||null;
+  }
   async seatAssignments(id){
     if(typeof id!=='string'||!id||id.length>64)return [];
     if(this.pool){
@@ -107,8 +133,10 @@ class TournamentDraw{
         const {rows}=await client.query(`SELECT player_key AS "playerKey",display_name AS name FROM mm_tournament_signups
           WHERE tournament_id=$1 ORDER BY joined_at,player_key`,[id]);
         const tables=distribute(rows);
+        // Uma única data absoluta para todas as mesas do sorteio.
+        const waitDeadlineAt=new Date(Date.now()+TournamentWait.WAIT_MS).toISOString();
         for(const t of tables){for(const p of t.players){
-          await client.query('INSERT INTO mm_tournament_table_seats(tournament_id,player_key,display_name,table_number,seat_number) VALUES($1,$2,$3,$4,$5)',[id,p.playerKey,p.name,t.number,p.seat]);
+          await client.query('INSERT INTO mm_tournament_table_seats(tournament_id,player_key,display_name,table_number,seat_number,wait_deadline_at) VALUES($1,$2,$3,$4,$5,$6::timestamptz)',[id,p.playerKey,p.name,t.number,p.seat,waitDeadlineAt]);
         }}
         await client.query('COMMIT');return publicTables(tables);
       }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
@@ -123,7 +151,8 @@ class TournamentDraw{
     if(event.status!=='closed')throw fail('Encerre as inscrições antes de sortear as mesas.');
     let signups=[];try{signups=JSON.parse(fs.readFileSync(this.signupsFilePath,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
     const tables=distribute(signups.filter(s=>s.tournamentId===id).map(s=>({playerKey:s.playerKey,name:s.name})));
-    this.local[id]=tables;this.save();return publicTables(tables);
+    const drawnAt=Date.now(),waitDeadlineAt=drawnAt+TournamentWait.WAIT_MS;
+    this.local[id]=tables.map(t=>({...t,drawnAt,waitDeadlineAt}));this.save();return publicTables(tables);
   }
 }
 module.exports={TournamentDraw,distribute,publicTables};

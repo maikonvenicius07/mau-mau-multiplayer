@@ -4,6 +4,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const {distribute}=require('./tournament-draw');
+const TournamentWait=require('./tournament-wait');
 const STAGES=['qualifier','quarter','semi','final'];
 const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
 function fail(s,status=409){return Object.assign(new Error(s),{status});}
@@ -63,17 +64,19 @@ class TournamentBracket{
       result_json JSONB,
       room_state VARCHAR(16) NOT NULL DEFAULT 'legacy',
       claimed_at TIMESTAMPTZ,
+      wait_deadline_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY(tournament_id,stage,table_number))`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
+      await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS wait_deadline_at TIMESTAMPTZ`);
     }
     else {fs.mkdirSync(path.dirname(this.filePath),{recursive:true});this.reload();}
   }
   reload(){if(this.pool)return;try{this.local=JSON.parse(fs.readFileSync(this.filePath,'utf8'));}catch(e){if(e.code==='ENOENT')this.local={};else throw e;}}
   save(){const tmp=this.filePath+'.tmp';fs.writeFileSync(tmp,JSON.stringify(this.local,null,2));fs.renameSync(tmp,this.filePath);}
   async rows(id,client=null){
-    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt" FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'semi' THEN 2 ELSE 3 END,table_number`,[id]);return r.rows;}
+    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt",EXTRACT(EPOCH FROM created_at)*1000 AS "createdAt",EXTRACT(EPOCH FROM wait_deadline_at)*1000 AS "waitDeadlineAt" FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'semi' THEN 2 ELSE 3 END,table_number`,[id]);return r.rows;}
     this.reload();return this.local[id]||[];
   }
   async seatFor(id,phase,number,playerKey){
@@ -189,9 +192,10 @@ class TournamentBracket{
       if(rows.some(x=>x.stage===move.phase))continue;
       const qualified=candidatesFromStage(current,move.quota);
       const tables=distribute(qualified);
-      if(this.pool){for(const t of tables)await conn.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json)
-        VALUES($1,$2,$3,$4::jsonb) ON CONFLICT DO NOTHING`,[id,move.phase,t.number,JSON.stringify(t.players)]);}
-      else{const list=this.local[id]||[];for(const t of tables)list.push({stage:move.phase,number:t.number,players:t.players,roomCode:null,result:null});this.local[id]=list;this.save();}
+      const createdAt=Date.now(),waitDeadlineAt=createdAt+TournamentWait.WAIT_MS;
+      if(this.pool){for(const t of tables)await conn.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json,wait_deadline_at)
+        VALUES($1,$2,$3,$4::jsonb,$5::timestamptz) ON CONFLICT DO NOTHING`,[id,move.phase,t.number,JSON.stringify(t.players),new Date(waitDeadlineAt).toISOString()]);}
+      else{const list=this.local[id]||[];for(const t of tables)list.push({stage:move.phase,number:t.number,players:t.players,roomCode:null,result:null,createdAt,waitDeadlineAt});this.local[id]=list;this.save();}
       rows=await this.rows(id,conn);
     }
   }

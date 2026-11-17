@@ -31,7 +31,8 @@
         const result=t.result||((isCurrent?games[t.number]:{})||{}).result||null;
         return {number:t.number,status,label:STATUS_LABEL[status],players:t.players||[],result,
           connectedPlayers:isCurrent?games[t.number]?.connectedPlayers:null,
-          expectedPlayers:isCurrent?games[t.number]?.expectedPlayers:null};
+          expectedPlayers:isCurrent?games[t.number]?.expectedPlayers:null,
+          wait:isCurrent?games[t.number]?.wait||null:null};
       });
       const finished=tables.filter(t=>t.status==='finished').length;
       const active=tables.filter(t=>t.status==='playing').length;

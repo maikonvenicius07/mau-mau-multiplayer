@@ -1,3 +1,15 @@
+## V40.69.8.21 — Espera de cinco minutos e retomada do avanço dos torneios (17/11/2026)
+
+- As mesas iniciam automaticamente quando todos os jogadores sorteados estão presentes, sem depender do anfitrião.
+- O prazo máximo de 300 segundos começa no sorteio da classificatória ou na criação das fases seguintes; a data-limite absoluta fica persistida na nova coluna `wait_deadline_at` (nullable para não desclassificar torneios antigos). O mesmo prazo é usado após F5 e restart.
+- Ao terminar o prazo, se houver 2 a 5 jogadores presentes, a mesa começa apenas com esses participantes. Os demais são registrados como ausentes/desclassificados sem máquinas; o resultado preserva todo o roster original.
+- Com um único jogador presente, aplica-se vitória por W.O. da mesa; com nenhum presente, o servidor registra o status de atenção, sem inventar vencedor/classificação.
+- O painel e a mesa exibem presentes, ausentes e cronômetro 05:00, com destaque no último minuto.
+- Reconciliação periódica verifica resultados persistidos, tenta criar fases ainda pendentes e reenvia atribuições dos classificados; operações de classificação continuam idempotentes.
+- Não altera regras das cartas, pontuação oficial, Ranking, câmera, voz, observadores, jogo normal ou Jogar Novamente.
+- Migração aditiva de `mm_tournament_table_seats` e `mm_tournament_stage_tables` com coluna nullable `wait_deadline_at`; mesas antigas sem prazo continuam com início manual, sem penalidade retroativa.
+- Metadados legados de `package.json` preservados para compatibilidade com verificações de versão já presentes no projeto; a sequência funcional do torneio avança para V40.69.8.21.
+
 ## V40.69.8.17 — Proteção de resultados pendentes de torneios (16/11/2026)
 
 - Mesas de torneio com resultado competitivo ainda não confirmado ficam protegidas contra exclusão e contra a criação de tombstones de sala; auditoria, inatividade e limpeza por reconexão respeitam a proteção.

@@ -18,6 +18,7 @@ const {createAppDatabasePool} = require('./database-pool');
 const RoomLifecycle = require('./room-lifecycle');
 const TournamentForfeit = require('./tournament-forfeit');
 const TournamentSeatRecovery = require('./tournament-seat-recovery');
+const TournamentWait = require('./tournament-wait');
 const TournamentRoomRetention = require('./tournament-room-retention');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
@@ -329,6 +330,83 @@ async function notifyTournamentSeats(id,stage,tables){
       tournamentId:id,stage,tableNumber:Number(player.tableNumber)
     });
   }
+}
+
+// V40.69.8.21 — prazo do sorteio e de cada fase persistido no PostgreSQL.
+// Não recomeça em F5, reconnect, criação tardia da sala ou restart do Render.
+async function tournamentWaitDeadline(id,phase,number,binding=null){
+  // NULL significa legado: não criar retroativamente um prazo de 5 minutos
+  // a partir de um torneio sorteado antes da atualização do Render.
+  if(phase==='qualifier')return await tournamentDraw.waitDeadlineAt(id,number);
+  const row=binding||await tournamentBracket.getBinding(id,phase,number);
+  return TournamentWait.timestamp(row?.waitDeadlineAt)||null;
+}
+
+// Apenas o servidor inicia a partida. Mutex local + marcação persistida no
+// binding evitam disparos por host, cronômetro e reconciliação ao mesmo tempo.
+async function maybeAutoStartTournamentLobby(room){
+  if(!room?.tournament||room.status!=='lobby'||Number(room.round||0)!==0||
+     rooms.get(room.code)!==room||tournamentRoundStartLocks.has(room.code))return false;
+  const t=room.tournament;
+  const binding=t.phase==='qualifier'?await tournamentGames.get(t.id,t.tableNumber):
+    await tournamentBracket.getBinding(t.id,t.phase,t.tableNumber);
+  if(!binding||binding.roomCode!==room.code||binding.result)return false;
+  if(!t.waitDeadlineAt){
+    const deadline=await tournamentWaitDeadline(t.id,t.phase,t.tableNumber,binding);
+    if(!deadline)return false; // Legado sem data: não inventar um prazo após restart.
+    t.waitDeadlineAt=deadline;
+  }
+  const roster=(t.rosterNames||[]).length===t.rosterKeys.length?t.rosterNames:
+    t.rosterKeys.map(playerKey=>({playerKey,name:room.players.find(p=>p.playerKey===playerKey)?.name||'Jogador'}));
+  const presence=()=>room.players.filter(p=>!p.isBot&&p.connected&&t.rosterKeys.includes(p.playerKey)).map(p=>p.playerKey);
+  let decision=TournamentWait.decide({roster,present:presence(),deadline:t.waitDeadlineAt});
+  if(!['start','walkover'].includes(decision.action)||tournamentRoundStartLocks.has(room.code))return false;
+  tournamentRoundStartLocks.add(room.code);
+  try{
+    await requireRoomPersistenceReady();
+    if(!await ensureTournamentBracketReady())throw new Error('Torneios indisponíveis.');
+    if(rooms.get(room.code)!==room||room.status!=='lobby'||room.round>0)return false;
+    decision=TournamentWait.decide({roster,present:presence(),deadline:t.waitDeadlineAt});
+    if(!['start','walkover'].includes(decision.action))return false;
+    if(room.players.some(p=>p.isBot))throw new Error('Mesa de torneio contém máquina. Início bloqueado.');
+    // Salvar participantes ausentes antes do início; eles nunca viram bots.
+    // A identidade sorteada permanece no roster para a classificação completa.
+    if(decision.expired){
+      for(const absent of decision.missing){
+        if(!t.forfeits?.some(f=>f.playerKey===absent.playerKey))
+          TournamentForfeit.recordForfeit(room,{playerKey:absent.playerKey,name:absent.name,score:0});
+      }
+    }
+    // A primeira fase e as fases seguintes gravam a marca de início ANTES
+    // da distribuição das cartas; não avançar se o armazenamento falhar.
+    if(await roomSnapshotStore.saveNow(room)===false)throw new Error('A preparação da mesa não foi persistida.');
+    if(t.phase==='qualifier')await tournamentGames.markStarted(t.id,t.tableNumber,room.code);
+    else await tournamentBracket.markStarted(t.id,t.phase,t.tableNumber,room.code);
+    room.players=room.players.filter(p=>!p.isBot&&p.connected&&t.rosterKeys.includes(p.playerKey));
+    if(decision.action==='walkover'){
+      if(room.players.length!==1)throw new Error('Presença mudou durante a decisão por W.O.');
+      room.status='finished';room.finishedAt=Date.now();room.currentPlayer=-1;
+      room.winnerId=room.players[0].id;
+      Engine.appendLog(room,`🏆 ${room.players[0].name} venceu a mesa por ausência dos demais classificados.`, 'system');
+    }else{
+      if(room.players.length<2)throw new Error('Jogadores insuficientes para iniciar.');
+      if(decision.missing.length)Engine.appendLog(room,`⏳ Tempo encerrado: ${decision.missing.length} ausente(s) desclassificado(s) sem máquina.`, 'system');
+      Engine.startRound(room);
+    }
+    ensureHost(room);
+    // Garantir snapshot da transição antes do primeiro broadcast aos jogadores.
+    try{
+      if(await roomSnapshotStore.saveNow(room)===false)
+        console.error('[tournament] snapshot do início pendente de retentativa',room.code);
+    }catch(e){console.error('[tournament] snapshot do início será novamente tentado',room.code,e?.message||e);}
+    // A transição competitiva já foi persistida como iniciada: uma falha
+    // complementar de snapshot não pode deixar a tela eternamente no lobby.
+    emitRoom(room);broadcastPresence();
+    return true;
+  }catch(error){
+    console.error('[tournament] início automático falhou',room.code,error?.message||error);
+    return false;
+  }finally{tournamentRoundStartLocks.delete(room.code);}
 }
 
 // V40.69.8.1 — falhas transitórias de inicialização não ficam memorizadas para sempre.
@@ -912,9 +990,21 @@ app.get('/api/tournament', async(req,res)=>{
         spectatorLimit:MAX_SPECTATORS_PER_ROOM
       });
     }
-    const games=Object.fromEntries(displayTables.map(t=>[
-      t.number,{...(recordedGames[t.number]||{}),...(liveTableStatus.get(t.number)||{})}
-    ]));
+    const games=Object.fromEntries(await Promise.all(displayTables.map(async t=>{
+      const binding=currentStage==='qualifier'?(typeof tournamentGames.get==='function'?await tournamentGames.get(config.id,t.number):null):
+        (typeof tournamentBracket.getBinding==='function'?await tournamentBracket.getBinding(config.id,currentStage,t.number):null);
+      const room=binding?.roomCode?rooms.get(binding.roomCode):null;
+      const deadlineAt=typeof tournamentWaitDeadline==='function'?await tournamentWaitDeadline(config.id,currentStage,t.number,binding):null;
+      const expected=t.players.length;
+      const present=room?.players.filter(p=>!p.isBot&&p.connected).length||0;
+      const elapsed=!!deadlineAt&&Date.now()>=deadlineAt;
+      const absent=t.players.filter(p=>!room?.players.some(x=>x.connected&&!x.isBot&&x.name===p.name)).map(p=>p.name);
+      return [t.number,{...(recordedGames[t.number]||{}),...(liveTableStatus.get(t.number)||{}),
+        wait:deadlineAt&&!recordedGames[t.number]?.finished?{
+          deadlineAt,expected,present,absent,
+          requiresAttention:elapsed&&present===0&&!binding?.result
+        }:null}];
+    })));
     // Apenas a mesa do titular autenticado; identificações privadas nunca retornam.
     let myTable=null;
     if(session?.playerKey)for(const t of displayTables){
@@ -3146,7 +3236,10 @@ io.on('connection', socket => {
           const code=roomCode();
           const candidate=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),
             name:cleanPresenceName(socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
-          candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),forfeits:[]};
+          const deadlineAt=await tournamentWaitDeadline(id,phase,number,binding);
+          candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),
+            rosterNames:seat.players.map(p=>({playerKey:p.playerKey,name:p.name})),waitDeadlineAt:deadlineAt,
+            forfeits:[]};
           candidate.isPublic=false;ensureSocial(candidate);
           await prepareForRoomSwitch(socket,code);
           binding=recoveringLobby?
@@ -3177,6 +3270,8 @@ io.on('connection', socket => {
           }
           await joinSocketIntoRoom(socket,room,{source:'tournament'});
         }
+        // Se todos já chegaram, não esperar a próxima auditoria de 5 segundos.
+        if(room.status==='lobby')void maybeAutoStartTournamentLobby(room);
       }finally{tournamentTableJoinLocks.delete(lockKey);}
     }catch(e){err(socket,e);}
   });
@@ -3578,6 +3673,13 @@ io.on('connection', socket => {
     }
 
     if(room.tournament && room.round===0){
+      // Início antecipado, prazo e W.O usam o mesmo fluxo do servidor.
+      await maybeAutoStartTournamentLobby(room);
+      if(room.status==='playing'||room.status==='finished')return;
+      if(room.tournament.waitDeadlineAt)
+        throw new Error('O início desta mesa é automático: aguarde os demais jogadores ou os cinco minutos.');
+      // Compatibilidade: mesas de versões antigas sem horário persistido
+      // continuam com o início manual seguro, sem exigir retroativamente timer.
       if(room.players.length!==room.tournament.rosterKeys.length ||
          room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
         throw new Error('Aguarde todos os participantes sorteados antes de iniciar a primeira rodada.');
@@ -4075,6 +4177,53 @@ const restoredRoomsRecoveryTimer=setInterval(()=>{
   if(!snapshotsRestored)void restorePersistedRooms();
 },15000);
 restoredRoomsRecoveryTimer.unref?.();
+
+// V40.69.8.21 — recupera avanço pendente após falhas de notificação,
+// transação ou reinício. O avanço no PostgreSQL já usa advisory lock.
+let tournamentReconcileRunning=false;
+const tournamentSeatNoticeAt=new Map();
+const completedTournamentIds=new Set();
+async function reconcileTournamentProgress(){
+  if(tournamentReconcileRunning||!snapshotsRestored)return;
+  tournamentReconcileRunning=true;
+  try{
+    if(!await ensureTournamentBracketReady())return;
+    for(const room of [...rooms.values()]){
+      if(room.tournament&&room.status==='lobby'&&Number(room.round||0)===0)
+        await maybeAutoStartTournamentLobby(room);
+    }
+    const events=await tournamentCatalog.list();
+    for(const event of events){
+      if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;
+      const first=await tournamentDraw.get(event.id);
+      if(!first.length)continue;
+      // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
+      // a próxima mesa quando o último resultado já tinha sido persistido.
+      const bracket=await tournamentBracket.advance(event.id,first);
+      if(bracket.champion){completedTournamentIds.add(event.id);continue;}
+      const stage=bracket.currentStage;
+      const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
+      const notify=await Promise.all(tables.map(async table=>{
+        const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
+          await tournamentBracket.getBinding(event.id,stage,table.number);
+        if(binding?.result)return null;
+        const code=binding?.roomCode;
+        const room=code?rooms.get(code):null;
+        if(room&&room.status!=='lobby')return null;
+        const key=`${event.id}:${stage}:${table.number}`;
+        if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
+        tournamentSeatNoticeAt.set(key,Date.now());return table;
+      }));
+      const missing=notify.filter(Boolean);
+      if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
+    }
+  }catch(e){console.error('[tournament] reconciliação de fases:',e?.message||e);}
+  finally{tournamentReconcileRunning=false;}
+}
+const tournamentProgressTimer=setInterval(()=>{void reconcileTournamentProgress();},15000);
+tournamentProgressTimer.unref?.();
+
+
 
 let shuttingDown=false;
 async function gracefulShutdown(signal){

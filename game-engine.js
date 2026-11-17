@@ -1297,6 +1297,11 @@ function roomPublicState(room, viewerId) {
     code: room.code,
     viewerRole: 'PLAYER',
     status: room.status,
+    tournamentWait:room.tournament&&room.status==='lobby'&&Number(room.round||0)===0?
+      {deadlineAt:Number(room.tournament.waitDeadlineAt)||null,
+        expected:Number(room.tournament.rosterKeys?.length)||0,
+        present:room.players.filter(p=>!p.isBot&&p.connected).length,
+        absent:(room.tournament.rosterNames||[]).filter(p=>!room.players.some(x=>x.playerKey===p.playerKey&&x.connected)).map(p=>p.name)}:null,
     round: room.round,
     rounds: room.rules.rounds,
     botDifficulty: BotDifficulty.normalize(room.botDifficulty),
