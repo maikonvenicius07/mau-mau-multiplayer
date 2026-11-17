@@ -84,8 +84,10 @@
     for(const el of tablesList?.querySelectorAll('[data-wait-deadline]')||[]){
       const deadline=Number(el.dataset.waitDeadline||0);
       const sec=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+      const present=Number(el.dataset.waitPresent||0);
       el.textContent=sec>0?'⏳ Início manual liberado em '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'):
-        '⌛ Tempo encerrado. O anfitrião pode iniciar com pelo menos dois presentes.';
+        present<2?'⌛ Tempo encerrado. Aguardando pelo menos dois jogadores na mesa do torneio.':
+        '⌛ Tempo encerrado. O anfitrião pode iniciar manualmente.';
       el.classList.toggle('tournament-wait-urgent',sec<=60);
     }
   }
@@ -198,7 +200,7 @@
           const details=document.createElement('div');details.className='tournament-wait-detail';
           const count=document.createElement('strong');count.textContent=`Aguardando jogadores: ${game.wait.present} de ${game.wait.expected}`;
           details.append(count);
-          const clock=document.createElement('div');clock.dataset.waitDeadline=String(game.wait.deadlineAt);
+          const clock=document.createElement('div');clock.dataset.waitDeadline=String(game.wait.deadlineAt);clock.dataset.waitPresent=String(game.wait.present||0);
           clock.className='tournament-wait-clock';details.append(clock);
           if(game.wait.requiresAttention){const warning=document.createElement('small');warning.textContent='Nenhum participante compareceu. É necessária uma decisão do organizador; não há vitória automática sem jogador.';details.append(warning);}
           else if(game.wait.absent?.length){const names=document.createElement('small');names.textContent='Ausentes: '+game.wait.absent.join(', ');details.append(names);}
@@ -212,8 +214,19 @@
           card.append(result);
         }else if(t.number===myTable){
           const note=document.createElement('p');note.className='tournament-note';
-          note.textContent='🎮 Vaga reservada. A entrada na mesa é automática para os inscritos.';
+          note.textContent='🎮 Sua vaga está reservada. Se ainda estiver em outra sala, entre na mesa deste torneio.';
           card.append(note);
+          // Recuperação explícita caso a convocação Socket.IO tenha sido
+          // perdida durante F5, mudança de fase ou conexão oscilante.
+          const enter=document.createElement('button');enter.type='button';
+          enter.className='tournament-enter-table';enter.textContent='🎮 ENTRAR NA MINHA MESA';
+          enter.addEventListener('click',()=>{
+            if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para entrar na mesa.';return;}
+            enter.disabled=true;message.textContent='Conectando à sua mesa...';
+            socket.emit('enterTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number,automatic:false});
+            setTimeout(()=>{enter.disabled=false;},3000);
+          });
+          card.append(enter);
         }else{
           // Observadores podem entrar assim que a sala é criada, inclusive no lobby.
           const available=game?.liveStatus==='lobby'||game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
@@ -344,7 +357,7 @@
   }
   if(typeof socket!=='undefined'){
     socket.on('joined',data=>{
-      if((data?.source==='tournament'||data?.tournamentWatch)&&dialog.open)dialog.close();
+      if((data?.source==='tournament'||data?.source==='tournament-resume'||data?.tournamentWatch)&&dialog.open)dialog.close();
     });
     socket.on('gameError',data=>{
       if(dialog.open&&['Conectando à sua mesa...','Entrando como observador...'].includes(message.textContent))

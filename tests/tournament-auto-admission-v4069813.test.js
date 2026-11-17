@@ -17,6 +17,7 @@ async function main(){
   let activeRoom=null,forfeited=false,bindingResult=null;
   const sandbox={socket,Date,console,
     ROLE_SPECTATOR:'SPECTATOR',activePlayerRoomForKey:()=>activeRoom,
+    TournamentSeatHandoff:require('../tournament-seat-handoff'),
     ensureTournamentBracketReady:async()=>true,
     tournamentCatalog:{list:async()=>[{id:'cup-abc',status:'closed'}]},
     tournamentDraw:{get:async()=>[{number:1,players:[{name:'Test Player'}]}],assignedTableFor:async()=>null},

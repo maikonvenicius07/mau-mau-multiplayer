@@ -3286,8 +3286,13 @@ function syncReconnectCountdownTimer(){
 let autoTournamentSeat=null,autoTournamentJoining=false,autoTournamentAttempts=0,autoTournamentTimer=null;
 function clearAutoTournamentTimer(){if(autoTournamentTimer){clearTimeout(autoTournamentTimer);autoTournamentTimer=null;}}
 function requestTournamentSeatLocation(){
-  if(!socket.connected||pendingVoluntaryLeave()||leaveRoomPending||
-     new URLSearchParams(location.search).has('room'))return;
+  if(!socket.connected||pendingVoluntaryLeave()||leaveRoomPending)return;
+  // Um convite ?room continua tendo prioridade ANTES da entrada na sala.
+  // Depois que ela virou apenas um lobby comum sem rodada, não bloquear a
+  // convocação da final por causa de um parâmetro antigo na URL.
+  const idleLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
+    !state.tournamentSchedule&&!state.tournamentWait;
+  if(new URLSearchParams(location.search).has('room')&&!idleLobby)return;
   if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
   socket.emit('locateTournamentSeat');
 }
@@ -3295,10 +3300,17 @@ function autoEnterTournamentSeat(data){
   if(!socket.connected||!data||!/^[-a-z0-9]{3,64}$/i.test(String(data.tournamentId||''))||
     !['qualifier','quarter','semi','final'].includes(data.stage)||
     !Number.isInteger(data.tableNumber)||data.tableNumber<1||
-    pendingVoluntaryLeave()||leaveRoomPending||new URLSearchParams(location.search).has('room'))return;
-  // Não abandonar uma partida em andamento nem alterar privilégios de observadores.
+    pendingVoluntaryLeave()||leaveRoomPending)return;
+  // V40.69.8.24: permite passar de uma sala COMUM ainda sem rodada para a
+  // mesa reservada da final. Nunca sair automaticamente de uma partida em
+  // andamento, outra mesa de torneio ou de uma vaga de observador.
+  const idleRegularLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
+    !state.tournamentSchedule&&!state.tournamentWait;
+  // Não sobrescrever um link de convite ainda não concluído; uma vez em
+  // um lobby comum, a vaga autenticada da final volta a ter prioridade.
+  if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby)return;
   if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode||
-    (state&&state.status!=='finished'))return;
+    (state&&state.status!=='finished'&&!idleRegularLobby))return;
   const key=`${data.tournamentId}:${data.stage}:${data.tableNumber}`;
   if(autoTournamentSeat?.key!==key){
     clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;
@@ -4525,7 +4537,14 @@ function renderControls(){
   const canStart=(me?.host||canTakeHost)&&(state.status==='lobby'||state.status==='between-rounds');
   const bots=state.players.filter(p=>p.isBot);
 
-  if(me?.host){
+  if(state.tournamentSchedule){
+    // A mesa tem código reservado para participantes, mas é assistível pelo
+    // painel do torneio. Não exibir 'Sala privada' nem oferecer alternância.
+    const label=document.createElement('div');label.className='room-public-control tournament-watch-label';
+    label.textContent='🏆 Mesa de torneio · observadores: Torneios';
+    label.title='Para assistir, abra Torneios e selecione ASSISTIR AO TORNEIO. A vaga de jogador permanece reservada.';
+    box.appendChild(label);
+  }else if(me?.host){
     const visibility=document.createElement('button');visibility.className='room-public-control';
     visibility.textContent=state.isPublic?'👁️ Sala pública':'🔒 Sala privada';
     visibility.title=state.isPublic?'A sala pode aparecer em Assistir Partidas. Clique para tornar privada.':'A sala não aparece em Assistir Partidas. Clique para tornar pública.';

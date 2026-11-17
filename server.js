@@ -310,6 +310,7 @@ const {ensureReady:ensureTournamentBracketReady}=createRetryableInitialization({
 void ensureTournamentBracketReady();
 const tournamentTableJoinLocks=new Set();
 const tournamentRoundStartLocks=new Set();
+const TournamentSeatHandoff=require('./tournament-seat-handoff');
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 const TOURNAMENT_ADMIN_KEYS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_KEYS||'').split(',').map(x=>x.trim()).filter(Boolean));
 function tournamentIsAdmin(session){return !!(session?.playerKey&&(TOURNAMENT_ADMIN_KEYS.has(session.playerKey)||(session.email&&TOURNAMENT_ADMIN_EMAILS.has(session.email.toLowerCase()))));}
@@ -3170,7 +3171,10 @@ io.on('connection', socket => {
       if(now-Number(socket.data.lastTournamentSeatLookup||0)<2000)return;
       socket.data.lastTournamentSeatLookup=now;
       const playing=activePlayerRoomForKey(key);
-      if(playing)return; // recuperar a própria vaga pelo fluxo regular de reconexão.
+      // V40.69.8.24: uma sala comum ainda não iniciada não pode impedir
+      // o encaminhamento à final. Nunca mover automaticamente alguém de uma
+      // partida em andamento ou de outra mesa de torneio.
+      if(playing&&!TournamentSeatHandoff.canAutoSwitchFrom(playing))return;
       if(!await ensureTournamentBracketReady())return;
       const tournaments=await tournamentCatalog.list();
       for(const cup of tournaments){
@@ -3215,7 +3219,8 @@ io.on('connection', socket => {
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
       if(payload?.automatic){
         const other=activePlayerRoomForKey(socket.data.auth.playerKey);
-        if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number))
+        if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number)
+          &&!TournamentSeatHandoff.canAutoSwitchFrom(other))
           throw new Error('Você está em outra partida. Saia dela antes de participar da mesa do torneio.');
       }
       // A validação da desistência é repetida no caminho de entrada abaixo,

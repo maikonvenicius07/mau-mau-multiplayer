@@ -1,3 +1,14 @@
+## V40.69.8.24 — Finalistas encaminhados à mesa correta, cronômetro e observação (17/11/2026)
+
+- Corrigida a falha em que jogadores classificados permaneciam conectados a uma sala comum ainda em lobby, fazendo a final aparecer como **0 de 2 presentes**. A busca e a admissão automáticas agora aceitam transferir, de maneira autenticada, jogadores de uma sala **comum não iniciada** para sua vaga reservada no torneio. Partidas iniciadas, outras mesas de torneio e observadores não são interrompidos automaticamente.
+- Mesmo quando o jogador entrou em uma sala comum por link com `?room=`, uma convocação de final pode recuperá-lo depois que o lobby comum estiver estabelecido; a intenção original do link continua respeitada antes de concluir a entrada inicial.
+- Incluído botão **🎮 ENTRAR NA MINHA MESA** no painel para o jogador inscrito/classificado entrar ou retomar sua mesa quando a convocação automática não tiver sido recebida (F5, oscilação de rede ou transição de fase). A autorização e o vínculo da vaga continuam validados no servidor.
+- O controle exibido dentro de uma mesa de torneio deixa de sugerir incorretamente **🔒 Sala privada**. Agora orienta que observadores usem **Torneios → 👁️ ASSISTIR AO TORNEIO**. A mesa continua fora da lista comum de salas públicas para impedir entrada por código e garantir observação sem ações de jogador.
+- Corrigida a mensagem de espera após cinco minutos quando a mesa ainda tem 0 ou 1 jogador presente: a interface não sugere início sem o mínimo de 2 participantes. O cronômetro próprio do torneio aparece ao ingressar na mesa de torneio; um lobby comum não possui esse prazo.
+- Mantidos integralmente o prazo persistido de cinco minutos, o início **somente manual** da partida pelo anfitrião, o avanço automático das fases, a proibição de máquinas, as permissões de observadores, a classificação e o Ranking. Nenhuma mudança no banco.
+- Adicionados testes para o cenário real da final com dois jogadores em uma sala comum, link antigo, proteção de partidas já iniciadas, observadores e botão alternativo; teste de regressão antigo atualizado para reconhecer o auxiliar de troca segura. Versões de cache dos scripts atualizadas.
+- Identificação funcional no changelog; `package.json` continua no valor legado por compatibilidade com os testes existentes.
+
 ## V40.69.8.23 — Horário público e contagem regressiva dos torneios (17/11/2026)
 
 - Corrigida a visibilidade da programação cadastrada (`startAt`): antes aparecia só em uma linha discreta no painel. Agora a lista de torneios, os detalhes, a inscrição confirmada, a área de acompanhamento e o lobby da mesa exibem data e horário reais.
