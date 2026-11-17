@@ -1,3 +1,14 @@
+## V40.69.8.27 — Sondas de rede sem duplicação, menor carga RTC e observabilidade das desconexões (17/11/2026)
+
+- **Causa de processamento desnecessário confirmada no código:** o navegador coletava `RTCPeerConnection.getStats()` a cada 5 s em todos os peers, mesmo com o diagnóstico fechado. Agora a coleta detalhada é feita a cada 20 s com o painel fechado e a cada 5 s com o painel aberto, sem concorrência entre amostras; páginas em segundo plano não coletam essas estatísticas.
+- **Causa de tráfego duplicado confirmada:** os eventos Socket.IO `connect` e `reconnect` iniciavam, ambos, as sondas de qualidade, repetindo a requisição imediatamente após o retorno da conexão. Agora só `connect` agenda a rotina; sondas em andamento não são duplicadas, e respostas antigas não modificam a interface depois da desconexão.
+- **Custo de DOM reduzido:** o indicador de conexão deixa de reescrever classes e descrições idênticas em cada estado recebido; o painel de diagnóstico continua atualizando normalmente quando aberto.
+- **Monitoramento de quedas simultâneas:** o servidor registra um evento JSON agregado quando pelo menos 3 desconexões ocorrem em 6 s, com motivos e sem dados pessoais; ignora desligamento planejado e evita tempestades de logs (15 s de intervalo mínimo).
+- **Medição opcional:** com `MAUMAU_RUNTIME_MONITOR=1`, o servidor registra uma vez por minuto memória RSS/heap, uso de CPU do processo e percentil 95/máximo de atraso do event loop. O `/health` informa a identificação funcional `releaseVersion` e o resumo agregado.
+- **Investigação honesta:** não há logs de produção ou métricas reais de celulares no ZIP, portanto a causa das quedas simultâneas e o ganho real de desempenho seguem sem comprovação. WebRTC de câmera e microfone, regras do jogo, ranking, partidas normais e torneios não foram alterados.
+- Adicionados dois testes para picos de desconexão, amostragem adaptativa, probes/acks obsoletos, concorrência de `getStats()` e escritas repetitivas de DOM. Teste de integração Socket.IO depende de instalação dos pacotes; homologação no Render e em dispositivos reais segue pendente.
+- `package.json` conserva o valor legado `40.69.8-rank.11`, que possui testes dependentes dessa identificação. A versão funcional `V40.69.8.27` aparece aqui e no campo `releaseVersion` de `/health` e `/ready`.
+
 ## V40.69.8.26 — Convocação confiável da final e alívio de processamento no celular (17/11/2026)
 
 - **Falha reproduzida no código:** a convocação da próxima fase era descartada se chegasse antes de o navegador receber o estado `finished` da partida anterior. A vaga agora é preservada e a entrada é retomada assim que a fase anterior termina, sem abandonar uma partida ativa.

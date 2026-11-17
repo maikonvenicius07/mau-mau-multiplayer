@@ -99,7 +99,15 @@ let liveVoiceRelayScriptPreRoll=null;
 // V40.50 — diagnóstico leve de conexão. Mede RTT até o servidor, variação
 // entre sondas, falhas recentes, transporte Socket.IO e estatísticas WebRTC.
 const NETWORK_PROBE_INTERVAL_MS=5000,NETWORK_PROBE_TIMEOUT_MS=3500;
+// A coleta detalhada de RTCPeerConnection.getStats() envolve todos os peers e
+// pode ser custosa em celulares. Com o diagnóstico fechado, amostrar a cada 20 s;
+// com ele aberto, manter 5 s. Não executar sondas enquanto a aba está oculta.
+const NETWORK_RTC_STATS_IDLE_INTERVAL_MS=20000;
 let networkProbeTimer=null,networkRtcStatsTimer=null,networkReconnectCount=0;
+let networkProbePending=false,networkProbeGeneration=0;
+let networkRtcStatsInFlight=false,networkRtcStatsSamplingGeneration=-1,networkStatsGeneration=0;
+function networkDiagnosticsForeground(){return document.visibilityState!=='hidden';}
+function networkRtcStatsDelay(){return $('#networkDiagnosticsDialog')?.open?NETWORK_PROBE_INTERVAL_MS:NETWORK_RTC_STATS_IDLE_INTERVAL_MS;}
 const networkDiagnostics={rtts:[],probes:[],lastRtt:null,jitter:null,probeLoss:0,transport:'-',voiceMode:'Desligado',rtcRtt:null,rtcJitter:null,rtcLoss:null,rtcRoute:'—',lastUpdatedAt:0,lastStateBytes:null,avatarAssetBytes:0};
 const AVATAR_ASSET_CACHE_MAX=32;
 const avatarAssetCache=new Map(),pendingAvatarAssetRefs=new Set();
@@ -815,10 +823,15 @@ function updateNetworkDiagnosticsUI(){
   networkDiagnostics.voiceMode=networkVoiceMode();
   const quality=networkQuality(),chip=$('#connectionChip');
   if(chip){
-    chip.classList.remove('quality-good','quality-warn','quality-bad','quality-pending');
-    chip.classList.add(`quality-${quality.key}`);
-    chip.title=`Conexão ${quality.label}${Number.isFinite(networkDiagnostics.lastRtt)?` • ${Math.round(networkDiagnostics.lastRtt)} ms`:''}. Clique para diagnosticar.`;
-    chip.setAttribute('aria-label',chip.title);
+    // O evento state pode chegar várias vezes por jogada; evitar invalidar
+    // estilos e atributos do chip se a qualidade/RTT não mudou.
+    const qualityClass=`quality-${quality.key}`;
+    if(!chip.classList.contains(qualityClass)){
+      chip.classList.remove('quality-good','quality-warn','quality-bad','quality-pending');
+      chip.classList.add(qualityClass);
+    }
+    const nextTitle=`Conexão ${quality.label}${Number.isFinite(networkDiagnostics.lastRtt)?` • ${Math.round(networkDiagnostics.lastRtt)} ms`:''}. Clique para diagnosticar.`;
+    if(chip.title!==nextTitle){chip.title=nextTitle;chip.setAttribute('aria-label',nextTitle);}
   }
   // V40.69.8.26: evitar dezenas de leituras/escritas no DOM oculto a cada
   // estado da partida. O indicador de conexão continua sendo atualizado.
@@ -861,13 +874,26 @@ function recordNetworkProbe(ok,rtt=null){
 }
 function runNetworkProbe(){
   if(!socket.connected){updateNetworkDiagnosticsUI();return;}
-  const started=performance.now();
+  if(!networkDiagnosticsForeground()||networkProbePending)return;
+  networkProbePending=true;
+  const generation=networkProbeGeneration,started=performance.now();
   socket.timeout(NETWORK_PROBE_TIMEOUT_MS).emit('networkProbe',{clientAt:Date.now()},err=>{
+    // Uma resposta antiga não pode alterar o chip após desconectar/reconectar.
+    if(generation!==networkProbeGeneration)return;
+    networkProbePending=false;
+    if(!socket.connected)return;
     if(err)return recordNetworkProbe(false);
     recordNetworkProbe(true,Math.max(0,performance.now()-started));
   });
 }
 async function sampleLiveVoiceRtcStats(){
+  if(!socket.connected||!networkDiagnosticsForeground())return;
+  const generation=networkStatsGeneration;
+  if(networkRtcStatsInFlight&&networkRtcStatsSamplingGeneration===generation)return;
+  // Se uma promessa de getStats ficou presa na conexão anterior, não bloquear
+  // as medições da nova conexão. A amostra antiga não poderá alterar a UI.
+  networkRtcStatsInFlight=true;networkRtcStatsSamplingGeneration=generation;
+  try{
   const pcs=[...new Set([...liveMicOutboundPeers.values(),...liveMicInboundPeers.values()])].filter(pc=>pc&&pc.connectionState!=='closed');
   if(!pcs.length){networkDiagnostics.rtcRtt=null;networkDiagnostics.rtcJitter=null;networkDiagnostics.rtcLoss=null;networkDiagnostics.rtcRoute='—';updateNetworkDiagnosticsUI();return;}
   const rtts=[],jitters=[],losses=[],routes=[];
@@ -900,21 +926,49 @@ async function sampleLiveVoiceRtcStats(){
       if(lost+received>0)losses.push((lost/(lost+received))*100);
     }catch{}
   }
+  // Uma amostra iniciada antes da desconexão não pode alterar o painel novo.
+  if(generation!==networkStatsGeneration||!socket.connected)return;
   networkDiagnostics.rtcRtt=rtts.length?networkAverage(rtts):null;
   networkDiagnostics.rtcJitter=jitters.length?networkAverage(jitters):null;
   networkDiagnostics.rtcLoss=losses.length?Math.max(...losses):null;
   const uniqueRoutes=[...new Set(routes)];networkDiagnostics.rtcRoute=uniqueRoutes.length>1?'MISTA':(uniqueRoutes[0]||'—');
   updateNetworkDiagnosticsUI();
+  }finally{if(networkRtcStatsSamplingGeneration===generation){networkRtcStatsInFlight=false;networkRtcStatsSamplingGeneration=-1;}}
 }
-
+function scheduleNetworkRtcStats(generation){
+  if(generation!==networkStatsGeneration||!socket.connected)return;
+  networkRtcStatsTimer=setTimeout(async()=>{
+    if(generation!==networkStatsGeneration)return;
+    try{await sampleLiveVoiceRtcStats();}catch{} // diagnósticos nunca interrompem a partida
+    scheduleNetworkRtcStats(generation);
+  },networkRtcStatsDelay());
+}
 function startNetworkDiagnostics(){
-  if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);
-  runNetworkProbe();sampleLiveVoiceRtcStats();
+  stopNetworkDiagnostics();
+  runNetworkProbe();
+  if(networkDiagnosticsForeground())void sampleLiveVoiceRtcStats().catch(()=>{});
   networkProbeTimer=setInterval(runNetworkProbe,NETWORK_PROBE_INTERVAL_MS);
-  networkRtcStatsTimer=setInterval(sampleLiveVoiceRtcStats,NETWORK_PROBE_INTERVAL_MS);
+  scheduleNetworkRtcStats(networkStatsGeneration);
 }
-function stopNetworkDiagnostics(){if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);networkProbeTimer=null;networkRtcStatsTimer=null;updateNetworkDiagnosticsUI()}
-function openNetworkDiagnostics(){const d=$('#networkDiagnosticsDialog');if(d&&!d.open)d.showModal();updateNetworkDiagnosticsUI()}
+function stopNetworkDiagnostics(){
+  networkProbeGeneration++;networkStatsGeneration++;
+  networkProbePending=false;
+  if(networkProbeTimer)clearInterval(networkProbeTimer);
+  if(networkRtcStatsTimer)clearTimeout(networkRtcStatsTimer);
+  networkProbeTimer=null;networkRtcStatsTimer=null;updateNetworkDiagnosticsUI();
+}
+function openNetworkDiagnostics(){
+  const d=$('#networkDiagnosticsDialog');if(d&&!d.open)d.showModal();
+  updateNetworkDiagnosticsUI();
+  if(socket.connected){runNetworkProbe();void sampleLiveVoiceRtcStats().catch(()=>{});}
+}
+// O navegador pode suspender timers em segundo plano; ao voltar, a primeira
+// amostra é refeita sem criar um segundo temporizador ou reconstruir o WebRTC.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&socket.connected){
+    runNetworkProbe();if($('#networkDiagnosticsDialog')?.open)void sampleLiveVoiceRtcStats().catch(()=>{});
+  }
+});
 function closeNetworkDiagnostics(){const d=$('#networkDiagnosticsDialog');if(d?.open)d.close()}
 
 function vibrationSupported(){return typeof navigator.vibrate==='function'}
@@ -3764,7 +3818,7 @@ socket.on('connect_error',e=>{
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}
 });
 socket.io.on('reconnect_attempt',()=>setConnection('connecting'));
-socket.io.on('reconnect',()=>{networkReconnectCount++;startNetworkDiagnostics();updateNetworkDiagnosticsUI();});
+socket.io.on('reconnect',()=>{networkReconnectCount++;updateNetworkDiagnosticsUI();}); // 'connect' já reativa a amostragem; não duplicar sondas
 
 function returnToLanding(message=''){
   window.MauCamera?.stop();

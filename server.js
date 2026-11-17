@@ -11,6 +11,7 @@ const BotPlayer = require('./bot-player');
 const BotDifficulty = require('./bot-difficulty');
 const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
+const {createRuntimeConnectionMonitor}=require('./runtime-connection-monitor');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
 const MatchmakingDelivery = require('./matchmaking-delivery');
 const StaticAssetVersioning = require('./static-asset-versioning');
@@ -47,6 +48,8 @@ const { recordTournamentResult } = require('./tournament-result-commit');
 const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
+// Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
+const RELEASE_VERSION = 'V40.69.8.27';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -92,6 +95,8 @@ const ALLOWED_CROSS_ORIGINS = String(process.env.MAUMAU_ALLOWED_ORIGINS || '')
   .map(value=>{try{return new URL(value).origin}catch{return ''}})
   .filter(Boolean);
 const ALLOWED_CROSS_ORIGIN_SET = new Set(ALLOWED_CROSS_ORIGINS);
+const runtimeConnectionMonitor=createRuntimeConnectionMonitor({sampleEnabled:process.env.MAUMAU_RUNTIME_MONITOR==='1'});
+runtimeConnectionMonitor.start();
 const monitor = {
   httpRequests:0,
   http5xx:0,
@@ -914,6 +919,7 @@ app.get('/health', (_, res) => {
     ok:true,
     status:'live',
     version:APP_VERSION,
+    releaseVersion:RELEASE_VERSION,
     rulesVersion:RULES_VERSION,
     uiVersion:UI_VERSION,
     uptimeSeconds:Math.floor((Date.now()-SERVICE_STARTED_AT)/1000),
@@ -931,6 +937,7 @@ app.get('/health', (_, res) => {
       socketConnections:monitor.socketConnections,
       socketDisconnects:monitor.socketDisconnects,
       rejectedOrigins:monitor.rejectedHttpOrigins+monitor.rejectedSocketOrigins,
+      connectivity:runtimeConnectionMonitor.summary(),
     },
   });
 });
@@ -942,7 +949,7 @@ app.get('/ready', async (_,res)=>{
   const sessionSecretOk=!DATABASE_REQUIRED||AUTH_SESSION_SECRET_CONFIGURED;
   const ok=report.ok&&authOk&&sessionSecretOk;
   res.status(ok?200:503).json({
-    ok,status:ok?'ready':'not-ready',version:APP_VERSION,rulesVersion:RULES_VERSION,uiVersion:UI_VERSION,databaseRequired:report.databaseRequired,reason:ok?'ok':(!sessionSecretOk?'auth-session-secret-required':(!authOk?authReason:report.reason)),
+    ok,status:ok?'ready':'not-ready',version:APP_VERSION,releaseVersion:RELEASE_VERSION,rulesVersion:RULES_VERSION,uiVersion:UI_VERSION,databaseRequired:report.databaseRequired,reason:ok?'ok':(!sessionSecretOk?'auth-session-secret-required':(!authOk?authReason:report.reason)),
     authSessionSecret:{configured:AUTH_SESSION_SECRET_CONFIGURED,required:DATABASE_REQUIRED,ok:sessionSecretOk},
     ranking:{kind:report.ranking.kind,ok:report.ranking.ok,reason:report.ranking.reason},
     roomSnapshots:{kind:report.roomSnapshots.kind,ok:report.roomSnapshots.ok,reason:report.roomSnapshots.reason},
@@ -2854,6 +2861,7 @@ io.on('connection', socket => {
   connectionDebug('connected',{socketId:socket.id,recovered:!!socket.recovered});
   socket.once('disconnect',reason=>{
     monitor.socketDisconnects++;
+    runtimeConnectionMonitor.recordDisconnect(reason);
     connectionDebug('disconnected',{socketId:socket.id,reason});
   });
   // V40.55 — quando o próprio Socket.IO recupera a sessão, preservamos os dados
@@ -4265,7 +4273,7 @@ tournamentProgressTimer.unref?.();
 
 let shuttingDown=false;
 async function gracefulShutdown(signal){
-  if(shuttingDown)return;shuttingDown=true;
+  if(shuttingDown)return;shuttingDown=true;runtimeConnectionMonitor.markShutdown();
   console.log(`[server] ${signal}: salvando ${rooms.size} sala(s) antes de encerrar...`);
   const force=setTimeout(()=>process.exit(1),8000);force.unref?.();
   try{await ensureRoomSnapshotsInitialized();await roomSnapshotStore.flushAll(rooms);console.log('[rooms] snapshots finais salvos.');}
