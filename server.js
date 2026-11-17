@@ -315,6 +315,7 @@ const {ensureReady:ensureTournamentBracketReady}=createRetryableInitialization({
 });
 void ensureTournamentBracketReady();
 const tournamentTableJoinLocks=new Set();
+const tournamentTestDeleteLocks=new Set();
 const tournamentRoundStartLocks=new Set();
 const TournamentSeatHandoff=require('./tournament-seat-handoff');
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
@@ -1116,6 +1117,64 @@ app.delete('/api/tournaments/:id', async(req,res)=>{
     const status=[400,401,403,404,409].includes(e.status)?e.status:503;
     if(status===503)console.error('[tournament] exclusão falhou:',e.message);
     res.status(status).json({ok:false,message:status===503?'Não foi possível excluir o torneio.':e.message});
+  }
+});
+
+// V40.69.8.28 — exclusão excepcional e EXPLÍCITA de torneio de TESTE travado.
+// A exclusão normal permanece protegida contra partidas iniciadas sem resultado.
+app.post('/api/tournaments/:id/force-delete-test',async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const session=await authFromCookieHeaderVerified(req.headers.cookie);
+    if(!session)return res.status(401).json({ok:false,message:'Entre com a conta que criou o torneio.'});
+    const id=String(req.params.id||'');
+    if(!await ensureTournamentCatalogReady()||!await ensureTournamentDrawReady()||!await ensureTournamentBracketReady())
+      throw new Error('Torneios temporariamente indisponíveis.');
+    if(!await tournamentCatalog.isOwner(id,session.playerKey))
+      return res.status(403).json({ok:false,message:'Somente o criador pode excluir este torneio de teste.'});
+    if(tournamentTestDeleteLocks.has(id)||[...tournamentTableJoinLocks].some(key=>key.startsWith(id+':')))
+      return res.status(409).json({ok:false,message:'Existe uma operação em andamento nessa competição. Aguarde e tente novamente.'});
+    tournamentTestDeleteLocks.add(id);
+    try{
+    // Nenhuma sessão ligada a esta competição pode ser descartada por este recurso.
+    if([...rooms.values()].some(room=>room.tournament?.id===id))
+      return res.status(409).json({ok:false,message:'Ainda existe uma sala deste torneio em memória. Encerre-a antes de excluir o teste.'});
+    await requireRoomPersistenceReady();
+    const initial=await tournamentDraw.get(id);
+    const stages=await tournamentBracket.rows(id);
+    const codes=new Set();
+    const keys=new Set();
+    for(const table of initial){
+      for(const player of table.players||[])if(player.playerKey)keys.add(player.playerKey);
+      const game=await tournamentGames.get(id,table.number);
+      if(game?.roomCode)codes.add(game.roomCode);
+    }
+    for(const table of stages){
+      if(table.roomCode)codes.add(table.roomCode);
+      for(const player of table.players||[])if(player.playerKey)keys.add(player.playerKey);
+    }
+    // O catálogo valida, dentro da transação, o dono, o nome TESTE, o estado
+    // e a frase de confirmação. Nenhum torneio real obtém essa exceção.
+    await tournamentCatalog.delete({id,actor:session.playerKey,forceTest:true,
+      confirmation:req.body?.confirmation});
+    await tournamentGames.clearLocal(id);
+    await tournamentBracket.clearLocal(id);
+    let cleanupErrors=0;
+    for(const code of codes){
+      try{await roomSnapshotStore.markRoomDeleted(code,Date.now());}
+      catch(error){cleanupErrors++;console.error('[tournament] snapshot de teste não eliminado',code,error?.message||error);}
+    }
+    for(const key of keys)emitToPlayerKey(key,'tournamentSeatRevoked',{tournamentId:id,
+      message:'Este torneio de teste foi excluído pelo organizador. A convocação antiga foi encerrada.'});
+    console.info('[tournament] teste excluído pelo criador',{id,rooms:codes.size,cleanupErrors});
+    res.json({ok:true,id,message:cleanupErrors?
+      'Torneio excluído. Alguns estados antigos aguardam limpeza; consulte os logs do Render.':
+      'Torneio de teste excluído. As convocações antigas foram encerradas.',cleanupErrors});
+    }finally{tournamentTestDeleteLocks.delete(id);}
+  }catch(error){
+    const status=[400,401,403,404,409].includes(error.status)?error.status:503;
+    if(status===503)console.error('[tournament] exclusão excepcional falhou:',error);
+    res.status(status).json({ok:false,message:status===503?'Não foi possível excluir o teste. Tente novamente mais tarde.':error.message});
   }
 });
 
@@ -3263,6 +3322,7 @@ io.on('connection', socket => {
       if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do modo observador antes de entrar na mesa.');
       if(!await ensureTournamentBracketReady())throw new Error('Mesas do torneio temporariamente indisponíveis.');
       if(!/^[-a-z0-9]{3,64}$/i.test(id)||!Number.isInteger(number)||number<1)throw new Error('Mesa inválida.');
+      if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
       const initial=await tournamentDraw.get(id);
       const bracket=await tournamentBracket.summary(id,initial);
       if(phase!==bracket.currentStage||bracket.champion)throw new Error('Esta fase já foi concluída ou ainda não começou.');
@@ -3282,6 +3342,7 @@ io.on('connection', socket => {
       if(tournamentTableJoinLocks.has(lockKey))throw new Error('A mesa está sendo preparada. Tente entrar novamente.');
       tournamentTableJoinLocks.add(lockKey);
       try{
+        if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
         let binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
         let room=binding?rooms.get(binding.roomCode):null;
         // Uma sala restaurada de snapshot de versão anterior pode ainda não ter

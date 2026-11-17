@@ -3343,7 +3343,7 @@ function syncReconnectCountdownTimer(){
 // V40.69.8.26 — aviso persistente de fase: a convocação automática não pode
 // desaparecer sem explicar ao finalista onde sua mesa está.
 let autoTournamentSeat=null,autoTournamentJoining=false,autoTournamentAttempts=0,autoTournamentTimer=null;
-let autoTournamentWindowStartedAt=0;
+let autoTournamentWindowStartedAt=0,autoTournamentBlockedKey='';
 const AUTO_TOURNAMENT_RETRY_WINDOW_MS=60000;
 function tournamentPhaseNotice(data,detail=''){
   if(typeof document==='undefined')return;
@@ -3393,21 +3393,22 @@ function autoEnterTournamentSeat(data,manualRetry=false){
     // Guardar a tarefa e retomá-la após o estado 'finished'; descartá-la
     // aqui perdia a única notificação e deixava finalistas na mesa antiga.
     if(autoTournamentSeat?.key!==key){
-      clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+      autoTournamentBlockedKey='';clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
     }
     autoTournamentSeat={key,tournamentId:data.tournamentId,stage:data.stage,tableNumber:data.tableNumber};
     tournamentPhaseNotice(data,'Sua mesa está reservada. Conclua a partida atual; a entrada será tentada quando ela terminar.');
     return;
   }
   if(autoTournamentSeat?.key!==key){
-    clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+    autoTournamentBlockedKey='';clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
     autoTournamentSeat={key,tournamentId:data.tournamentId,stage:data.stage,tableNumber:data.tableNumber};
   }
   tournamentPhaseNotice(data);
   // A tentativa antiga podia atingir oito erros e ficar bloqueada para sempre,
   // mesmo recebendo novas convocações da mesma fase. Reabrir a janela após
   // 60 segundos, sem criar polling adicional ou chamadas em cascata.
-  if(manualRetry){clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;}
+  if(manualRetry){autoTournamentBlockedKey='';clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;}
+  if(autoTournamentBlockedKey===key)return;
   if(autoTournamentJoining)return;
   if(autoTournamentAttempts>=8){
     if(Date.now()-autoTournamentWindowStartedAt<AUTO_TOURNAMENT_RETRY_WINDOW_MS){
@@ -3438,6 +3439,13 @@ function autoEnterTournamentSeat(data,manualRetry=false){
   },4000);
 }
 socket.on('tournamentSeatAssigned',autoEnterTournamentSeat);
+// A exclusão administrativa de um TESTE bloqueado invalida a antiga convocação.
+socket.on('tournamentSeatRevoked',data=>{
+  if(!data?.tournamentId||autoTournamentSeat?.tournamentId!==data.tournamentId)return;
+  clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;
+  autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';tournamentPhaseNotice(null);
+  toast(data.message||'Torneio encerrado pelo organizador.');
+});
 const tournamentPhaseEnter=typeof document==='undefined'?null:document.getElementById('tournamentNextPhaseEnter');
 tournamentPhaseEnter?.addEventListener('click',()=>{
   if(!autoTournamentSeat||!socket.connected){
@@ -3457,7 +3465,7 @@ tournamentPhaseEnter?.addEventListener('click',()=>{
 socket.on('joined',data=>{
   const joinedTournament=data?.source==='tournament'||data?.source==='tournament-resume';
   if(joinedTournament||!autoTournamentSeat){
-    clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+    clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';
     tournamentPhaseNotice(null);
   }
   // Em F5, um jogo da fase anterior pode ser restaurado antes de a nova mesa ficar pronta.
@@ -3696,6 +3704,12 @@ socket.on('gameError',e=>{
   if(autoTournamentJoining&&autoTournamentSeat){
     const task=autoTournamentSeat;
     autoTournamentJoining=false;clearAutoTournamentTimer();
+    const unrecoverable=/registro anterior|recuperação ao organizador|estado da partida não está disponível|partida já começou e sua cadeira|a sala está em recuperação ou a partida já começou|não foi encontrada|torneio não encontrado/i.test(String(e?.message||''));
+    if(unrecoverable){
+      autoTournamentBlockedKey=task.key;
+      tournamentPhaseNotice(task,'A mesa precisa de atenção do organizador. Tentativas automáticas pausadas para evitar avisos repetidos. Use Torneios para consultar o estado.');
+      return;
+    }
     const retryable=/mesa está sendo preparada|tente novamente|temporariamente indisponível|sala está em recuperação|outra instância/i.test(String(e?.message||''));
     if(retryable&&autoTournamentAttempts<8){
       autoTournamentTimer=setTimeout(()=>autoEnterTournamentSeat(task),1400);

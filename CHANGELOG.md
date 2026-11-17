@@ -1,3 +1,12 @@
+## V40.69.8.28 — Exclusão controlada de torneio TESTE travado (17/11/2026)
+
+- Novo botão administrativo **EXCLUIR TORNEIO TESTE TRAVADO**, visível somente ao criador de torneios encerrados identificados com a palavra TESTE. Exige confirmação adicional por frase exata e não é executado automaticamente.
+- Exclusão regular continua bloqueando partidas iniciadas sem resultado. O caminho excepcional confirma novamente identidade, nome, status e autorização dentro da transação do banco; não atua sobre torneios comuns ou salas que estejam em memória.
+- A exclusão excepcional remove inscrições e registros vinculados (inclusive resultados de testes) e cria marcadores de exclusão das salas antigas no armazenamento para impedir que snapshots órfãos sejam recuperados. Resultados de torneios reais permanecem protegidos.
+- Os jogadores conectados recebem um aviso para cancelar convocações de vagas já excluídas. Tentativas automáticas de entrar numa mesa irrecuperável deixam de mostrar alertas repetidos; o usuário ainda pode acionar recuperação manual enquanto a competição existir.
+- Não há reinício automático da final, início automático de partida ou alteração na regra dos cinco minutos, classificação, regras de cartas, câmera/microfone, ranking de partidas comuns e telas existentes.
+- A exclusão é irreversível. Não executa operações automaticamente na conta do usuário ou no Render; o criador deve acioná-la na interface. Testes locais e testes de integração em ambiente real são documentados no relatório independente.
+
 ## V40.69.8.27 — Sondas de rede sem duplicação, menor carga RTC e observabilidade das desconexões (17/11/2026)
 
 - **Causa de processamento desnecessário confirmada no código:** o navegador coletava `RTCPeerConnection.getStats()` a cada 5 s em todos os peers, mesmo com o diagnóstico fechado. Agora a coleta detalhada é feita a cada 20 s com o painel fechado e a cada 5 s com o painel aberto, sem concorrência entre amostras; páginas em segundo plano não coletam essas estatísticas.

@@ -8,7 +8,7 @@
   const panel=byId('tournamentAdminPanel'),adminName=byId('tournamentAdminName');
   const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart');
   const create=byId('tournamentAdminCreate'),save=byId('tournamentAdminSave');
-  const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),message=byId('tournamentAdminMessage');
+  const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),forceDeleteTest=byId('tournamentAdminForceDeleteTest'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
   let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
@@ -102,6 +102,7 @@
   function formatDate(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Porto_Velho',dateStyle:'short',timeStyle:'short'})+' (RO)':'Data ainda não definida';}
   function setBusy(value){pending=value;action.disabled=value||!config?.registrationOpen||(!config?.registered&&config?.spotsRemaining===0);create.disabled=value||!canCreate;for(const btn of [save,toggle,cancel])btn.disabled=value||!config?.canManage||config.status==='cancelled';
     if(remove)remove.disabled=value||!config?.canManage;
+    if(forceDeleteTest){forceDeleteTest.hidden=!(config?.canManage&&['closed','cancelled'].includes(config?.status)&&/(?:^|[\s_-])teste(?:$|[\s_-])/i.test(config.name||''));forceDeleteTest.disabled=value||forceDeleteTest.hidden;}
     if(drawButton)drawButton.disabled=value||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
   function setFields(t){
     adminName.value=t.name||'';capacity.value=t.capacity||20;
@@ -308,6 +309,10 @@
       toggle.disabled=pending||!config.canManage||config.status==='cancelled';save.disabled=pending||!config.canManage||config.status==='cancelled';cancel.disabled=pending||!config.canManage||config.status==='cancelled';
       if(remove)remove.disabled=pending||!config.canManage;
       for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=!config.canManage;
+      if(forceDeleteTest){
+        const eligible=!!config.canManage&&['closed','cancelled'].includes(config.status)&&/(?:^|[\s_-])teste(?:$|[\s_-])/i.test(config.name||'');
+        forceDeleteTest.hidden=!eligible;forceDeleteTest.disabled=pending||!eligible;
+      }
       if(drawButton?.parentElement)drawButton.parentElement.hidden=!config.canManage;
       create.disabled=pending;
     }
@@ -345,7 +350,7 @@
       name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;
       if(schedulePanel)schedulePanel.hidden=true;
       if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
-      for(const btn of [save,toggle,cancel,remove])if(btn)btn.hidden=true;
+      for(const btn of [save,toggle,cancel,remove,forceDeleteTest])if(btn)btn.hidden=true;
       if(drawButton?.parentElement)drawButton.parentElement.hidden=true;
       setBusy(false);return;
     }
@@ -390,15 +395,19 @@
     if(!config&&kind!=='create')return;
     if(kind==='cancel'&&!confirm('Cancelar este torneio? Ele continuará no histórico, mas as inscrições serão encerradas.'))return;
     if(kind==='delete'&&!confirm('Excluir DEFINITIVAMENTE este torneio, todas as inscrições e as mesas sorteadas? Esta ação não pode ser desfeita.'))return;
-    const payload=kind==='create'?fields():kind==='save'?fields():kind==='delete'?null:{status:kind==='cancel'?'cancelled':config.status==='open'?'closed':'open'};
+    if(kind==='forceDeleteTest'){
+      if(!window.confirm('EXCLUSÃO DE TESTE TRAVADO: serão apagadas inscrições, classificação, histórico e resultados deste torneio TESTE. Não há como desfazer. Deseja continuar?'))return;
+      if(window.prompt('Confirme a exclusão definitiva digitando EXCLUIR TORNEIO TESTE:')!=='EXCLUIR TORNEIO TESTE')return;
+    }
+    const payload=kind==='forceDeleteTest'?{confirmation:'EXCLUIR TORNEIO TESTE'}:kind==='create'?fields():kind==='save'?fields():kind==='delete'?null:{status:kind==='cancel'?'cancelled':config.status==='open'?'closed':'open'};
     setBusy(true);message.textContent='Salvando...';
     try{
-      const data=await request(kind==='create'?'/api/tournaments':'/api/tournaments/'+encodeURIComponent(config.id),{
-        method:kind==='create'?'POST':kind==='delete'?'DELETE':'PATCH',
+      const data=await request(kind==='create'?'/api/tournaments':'/api/tournaments/'+encodeURIComponent(config.id)+(kind==='forceDeleteTest'?'/force-delete-test':''),{
+        method:kind==='create'||kind==='forceDeleteTest'?'POST':kind==='delete'?'DELETE':'PATCH',
         ...(payload===null?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})});
       adminEditing=false;lastSelectedPayload=null;
-      await loadList(kind==='delete'?'':data.tournament.id);
-      message.textContent=kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
+      await loadList((kind==='delete'||kind==='forceDeleteTest')?'':data.tournament.id);
+      message.textContent=kind==='forceDeleteTest'?'Torneio TESTE travado excluído. As convocações antigas foram encerradas.':kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
     }catch(e){message.textContent=e.message;}
     finally{setBusy(false);}
   }
@@ -551,4 +560,5 @@
   toggle.addEventListener('click',()=>adminRequest('toggle'));
   cancel.addEventListener('click',()=>adminRequest('cancel'));
   if(remove)remove.addEventListener('click',()=>adminRequest('delete'));
+  if(forceDeleteTest)forceDeleteTest.addEventListener('click',()=>adminRequest('forceDeleteTest'));
 })();

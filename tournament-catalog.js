@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {tournamentConfig}=require('./tournament-store');
+const TestDeletion=require('./tournament-test-deletion');
 
 function fail(message,status=400){return Object.assign(new Error(message),{status});}
 const STATES=new Set(['draft','open','closed','cancelled']);
@@ -117,7 +118,7 @@ class TournamentCatalog {
     if(this.pool){const {rows}=await this.pool.query('SELECT created_by FROM mm_tournaments WHERE id=$1',[id]);return rows[0]?.created_by===actor;}
     return this.local.find(x=>x.id===id)?.createdBy===actor;
   }
-  async delete({id,actor,isAdmin=false}){
+  async delete({id,actor,isAdmin=false,forceTest=false,confirmation=''}){
     if(!actor)throw fail('Entre na sua conta.',401);
     if(typeof id!=='string'||!id||id.length>64)throw fail('Torneio inválido.',400);
     if(this.pool){
@@ -128,6 +129,10 @@ class TournamentCatalog {
         const row=await conn.query('SELECT created_by FROM mm_tournaments WHERE id=$1 FOR UPDATE',[id]);
         if(!row.rowCount)throw fail('Torneio não encontrado.',404);
         if(row.rows[0].created_by!==actor&&!isAdmin)throw fail('Somente o criador pode excluir este torneio.',403);
+        if(forceTest){
+          const details=await conn.query('SELECT name,status FROM mm_tournaments WHERE id=$1 FOR UPDATE',[id]);
+          TestDeletion.verify({name:details.rows[0]?.name,status:details.rows[0]?.status,owner:row.rows[0].created_by===actor,confirmation});
+        }
         // Consultar os registros PERSISTIDOS dentro da transacao de exclusao.
         // Uma sala iniciada pode nao existir mais no mapa de salas do Render.
         const activity=await conn.query(`SELECT (
@@ -138,7 +143,7 @@ class TournamentCatalog {
             ((result_json IS NULL OR result_json->>'complete'='false') AND
              (room_state='started' OR (room_code IS NOT NULL AND room_state<>'lobby'))))
         ) AS "hasCompetitiveActivity"`,[id]);
-        if(activity.rows[0]?.hasCompetitiveActivity)
+        if(activity.rows[0]?.hasCompetitiveActivity&&!forceTest)
           throw fail('Este torneio possui uma partida iniciada sem resultado confirmado. A exclusao foi bloqueada para preservar o andamento.',409);
         await conn.query('DELETE FROM mm_tournament_table_seats WHERE tournament_id=$1',[id]);
         await conn.query('DELETE FROM mm_tournament_signups WHERE tournament_id=$1',[id]);
@@ -149,12 +154,13 @@ class TournamentCatalog {
       const row=this.local.find(x=>x.id===id);
       if(!row)throw fail('Torneio não encontrado.',404);
       if(row.createdBy!==actor&&!isAdmin)throw fail('Somente o criador pode excluir este torneio.',403);
+      if(forceTest)TestDeletion.verify({name:row.name,status:row.status,owner:row.createdBy===actor,confirmation});
       const directory=path.dirname(this.filePath);
       const games=readOptionalJson(path.join(directory,'tournament-games.json'),{});
       const brackets=readOptionalJson(path.join(directory,'tournament-bracket.json'),{});
       const activeGame=Object.entries(games).some(([key,game])=>key.startsWith(`${id}:`) && hasUnfinishedCompetition(game));
       const activeStage=Array.isArray(brackets[id]) && brackets[id].some(hasUnfinishedCompetition);
-      if(activeGame||activeStage)
+      if((activeGame||activeStage)&&!forceTest)
         throw fail('Este torneio possui uma partida iniciada sem resultado confirmado. A exclusao foi bloqueada para preservar o andamento.',409);
       const persist=(file,data)=>{const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(data,null,2));fs.renameSync(tmp,file);};
       const signupsPath=this.signupsFilePath;
