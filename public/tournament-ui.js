@@ -180,7 +180,7 @@
         t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
       else if(bracket?.stages?.length){const p=document.createElement('p');
         if(currentStage==='final'){
-          p.textContent='🏆 GRANDE FINAL CRIADA! Os finalistas devem entrar na mesa reservada. Quando ambos estiverem presentes, o anfitrião inicia manualmente. O relógio de cinco minutos NÃO inicia a partida sozinho.';
+          p.textContent='🏆 GRANDE FINAL CRIADA! As vagas estão reservadas. A sala de jogo será aberta com a entrada do primeiro finalista e os demais serão convocados. Quando pelo menos dois estiverem presentes, o anfitrião inicia manualmente, respeitando a espera. O relógio de cinco minutos NÃO inicia a partida sozinho.';
         }else{
           p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será criada automaticamente quando todas as mesas terminarem.';
         }
@@ -214,7 +214,7 @@
             help.textContent='✅ FINAL PRONTA: jogadores conectados na mesa oficial. O anfitrião deve clicar em INICIAR 1ª RODADA.';
           }else{
             help.textContent=`🎮 GRANDE FINAL: ${present} de ${t.players.length} presentes na mesa oficial. `+
-              'A entrada é automática. Se não acontecer, toque em ENTRAR NA MINHA MESA. ' +
+              'O sistema tenta encaminhar os classificados. Se a entrada não acontecer, toque em ENTRAR NA MINHA MESA ou ENTRAR NA MESA FINAL no aviso da tela. ' +
               'O início da partida é manual e exige pelo menos dois participantes.';
           }
           card.append(help);

@@ -820,6 +820,9 @@ function updateNetworkDiagnosticsUI(){
     chip.title=`Conexão ${quality.label}${Number.isFinite(networkDiagnostics.lastRtt)?` • ${Math.round(networkDiagnostics.lastRtt)} ms`:''}. Clique para diagnosticar.`;
     chip.setAttribute('aria-label',chip.title);
   }
+  // V40.69.8.26: evitar dezenas de leituras/escritas no DOM oculto a cada
+  // estado da partida. O indicador de conexão continua sendo atualizado.
+  if(!$('#networkDiagnosticsDialog')?.open)return;
   const set=(id,value)=>{const el=$(id);if(el)el.textContent=value};
   set('#networkQualityValue',quality.label);
   set('#networkPingValue',formatDiagMs(networkDiagnostics.lastRtt));
@@ -911,7 +914,7 @@ function startNetworkDiagnostics(){
   networkRtcStatsTimer=setInterval(sampleLiveVoiceRtcStats,NETWORK_PROBE_INTERVAL_MS);
 }
 function stopNetworkDiagnostics(){if(networkProbeTimer)clearInterval(networkProbeTimer);if(networkRtcStatsTimer)clearInterval(networkRtcStatsTimer);networkProbeTimer=null;networkRtcStatsTimer=null;updateNetworkDiagnosticsUI()}
-function openNetworkDiagnostics(){updateNetworkDiagnosticsUI();const d=$('#networkDiagnosticsDialog');if(d&&!d.open)d.showModal()}
+function openNetworkDiagnostics(){const d=$('#networkDiagnosticsDialog');if(d&&!d.open)d.showModal();updateNetworkDiagnosticsUI()}
 function closeNetworkDiagnostics(){const d=$('#networkDiagnosticsDialog');if(d?.open)d.close()}
 
 function vibrationSupported(){return typeof navigator.vibrate==='function'}
@@ -3283,7 +3286,27 @@ function syncReconnectCountdownTimer(){
 
 // V40.69.8.13 — encaminhamento automático das vagas sorteadas, sem clique extra.
 // O servidor revalida identidade, fase e mesa. Não se transforma observador em jogador.
+// V40.69.8.26 — aviso persistente de fase: a convocação automática não pode
+// desaparecer sem explicar ao finalista onde sua mesa está.
 let autoTournamentSeat=null,autoTournamentJoining=false,autoTournamentAttempts=0,autoTournamentTimer=null;
+let autoTournamentWindowStartedAt=0;
+const AUTO_TOURNAMENT_RETRY_WINDOW_MS=60000;
+function tournamentPhaseNotice(data,detail=''){
+  if(typeof document==='undefined')return;
+  const box=document.getElementById('tournamentNextPhaseNotice');
+  if(!box)return;
+  if(!data){box.hidden=true;return;}
+  const label=data.stage==='final'?'GRANDE FINAL':data.stage==='semi'?'SEMIFINAL':
+    data.stage==='quarter'?'QUARTAS DE FINAL':'CLASSIFICATÓRIAS';
+  const title=document.getElementById('tournamentNextPhaseTitle');
+  const status=document.getElementById('tournamentNextPhaseStatus');
+  const enter=document.getElementById('tournamentNextPhaseEnter');
+  if(title)title.textContent=data.stage==='qualifier'?'🏆 SUA MESA DAS CLASSIFICATÓRIAS':`🏆 VOCÊ ESTÁ CLASSIFICADO — ${label}`;
+  if(status)status.textContent=detail||`Mesa ${data.tableNumber} reservada. Tentando entrar automaticamente; a partida só começa após o início manual.`;
+  if(enter)enter.textContent=data.stage==='final'?'🎮 ENTRAR NA MESA FINAL':'🎮 ENTRAR NA MINHA MESA';
+  box.hidden=false;
+}
+
 function clearAutoTournamentTimer(){if(autoTournamentTimer){clearTimeout(autoTournamentTimer);autoTournamentTimer=null;}}
 function requestTournamentSeatLocation(){
   if(!socket.connected||pendingVoluntaryLeave()||leaveRoomPending)return;
@@ -3296,7 +3319,7 @@ function requestTournamentSeatLocation(){
   if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
   socket.emit('locateTournamentSeat');
 }
-function autoEnterTournamentSeat(data){
+function autoEnterTournamentSeat(data,manualRetry=false){
   if(!socket.connected||!data||!/^[-a-z0-9]{3,64}$/i.test(String(data.tournamentId||''))||
     !['qualifier','quarter','semi','final'].includes(data.stage)||
     !Number.isInteger(data.tableNumber)||data.tableNumber<1||
@@ -3309,20 +3332,44 @@ function autoEnterTournamentSeat(data){
   // Não sobrescrever um link de convite ainda não concluído; uma vez em
   // um lobby comum, a vaga autenticada da final volta a ter prioridade.
   if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby)return;
-  if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode||
-    (state&&state.status!=='finished'&&!idleRegularLobby))return;
+  if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
   const key=`${data.tournamentId}:${data.stage}:${data.tableNumber}`;
+  if(state&&state.status!=='finished'&&!idleRegularLobby){
+    // A convocação pode chegar ANTES do estado final da rodada anterior.
+    // Guardar a tarefa e retomá-la após o estado 'finished'; descartá-la
+    // aqui perdia a única notificação e deixava finalistas na mesa antiga.
+    if(autoTournamentSeat?.key!==key){
+      clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+    }
+    autoTournamentSeat={key,tournamentId:data.tournamentId,stage:data.stage,tableNumber:data.tableNumber};
+    tournamentPhaseNotice(data,'Sua mesa está reservada. Conclua a partida atual; a entrada será tentada quando ela terminar.');
+    return;
+  }
   if(autoTournamentSeat?.key!==key){
-    clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;
+    clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
     autoTournamentSeat={key,tournamentId:data.tournamentId,stage:data.stage,tableNumber:data.tableNumber};
   }
-  if(autoTournamentJoining||autoTournamentAttempts>=8)return;
+  tournamentPhaseNotice(data);
+  // A tentativa antiga podia atingir oito erros e ficar bloqueada para sempre,
+  // mesmo recebendo novas convocações da mesma fase. Reabrir a janela após
+  // 60 segundos, sem criar polling adicional ou chamadas em cascata.
+  if(manualRetry){clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;}
+  if(autoTournamentJoining)return;
+  if(autoTournamentAttempts>=8){
+    if(Date.now()-autoTournamentWindowStartedAt<AUTO_TOURNAMENT_RETRY_WINDOW_MS){
+      tournamentPhaseNotice(data,'A entrada automática está aguardando nova tentativa. Se quiser, toque em ENTRAR NA MINHA MESA.');
+      return;
+    }
+    autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+  }
   // A recuperação de sessão anterior tem prioridade sobre novas entradas.
   if(savedSessionResumePending||accountSeatResumePending){
     clearAutoTournamentTimer();autoTournamentTimer=setTimeout(()=>autoEnterTournamentSeat(data),1100);
     return;
   }
-  autoTournamentJoining=true;autoTournamentAttempts++;
+  autoTournamentJoining=true;
+  if(!autoTournamentWindowStartedAt)autoTournamentWindowStartedAt=Date.now();
+  autoTournamentAttempts++;
   socket.emit('enterTournamentTable',{tournamentId:data.tournamentId,stage:data.stage,
     tableNumber:data.tableNumber,automatic:true});
   clearAutoTournamentTimer();
@@ -3330,13 +3377,35 @@ function autoEnterTournamentSeat(data){
     if(!autoTournamentSeat||autoTournamentSeat.key!==key||!autoTournamentJoining)return;
     autoTournamentJoining=false;
     if(autoTournamentAttempts<8)autoEnterTournamentSeat(data);
-    else toast('A entrada automática na mesa não foi concluída. Abra Torneios para conferir o andamento.');
+    else{
+      tournamentPhaseNotice(data,'A entrada automática não foi concluída. Toque no botão para tentar novamente ou abra Torneios para ver o status da mesa.');
+      toast('Sua vaga continua reservada. Use ENTRAR NA MINHA MESA para tentar novamente.');
+    }
   },4000);
 }
 socket.on('tournamentSeatAssigned',autoEnterTournamentSeat);
+const tournamentPhaseEnter=typeof document==='undefined'?null:document.getElementById('tournamentNextPhaseEnter');
+tournamentPhaseEnter?.addEventListener('click',()=>{
+  if(!autoTournamentSeat||!socket.connected){
+    toast('Conecte-se para entrar na sua mesa do torneio.');return;
+  }
+  const task=autoTournamentSeat;
+  const current=state;
+  const idleRegular=current?.status==='lobby'&&Number(current.round||0)===0&&
+    !current.tournamentWait&&!current.tournamentSchedule;
+  if(current&&current.status!=='finished'&&!idleRegular){
+    tournamentPhaseNotice(task,'Você já está em outra partida ou mesa de torneio. Termine essa atividade antes de mudar de mesa.');
+    return;
+  }
+  autoEnterTournamentSeat(task,true);
+});
 
 socket.on('joined',data=>{
-  clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;
+  const joinedTournament=data?.source==='tournament'||data?.source==='tournament-resume';
+  if(joinedTournament||!autoTournamentSeat){
+    clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
+    tournamentPhaseNotice(null);
+  }
   // Em F5, um jogo da fase anterior pode ser restaurado antes de a nova mesa ficar pronta.
   if(data?.source!=='tournament'&&data?.role!=='SPECTATOR')
     setTimeout(()=>{if(socket.connected)requestTournamentSeatLocation();},1700);
@@ -3395,9 +3464,16 @@ socket.on('avatarAsset',payload=>{
   updateNetworkDiagnosticsUI();
   if(state&&collectStateAvatarRefs(state).includes(ref))render(true);
 });
+let lastStatePayloadSampleAt=0;
 socket.on('state',s=>{
   const prev=state;
-  try{networkDiagnostics.lastStateBytes=new TextEncoder().encode(JSON.stringify(s)).byteLength}catch{networkDiagnostics.lastStateBytes=JSON.stringify(s||{}).length}
+  // Instrumentação de diagnóstico não deve serializar o estado completo de
+  // todas as cartas em CADA atualização Socket.IO em celulares modestos.
+  const sampleNow=Date.now();
+  if(!lastStatePayloadSampleAt||sampleNow-lastStatePayloadSampleAt>=5000||document.getElementById('networkDiagnosticsDialog')?.open){
+    lastStatePayloadSampleAt=sampleNow;
+    try{networkDiagnostics.lastStateBytes=new TextEncoder().encode(JSON.stringify(s)).byteLength}catch{networkDiagnostics.lastStateBytes=JSON.stringify(s||{}).length}
+  }
   requestMissingAvatarRefs(collectStateAvatarRefs(s));
   state=s;
   // O evento joined pode preceder o primeiro snapshot state no recarregamento.
@@ -3409,6 +3485,13 @@ socket.on('state',s=>{
     passPending=false;
   }
   render();
+  // Quando a notificação da nova fase chegou antes de a antiga marcar
+  // 'finished', retomar automaticamente sem depender de F5 ou novo socket.
+  if(autoTournamentSeat&&!autoTournamentJoining&&
+    (s.status==='finished'||(s.status==='lobby'&&Number(s.round||0)===0&&
+       !s.tournamentWait&&!s.tournamentSchedule))){
+    autoEnterTournamentSeat(autoTournamentSeat);
+  }
   if($('#roundReviewDialog')?.open)updateReplayControls();
   maybeShowRoundReview(s);
   if(prev){
@@ -3564,7 +3647,8 @@ socket.on('gameError',e=>{
       autoTournamentTimer=setTimeout(()=>autoEnterTournamentSeat(task),1400);
       return;
     }
-    autoTournamentSeat=null;
+    tournamentPhaseNotice(task,`Não foi possível entrar: ${String(e?.message||'erro na conexão')}. Use o botão para tentar novamente ou consulte Torneios.`);
+    autoTournamentSeat=task; // conserva a vaga para recuperação manual
   }
   passPending=false;
   const wasSavedResume=savedSessionResumePending;savedSessionResumePending=false;
@@ -3674,7 +3758,7 @@ socket.on('connect',()=>{
   requestAccountSeatResume(0);
   if(urlRoom)$('#roomInput').value=urlRoom;
 });
-socket.on('disconnect',(reason)=>{clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentSeat=null;autoTournamentAttempts=0;if(voiceCaptureStarting){voiceCaptureRequestId++;voiceCaptureStarting=false}window.MauCamera?.stop({keepWanted:true});clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
+socket.on('disconnect',(reason)=>{clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentSeat=null;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;tournamentPhaseNotice(null);if(voiceCaptureStarting){voiceCaptureRequestId++;voiceCaptureStarting=false}window.MauCamera?.stop({keepWanted:true});clearAccountSeatResumeRetry();stopNetworkDiagnostics();resetLiveVoice({notify:false,keepWanted:liveMicWanted});clearRenderSignatures();setConnection('offline');console.warn('[conexão] Socket desconectado:',reason);toast('Conexão oscilou. Tentando reconectar automaticamente...');renderControls();updateLiveMicUI();});
 socket.on('connect_error',e=>{
   setConnection('offline');updateNetworkDiagnosticsUI();
   if(e?.message==='AUTH_REQUIRED'){showAuthGate('Sua sessão expirou. Entre novamente.');renderAuthOptions();}

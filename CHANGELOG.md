@@ -1,3 +1,13 @@
+## V40.69.8.26 — Convocação confiável da final e alívio de processamento no celular (17/11/2026)
+
+- **Falha reproduzida no código:** a convocação da próxima fase era descartada se chegasse antes de o navegador receber o estado `finished` da partida anterior. A vaga agora é preservada e a entrada é retomada assim que a fase anterior termina, sem abandonar uma partida ativa.
+- **Falha reproduzida no código:** depois de oito tentativas de entrada sem resposta, o navegador não voltava a tentar a mesma vaga. Agora existe uma janela de recuperação controlada (60 s), sem tempestade de eventos, e o jogador pode acionar a tentativa de forma explícita.
+- Exibido aviso persistente **VOCÊ ESTÁ CLASSIFICADO — GRANDE FINAL**, com botão **ENTRAR NA MESA FINAL**. Não exige nova inscrição, não fornece vaga extra e utiliza as mesmas verificações autenticadas da entrada automática. Continua disponível o botão anterior dentro de Torneios.
+- Melhoradas as instruções do painel: fase e vagas são definidas pelo torneio; a sala de jogo física é aberta com o primeiro finalista que conseguir entrar. O início da rodada é exclusivamente manual.
+- No front-end, o diagnóstico de rede deixa de serializar o estado integral em cada evento (amostragem de até 5 s enquanto fechado); campos do modal de diagnóstico deixam de receber escritas DOM enquanto o modal estiver fechado. O chip de conexão continua atualizado. Essas melhorias são pontuais, não uma garantia de eliminar qualquer lentidão de WebRTC ou do Render.
+- Não foram alterados PostgreSQL, regras de cartas, Ranking, WebRTC, tamanho de cartas, classificação, partida normal, recuperação segura de snapshots ou permissões de observadores.
+- Adicionado teste de transição precoce entre fases, limite e retomada das tentativas e recuperação pelo botão. Integração em dispositivo real/Render ainda pendente.
+
 ## V40.69.8.25 — Recuperação controlada da final e comunicação clara (17/11/2026)
 
 - Diagnóstico confirmado: uma final pode ter `room_code` registrado, mas a sala não existir em memória; o código anterior recusava a entrada com mensagem genérica porque não podia distinguir lobby recuperável de partida potencialmente iniciada. Não foi possível concluir apenas pela captura se o estado ausente tinha cartas já distribuídas.
