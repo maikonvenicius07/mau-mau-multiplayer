@@ -23,6 +23,7 @@ const TournamentRoomRetention = require('./tournament-room-retention');
 const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const TournamentLobbyRecovery = require('./tournament-lobby-recovery');
+const TournamentTableHealth = require('./tournament-table-health');
 const ReplaySession = require('./replay-session');
 const RankingFinalization = require('./ranking-finalization');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
@@ -997,12 +998,20 @@ app.get('/api/tournament', async(req,res)=>{
       const binding=currentStage==='qualifier'?(typeof tournamentGames.get==='function'?await tournamentGames.get(config.id,t.number):null):
         (typeof tournamentBracket.getBinding==='function'?await tournamentBracket.getBinding(config.id,currentStage,t.number):null);
       const room=binding?.roomCode?rooms.get(binding.roomCode):null;
+      const storedSnapshot=!!(binding?.roomCode&&!room&&await roomSnapshotStore.hasStoredSnapshot(binding.roomCode));
+      const classifiedAvailability=TournamentTableHealth.classify(binding,{room,snapshotsReady:snapshotsRestored,
+        activeSnapshot:storedSnapshot,deleted:binding?.roomCode?roomSnapshotStore.isRoomDeleted(binding.roomCode):false});
+      const availability=storedSnapshot&&classifiedAvailability==='recovery-required'?'snapshot-review':classifiedAvailability;
+      const canRepair=!!(config.canManage&&currentStage==='final'&&availability==='recovery-required'&&
+        !storedSnapshot&&snapshotsRestored);
       const deadlineAt=typeof tournamentWaitDeadline==='function'?await tournamentWaitDeadline(config.id,currentStage,t.number,binding):null;
       const expected=t.players.length;
       const present=room?.players.filter(p=>!p.isBot&&p.connected).length||0;
       const elapsed=!!deadlineAt&&Date.now()>=deadlineAt;
       const absent=t.players.filter(p=>!room?.players.some(x=>x.connected&&!x.isBot&&x.name===p.name)).map(p=>p.name);
       return [t.number,{...(recordedGames[t.number]||{}),...(liveTableStatus.get(t.number)||{}),
+        availability,availabilityMessage:TournamentTableHealth.message(availability),
+        repairAllowed:canRepair,
         wait:deadlineAt&&!recordedGames[t.number]?.finished?{
           deadlineAt,expected,present,absent,
           requiresAttention:elapsed&&present===0&&!binding?.result
@@ -3201,6 +3210,41 @@ io.on('connection', socket => {
     }catch(e){console.error('[tournament] localização automática da mesa falhou:',e.message);}
   });
 
+  // V40.69.8.25 — recuperação excepcional da final sem estado recuperável.
+  // Não tenta reconstruir cartas nem reinicia partidas automaticamente.
+  socket.on('repairTournamentFinal',async payload=>{
+    const id=String(payload?.tournamentId||'').trim(),number=Number(payload?.tableNumber);
+    const lockKey=`${id}:final:${number}`;
+    try{
+      if(payload?.confirm!==true||!/^[-a-z0-9]{3,64}$/i.test(id)||number!==1)
+        throw new Error('Confirmação de recuperação inválida.');
+      if(!await tournamentCanManage(socket.data.auth,id))throw new Error('Somente o organizador pode recuperar esta mesa.');
+      if(!await ensureTournamentBracketReady())throw new Error('Torneios temporariamente indisponíveis.');
+      await requireRoomPersistenceReady();
+      const original=await tournamentDraw.get(id);
+      const bracket=await tournamentBracket.summary(id,original);
+      if(bracket.currentStage!=='final'||bracket.champion)throw new Error('Esta final não está pendente.');
+      if(tournamentTableJoinLocks.has(lockKey))throw new Error('A final está sendo acessada. Aguarde.');
+      tournamentTableJoinLocks.add(lockKey);
+      try{
+        const binding=await tournamentBracket.getBinding(id,'final',number);
+        if(!binding?.roomCode||binding.result||!['started','legacy'].includes(binding.roomState))
+          throw new Error('A final mudou de estado. Atualize o painel.');
+        if(rooms.has(binding.roomCode))throw new Error('A sala da final está ativa. Não é necessário reiniciá-la.');
+        if(await roomSnapshotStore.hasStoredSnapshot(binding.roomCode))
+          throw new Error('Existe um estado de partida preservado. A recuperação automática foi bloqueada para não perder pontos ou cartas.');
+        // Compare-and-swap no banco: se outra instância mudou o vínculo,
+        // não sobrescrever o resultado nem a vaga de ninguém.
+        await tournamentBracket.reopenUnrecoverable(id,'final',number,binding.roomCode);
+        console.warn('[tournament] final reaberta por organizador após ausência de sala e snapshot',{id,number});
+      }finally{tournamentTableJoinLocks.delete(lockKey);}
+      const updated=await tournamentBracket.summary(id,original);
+      const final=updated.stages.find(stage=>stage.stage==='final');
+      if(final)await notifyTournamentSeats(id,'final',final.tables);
+      socket.emit('tournamentFinalRepairResult',{ok:true,message:'Final liberada. Os classificados serão encaminhados novamente; a partida continua com início manual.'});
+    }catch(e){socket.emit('tournamentFinalRepairResult',{ok:false,message:e?.message||'Não foi possível recuperar a final.'});}
+  });
+
   // V51.4: entrada autenticada na mesa atribuída pelo sorteio, sem aceitar código de terceiros.
   socket.on('enterTournamentTable', async payload=>{
     const id=String(payload?.tournamentId||'').trim();
@@ -3249,7 +3293,14 @@ io.on('connection', socket => {
             activeSnapshot:activeSnapshots.some(s=>s?.code===binding.roomCode),
             deleted:roomSnapshotStore.isRoomDeleted(binding.roomCode)
           });
-          if(!recoveringLobby)throw new Error('A sala está em recuperação ou a partida já começou. Não é seguro recriá-la automaticamente.');
+          if(!recoveringLobby){
+            const state=TournamentTableHealth.classify(binding,{snapshotsReady:snapshotsRestored,
+              activeSnapshot:activeSnapshots.some(s=>s?.code===binding.roomCode),
+              deleted:roomSnapshotStore.isRoomDeleted(binding.roomCode)});
+            if(state==='recovery-required')
+              throw new Error('A mesa da final tem um registro anterior, mas a sala não está disponível. Abra Torneios para verificar o status e solicitar recuperação ao organizador.');
+            throw new Error('A mesa está sendo recuperada. Aguarde e tente entrar novamente pelo painel do torneio.');
+          }
         }
         if(!room){
           enforceActionRate(socket,'createRoom','Aguarde antes de criar outra mesa.');

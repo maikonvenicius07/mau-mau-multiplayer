@@ -5047,3 +5047,21 @@ button.bot-primary{
 .tournament-lobby-schedule small{font-size:10px;color:#b7c8b6}
 @media(max-width:360px){.tournament-schedule{padding:10px}.tournament-schedule-grid{gap:6px}}
 .tournament-wait-banner .tournament-lobby-schedule{flex:1 1 100%;width:100%;min-width:0;box-sizing:border-box}
+
+/* V40.69.8.25 — Grande final reconhecível e recuperação com consentimento. */
+.tournament-final-card{border:2px solid #cba04b;background:linear-gradient(155deg,#143526,#10261e)}
+.tournament-final-card h4{font-size:17px;color:#ffe7a2}
+.tournament-final-guidance{margin:12px 0;padding:12px;border-radius:10px;background:#17452d;border:1px solid #567754;color:#f7f4d9;font-size:13px;line-height:1.5;font-weight:600}
+.tournament-final-guidance.needs-recovery,.tournament-recovery-alert{background:#42211b;border-color:#a76b4f;color:#ffdfd2}
+.tournament-recovery-alert{border:1px solid #a76b4f;padding:10px;border-radius:10px;font-size:13px;line-height:1.4;margin-top:8px}
+.tournament-repair-final{background:#ad682f;color:#fff;border:1px solid #f6bf80;padding:11px 13px;min-height:44px;border-radius:10px;font-weight:800;margin:10px 0}
+.tournament-repair-final:disabled{opacity:.6}
+
+/* V40.69.8.25 — Grande final reconhecível e recuperação com consentimento. */
+.tournament-final-card{border:2px solid #cba04b;background:linear-gradient(155deg,#143526,#10261e)}
+.tournament-final-card h4{font-size:17px;color:#ffe7a2}
+.tournament-final-guidance{margin:12px 0;padding:12px;border-radius:10px;background:#17452d;border:1px solid #567754;color:#f7f4d9;font-size:13px;line-height:1.5;font-weight:600}
+.tournament-final-guidance.needs-recovery,.tournament-recovery-alert{background:#42211b;border-color:#a76b4f;color:#ffdfd2}
+.tournament-recovery-alert{border:1px solid #a76b4f;padding:10px;border-radius:10px;font-size:13px;line-height:1.4;margin-top:8px}
+.tournament-repair-final{background:#ad682f;color:#fff;border:1px solid #f6bf80;padding:11px 13px;min-height:44px;border-radius:10px;font-weight:800;margin:10px 0}
+.tournament-repair-final:disabled{opacity:.6}

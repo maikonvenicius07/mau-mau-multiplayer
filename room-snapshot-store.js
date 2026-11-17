@@ -219,6 +219,7 @@ class JsonSnapshotBackend {
     if(changed)this.persist();
     return {rooms,players};
   }
+  async hasSnapshot(code){return Object.prototype.hasOwnProperty.call(this.data.rooms,String(code));}
   async loadActive(now){
     const out=[];let changed=false;
     for(const [code,row] of Object.entries(this.data.rooms)){
@@ -371,6 +372,7 @@ class PostgresSnapshotBackend {
     }
     return {rooms,players};
   }
+  async hasSnapshot(code){const r=await this.pool.query('SELECT 1 FROM mm_room_snapshots WHERE room_code=$1 LIMIT 1',[code]);return !!r.rowCount;}
   async loadActive(){
     const {rows}=await this.pool.query('SELECT room_code,snapshot FROM mm_room_snapshots WHERE expires_at > NOW() ORDER BY updated_at DESC');
     if(!rows.length)return [];
@@ -687,6 +689,7 @@ class RoomSnapshotStore {
     if(!players.some(p=>!p.isBot))return null;
     return snapshot;
   }
+  async hasStoredSnapshot(code){return !!(code&&await this.backend.hasSnapshot(String(code)));}
   async loadActive(){
     const rows=await this.backend.loadActive(Date.now());
     const out=[];

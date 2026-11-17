@@ -1,0 +1,47 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {TournamentBracket}=require('../tournament-bracket');
+const {RoomSnapshotStore}=require('../room-snapshot-store');
+const Health=require('../tournament-table-health');
+const code=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+const ui=fs.readFileSync(path.join(__dirname,'..','public','tournament-ui.js'),'utf8');
+const old={roomCode:'ABC123',roomState:'started',result:null,claimedAt:100};
+assert.equal(Health.classify(null),'not-created');
+assert.equal(Health.classify(old,{room:{status:'lobby'}}),'waiting-players');
+assert.equal(Health.classify(old),'recovery-required');
+assert.equal(Health.classify({...old,roomState:'lobby',claimedAt:1},{now:120000}),'recoverable-lobby');
+assert.equal(Health.classify({...old,roomState:'lobby',claimedAt:120000},{now:120001}),'restoring-lobby');
+assert.equal(Health.classify({...old,result:{results:[]}}),'finished');
+assert(Health.message('recovery-required').includes('organizador'));
+assert(code.includes("socket.on('repairTournamentFinal'"));
+assert(code.includes('await tournamentCanManage(socket.data.auth,id)'));
+assert(code.includes('await roomSnapshotStore.hasStoredSnapshot(binding.roomCode)'));
+assert(code.includes('!snapshotsRestored')===false||code.includes('snapshotsRestored'));
+assert(ui.includes('GRANDE FINAL CRIADA'));
+assert(ui.includes('⚠ RECUPERAR MESA DA FINAL'));
+assert(ui.includes("window.prompt('Para confirmar, digite RECRIAR FINAL:"));
+assert(ui.includes('tournamentFinalRepairResult'));
+(async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-recovery-'));
+  try{
+    const b=new TournamentBracket({databaseUrl:'',filePath:path.join(dir,'bracket.json')});await b.init();
+    b.local['cup123']=[{stage:'final',number:1,players:[{playerKey:'A'},{playerKey:'B'}],roomCode:'ABC123',result:null,roomState:'started',claimedAt:1}];b.save();
+    await b.reopenUnrecoverable('cup123','final',1,'ABC123');
+    let row=await b.getBinding('cup123','final',1);
+    assert.equal(row.roomCode,null);assert.equal(row.roomState,'lobby');
+    assert.equal(row.claimedAt,null);assert.equal(row.result,null);
+    await assert.rejects(()=>b.reopenUnrecoverable('cup123','final',1,'ABC123'));
+    b.reload();row=b.local['cup123'][0];row.roomCode='ABC123';row.roomState='started';row.result={results:[{score:2}]};b.save();
+    await assert.rejects(()=>b.reopenUnrecoverable('cup123','final',1,'ABC123'));
+    assert.equal((await b.getBinding('cup123','final',1)).result.results[0].score,2);
+    await assert.rejects(()=>b.reopenUnrecoverable('cup123','semi',1,'ABC123'));
+    const snaps=new RoomSnapshotStore({databaseUrl:'',filePath:path.join(dir,'snapshots.json')});await snaps.init();
+    assert.equal(await snaps.hasStoredSnapshot('ABC123'),false);
+    snaps.backend.data.rooms['ABC123']={snapshot:{status:'playing'},expiresAt:1};
+    assert.equal(await snaps.hasStoredSnapshot('ABC123'),true,'Mesmo snapshot expirado não deve ser destruído na recuperação');
+    console.log('✓ V40.69.8.25: diagnóstico claro, restauração privilegiada somente de final sem resultado e proteção de snapshots preservados.');
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1});

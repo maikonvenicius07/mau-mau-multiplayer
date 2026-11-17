@@ -1,3 +1,14 @@
+## V40.69.8.25 — Recuperação controlada da final e comunicação clara (17/11/2026)
+
+- Diagnóstico confirmado: uma final pode ter `room_code` registrado, mas a sala não existir em memória; o código anterior recusava a entrada com mensagem genérica porque não podia distinguir lobby recuperável de partida potencialmente iniciada. Não foi possível concluir apenas pela captura se o estado ausente tinha cartas já distribuídas.
+- Nova classificação pública de estados: mesa ainda não criada, lobby em recuperação, lobby recuperável, partida conectada, resultado confirmado e final que exige análise. A API não expõe códigos privados ou dados de mãos.
+- Painel da **Grande final** com destaque, orientação específica sobre presença na mesa oficial, botão de entrada dos classificados, início exclusivamente manual e mensagem de indisponibilidade quando a sala não pode ser retomada.
+- Recuperação excepcional pelo próprio organizador SOMENTE para final sem resultado e sem sala/snapshot no armazenamento: exige confirmação textual, autorização no servidor e comparação condicional no banco. Reabre a reserva da final para nova entrada automática, sem alterar os classificados ou partidas anteriores. Esse procedimento PODE descartar jogadas que não tenham sido persistidas, por isso nunca é automático.
+- Se existir snapshot antigo preservado (inclusive expirado ou inválido), o sistema bloqueia a reabertura e solicita análise: nunca apagar pontuação ou cartas disponíveis.
+- Após reabertura autorizada, o servidor reenvia as convocações autenticadas aos dois finalistas. Um deles cria a sala ao ingressar; o segundo ocupa sua vaga. Observadores continuam acessando exclusivamente pelo painel do torneio.
+- Mantidos cinco minutos e botão de início MANUAL, classificação, regras de cartas, Ranking, observadores sem acesso a cartas privadas, partidas comuns e reconexão.
+- Teste específico para estado da final, reabertura idempotente/condicional, bloqueio por resultado existente, bloqueio de snapshots e controle de acesso na consulta. Teste de integração Socket.IO precisa ser executado em ambiente com dependências instaladas.
+
 ## V40.69.8.24 — Finalistas encaminhados à mesa correta, cronômetro e observação (17/11/2026)
 
 - Corrigida a falha em que jogadores classificados permaneciam conectados a uma sala comum ainda em lobby, fazendo a final aparecer como **0 de 2 presentes**. A busca e a admissão automáticas agora aceitam transferir, de maneira autenticada, jogadores de uma sala **comum não iniciada** para sua vaga reservada no torneio. Partidas iniciadas, outras mesas de torneio e observadores não são interrompidos automaticamente.

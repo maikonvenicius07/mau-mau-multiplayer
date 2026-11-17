@@ -112,6 +112,26 @@ class TournamentBracket{
     if(!row||row.roomCode!==oldCode||row.roomState!=='lobby'||row.result)throw fail('A mesa mudou de estado durante a recuperação.');
     row.roomCode=newCode;row.claimedAt=Date.now();this.save();return row;
   }
+  // Reabertura EXCEPCIONAL sob autorização do organizador, após confirmar
+  // ausência de sala ativa, snapshot e resultado. A mesa seguinte nasce vazia.
+  async reopenUnrecoverable(id,phase,number,oldCode){
+    validate(id,phase,number);
+    if(phase!=='final'||!oldCode)throw fail('Recuperação disponível somente para a mesa final indisponível.',400);
+    if(this.pool){
+      const r=await this.pool.query(`UPDATE mm_tournament_stage_tables
+        SET room_code=NULL,room_state='lobby',claimed_at=NULL
+        WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4
+          AND result_json IS NULL AND room_state IN ('started','legacy') RETURNING table_number`,
+        [id,phase,number,oldCode]);
+      if(!r.rowCount)throw fail('O estado da final mudou. Atualize o painel antes de tentar novamente.');
+      return true;
+    }
+    this.reload();
+    const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);
+    if(!row||row.roomCode!==oldCode||row.result||!['started','legacy'].includes(row.roomState))
+      throw fail('O estado da final mudou. Atualize o painel antes de tentar novamente.');
+    row.roomCode=null;row.roomState='lobby';row.claimedAt=null;this.save();return true;
+  }
   async recordResult({id,stage='qualifier',number,roomCode,result,players,client=null}){
     validate(id,stage,number);
     if(!roomCode||!Array.isArray(result?.results)||!result.results.length||!Array.isArray(players)||!players.length)throw fail('Resultado de torneio inválido.',400);

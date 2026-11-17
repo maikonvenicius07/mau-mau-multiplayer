@@ -8,6 +8,7 @@ const os=require('node:os');
 const vm=require('node:vm');
 const {TournamentBracket}=require('../tournament-bracket');
 const {distribute}=require('../tournament-draw');
+const TournamentTableHealth=require('../tournament-table-health');
 const {createRetryableInitialization}=require('../ranking-init-retry');
 const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
 
@@ -18,8 +19,8 @@ async function testApiConsultation(){
   let handler;
   const app={get:(route,cb)=>{assert.equal(route,'/api/tournament');handler=cb;}};
   const tables=[{number:1,players:[{name:'Ana',seat:1},{name:'Bruno',seat:2}]}];
-  let bracketPhase='qualifier';
-  const sandbox={app,console,
+  let bracketPhase='qualifier',missingFinalBinding=null,retainedSnapshot=false;
+  const sandbox={app,console,TournamentTableHealth,snapshotsRestored:true,roomSnapshotStore:{hasStoredSnapshot:async()=>retainedSnapshot,isRoomDeleted:()=>false},
     ensureTournamentCatalogReady:async()=>true,
     ensureTournamentDrawReady:async()=>true,
     ensureTournamentBracketReady:async()=>true,
@@ -31,7 +32,7 @@ async function testApiConsultation(){
     tournamentBracket:{summary:async()=>{
       await Promise.resolve();
       return {currentStage:bracketPhase,champion:null,stages:bracketPhase==='qualifier'?[]:[{stage:'final',tables:[{number:1,players:tables[0].players,created:true,finished:false}]}]};
-    },seatFor:async()=>({number:1})},
+    },seatFor:async()=>({number:1}),getBinding:async()=>missingFinalBinding},
     tournamentGames:{statuses:async()=>{await Promise.resolve();return {1:{created:true,finished:false}};}},
     rooms:new Map(),ensureSpectators:()=>[],MAX_SPECTATORS_PER_ROOM:5};
   vm.runInNewContext(src.slice(begin,end),sandbox,{filename:'server.js:api/tournament'});
@@ -44,6 +45,13 @@ async function testApiConsultation(){
   assert.equal(res.body.myTable,1);assert(!JSON.stringify(res.body).includes('playerKey'));
   bracketPhase='final';res=await call();assert.equal(res.code,200);
   assert.equal(res.body.bracket.currentStage,'final');assert.equal(res.body.tables.length,1);
+  missingFinalBinding={roomCode:'OLD999',roomState:'started',result:null,claimedAt:1};
+  res=await call();assert.equal(res.code,200);
+  assert.equal(res.body.games['1'].availability,'recovery-required');
+  assert.equal(res.body.games['1'].repairAllowed,true,'Organizador recebe recuperação somente sem snapshot');
+  retainedSnapshot=true;res=await call();assert.equal(res.code,200);
+  assert.equal(res.body.games['1'].availability,'snapshot-review');
+  assert.equal(res.body.games['1'].repairAllowed,false,'Estado persistido nunca pode ser reiniciado por engano');
 }
 async function testPartialQualifiers(){
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-tournament-hotfix-'));

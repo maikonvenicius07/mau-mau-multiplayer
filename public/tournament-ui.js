@@ -179,7 +179,12 @@
       if(bracket?.champion){const t=document.createElement('strong');t.className='tournament-champion';
         t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
       else if(bracket?.stages?.length){const p=document.createElement('p');
-        p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será sorteada automaticamente quando todas as mesas terminarem.';progress.append(p);}
+        if(currentStage==='final'){
+          p.textContent='🏆 GRANDE FINAL CRIADA! Os finalistas devem entrar na mesa reservada. Quando ambos estiverem presentes, o anfitrião inicia manualmente. O relógio de cinco minutos NÃO inicia a partida sozinho.';
+        }else{
+          p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será criada automaticamente quando todas as mesas terminarem.';
+        }
+        progress.append(p);}
     }
     renderOverview();
     canCreate=Boolean(result.canCreate);
@@ -193,10 +198,52 @@
     if(tablesPanel&&tablesList){tablesPanel.hidden=drawnTables.length===0;tablesList.replaceChildren();
       for(const t of drawnTables){
         const card=document.createElement('div');card.className='tournament-table-card';
-        const title=document.createElement('h4');title.textContent='Mesa '+t.number+' · '+t.players.length+' jogadores';card.append(title);
+        if(currentStage==='final')card.classList.add('tournament-final-card');
+        const title=document.createElement('h4');title.textContent=(currentStage==='final'?'🏆 GRANDE FINAL — ':'Mesa ')+t.number+' · '+t.players.length+' jogadores';card.append(title);
         const ol=document.createElement('ol');for(const player of t.players){const li=document.createElement('li');li.textContent=player.name;ol.append(li);}card.append(ol);
         const game=gameStates[t.number];
-        if(game?.wait&&!game?.finished&&game.liveStatus!=='playing'&&game.liveStatus!=='between-rounds'&&game.liveStatus!=='finished'){
+        const needsRecovery=game?.availability==='recovery-required'||game?.availability==='snapshot-review';
+        if(currentStage==='final'&&!game?.finished){
+          const help=document.createElement('div');help.className='tournament-final-guidance';
+          const present=Number(game?.wait?.present||game?.connectedPlayers||0);
+          if(needsRecovery){
+            help.classList.add('needs-recovery');
+            help.textContent='⚠ FINAL PRECISA DE RECUPERAÇÃO. '+(game.availabilityMessage||'A mesa não está disponível.')+
+              ' Os classificados não devem criar uma sala comum para jogar a final.';
+          }else if(present>=2){
+            help.textContent='✅ FINAL PRONTA: jogadores conectados na mesa oficial. O anfitrião deve clicar em INICIAR 1ª RODADA.';
+          }else{
+            help.textContent=`🎮 GRANDE FINAL: ${present} de ${t.players.length} presentes na mesa oficial. `+
+              'A entrada é automática. Se não acontecer, toque em ENTRAR NA MINHA MESA. ' +
+              'O início da partida é manual e exige pelo menos dois participantes.';
+          }
+          card.append(help);
+        }
+        if(needsRecovery){
+          const notice=document.createElement('div');notice.className='tournament-recovery-alert';
+          notice.textContent=game.availabilityMessage||'Mesa não está disponível para entrada automática.';
+          card.append(notice);
+          if(game.repairAllowed&&config.canManage){
+            const repair=document.createElement('button');repair.type='button';repair.className='tournament-repair-final';
+            repair.textContent='⚠ RECUPERAR MESA DA FINAL';
+            repair.addEventListener('click',()=>{
+              if(!window.confirm('A mesa antiga da final não está disponível e não há estado de partida recuperável. Reabrir a mesa pode perder jogadas que não foram salvas. Deseja continuar?'))return;
+              if(window.prompt('Para confirmar, digite RECRIAR FINAL:')!=='RECRIAR FINAL')return;
+              if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para recuperar a mesa.';return;}
+              repair.disabled=true;message.textContent='Solicitando recuperação segura da final...';
+              socket.emit('repairTournamentFinal',{tournamentId:config.id,tableNumber:t.number,confirm:true});
+              setTimeout(()=>{repair.disabled=false;},5000);
+            });
+            card.append(repair);
+          }else{
+            const note=document.createElement('p');note.className='tournament-note';
+            note.textContent=game.availability==='snapshot-review'? 
+              'Existe estado competitivo preservado. Não é seguro reiniciar. Solicite ao organizador uma análise do armazenamento.':
+              'Avise o organizador para verificar a recuperação da final. Os resultados anteriores não serão apagados automaticamente.';
+            card.append(note);
+          }
+        }
+        if(game?.wait&&!game?.finished&&!needsRecovery&&game.liveStatus!=='playing'&&game.liveStatus!=='between-rounds'&&game.liveStatus!=='finished'){
           const details=document.createElement('div');details.className='tournament-wait-detail';
           const count=document.createElement('strong');count.textContent=`Aguardando jogadores: ${game.wait.present} de ${game.wait.expected}`;
           details.append(count);
@@ -212,7 +259,7 @@
           for(const p of game.result?.results||[]){const line=document.createElement('p');
             line.textContent=`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
           card.append(result);
-        }else if(t.number===myTable){
+        }else if(t.number===myTable&&!needsRecovery){
           const note=document.createElement('p');note.className='tournament-note';
           note.textContent='🎮 Sua vaga está reservada. Se ainda estiver em outra sala, entre na mesa deste torneio.';
           card.append(note);
@@ -227,7 +274,7 @@
             setTimeout(()=>{enter.disabled=false;},3000);
           });
           card.append(enter);
-        }else{
+        }else if(!needsRecovery){
           // Observadores podem entrar assim que a sala é criada, inclusive no lobby.
           const available=game?.liveStatus==='lobby'||game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
           if(available){
@@ -362,6 +409,11 @@
     socket.on('gameError',data=>{
       if(dialog.open&&['Conectando à sua mesa...','Entrando como observador...'].includes(message.textContent))
         message.textContent=data?.message||'Não foi possível entrar na mesa.';
+    });
+    socket.on('tournamentFinalRepairResult',data=>{
+      if(!dialog.open)return;
+      message.textContent=data?.message||'Confira novamente o andamento da final.';
+      if(data?.ok)loadSelected({silent:true}).catch(()=>{});
     });
     socket.on('tournamentTableResume',data=>{
       if(!data?.code)return;
