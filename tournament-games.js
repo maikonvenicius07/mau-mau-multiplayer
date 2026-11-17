@@ -41,10 +41,10 @@ class TournamentGames {
   }
   async markStarted(id,number,code){
     if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_table_games SET room_state='started'
-      WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND result_json IS NULL RETURNING room_code`,[id,number,code]);
+      WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND room_state='lobby' AND result_json IS NULL RETURNING room_code`,[id,number,code]);
       if(!r.rowCount)throw fail('Não foi possível confirmar o início desta mesa.');return true;}
     this.reload();const row=this.local[this.key(id,number)];
-    if(!row||row.roomCode!==code||row.result)throw fail('Mesa alterada ou já encerrada.');
+    if(!row||row.roomCode!==code||row.result||row.roomState!=='lobby')throw fail('Mesa alterada ou já encerrada.');
     row.roomState='started';this.save();return true;
   }
   async reclaimLobby(id,number,oldCode,newCode){

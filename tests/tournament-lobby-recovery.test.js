@@ -31,6 +31,8 @@ async function checkQualifier(dir){
   assert.equal(await game.get('cup-a',1).then(x=>x.roomCode),'NEW456');
   await assert.rejects(()=>game.reclaimLobby('cup-a',1,'ABC123','BAD999'),/mudou de estado/);
   await game.markStarted('cup-a',1,'NEW456');
+  await assert.rejects(()=>game.markStarted('cup-a',1,'NEW456'),/Mesa alterada|já encerrada/,
+    'A mesma mesa não pode executar a transição de lobby para started duas vezes.');
   const started=await game.get('cup-a',1);
   assert.equal(started.roomState,'started');
   assert.equal(eligible(started,{deleted:true}),false,'Partida iniciada nunca é recriada do zero.');
@@ -60,6 +62,7 @@ async function checkLaterStage(dir){
   assert.equal(recovered.roomCode,'FIN002');
   assert.deepEqual(recovered.players,players,'O roster da final não pode mudar.');
   await bracket.markStarted(cup,'final',1,'FIN002');
+  await assert.rejects(()=>bracket.markStarted(cup,'final',1,'FIN002'),/Mesa alterada|já encerrada/);
   assert.equal(eligible(await bracket.getBinding(cup,'final',1),{deleted:true}),false);
   await assert.rejects(()=>bracket.reclaimLobby(cup,'final',1,'FIN002','FIN003'),/mudou de estado/);
   const reread=new TournamentBracket(opts);await reread.init();
@@ -73,10 +76,12 @@ function checkServerBoundaries(){
   assert(enter.includes('roomSnapshotStore.isRoomDeleted(binding.roomCode)'));
   assert(enter.includes('TournamentLobbyRecovery.canRecoverMissingLobby'));
   assert(enter.includes('reclaimLobby('));
-  assert(start.indexOf('await tournamentGames.markStarted(')>0);
-  assert(start.indexOf('await tournamentGames.markStarted(')<start.lastIndexOf('Engine.startRound(room)'));
-  assert(start.includes('await tournamentBracket.markStarted('));
-  assert(start.includes('tournamentRoundStartLocks'));
+  assert(start.includes('await startTournamentLobbyOnRequest(room,p,socket.id)'));
+  const helper=source.slice(source.indexOf('async function startTournamentLobbyOnRequest('),source.indexOf('// V40.69.8.1 — falhas transitórias'));
+  assert(helper.indexOf('await tournamentGames.markStarted(')>0);
+  assert(helper.indexOf('await tournamentGames.markStarted(')<helper.lastIndexOf('Engine.startRound(room)'));
+  assert(helper.includes('await tournamentBracket.markStarted('));
+  assert(helper.includes('tournamentRoundStartLocks'));
 }
 (async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mau-lobby-recovery-'));

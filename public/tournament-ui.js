@@ -22,8 +22,8 @@
     for(const el of tablesList?.querySelectorAll('[data-wait-deadline]')||[]){
       const deadline=Number(el.dataset.waitDeadline||0);
       const sec=Math.max(0,Math.ceil((deadline-Date.now())/1000));
-      el.textContent=sec>0?'⏳ Início automático em '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'):
-        '⌛ Tempo encerrado. Verificando participantes.';
+      el.textContent=sec>0?'⏳ Início manual liberado em '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'):
+        '⌛ Tempo encerrado. O anfitrião pode iniciar com pelo menos dois presentes.';
       el.classList.toggle('tournament-wait-urgent',sec<=60);
     }
   }

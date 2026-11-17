@@ -342,70 +342,72 @@ async function tournamentWaitDeadline(id,phase,number,binding=null){
   return TournamentWait.timestamp(row?.waitDeadlineAt)||null;
 }
 
-// Apenas o servidor inicia a partida. Mutex local + marcação persistida no
-// binding evitam disparos por host, cronômetro e reconciliação ao mesmo tempo.
-async function maybeAutoStartTournamentLobby(room){
+// V40.69.8.22 — somente uma solicitação explícita e autenticada pode iniciar
+// a primeira rodada de torneio. O prazo de 5 minutos libera o botão com menos
+// participantes; nem entrada na mesa nem reconciliação disparam o início.
+async function startTournamentLobbyOnRequest(room,player,socketId){
   if(!room?.tournament||room.status!=='lobby'||Number(room.round||0)!==0||
-     rooms.get(room.code)!==room||tournamentRoundStartLocks.has(room.code))return false;
+     rooms.get(room.code)!==room)throw new Error('A mesa não está aguardando o início.');
+  if(tournamentRoundStartLocks.has(room.code))throw new Error('Esta mesa já está iniciando.');
   const t=room.tournament;
+  const stillAuthorized=()=>rooms.get(room.code)===room&&room.status==='lobby'&&Number(room.round||0)===0&&
+    room.players.includes(player)&&player.connected&&!player.isBot&&player.socketId===socketId&&
+    t.rosterKeys.includes(player.playerKey)&&player.host;
+  if(!stillAuthorized())throw new Error('Somente o anfitrião conectado e inscrito pode iniciar esta mesa.');
+  tournamentRoundStartLocks.add(room.code);
+  try{
   const binding=t.phase==='qualifier'?await tournamentGames.get(t.id,t.tableNumber):
     await tournamentBracket.getBinding(t.id,t.phase,t.tableNumber);
-  if(!binding||binding.roomCode!==room.code||binding.result)return false;
+  if(!binding||binding.roomCode!==room.code||binding.result)throw new Error('A mesa do torneio mudou de estado. Atualize o painel.');
   if(!t.waitDeadlineAt){
-    const deadline=await tournamentWaitDeadline(t.id,t.phase,t.tableNumber,binding);
-    if(!deadline)return false; // Legado sem data: não inventar um prazo após restart.
-    t.waitDeadlineAt=deadline;
+    // Legado sem data persistida: não criar um prazo retroativo.
+    t.waitDeadlineAt=await tournamentWaitDeadline(t.id,t.phase,t.tableNumber,binding);
   }
   const roster=(t.rosterNames||[]).length===t.rosterKeys.length?t.rosterNames:
     t.rosterKeys.map(playerKey=>({playerKey,name:room.players.find(p=>p.playerKey===playerKey)?.name||'Jogador'}));
   const presence=()=>room.players.filter(p=>!p.isBot&&p.connected&&t.rosterKeys.includes(p.playerKey)).map(p=>p.playerKey);
-  let decision=TournamentWait.decide({roster,present:presence(),deadline:t.waitDeadlineAt});
-  if(!['start','walkover'].includes(decision.action)||tournamentRoundStartLocks.has(room.code))return false;
-  tournamentRoundStartLocks.add(room.code);
-  try{
+  const decision=()=>TournamentWait.decide({roster,present:presence(),deadline:t.waitDeadlineAt});
+  const validate=()=>{
+    if(!stillAuthorized())throw new Error('A mesa ou o anfitrião mudou durante a preparação.');
+    if(room.players.some(p=>p.isBot))throw new Error('Mesa de torneio contém máquina. Início bloqueado.');
+    const plan=decision();
+    if(plan.action!=='ready'){
+      if(plan.present<2)throw new Error('São necessários pelo menos dois jogadores conectados para iniciar a partida.');
+      throw new Error('Aguarde todos os participantes ou o fim dos cinco minutos para iniciar com menos jogadores.');
+    }
+    return plan;
+  };
+  validate();
     await requireRoomPersistenceReady();
     if(!await ensureTournamentBracketReady())throw new Error('Torneios indisponíveis.');
-    if(rooms.get(room.code)!==room||room.status!=='lobby'||room.round>0)return false;
-    decision=TournamentWait.decide({roster,present:presence(),deadline:t.waitDeadlineAt});
-    if(!['start','walkover'].includes(decision.action))return false;
-    if(room.players.some(p=>p.isBot))throw new Error('Mesa de torneio contém máquina. Início bloqueado.');
-    // Salvar participantes ausentes antes do início; eles nunca viram bots.
-    // A identidade sorteada permanece no roster para a classificação completa.
-    if(decision.expired){
-      for(const absent of decision.missing){
+    const latest=t.phase==='qualifier'?await tournamentGames.get(t.id,t.tableNumber):
+      await tournamentBracket.getBinding(t.id,t.phase,t.tableNumber);
+    if(!latest||latest.roomCode!==room.code||latest.result||latest.roomState==='started')
+      throw new Error('O início da mesa já foi registrado ou a fase mudou.');
+    const plan=validate();
+    // Só há desistência por ausência no instante em que os jogadores optam
+    // por iniciar após o prazo. Até então, um atrasado pode chegar e participar.
+    if(plan.expired){
+      for(const absent of plan.missing){
         if(!t.forfeits?.some(f=>f.playerKey===absent.playerKey))
           TournamentForfeit.recordForfeit(room,{playerKey:absent.playerKey,name:absent.name,score:0});
       }
     }
-    // A primeira fase e as fases seguintes gravam a marca de início ANTES
-    // da distribuição das cartas; não avançar se o armazenamento falhar.
     if(await roomSnapshotStore.saveNow(room)===false)throw new Error('A preparação da mesa não foi persistida.');
+    // Registrar o início antes de distribuir cartas, para recuperação segura.
     if(t.phase==='qualifier')await tournamentGames.markStarted(t.id,t.tableNumber,room.code);
     else await tournamentBracket.markStarted(t.id,t.phase,t.tableNumber,room.code);
     room.players=room.players.filter(p=>!p.isBot&&p.connected&&t.rosterKeys.includes(p.playerKey));
-    if(decision.action==='walkover'){
-      if(room.players.length!==1)throw new Error('Presença mudou durante a decisão por W.O.');
-      room.status='finished';room.finishedAt=Date.now();room.currentPlayer=-1;
-      room.winnerId=room.players[0].id;
-      Engine.appendLog(room,`🏆 ${room.players[0].name} venceu a mesa por ausência dos demais classificados.`, 'system');
-    }else{
-      if(room.players.length<2)throw new Error('Jogadores insuficientes para iniciar.');
-      if(decision.missing.length)Engine.appendLog(room,`⏳ Tempo encerrado: ${decision.missing.length} ausente(s) desclassificado(s) sem máquina.`, 'system');
-      Engine.startRound(room);
-    }
+    if(room.players.length<2)throw new Error('Jogadores insuficientes para iniciar.');
+    if(plan.missing.length)Engine.appendLog(room,`⏳ Início autorizado: ${plan.missing.length} ausente(s) desclassificado(s), sem máquina.`,'system');
+    Engine.startRound(room);
     ensureHost(room);
-    // Garantir snapshot da transição antes do primeiro broadcast aos jogadores.
     try{
       if(await roomSnapshotStore.saveNow(room)===false)
         console.error('[tournament] snapshot do início pendente de retentativa',room.code);
     }catch(e){console.error('[tournament] snapshot do início será novamente tentado',room.code,e?.message||e);}
-    // A transição competitiva já foi persistida como iniciada: uma falha
-    // complementar de snapshot não pode deixar a tela eternamente no lobby.
-    emitRoom(room);broadcastPresence();
+    broadcastPresence();
     return true;
-  }catch(error){
-    console.error('[tournament] início automático falhou',room.code,error?.message||error);
-    return false;
   }finally{tournamentRoundStartLocks.delete(room.code);}
 }
 
@@ -3268,10 +3270,10 @@ io.on('connection', socket => {
             await resumeReservedPlayerSeat(socket,room,existing,{source:'tournament-resume'});
             return;
           }
+          if(tournamentRoundStartLocks.has(room.code))
+            throw new Error('Esta mesa está iniciando. Aguarde a confirmação antes de entrar.');
           await joinSocketIntoRoom(socket,room,{source:'tournament'});
         }
-        // Se todos já chegaram, não esperar a próxima auditoria de 5 segundos.
-        if(room.status==='lobby')void maybeAutoStartTournamentLobby(room);
       }finally{tournamentTableJoinLocks.delete(lockKey);}
     }catch(e){err(socket,e);}
   });
@@ -3672,42 +3674,13 @@ io.on('connection', socket => {
       Engine.appendLog(room, `${p.name} assumiu como anfitrião da sala.`, 'system');
     }
 
-    if(room.tournament && room.round===0){
-      // Início antecipado, prazo e W.O usam o mesmo fluxo do servidor.
-      await maybeAutoStartTournamentLobby(room);
-      if(room.status==='playing'||room.status==='finished')return;
-      if(room.tournament.waitDeadlineAt)
-        throw new Error('O início desta mesa é automático: aguarde os demais jogadores ou os cinco minutos.');
-      // Compatibilidade: mesas de versões antigas sem horário persistido
-      // continuam com o início manual seguro, sem exigir retroativamente timer.
-      if(room.players.length!==room.tournament.rosterKeys.length ||
-         room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
-        throw new Error('Aguarde todos os participantes sorteados antes de iniciar a primeira rodada.');
-    }
-    // A primeira rodada é irreversível para recovery: registrar no PostgreSQL
-    // ANTES de distribuir as cartas. Uma falha de banco impede o início.
     if(room.tournament&&room.round===0){
-      if(tournamentRoundStartLocks.has(room.code))throw new Error('Esta mesa já está iniciando.');
-      tournamentRoundStartLocks.add(room.code);
-      try{
-        await requireRoomPersistenceReady();
-        if(!await ensureTournamentBracketReady())throw new Error('O sistema de torneios está indisponível.');
-        if(rooms.get(room.code)!==room||room.status==='playing'||room.round>0||
-           !p.connected||p.socketId!==socket.id||
-           room.players.length!==room.tournament.rosterKeys.length||
-           room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
-          throw new Error('A mesa mudou durante a preparação. Confira os jogadores.');
-        if(room.tournament.phase==='qualifier')
-          await tournamentGames.markStarted(room.tournament.id,room.tournament.tableNumber,room.code);
-        else await tournamentBracket.markStarted(room.tournament.id,room.tournament.phase,room.tournament.tableNumber,room.code);
-        if(rooms.get(room.code)!==room||room.status==='playing'||room.round>0||
-           !p.connected||p.socketId!==socket.id||
-           room.players.length!==room.tournament.rosterKeys.length||
-           room.players.some(x=>x.isBot||!x.connected||!room.tournament.rosterKeys.includes(x.playerKey)))
-          throw new Error('A sala ou os participantes mudaram durante o início.');
-        Engine.startRound(room);
-      }finally{tournamentRoundStartLocks.delete(room.code);}
-    }else Engine.startRound(room);
+      // Nenhuma contagem regressiva pode disparar o início. Este ramo só é
+      // alcançado após o clique de um jogador autenticado em INICIAR PARTIDA.
+      await startTournamentLobbyOnRequest(room,p,socket.id);
+      return;
+    }
+    Engine.startRound(room);
     broadcastPresence();
   }));
 
@@ -4188,10 +4161,6 @@ async function reconcileTournamentProgress(){
   tournamentReconcileRunning=true;
   try{
     if(!await ensureTournamentBracketReady())return;
-    for(const room of [...rooms.values()]){
-      if(room.tournament&&room.status==='lobby'&&Number(room.round||0)===0)
-        await maybeAutoStartTournamentLobby(room);
-    }
     const events=await tournamentCatalog.list();
     for(const event of events){
       if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;

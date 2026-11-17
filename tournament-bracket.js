@@ -95,10 +95,10 @@ class TournamentBracket{
   async markStarted(id,phase,number,code){
     validate(id,phase,number);
     if(this.pool){const r=await this.pool.query(`UPDATE mm_tournament_stage_tables SET room_state='started'
-      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND result_json IS NULL RETURNING room_code`,[id,phase,number,code]);
+      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND room_state='lobby' AND result_json IS NULL RETURNING room_code`,[id,phase,number,code]);
       if(!r.rowCount)throw fail('Não foi possível confirmar o início desta mesa.');return true;}
     this.reload();const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);
-    if(!row||row.roomCode!==code||row.result)throw fail('Mesa alterada ou já encerrada.');
+    if(!row||row.roomCode!==code||row.result||row.roomState!=='lobby')throw fail('Mesa alterada ou já encerrada.');
     row.roomState='started';this.save();return true;
   }
   async reclaimLobby(id,phase,number,oldCode,newCode){

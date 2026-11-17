@@ -3895,13 +3895,13 @@ function syncTournamentWaitBanner(){
   const players=document.getElementById('tournamentWaitPlayers');
   const missing=document.getElementById('tournamentWaitMissing');
   if(players)players.textContent=`Presentes: ${wait.present} de ${wait.expected}`;
-  if(missing)missing.textContent=wait.absent?.length?'Ausentes: '+wait.absent.join(', '):'Todos presentes. Início automático em preparação.';
+  if(missing)missing.textContent=wait.absent?.length?'Ausentes: '+wait.absent.join(', '):'Todos presentes. O anfitrião pode iniciar a partida.';
   const update=()=>{
     const clock=document.getElementById('tournamentWaitClock');if(!clock)return;
     const seconds=Math.max(0,Math.ceil((Number(state?.tournamentWait?.deadlineAt||0)-Date.now())/1000));
     clock.textContent=state?.tournamentWait?.deadlineAt?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'--:--';
     banner.classList.toggle('tournament-wait-urgent',seconds<=60);
-    if(seconds===0&&missing)missing.textContent=wait.present===0?'Nenhum jogador presente. Aguardando solução segura.':'Tempo encerrado. O servidor está verificando o início.';
+    if(seconds===0&&wait.deadlineAt&&missing)missing.textContent=wait.present===0?'Nenhum jogador presente. Aguardando solução segura.':'Tempo encerrado. O anfitrião pode iniciar com pelo menos dois presentes ou continuar aguardando.';
   };
   update();if(!tournamentWaitTicker)tournamentWaitTicker=setInterval(()=>{if(!state||state.status!=='lobby'){clearInterval(tournamentWaitTicker);tournamentWaitTicker=null;}else syncTournamentWaitBannerTick();},1000);
 }
@@ -3910,6 +3910,25 @@ function syncTournamentWaitBannerTick(){
   const s=Math.max(0,Math.ceil((Number(wait.deadlineAt||0)-Date.now())/1000));
   clock.textContent=wait.deadlineAt?String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):'--:--';
   document.getElementById('tournamentWaitBanner')?.classList.toggle('tournament-wait-urgent',s<=60);
+  const button=document.getElementById('tournamentManualStartButton');
+  if(button)button.disabled=!socket.connected||!isTournamentStartReady();
+  const message=document.getElementById('tournamentManualStartHint');
+  if(message)message.textContent=tournamentStartHint();
+}
+function isTournamentStartReady(now=Date.now()){
+  if(!state?.tournamentWait||state.status!=='lobby')return false;
+  const w=state.tournamentWait,present=Number(w.present)||0,expected=Number(w.expected)||0;
+  return expected>=2&&present>=2&&(present>=expected||(Number(w.deadlineAt)>0&&now>=Number(w.deadlineAt)));
+}
+function tournamentStartHint(now=Date.now()){
+  const w=state?.tournamentWait;
+  if(!w)return '';
+  const present=Number(w.present)||0,expected=Number(w.expected)||0;
+  if(present<2)return 'Aguarde pelo menos dois jogadores. O torneio não inicia automaticamente.';
+  if(present>=expected)return 'Todos presentes! O anfitrião pode clicar em Iniciar partida.';
+  if(!Number(w.deadlineAt))return 'Mesa antiga sem cronômetro: aguarde todos os sorteados para iniciar.';
+  if(Number(w.deadlineAt)>now)return 'Aguarde os cinco minutos ou a chegada dos demais jogadores.';
+  return 'Tempo encerrado. O anfitrião pode iniciar ou continuar esperando.';
 }
 function render(force=false){
   if(!state)return;
@@ -4532,18 +4551,26 @@ function renderControls(){
       box.appendChild(botBar);
     }
     const b=document.createElement('button');
-    const normalLabel=state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
+    const tournamentLobby=!!state.tournamentWait&&state.status==='lobby';
+    const normalLabel=tournamentLobby?'INICIAR PARTIDA':state.status==='lobby'?'Iniciar 1ª rodada':`Iniciar rodada ${state.round+1}`;
+    if(tournamentLobby)b.id='tournamentManualStartButton';
     b.textContent=me?.host?normalLabel:`Assumir sala e ${normalLabel.toLowerCase()}`;
     const blocked=!socket.connected||available<2||(state.status==='between-rounds'&&disconnected>0);
-    b.disabled=blocked;
+    b.disabled=blocked||(tournamentLobby&&!isTournamentStartReady());
     b.onclick=()=>{
       if(!socket.connected) return toast('Sem conexão com o servidor.');
       b.disabled=true;b.textContent='Iniciando...';
       socket.emit('startRound');
     };
     box.appendChild(b);
+    if(tournamentLobby){
+      const hint=document.createElement('div');hint.className='host-status';
+      hint.id='tournamentManualStartHint';hint.textContent=tournamentStartHint();
+      box.appendChild(hint);
+    }
     const info=document.createElement('div');info.className='host-status';
-    if(connected<2) info.textContent='Aguardando pelo menos mais 1 jogador conectado.';
+    if(tournamentLobby) info.textContent='Somente o anfitrião inicia. O cronômetro libera o início, mas não dispara a partida.';
+    else if(connected<2) info.textContent='Aguardando pelo menos mais 1 jogador conectado.';
     else if(disconnected>0&&state.status==='lobby') info.textContent=`${disconnected} jogador(es) desconectado(s): cadeira reservada por até 60 segundos.`;
     else if(disconnected>0) info.textContent='Aguarde a reconexão ou o fim dos 60 segundos para a Máquina assumir temporariamente.';
     else if(!me?.host) info.textContent='O anfitrião está desconectado. Você pode assumir a sala e iniciar.';

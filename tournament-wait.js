@@ -1,5 +1,5 @@
 'use strict';
-// V40.69.8.21 — regra pura de presença. O horário vem do sorteio/criação da fase
+// V40.69.8.22 — regra pura de liberação manual do início. O horário vem do sorteio/criação da fase
 // persistido, nunca do relógio da aba nem da entrada/reconexão de um jogador.
 const WAIT_MS=5*60*1000;
 function timestamp(value){
@@ -15,10 +15,10 @@ function decide({roster=[],present=[],deadline=null,now=Date.now(),started=false
   const expired=Number.isFinite(Number(deadline))&&Number(deadline)>0&&now>=Number(deadline);
   const full=keys.size>=2&&missing.length===0&&presentKeys.size===keys.size;
   if(started)return {action:'already-started',present:presentKeys.size,expected:keys.size,missing,expired};
-  if(full)return {action:'start',present:presentKeys.size,expected:keys.size,missing,expired};
+  if(full)return {action:'ready',present:presentKeys.size,expected:keys.size,missing,expired};
   if(!expired)return {action:'wait',present:presentKeys.size,expected:keys.size,missing,expired};
-  if(presentKeys.size>=2)return {action:'start',present:presentKeys.size,expected:keys.size,missing,expired};
-  if(presentKeys.size===1)return {action:'walkover',present:1,expected:keys.size,missing,expired};
+  if(presentKeys.size>=2)return {action:'ready',present:presentKeys.size,expected:keys.size,missing,expired};
+  if(presentKeys.size===1)return {action:'needs-attention',present:1,expected:keys.size,missing,expired};
   // Sem concorrente, não há vencedor legítimo: não inventar classificação.
   return {action:'needs-attention',present:0,expected:keys.size,missing,expired};
 }

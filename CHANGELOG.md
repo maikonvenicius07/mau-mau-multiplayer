@@ -1,3 +1,13 @@
+## V40.69.8.22 — Início exclusivamente manual de mesas de torneio (17/11/2026)
+
+- Corrigida a partida que começava automaticamente pela presença completa ou pelo vencimento do prazo de cinco minutos. Agora somente o evento autenticado `startRound`, enviado por ação de um anfitrião válido, pode iniciar a primeira rodada.
+- Cinco minutos continuam persistidos no sorteio de classificatórias e na criação das fases seguintes; a contagem não reinicia por F5, reconexão ou restart. Ao chegar a 00:00, libera iniciar com 2 a 5 presentes, mas não inicia nem expulsa participantes automaticamente.
+- Todos os designados presentes: botão é liberado imediatamente. Faltam jogadores antes do prazo: início bloqueado. Após o prazo: anfitrião escolhe iniciar ou aguardar, permitindo a chegada tardia até o início efetivo.
+- Com menos de dois participantes, não há início nem W.O. automático: a mesa permanece aguardando decisão segura. Ausentes são contabilizados e desclassificados somente no início manual válido, preservando o roster de resultados e sem máquinas.
+- Mutex, transição atômica de estado `lobby → started` no PostgreSQL e revalidação de identidade, anfitrião, status, roster e vínculo persistido evitam início duplicado e início por observador. Reconciliação periódica continua criando próximas fases, porém não inicia as partidas.
+- Mensagens da mesa e painel foram atualizadas; o botão INICIAR PARTIDA acompanha o prazo localmente sem solicitações HTTP a cada segundo.
+- Numeração funcional no changelog e cache do navegador; package.json conserva o número legado para compatibilidade, conforme versões anteriores.
+
 ## V40.69.8.21 — Espera de cinco minutos e retomada do avanço dos torneios (17/11/2026)
 
 - As mesas iniciam automaticamente quando todos os jogadores sorteados estão presentes, sem depender do anfitrião.
