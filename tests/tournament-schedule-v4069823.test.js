@@ -113,8 +113,14 @@ function testIntegration(){
   assert.equal(Engine.roomPublicState(Engine.createRoom('NORMAL',{name:'Beto',avatar:'macaco'})).tournamentSchedule,null);
   assert(app.includes('syncTournamentLobbySchedule()'));
   assert(app.includes('tournamentScheduleClock.sync(info.serverNow)'));
-  assert(html.includes('id="tournamentSchedulePanel"'));
-  assert(html.includes('id="tournamentLobbySchedule"'));
+  assert(html.includes('id="tournamentSchedulePanel"'),
+    'O horário programado continua disponível no painel Torneios.');
+  // V40.69.8.35: a mesa exibe apenas o relógio de espera; o anúncio de
+  // programação foi retirado do lobby, preservando os dados no painel Torneios.
+  assert(html.includes('id="tournamentWaitClock"'),
+    'O relógio compacto permanece visível na mesa do torneio.');
+  assert(!html.includes('id="tournamentLobbySchedule"'),
+    'O antigo anúncio de programação não deve voltar à mesa.');
   assert(html.includes('tournament-schedule.js?v=40.69.8.23'));
   assert(html.indexOf('tournament-schedule.js?v=40.69.8.23')<html.indexOf('app.js?v='));
   assert(get('public/styles.css').includes('.tournament-schedule-countdown'));

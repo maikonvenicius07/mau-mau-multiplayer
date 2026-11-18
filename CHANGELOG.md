@@ -1,3 +1,10 @@
+## V40.69.8.35 — Hotfix de publicação: teste do relógio compacto (18/11/2026)
+
+- **Build do Render:** corrigida a asserção legada em `tests/tournament-schedule-v4069823.test.js` que exigia `id="tournamentLobbySchedule"`, removido intencionalmente na V40.69.8.35.
+- O teste agora verifica o relógio `tournamentWaitClock`, a ausência do anúncio antigo no lobby e a preservação do horário programado dentro da tela Torneios.
+- **Nenhum código de execução do servidor ou do cliente foi modificado neste hotfix**; a regra de vitória por ausência e o relógio compacto continuam exatamente como na V40.69.8.35.
+- Regressão local: 211 testes aprovados, nenhum teste executado com falha; teste de integração Socket.IO não executado por falta de `socket.io-client` no ambiente local. A aprovação do build no Render ainda precisa ser confirmada após publicação.
+
 ## V40.69.8.34 — Torneios sem máquinas em todas as camadas (18/11/2026)
 
 - **Defeito visual confirmado:** `public/app.js`, em `renderControls()`, apresentava **🤖 Adicionar máquina** para o anfitrião mesmo quando a sala tinha `tournamentSchedule`. O evento `addBot` já negava a ação no servidor, mas o botão indevido confundia os jogadores.
