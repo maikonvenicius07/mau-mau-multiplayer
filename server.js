@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.34';
+const RELEASE_VERSION = 'V40.69.8.36';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -2841,6 +2841,12 @@ async function joinSocketIntoRoom(socket,room,{inviteId=null,source='invite'}={}
   if(room.tournament?.forfeits?.some(p=>p.playerKey===key))throw new Error('Você já desistiu desta mesa e não pode retornar como jogador.');
   if(!roomJoinableNow(room,key))throw new Error(room.status==='playing'?'Aguarde o intervalo da rodada para entrar.':'A sala não possui vaga disponível para este convite.');
   await prepareForRoomSwitch(socket,room.code);
+  // V40.69.8.36: durante a espera pela persistência da troca, o anfitrião
+  // pode iniciar a mesa. Revalidar antes de alterar o elenco competitivo:
+  // um classificado atrasado NUNCA entra depois de distribuídas as cartas.
+  if(room.tournament && (rooms.get(room.code)!==room || room.status!=='lobby' ||
+    tournamentRoundStartLocks.has(room.code)))
+    throw new Error('A mesa mudou de estado durante sua entrada. Atualize Torneios para retomar sua vaga, se ela já existia.');
   removeFromMatchmaking(key,{reason:'Busca encerrada porque você aceitou um convite.',notify:true});
   let p=room.players.find(x=>!x.isBot&&x.playerKey===key);
   if(p){
@@ -3441,7 +3447,23 @@ io.on('connection', socket => {
       try{
         if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
         let binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
-        let room=binding?rooms.get(binding.roomCode):null;
+        let room=binding?.roomCode?rooms.get(binding.roomCode):null;
+        // V40.69.8.36: um vínculo de fase só pode reutilizar a sala EXATA
+        // do torneio, etapa e mesa, com o mesmo elenco sorteado. Uma colisão
+        // ou estado legado trocado nunca deve admitir pessoas na sala errada.
+        if(room){
+          const tournament=room.tournament;
+          const expected=new Set(seat.players.map(p=>p.playerKey));
+          const actual=tournament?.rosterKeys;
+          if(!tournament || tournament.id!==id || tournament.phase!==phase ||
+            Number(tournament.tableNumber)!==number || !Array.isArray(actual) ||
+            actual.length!==expected.size || actual.some(key=>!expected.has(key)) ||
+            room.players.some(p=>p.isBot || (p.playerKey&&!expected.has(p.playerKey)))){
+            console.error('[tournament] vínculo apontando para sala incompatível, ingresso recusado',
+              {id,phase,number,hasTournament:!!tournament});
+            throw new Error('A sala vinculada a esta fase possui dados incompatíveis com o sorteio. A entrada foi bloqueada para preservar os resultados.');
+          }
+        }
         // Uma sala restaurada de snapshot de versão anterior pode ainda não ter
         // os dados públicos da programação. Sincronize-os com o catálogo real.
         if(room?.tournament){room.tournament.startAt=event.startAt;room.tournament.name=event.name;}
@@ -3449,7 +3471,10 @@ io.on('connection', socket => {
         if(room?.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
           throw new Error('Você desistiu desta mesa e não pode retornar ao torneio.');
         let recoveringLobby=false;
-        if(binding&&!room){
+        // V40.69.8.36 — a próxima fase já tem uma linha de reserva no banco,
+        // mas AINDA NÃO TEM sala. Só recuperar quando há um código anterior:
+        // sem roomCode, o primeiro classificado deve criar o lobby normalmente.
+        if(binding?.roomCode&&!room){
           // Um vínculo de lobby não é uma partida. Antes de criar outro código,
           // tentar recuperar a sala EXATA do snapshot durável, se ainda for um
           // lobby nunca iniciado com o elenco original. Jamais recriar playing.

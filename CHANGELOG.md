@@ -1,3 +1,11 @@
+## V40.69.8.36 — Correção comprovada: final com reserva sem código tratada como sala perdida (18/11/2026)
+
+- **Causa reproduzida:** a condição `if(binding&&!room)` em `enterTournamentTable` considerava uma linha da próxima fase ainda sem `roomCode` como se fosse uma sala desaparecida. Como a final é formada com linha persistida e código inicialmente vazio, o primeiro finalista era barrado na rotina de recuperação e a sala nunca era criada. **Correção:** recuperar apenas quando `binding.roomCode` realmente existe (`if(binding?.roomCode&&!room)`).
+- **Integridade adicional:** validar que qualquer sala vinculada pertence ao torneio, fase, mesa e elenco sorteado; revalidar o estado competitivo após a troca de sala, evitando ingresso se a partida começou durante a espera.
+- **Novo teste operacional local:** 9 inscrições distribuídas 5+4, resultados classificatórios simulados, 4 classificados, 4 ingressos manuais simultâneos no mesmo lobby, rejeição de não classificado, F5, recuperação do lobby após perda da memória, início real do motor e gravação simulada do campeão. Os resultados são sintetizados: não representam 5 rodadas reais de cartas, Socket.IO/Render nem PostgreSQL real.
+- **Preservação:** motor das cartas e frontend não alterados; cronômetro de cinco minutos, início manual, observadores, ranking e mídia mantidos.
+- **Identificação funcional:** `server.js` informa `V40.69.8.36`. `package.json` mantém o identificador legado por compatibilidade dos testes.
+
 ## V40.69.8.35 — Hotfix de publicação: teste do relógio compacto (18/11/2026)
 
 - **Build do Render:** corrigida a asserção legada em `tests/tournament-schedule-v4069823.test.js` que exigia `id="tournamentLobbySchedule"`, removido intencionalmente na V40.69.8.35.
