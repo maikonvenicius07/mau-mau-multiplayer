@@ -260,16 +260,9 @@
     </header>
 
     <div id="tournamentWaitBanner" class="tournament-wait-banner hidden" role="status" aria-live="off">
-      <div id="tournamentLobbySchedule" class="tournament-lobby-schedule" hidden>
-        <strong id="tournamentLobbyScheduleName">🏆 Torneio</strong>
-        <span id="tournamentLobbyScheduleStart"></span>
-        <span id="tournamentLobbyScheduleCountdown"></span>
-        <small>Horário programado do torneio · diferente da espera de 5 minutos da mesa</small>
-      </div>
-      <strong>⏳ AGUARDANDO JOGADORES · ESPERA DA MESA</strong>
-      <span id="tournamentWaitPlayers"></span>
       <span id="tournamentWaitClock" aria-label="Tempo restante">05:00</span>
-      <small id="tournamentWaitMissing"></small>
+      <span id="tournamentWaitPlayers" hidden></span>
+      <small id="tournamentWaitMissing" hidden></small>
     </div>
     <!-- Interface compacta exclusiva do Observador. Não altera regras nem dados do servidor. -->
     <div class="spectator-compact-toolbar" aria-label="Controles do modo observador">
@@ -913,7 +906,7 @@
   <script src="media-session.js?v=1-midia-reconexao"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b-restore1-v40697-wake-v406989"></script>
   <script src="tournament-schedule.js?v=40.69.8.23"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822-schedule-v4069823-v4069824-v4069826-v4069828-v4069830-burn-manual-v4069831-manual-phase-v4069832-draw-v4069834-no-tournament-bots"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822-schedule-v4069823-v4069824-v4069826-v4069828-v4069830-burn-manual-v4069831-manual-phase-v4069832-draw-v4069834-no-tournament-bots-v4069835-walkover-clock"></script>
   <script src="controls-positioning.js?v=53.12-mobile-left-stack"></script>
   <script src="tournament-dashboard.js?v=51.6-wait-40.69.8.21"></script>
   <script src="tournament-auto-refresh.js?v=40.69.8.18"></script>

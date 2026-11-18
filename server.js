@@ -330,6 +330,7 @@ async function awaitTournamentTableJoinLock(key,{timeoutMs=30000}={}){
 }
 const tournamentTestDeleteLocks=new Set();
 const tournamentRoundStartLocks=new Set();
+const tournamentLobbyWalkoverLocks=new Set();
 const TournamentSeatHandoff=require('./tournament-seat-handoff');
 const TournamentReservedLobby=require('./tournament-reserved-lobby');
 const TOURNAMENT_ADMIN_EMAILS = new Set(String(process.env.MAUMAU_TOURNAMENT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
@@ -1561,9 +1562,60 @@ function notifySpectatorsSeatAvailability(room){
   }
 }
 
+function maybeResolveTournamentLobbyWalkover(room,{now=Date.now()}={}){
+  if(!room?.tournament||room.status!=='lobby'||Number(room.round||0)!==0)return false;
+  if(tournamentLobbyWalkoverLocks.has(room.code))return false;
+  const t=room.tournament;
+  const rosterKeys=Array.isArray(t.rosterKeys)?t.rosterKeys.filter(Boolean):[];
+  const deadline=Number(t.waitDeadlineAt||0);
+  if(rosterKeys.length<2||!(deadline>0)||now<deadline)return false;
+  const roster=(Array.isArray(t.rosterNames)&&t.rosterNames.length===rosterKeys.length?t.rosterNames:
+    rosterKeys.map(playerKey=>({playerKey,name:room.players.find(p=>p.playerKey===playerKey)?.name||'Jogador'})));
+  const presentPlayers=room.players.filter(p=>!p.isBot&&p.connected&&rosterKeys.includes(p.playerKey));
+  const present=[...new Set(presentPlayers.map(p=>p.playerKey))];
+  const plan=TournamentWait.decide({roster,present,deadline,now});
+  if(plan.action!=='needs-attention'||plan.present!==1)return false;
+  const winner=presentPlayers.find(p=>p.playerKey===present[0]);
+  if(!winner)return false;
+  tournamentLobbyWalkoverLocks.add(room.code);
+  try{
+    if(!Array.isArray(t.forfeits))t.forfeits=[];
+    for(const absent of plan.missing){
+      if(!t.forfeits.some(f=>f.playerKey===absent.playerKey))
+        TournamentForfeit.recordForfeit(room,{playerKey:absent.playerKey,name:absent.name,score:0},now);
+    }
+    room.players=room.players.filter(p=>!p.isBot&&p.playerKey===winner.playerKey);
+    if(!room.players.length)return false;
+    room.players[0].connected=true;
+    room.players[0].host=true;
+    room.status='finished';
+    room.finishedAt=now;
+    room.currentPlayer=-1;
+    room.winnerId=room.players[0].id;
+    room.pendingSeven=0;
+    room.finishPendingSeven=false;
+    room.requestedSuit=null;
+    room.continuationPlayerId=null;
+    room.lastWinnerCard=null;
+    room.reactionNextPlayerId=null;
+    room.reactionSourcePlayerId=null;
+    room.lastPlayedById=null;
+    room.burnTopCardId=null;
+    room.reactionTopCardId=null;
+    room.lastPass=null;
+    room.openingReaction=false;
+    Engine.appendLog(room,`🏆 ${room.players[0].name} venceu a mesa por ausência dos demais participantes após o prazo de 5 minutos.`,'system');
+    return true;
+  }catch(e){
+    console.error('[tournament] falha ao aplicar vitória por ausência',room.code,e?.message||e);
+    return false;
+  }finally{tournamentLobbyWalkoverLocks.delete(room.code);}
+}
+
 // Fase 4A: cada cliente mantém seu próprio último state; a sala continua
 // gerando estados privados separados e preserva todos os efeitos de emitRoom.
 function emitRoom(room) {
+  maybeResolveTournamentLobbyWalkover(room);
   SpectatorSeatAdmission.pruneRestoredSeatRequests(room);
   clearClosedSpectatorSeatRequests(room);
   if(room.status==='between-rounds'&&Array.isArray(room.spectatorSeatRequests)&&room.spectatorSeatRequests.length)processSpectatorSeatRequests(room);
@@ -4408,6 +4460,7 @@ async function reconcileTournamentProgress(){
         if(binding?.result)return null;
         const code=binding?.roomCode;
         const room=code?rooms.get(code):null;
+        if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
         if(room&&room.status!=='lobby')return null;
         const key=`${event.id}:${stage}:${table.number}`;
         if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;

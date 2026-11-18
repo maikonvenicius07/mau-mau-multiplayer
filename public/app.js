@@ -4146,6 +4146,7 @@ function tournamentStartHint(now=Date.now()){
   const w=state?.tournamentWait;
   if(!w)return '';
   const present=Number(w.present)||0,expected=Number(w.expected)||0;
+  if(present===1&&Number(w.deadlineAt)>0&&Number(w.deadlineAt)<=now)return 'Tempo encerrado. Se ninguém mais entrar, o jogador presente vence por ausência.';
   if(present<2)return 'Aguarde pelo menos dois jogadores. O torneio não inicia automaticamente.';
   if(present>=expected)return 'Todos presentes! O anfitrião pode clicar em Iniciar partida.';
   if(!Number(w.deadlineAt))return 'Mesa antiga sem cronômetro: aguarde todos os sorteados para iniciar.';

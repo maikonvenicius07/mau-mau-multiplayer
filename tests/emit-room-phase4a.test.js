@@ -24,6 +24,7 @@ const ctx={
   Engine, AvatarWire,StateDelivery:Delivery,
   io:{sockets:{sockets}},
   clearClosedSpectatorSeatRequests(){}, processSpectatorSeatRequests(){},
+  maybeResolveTournamentLobbyWalkover(){return false;},
   maybeRecordFinished(){},refreshOfflineRoomExpiry(){},
   emitRoomAvatarAssets(){},ensureSpectators(r){return r.spectators},
   ensureInviteReservations(){},SpectatorSeatAdmission:{pruneRestoredSeatRequests(){return 0},seatStatus(){return {status:'available'}}},

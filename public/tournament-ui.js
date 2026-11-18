@@ -87,7 +87,7 @@
       const sec=Math.max(0,Math.ceil((deadline-Date.now())/1000));
       const present=Number(el.dataset.waitPresent||0);
       el.textContent=sec>0?'⏳ Início manual liberado em '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'):
-        present<2?'⌛ Tempo encerrado. Aguardando pelo menos dois jogadores na mesa do torneio.':
+        present===1?'⌛ Tempo encerrado. Se ninguém mais entrar, o jogador presente vence por ausência.':present<2?'⌛ Tempo encerrado. Aguardando pelo menos dois jogadores na mesa do torneio.':
         '⌛ Tempo encerrado. O anfitrião pode iniciar manualmente.';
       el.classList.toggle('tournament-wait-urgent',sec<=60);
     }
