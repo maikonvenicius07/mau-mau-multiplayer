@@ -3,7 +3,7 @@
 // Jogadas, cartas, áudio, vídeo e mãos NÃO são registrados.
 const fs=require('node:fs');
 const path=require('node:path');
-const {distribute}=require('./tournament-draw');
+const {planNextStageDraw,assertExistingStageDraw}=require('./tournament-next-stage-draw');
 const TournamentWait=require('./tournament-wait');
 const STAGES=['qualifier','quarter','semi','final'];
 const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
@@ -51,7 +51,7 @@ function nextStage(stage,tables){
 }
 class TournamentBracket{
   constructor({pool=null,databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-bracket.json'),draw=null}={}){
-    this.pool=pool;this.draw=draw;this.filePath=filePath;this.local={};
+    this.pool=pool;this.draw=draw;this.filePath=filePath;this.local={};this._localAdvances=new Map();
     if(!pool&&databaseUrl){const {createAppDatabasePool}=require('./database-pool');this.pool=createAppDatabasePool(databaseUrl);}
   }
   async init(){
@@ -197,7 +197,13 @@ class TournamentBracket{
       try{await conn.query('BEGIN');await conn.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`tournament:${id}`]);
         await this.advanceLocked(id,initialTables,conn);await conn.query('COMMIT');
       }catch(e){await conn.query('ROLLBACK');throw e;}finally{conn.release();}
-    }else await this.advanceLocked(id,initialTables,null);
+    }else{
+      // Concorrência de resultados simultâneos também no armazenamento local.
+      const previous=this._localAdvances.get(id)||Promise.resolve();
+      const task=previous.catch(()=>{}).then(()=>this.advanceLocked(id,initialTables,null));
+      this._localAdvances.set(id,task);
+      try{await task;}finally{if(this._localAdvances.get(id)===task)this._localAdvances.delete(id);}
+    }
     return this.summary(id,initialTables);
   }
   async advanceLocked(id,initialTables,conn){
@@ -209,14 +215,21 @@ class TournamentBracket{
       if(!current.every(t=>t.result&&t.result.results.length===t.players.length))return;
       const move=nextStage(stage,current);
       if(!move)return;
-      if(rows.some(x=>x.stage===move.phase))continue;
+      const existing=rows.filter(x=>x.stage===move.phase);
+      if(existing.length){
+        // A fase já sorteada é imutável. Se estiver parcial ou divergente,
+        // sinalizar erro em vez de reorganizar mesas e perder as vagas.
+        assertExistingStageDraw(current,move.quota,existing);
+        continue;
+      }
       const qualified=candidatesFromStage(current,move.quota);
-      const tables=distribute(qualified);
+      const tables=planNextStageDraw(qualified);
       const createdAt=Date.now(),waitDeadlineAt=createdAt+TournamentWait.WAIT_MS;
       if(this.pool){for(const t of tables)await conn.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json,wait_deadline_at)
         VALUES($1,$2,$3,$4::jsonb,$5::timestamptz) ON CONFLICT DO NOTHING`,[id,move.phase,t.number,JSON.stringify(t.players),new Date(waitDeadlineAt).toISOString()]);}
       else{const list=this.local[id]||[];for(const t of tables)list.push({stage:move.phase,number:t.number,players:t.players,roomCode:null,result:null,createdAt,waitDeadlineAt});this.local[id]=list;this.save();}
       rows=await this.rows(id,conn);
+      assertExistingStageDraw(current,move.quota,rows.filter(x=>x.stage===move.phase));
     }
   }
   async summary(id,initialTables=[]){

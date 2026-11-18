@@ -110,6 +110,7 @@
     else start.value='';
   }
   const overview=byId('tournamentOverview'),stageList=byId('tournamentStages'),refresh=byId('tournamentRefresh');
+  let lastOpenedPhase=null;
   function renderOverview(){
     if(!overview||!stageList)return;
     const expandedStages=new Set(Array.from(stageList.querySelectorAll('details[open]'),node=>node.dataset.stageKey));
@@ -117,12 +118,17 @@
     const dashboard=window.MauMauTournamentDashboard;
     const stages=dashboard?.summarize({bracket,currentStage,currentTables:drawnTables,games:gameStates})||[];
     overview.hidden=!stages.length;
+    const newlyAssignedPhase=lastOpenedPhase!==currentStage;
     for(const stage of stages){
       const details=document.createElement('details');details.className='tournament-stage-overview';
-      details.dataset.stageKey=stage.stage;details.open=expandedStages.has(stage.stage);
+      details.dataset.stageKey=stage.stage;
+      // Mostra automaticamente as mesas do NOVO sorteio uma vez; depois
+      // preserva a escolha do usuário ao expandir/fechar cada etapa.
+      details.open=expandedStages.has(stage.stage)||(newlyAssignedPhase&&stage.stage===currentStage);
       const heading=document.createElement('summary');
       const label=document.createElement('strong');label.textContent=stage.label;
-      const stat=document.createElement('span');stat.textContent=stage.finished+' de '+stage.total+' mesas concluídas';
+      const stat=document.createElement('span');
+      stat.textContent=(stage.stage!=='qualifier'&&stage.total>1?'🎲 Novo sorteio · ':'')+stage.finished+' de '+stage.total+' mesas concluídas';
       heading.append(label,stat);details.append(heading);
       const cards=document.createElement('div');cards.className='tournament-stage-cards';
       for(const table of stage.tables){
@@ -158,6 +164,7 @@
       }
       details.append(cards);stageList.append(details);
     }
+    lastOpenedPhase=currentStage;
   }
   function render(result){
     config=result.tournament;name.textContent='🏆 '+config.name;
@@ -182,6 +189,8 @@
       else if(bracket?.stages?.length){const p=document.createElement('p');
         if(currentStage==='final'){
           p.textContent='🏆 GRANDE FINAL FORMADA! Os finalistas devem voltar à tela principal, abrir TORNEIOS e clicar em ENTRAR NA MINHA MESA. A sala é aberta na primeira entrada autorizada. O início da partida é manual; o relógio de cinco minutos NÃO inicia sozinho.';
+        }else if(currentStage!=='qualifier'){
+          p.textContent='🎲 '+(drawnTables.length>1?'Novo sorteio realizado: consulte sua mesa abaixo.':'Mesa única da nova fase formada.')+' Os classificados entram manualmente por ENTRAR NA MINHA MESA. A partida começa apenas após o início manual.';
         }else{
           p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será criada automaticamente quando todas as mesas terminarem.';
         }

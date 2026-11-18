@@ -1,3 +1,13 @@
+## V40.69.8.32 — Sorteio persistente das próximas fases (18/11/2026)
+
+- **Auditoria:** a distribuição aleatória dos classificados já existia em `tournament-bracket.js` via `tournament-draw.distribute()`. A alteração preserva esse sorteio e acrescenta verificações para impedir que uma fase parcialmente gravada ou com jogadores duplicados seja aceita silenciosamente.
+- **Novas fases:** sempre que houver classificados suficientes para formar duas ou mais mesas, um novo embaralhamento independente distribui os elegíveis em mesas equilibradas de 2 a 5 jogadores. Com uma única mesa, todos os elegíveis recebem sua vaga sem sorteio de grupos desnecessário.
+- **Segurança e persistência:** uma fase já sorteada não é redistribuída por novas consultas, reconexões ou resultados repetidos; sua composição é validada contra a quantidade de classificados de cada mesa de origem. Uma fase incompleta é sinalizada e preservada para verificação, nunca recriada automaticamente.
+- **Simultaneidade:** avanço no armazenamento local é serializado por torneio; no PostgreSQL permanece o bloqueio transacional (`pg_advisory_xact_lock`). A criação e leitura das mesas é validada após a gravação.
+- **Interface:** a fase recém-criada expande automaticamente a relação das mesas no painel. Em fases com várias mesas, a informação de novo sorteio é destacada; a entrada dos classificados continua exclusivamente manual, pelo botão **ENTRAR NA MINHA MESA**.
+- **Preservação:** quotas de classificação, desempates, cronômetro de cinco minutos, início manual, observadores e regras das cartas (incluindo Queima com compra manual V40.69.8.30) não foram alterados.
+- **Limitações:** testes locais simulam a lógica e persistência JSON, mas não substituem integração real PostgreSQL/Socket.IO nem homologação no Render. `package.json` permanece na versão legada de compatibilidade; `server.js` identifica o release funcional.
+
 ## V40.69.8.31 — Entrada manual nas fases seguintes do torneio (18/11/2026)
 
 - **Nova regra do torneio:** classificatórias preservam entrada inicial existente; quartas, semifinais e final NÃO transferem jogadores automaticamente. As novas fases e mesas continuam organizadas pelo servidor, com vagas reservadas pela identidade autenticada. O classificado retorna à tela principal, abre **Torneios** e usa **ENTRAR NA MINHA MESA**.
