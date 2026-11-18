@@ -1,3 +1,13 @@
+## V40.69.8.31 — Entrada manual nas fases seguintes do torneio (18/11/2026)
+
+- **Nova regra do torneio:** classificatórias preservam entrada inicial existente; quartas, semifinais e final NÃO transferem jogadores automaticamente. As novas fases e mesas continuam organizadas pelo servidor, com vagas reservadas pela identidade autenticada. O classificado retorna à tela principal, abre **Torneios** e usa **ENTRAR NA MINHA MESA**.
+- **Segurança do servidor:** clientes antigos não podem usar `automatic:true` nas fases posteriores à classificatória; apenas conta habilitada à fase/mesa pode entrar. Duas entradas quase simultâneas na mesma sala aguardam brevemente o bloqueio de criação, sem criar mesas duplicadas.
+- **Fim de uma fase:** `SAIR` após uma partida de torneio concluída não marca desistência nem remove o histórico competitivo. Ao mudar para a próxima sala, a sessão anterior é desvinculada com preservação dos resultados pendentes.
+- **Interface mobile:** aviso compacto de classificação na tela principal, com fechamento, sem sobrepor o cabeçalho, as cartas ou a mesa. A notificação é informativa e não aciona entrada automática. Botão de entrada permanece no painel Torneios; as mensagens explicam claramente a mudança manual.
+- **Regressão:** testes antigos de encaminhamento automático atualizados para o novo requisito, novo teste de contrato para primeira fase, avanço manual, saída concluída e concorrência. Queima com compra manual da V40.69.8.30 e todas as regras de partidas foram preservadas.
+- **Limitação preservada por segurança:** uma sala antiga que já tenha sido iniciada e não possua snapshot válido continua sujeita à recuperação controlada, sem recriação automática de cartas ou resultados.
+- `RELEASE_VERSION` em `server.js`: `V40.69.8.31`; a versão técnica legada em `package.json` permanece inalterada para não afetar verificações preexistentes.
+
 ## V40.69.8.30 — Queima com escolha obrigatória, sem compra automática (18/11/2026)
 
 - **Regra confirmada pelo usuário:** uma carta comum idêntica ao topo inicia Queima pelo clique direto ou pelo botão QUEIMA. O motor descarta a carta, mantém a vez e **não retira automaticamente nenhuma carta do monte**. O jogador precisa **jogar outra carta válida ou clicar manualmente em COMPRAR**.

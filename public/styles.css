@@ -5067,9 +5067,10 @@ button.bot-primary{
 .tournament-repair-final:disabled{opacity:.6}
 
 /* V40.69.8.26 — etapa seguinte sempre acessível, inclusive em telas pequenas. */
-.tournament-phase-notice{position:fixed;z-index:205;left:50%;top:82px;bottom:auto;transform:translateX(-50%);width:min(560px,calc(100vw - 20px));background:#133525;color:#fff5d9;border:2px solid #d6ad57;border-radius:16px;box-shadow:0 12px 38px #000b;padding:12px 14px;display:grid;gap:7px;text-align:center}
+.tournament-phase-notice{position:relative;z-index:1;width:min(560px,100%);max-width:100%;box-sizing:border-box;margin:12px auto 0;background:#133525;color:#fff5d9;border:1px solid #d6ad57;border-radius:12px;box-shadow:0 4px 14px #0005;padding:10px 32px 10px 12px;display:grid;gap:6px;text-align:center}
 .tournament-phase-notice[hidden]{display:none!important}
 .tournament-phase-notice strong{font-size:14px;line-height:1.3;color:#ffda80}
 .tournament-phase-notice span{font-size:12px;line-height:1.4}
 .tournament-phase-notice button{background:#d2a044;color:#211807;border:0;border-radius:10px;font-weight:900;padding:11px 13px;min-height:44px;cursor:pointer}
-@media(max-width:600px){.tournament-phase-notice{top:70px;max-height:42vh;overflow:auto}.tournament-phase-notice strong{font-size:13px}}
+.tournament-phase-notice #tournamentNextPhaseClose{position:absolute;right:5px;top:5px;min-height:28px;min-width:28px;padding:2px;background:transparent;color:#fff;border:0;font-size:20px}
+@media(max-width:600px){.tournament-phase-notice{margin:8px auto 0;padding:9px 28px 9px 9px}.tournament-phase-notice strong{font-size:13px}}

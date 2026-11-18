@@ -58,18 +58,18 @@ async function main(){
   assert.equal(notifications.length,2,'A fase classificatória também requer chaves privadas');
   assert.equal(notifications[0].value.tableNumber,3);
   assert.equal('code' in notifications[0].value,false);
-  // Client flow: no extra click, no duplicate entry, no observer promotion.
+  // Fluxo legado da primeira fase: mantém entrada automática; fases seguintes são manuais.
   const autoEvents=new Map(),autoEmits=[];
   const client={socket:{connected:true,on:(name,fn)=>autoEvents.set(name,fn),emit:(name,value)=>autoEmits.push({name,value})},
     pendingVoluntaryLeave:()=>null,leaveRoomPending:false,URLSearchParams,location:{search:''},
     state:null,saved:()=>({role:'PLAYER'}),tournamentWatchMode:false,
     savedSessionResumePending:false,accountSeatResumePending:false,
     setTimeout:()=>1,clearTimeout:()=>{},toast:()=>{}};
-  const begin=app.indexOf('// V40.69.8.13 — encaminhamento automático');
+  const begin=app.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
   const end=app.indexOf("socket.on('joined',data=>{",begin);
   assert(begin>=0&&end>begin,'Bloco de entrada automática não encontrado');
   vm.runInNewContext(app.slice(begin,end),client);
-  const target={tournamentId:'cup-abc',stage:'semi',tableNumber:3};
+  const target={tournamentId:'cup-abc',stage:'qualifier',tableNumber:3};
   const onAssignment=autoEvents.get('tournamentSeatAssigned');
   onAssignment(target);onAssignment(target);
   assert.equal(autoEmits.length,1,'Convocação duplicada não duplica evento de entrada');
@@ -82,11 +82,11 @@ async function main(){
   // User-facing UI and client automation contract.
   assert(ui.includes('ASSISTIR AO TORNEIO'));
   assert(ui.includes("game?.liveStatus==='lobby'"),'Espectador deve poder entrar no lobby do torneio');
-  assert(!ui.includes("join.textContent=game?.created?"),'Jogador inscrito não deve depender de botão manual');
+  assert(ui.includes('🎮 ENTRAR NA MINHA MESA'),'Participação nas fases seguintes deve exigir botão manual');
   assert(app.includes("socket.on('tournamentSeatAssigned',autoEnterTournamentSeat)"));
   assert(app.includes('automatic:true'));
   assert(server.includes("if(tournamentWatch?room.status==='finished'"));
-  assert(html.includes('Os jogadores sorteados entram automaticamente'));
-  console.log('✓ V40.69.8.13: atribuição autenticada, sem retomada de desistente, proteção do observador e entrada automática.');
+  assert(html.includes('Os jogadores entram nas próximas fases pelo painel Torneios'));
+  console.log('✓ V40.69.8.31: convocação autenticada, entrada automática apenas nas classificatórias e acesso manual nas fases seguintes.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

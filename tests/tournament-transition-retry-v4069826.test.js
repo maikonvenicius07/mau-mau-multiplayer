@@ -7,7 +7,7 @@ const root=path.join(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
-const start=client.indexOf('// V40.69.8.13 — encaminhamento automático');
+const start=client.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
 const end=client.indexOf("socket.on('joined',data=>{",start);
 assert(start>0&&end>start);
 const code=client.slice(start,end);
@@ -23,13 +23,13 @@ const context={socket,Date:Clock,document:{getElementById:id=>elements[id]||null
   setTimeout:(fn)=>{const n=nextTimer++;timers.set(n,fn);return n;},
   clearTimeout:n=>timers.delete(n),toast:()=>{}};
 vm.runInNewContext(code,context);
-const target={tournamentId:'copa123',stage:'final',tableNumber:1};
+const target={tournamentId:'copa123',stage:'qualifier',tableNumber:1};
 const count=()=>requests.filter(x=>x.name==='enterTournamentTable').length;
 events.get('tournamentSeatAssigned')(target);
 assert.equal(count(),1);
 assert.equal(elements.tournamentNextPhaseNotice.hidden,false);
-assert.match(elements.tournamentNextPhaseTitle.textContent,/FINAL/);
-assert.match(elements.tournamentNextPhaseEnter.textContent,/ENTRAR NA MESA FINAL/);
+assert.match(elements.tournamentNextPhaseTitle.textContent,/CLASSIFICATÓRIAS/);
+assert.equal(elements.tournamentNextPhaseEnter.hidden,true);
 for(let i=0;i<8;i++){
   const next=[...timers.entries()][0];assert(next,'A tentativa precisa possuir timeout');
   timers.delete(next[0]);next[1]();
@@ -42,7 +42,7 @@ time+=61000;
 events.get('tournamentSeatAssigned')(target);
 assert.equal(count(),9,'A mesma vaga deve poder ser tentada novamente após a janela de resfriamento');
 elements.tournamentNextPhaseEnter.handlers.click();
-assert.equal(count(),10,'O botão explícito deve permitir nova tentativa com a vaga reservada');
+assert.equal(count(),9,'Primeira fase segue o fluxo automático, sem exigir botão na notificação');
 assert.equal(requests.at(-1).payload.automatic,true,'O servidor ainda deve aplicar as restrições do encaminhamento automático');
 assert.match(html,/id="tournamentNextPhaseEnter"/);
 assert.match(css,/tournament-phase-notice\[hidden\]/);
@@ -66,4 +66,4 @@ assert(client.includes("if(!$('#networkDiagnosticsDialog')?.open)return;"),
   'O diagnóstico fechado não deve escrever os diversos campos ocultos a cada estado');
 assert(client.includes('sampleNow-lastStatePayloadSampleAt>=5000'),
   'Medição do tamanho do estado não deve serializar todos os eventos');
-console.log('✓ V40.69.8.26: convocação preservada, 8 tentativas limitadas, recuperação posterior e manual, aviso da final e redução de DOM/JSON em diagnóstico.');
+console.log('✓ V40.69.8.31: limite de tentativas automáticas apenas na primeira fase, aviso manual nas posteriores e diagnóstico seletivo.');

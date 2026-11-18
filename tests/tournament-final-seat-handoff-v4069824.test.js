@@ -49,7 +49,7 @@ async function main(){
     'Finalista em sala comum sem rodada deve receber convocação da final');
   assert.equal((await locate({...idle,status:'playing'})).length,0,
     'Jamais convocar automaticamente quem está jogando uma partida');
-  const begin=client.indexOf('// V40.69.8.13 — encaminhamento automático');
+  const begin=client.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
   const end=client.indexOf("socket.on('joined',data=>{",begin);
   assert(begin>0&&end>begin);
   function clientScenario(state,search=""){
@@ -64,11 +64,11 @@ async function main(){
     return sent;
   }
   assert.equal(clientScenario({status:'lobby',round:0,viewerRole:'PLAYER',tournamentWait:null,tournamentSchedule:null})
-    .filter(m=>m.name==='enterTournamentTable').length,1,
-    'Cliente deve seguir a final automaticamente mesmo estando em lobby comum');
+    .filter(m=>m.name==='enterTournamentTable').length,0,
+    'A final NÃO pode gerar transferência automática, mesmo com sala comum parada');
   assert.equal(clientScenario({status:'lobby',round:0,viewerRole:'PLAYER'},'?room=FGRYM6')
-    .filter(m=>m.name==='enterTournamentTable').length,1,
-    'Link antigo de sala comum não pode impedir a mudança segura para a final');
+    .filter(m=>m.name==='enterTournamentTable').length,0,
+    'Link antigo de sala não deve disparar entrada automática na final');
   assert.equal(clientScenario(null,'?room=FGRYM6').length,0,
     'Antes de concluir o convite não se deve ignorar a intenção de entrar na sala');
   for(const state of [
@@ -82,6 +82,6 @@ async function main(){
   assert(client.includes('🏆 Mesa de torneio · observadores: Torneios'));
   assert(ui.includes("game?.liveStatus==='lobby'"),'Observadores podem assistir à espera');
   assert(ui.includes('Aguardando pelo menos dois jogadores na mesa do torneio'));
-  console.log('✓ V40.69.8.24: finalista em lobby comum entra automaticamente na final; partida ativa e observador protegidos, cronômetro e acesso alternativo verificados.');
+  console.log('✓ V40.69.8.31: finalista é avisado sem entrar automaticamente; partida ativa, observador e entrada autenticada manual preservados.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

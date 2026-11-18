@@ -20,7 +20,7 @@ assert(code.includes("socket.on('repairTournamentFinal'"));
 assert(code.includes('await tournamentCanManage(socket.data.auth,id)'));
 assert(code.includes('await roomSnapshotStore.hasStoredSnapshot(binding.roomCode)'));
 assert(code.includes('!snapshotsRestored')===false||code.includes('snapshotsRestored'));
-assert(ui.includes('GRANDE FINAL CRIADA'));
+assert(ui.includes('GRANDE FINAL FORMADA'));
 assert(ui.includes('⚠ RECUPERAR MESA DA FINAL'));
 assert(ui.includes("window.prompt('Para confirmar, digite RECRIAR FINAL:"));
 assert(ui.includes('tournamentFinalRepairResult'));

@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.30';
+const RELEASE_VERSION = 'V40.69.8.31';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -315,6 +315,13 @@ const {ensureReady:ensureTournamentBracketReady}=createRetryableInitialization({
 });
 void ensureTournamentBracketReady();
 const tournamentTableJoinLocks=new Set();
+async function awaitTournamentTableJoinLock(key,{timeoutMs=6000}={}){
+  const until=Date.now()+timeoutMs;
+  while(tournamentTableJoinLocks.has(key)){
+    if(Date.now()>=until)throw new Error('A mesa está sendo preparada. Aguarde e tente novamente.');
+    await new Promise(resolve=>setTimeout(resolve,60));
+  }
+}
 const tournamentTestDeleteLocks=new Set();
 const tournamentRoundStartLocks=new Set();
 const TournamentSeatHandoff=require('./tournament-seat-handoff');
@@ -1934,6 +1941,15 @@ function abandonHumanSeat(room, player, {reason='saiu voluntariamente da sala',s
 async function abandonHumanSeatDurably(room,player,{reason='saiu voluntariamente da sala',socket=null}={}){
   if(!room||!player||player.isBot)return {changed:false,deleted:false};
   await requireRoomPersistenceReady();
+  // A classificação de uma mesa de torneio concluída já está definida.
+  // SAIR depois do fim nunca é desistência: preservar elenco e resultado,
+  // sem tombstone que possa apagar a identidade durante a restauração.
+  if(room.tournament&&room.status==='finished'){
+    const result=abandonHumanSeat(room,player,{reason,socket});
+    try{if(!room.rankingRecorded)await roomSnapshotStore.saveNow(room);}
+    catch(e){console.error('[tournament] snapshot após saída da mesa concluída falhou',room.code,e?.message||e);}
+    return result;
+  }
   const eventAt=Date.now();
   const playerKey=String(player.playerKey||'');
   if(playerKey)await roomSnapshotStore.markPlayerAbandoned(room.code,playerKey,player.id,eventAt);
@@ -2420,6 +2436,17 @@ async function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, r
 async function prepareForRoomSwitch(socket, exceptCode=null) {
   forgetCameraSocket(socket);
   const currentCode=String(socket.data.roomCode||'');
+  // V40.69.8.31: ao acessar manualmente uma fase seguinte, desconectar a
+  // sessão da mesa de torneio CONCLUÍDA sem registrar abandono ou eliminar
+  // o classificado. Resultados ainda pendentes mantêm o elenco original.
+  if(currentCode&&currentCode!==exceptCode&&socket.data.role===ROLE_PLAYER){
+    const previous=rooms.get(currentCode);
+    if(previous?.tournament&&previous.status==='finished'){
+      const member=previous.players.find(p=>!p.isBot&&p.id===socket.data.playerId&&
+        p.playerKey===socket.data.auth?.playerKey&&p.socketId===socket.id);
+      if(member)await abandonHumanSeatDurably(previous,member,{reason:'concluiu a fase anterior',socket});
+    }
+  }
   if(socket.data.role===ROLE_SPECTATOR&&currentCode&&currentCode!==exceptCode){
     const currentRoom=rooms.get(currentCode);
     if(currentRoom){
@@ -3329,7 +3356,15 @@ io.on('connection', socket => {
       const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
         await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
+      if(phase!=='qualifier'){
+        const other=activePlayerRoomForKey(socket.data.auth.playerKey);
+        if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number))
+          throw new Error('Você ainda está em outra partida. Saia dessa sala antes de entrar na próxima fase pelo painel Torneios.');
+      }
       if(payload?.automatic){
+        // Compatibilidade com cliente antigo: a transferência automática de
+        // fases seguintes fica proibida também no servidor.
+        if(phase!=='qualifier')throw new Error('Entre manualmente na próxima fase pelo painel Torneios.');
         const other=activePlayerRoomForKey(socket.data.auth.playerKey);
         if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number)
           &&!TournamentSeatHandoff.canAutoSwitchFrom(other))
@@ -3339,7 +3374,7 @@ io.on('connection', socket => {
       // após identificar a sala persistida (evita o retorno entre rodadas).
       const event=await tournamentCatalog.get(id);
       if(!event||event.status!=='closed')throw new Error('O torneio deve estar com as inscrições encerradas.');
-      if(tournamentTableJoinLocks.has(lockKey))throw new Error('A mesa está sendo preparada. Tente entrar novamente.');
+      await awaitTournamentTableJoinLock(lockKey);
       tournamentTableJoinLocks.add(lockKey);
       try{
         if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
