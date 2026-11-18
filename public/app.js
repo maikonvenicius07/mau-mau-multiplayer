@@ -4752,7 +4752,9 @@ function renderControls(){
   }
 
   if(canStart){
-    if(me?.host){
+    // Torneios só admitem participantes humanos sorteados: nunca mostrar
+    // Adicionar/Remover máquina ou seletor de dificuldade, mesmo ao anfitrião.
+    if(me?.host&&!state.tournamentSchedule){
       const botBar=document.createElement('div');botBar.className='bot-controls';
       const addBot=document.createElement('button');addBot.className='bot-control-btn';addBot.textContent='🤖 Adicionar máquina';
       addBot.disabled=!socket.connected||state.players.length>=5||(state.status==='between-rounds'&&state.round>=Number(state.rules?.rounds||5));

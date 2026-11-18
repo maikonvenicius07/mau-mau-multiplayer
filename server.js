@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.33';
+const RELEASE_VERSION = 'V40.69.8.34';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -1881,6 +1881,9 @@ function nextBotInfo(room) {
 }
 
 function addBotToRoom(room) {
+  // Defesa em profundidade: nenhum caminho (evento Socket.IO ou função interna)
+  // pode adicionar jogadores automáticos a uma mesa oficial de torneio.
+  if(room?.tournament)throw new Error('Máquinas não podem ocupar vagas em torneios.');
   const bot = Engine.addPlayer(room, nextBotInfo(room));
   bot.connected = true;
   bot.socketId = null;

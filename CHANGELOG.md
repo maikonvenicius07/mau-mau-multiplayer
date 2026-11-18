@@ -1,3 +1,11 @@
+## V40.69.8.34 — Torneios sem máquinas em todas as camadas (18/11/2026)
+
+- **Defeito visual confirmado:** `public/app.js`, em `renderControls()`, apresentava **🤖 Adicionar máquina** para o anfitrião mesmo quando a sala tinha `tournamentSchedule`. O evento `addBot` já negava a ação no servidor, mas o botão indevido confundia os jogadores.
+- **Interface corrigida:** em toda mesa de torneio, independente da fase ou do status lobby/entre rodadas, os controles Adicionar máquina, Remover máquina e Nível do robô não são renderizados. O controle **INICIAR PARTIDA** e o prazo de espera continuam como antes. Em partidas normais, os controles de máquina continuam disponíveis.
+- **Segurança no servidor:** `addBotToRoom()` também rejeita salas que possuam `room.tournament`, além da validação preexistente dos eventos Socket.IO `addBot`, `removeBot`, `setBotDifficulty` e da conversão de assentos em máquinas.
+- **Validação:** teste dedicado para renderização em torneios e salas comuns, bloqueio de eventos e caminho interno de adição. Alterada identificação funcional em `server.js` e parâmetro de cache de `app.js` no HTML.
+- **Não alterado:** inscrições, sorteio, entrada manual, recuperação das mesas, cronômetro de cinco minutos, classificação, regras de cartas, Queima, Ranking, WebRTC, observadores e tamanho das cartas.
+
 ## V40.69.8.33 — Entrada real na mesa da final: lobby durável e diagnóstico de falha (18/11/2026)
 
 - Antes: a sala era vinculada à fase antes de confirmar que o snapshot inicial estava salvo; uma falha intermediária deixava o painel com finalistas classificados, mas sem sala recuperável. Agora: snapshot de lobby persistido **antes** do vínculo competitivo; em falha de criação o snapshot provisório é descartado com tombstone.
