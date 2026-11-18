@@ -12,6 +12,7 @@
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
   let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
+  let pendingTableEntry=null,entryFeedback=null;
   // Auto-refresh must not erase unsaved tournament settings or duplicate requests.
   let adminEditing=false,lastSelectedPayload=null,detailsInFlight=null,detailsInFlightId='';
   const autoStatus=byId('tournamentAutoStatus');
@@ -278,13 +279,35 @@
           // perdida durante F5, mudança de fase ou conexão oscilante.
           const enter=document.createElement('button');enter.type='button';
           enter.className='tournament-enter-table';enter.textContent='🎮 ENTRAR NA MINHA MESA';
+          const entryStatus=document.createElement('p');
+          entryStatus.className='tournament-entry-feedback';entryStatus.setAttribute?.('role','status');
+          const entryKey=config.id+':'+currentStage+':'+t.number;
+          if(pendingTableEntry?.key===entryKey){
+            pendingTableEntry.button=enter;pendingTableEntry.status=entryStatus;
+            enter.disabled=true;entryStatus.textContent='Conectando à sua mesa oficial...';
+          }else if(entryFeedback?.key===entryKey&&Date.now()-entryFeedback.at<90000){
+            entryStatus.textContent=entryFeedback.message;
+            entryStatus.classList.toggle('is-error',!entryFeedback.ok);
+          }
           enter.addEventListener('click',()=>{
-            if(typeof socket==='undefined'||!socket.connected){message.textContent='Conecte-se para entrar na mesa.';return;}
-            enter.disabled=true;message.textContent='Conectando à sua mesa...';
+            if(pendingTableEntry?.key===entryKey)return;
+            if(typeof socket==='undefined'||!socket.connected){
+              entryStatus.textContent='Sem conexão com o servidor. Verifique a internet e tente novamente.';
+              entryStatus.classList.add('is-error');return;
+            }
+            enter.disabled=true;entryStatus.textContent='Conectando à sua mesa oficial...';
+            entryStatus.classList.remove('is-error');
+            const request={key:entryKey,button:enter,status:entryStatus};
+            pendingTableEntry=request;
             socket.emit('enterTournamentTable',{tournamentId:config.id,stage:currentStage,tableNumber:t.number,automatic:false});
-            setTimeout(()=>{enter.disabled=false;},3000);
+            setTimeout(()=>{
+              if(pendingTableEntry!==request)return;
+              pendingTableEntry=null;request.button.disabled=false;
+              request.status.textContent='O servidor não confirmou a entrada. Verifique a conexão e tente novamente.';
+              request.status.classList.add('is-error');
+            },38000);
           });
-          card.append(enter);
+          card.append(enter,entryStatus);
         }else if(!needsRecovery){
           // Observadores podem entrar assim que a sala é criada, inclusive no lobby.
           const available=game?.liveStatus==='lobby'||game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
@@ -423,7 +446,21 @@
   }
   if(typeof socket!=='undefined'){
     socket.on('joined',data=>{
+      if(data?.source==='tournament'||data?.source==='tournament-resume')pendingTableEntry=null;
       if((data?.source==='tournament'||data?.source==='tournament-resume'||data?.tournamentWatch)&&dialog.open)dialog.close();
+    });
+    socket.on('tournamentTableEntryResult',data=>{
+      if(!data||data.ok!==false||!config||data.tournamentId!==config.id)return;
+      const key=data.tournamentId+':'+data.stage+':'+data.tableNumber;
+      const detail=String(data.message||'Não foi possível entrar na mesa.');
+      entryFeedback={key,message:'⚠ '+detail,ok:false,at:Date.now()};
+      if(pendingTableEntry?.key===key){
+        pendingTableEntry.button.disabled=false;
+        pendingTableEntry.status.textContent=entryFeedback.message;
+        pendingTableEntry.status.classList.add('is-error');
+        pendingTableEntry=null;
+      }
+      if(dialog.open)message.textContent=detail;
     });
     socket.on('gameError',data=>{
       if(dialog.open&&['Conectando à sua mesa...','Entrando como observador...'].includes(message.textContent))

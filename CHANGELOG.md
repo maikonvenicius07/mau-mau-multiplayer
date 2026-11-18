@@ -1,3 +1,12 @@
+## V40.69.8.33 — Entrada real na mesa da final: lobby durável e diagnóstico de falha (18/11/2026)
+
+- Antes: a sala era vinculada à fase antes de confirmar que o snapshot inicial estava salvo; uma falha intermediária deixava o painel com finalistas classificados, mas sem sala recuperável. Agora: snapshot de lobby persistido **antes** do vínculo competitivo; em falha de criação o snapshot provisório é descartado com tombstone.
+- Um lobby com snapshot íntegro pode ser restaurado pelo mesmo código e elenco, somente se **nunca começou** (`room_state=lobby`, status `lobby`, rodada zero). Partidas iniciadas, snapshots inválidos e resultados gravados não são zerados.
+- Entrada simultânea usa reserva de mesa atômica e espera controlada pelo banco (até 30 s antes de avisar que a mesa segue em preparação).
+- Recusa de entrada aparece ao lado do botão ENTRAR NA MINHA MESA com motivo enviado pelo servidor; botão retorna ao estado clicável após erro, sem depender de tentar repetidamente.
+- Troca manual de sala comum ainda sem rodada pode ocorrer com segurança. O servidor respeita limite de criação de salas. Vínculos antigos de lobby sem `claimedAt` utilizam `createdAt` apenas como prazo conservador; estados `started`/`legacy` seguem protegidos.
+- Preservados: sorteio, classificação, entrada manual nas próximas fases, início manual, temporizador, observadores, Queima com compra manual, demais regras, layout da mesa e Ranking. Testes locais e limitações registrados no relatório independente.
+
 ## V40.69.8.32 — Sorteio persistente das próximas fases (18/11/2026)
 
 - **Auditoria:** a distribuição aleatória dos classificados já existia em `tournament-bracket.js` via `tournament-draw.distribute()`. A alteração preserva esse sorteio e acrescenta verificações para impedir que uma fase parcialmente gravada ou com jogadores duplicados seja aceita silenciosamente.

@@ -9,7 +9,7 @@ function canRecoverMissingLobby(binding,{snapshotsReady=false,roomExists=false,
   // Vínculos anteriores a este protocolo são desconhecidos. Não há prova de
   // que a partida não começou: manter bloqueado é mais seguro que zerar pontos.
   if(binding.roomState!=='lobby')return false;
-  const claimedAt=Number(binding.claimedAt);
+  const claimedAt=Number(binding.claimedAt)||Number(binding.createdAt);
   // Um tombstone persistente permite recuperação imediata após sair do lobby;
   // ausência de snapshot só permite recovery passado o prazo de segurança.
   return deleted || (Number.isFinite(claimedAt) && claimedAt>0 &&

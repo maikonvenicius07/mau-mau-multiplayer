@@ -2626,6 +2626,7 @@ button.bot-primary{
 /* V51.4: entrar na própria mesa e consultar resultado, sem colunas extras */
 .tournament-enter-table{margin-top:12px;background:#bd9140;border:1px solid #f0d080;border-radius:10px;color:#181e13;padding:11px 15px;font-weight:800;cursor:pointer;min-height:42px;max-width:100%}
 .tournament-enter-table:disabled{opacity:.55;cursor:not-allowed}
+.tournament-entry-feedback{font-size:12px;line-height:1.45;color:#d0edc5;margin:7px 0 0;overflow-wrap:anywhere}.tournament-entry-feedback.is-error{color:#ffe1aa}
 .tournament-watch-table{margin-top:12px;background:#173d2b;border:1px solid #8abfa1;border-radius:10px;color:#e6f5e9;padding:11px 15px;font-weight:800;cursor:pointer;min-height:44px;max-width:100%;touch-action:manipulation}
 .tournament-watch-table:disabled{opacity:.55;cursor:not-allowed}
 .tournament-watch-count{display:block;margin-top:5px;color:#b9cfbf;font-size:11px}
