@@ -1,3 +1,14 @@
+## V40.69.8.30 — Queima com escolha obrigatória, sem compra automática (18/11/2026)
+
+- **Regra confirmada pelo usuário:** uma carta comum idêntica ao topo inicia Queima pelo clique direto ou pelo botão QUEIMA. O motor descarta a carta, mantém a vez e **não retira automaticamente nenhuma carta do monte**. O jogador precisa **jogar outra carta válida ou clicar manualmente em COMPRAR**.
+- **Compra e passe:** `drawAction()` efetua uma única compra apenas quando o jogador solicitar; `passTurn()` rejeita o passe antes de cumprir a obrigação. Ao clicar COMPRAR, pode jogar carta legal ou passar e guardar a carta. Uma segunda tentativa de compra é rejeitada.
+- **Compra anterior:** se o jogador comprou normalmente e depois descartou uma carta idêntica, a compra anterior não satisfaz a nova obrigação da Queima. O identificador anterior é limpo quando a Queima começa; depois, o jogador escolhe outra carta válida ou uma nova compra manual.
+- **Mau-Mau / batendo:** se a continuação da Queima utiliza a última carta e o anúncio é válido, a rodada pode ser concluída, sem gerar uma compra automática da Queima. Penalidades independentes das regras de Mau-Mau permanecem existentes.
+- **Interface:** aviso central mostra a escolha "jogue outra carta válida OU clique em COMPRAR"; COMPRAR permanece utilizável enquanto a obrigação estiver pendente; PASSAR somente é liberado após o clique em COMPRAR. Regras da interface e versão de cache do `app.js` atualizadas.
+- **Proteção:** teste novo de contrato V40.69.8.30, atualização dos testes anteriores que esperavam a compra automática e validação do motor, botão, compra, passe, reconexão, máquinas e torneio. As regras de cartas especiais, Jogada Rápida, Dupla, Ranking, partidas normais e torneios foram preservadas fora da mudança solicitada.
+- **Versões:** `RELEASE_VERSION` em `server.js` passa a `V40.69.8.30`. `package.json` mantém a versão legada exigida por verificações existentes. O número funcional correto é este cabeçalho e `/health.releaseVersion`.
+- **Limites:** testes de integração Socket.IO e homologação com jogadores reais no Render / celulares requerem ambiente com dependências e acesso de produção.
+
 ## V40.69.8.29 — Queima obrigatória em todo descarte idêntico e compra imediata (18/11/2026)
 
 - **Correção comprovada:** `playCard()` somente encaminhava uma carta idêntica ao topo para a Queima quando não existia outra carta legal na mão. Com outra opção válida, o clique direto era processado como jogada comum, sem penalidade. A condição foi removida: toda carta NORMAL idêntica ao topo, descartada na vez do jogador, entra na mesma `burnMatch()` do botão Queima.

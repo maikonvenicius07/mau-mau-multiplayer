@@ -80,10 +80,11 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.burnMatch(r,b.id,'b5h');
   assert.equal(r.currentPlayer,1,'quem queima deve assumir a jogada');
   assert.equal(r.continuationPlayerId,b.id,'Queima na própria vez abre direito à segunda carta');
-  assert.equal(b.hand.length,4,'Queima adiciona uma carta de penalidade automaticamente');
+  assert.equal(b.hand.length,3,'Queima descarta uma carta sem compra automática');
+  assert.equal(b.justDrawnCardId,null);
   E.playCard(r,b.id,'b9h');
   assert.equal(r.continuationPlayerId,null);
-  assert.equal(b.hand.length,3);
+  assert.equal(b.hand.length,2);
   assert.equal(r.currentPlayer,0,'após completar, segue a ordem a partir de quem queimou');
 }
 
@@ -104,7 +105,8 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.burnMatch(r,b.id,'same');
   assert.equal(r.continuationPlayerId,b.id);
   assert.equal(r.currentPlayer,1);
-  assert.equal(b.hand.length,3,'a Queima compra a penalidade imediatamente');
+  assert.equal(b.hand.length,2,'a Queima não compra sem clique em COMPRAR');
+  assert.equal(b.justDrawnCardId,null);
 }
 
 // V36: fora da própria vez não existe Queima com segunda carta.
@@ -133,7 +135,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   b.hand=[card('4','clubs','mau-burn'),card('9','clubs','mau-second'),card('2','spades','mau-last')];
   E.burnMatch(r,b.id,'mau-burn');
   E.playCard(r,b.id,'mau-second');
-  assert.equal(b.hand.length,2,'a carta de penalidade imediata impede ficar com 1 após a segunda jogada');
+  assert.equal(b.hand.length,3,'sem anúncio de Mau-Mau, segue a penalidade habitual ao ficar com uma carta');
 }
 {
   const r=room2(),a=r.players[0],b=r.players[1];
@@ -142,7 +144,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.declare(r,b.id,'mau-mau'); // permitido porque é a vez de Bruno e há Queima válida
   E.burnMatch(r,b.id,'mau-burn-ok');
   E.playCard(r,b.id,'mau-second-ok');
-  assert.equal(b.hand.length,2,'mesmo anunciando Mau-Mau, compra 1 carta por Queima');
+  assert.equal(b.hand.length,1,'após anunciar Mau-Mau, jogar a segunda carta resolve a Queima sem compra');
 }
 
 // Mau-Mau batendo/queimando: duas cartas não precisam ser iguais entre si.
@@ -155,9 +157,9 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.declare(r,b.id,'batendo');
   E.burnMatch(r,b.id,'bat-first');
   E.playCard(r,b.id,'bat-second');
-  assert.equal(r.winnerId,null,'compra obrigatória de Queima impede batida imediata');
-  assert.equal(r.status,'playing');
-  assert.equal(b.hand.length,1);
+  assert.equal(r.winnerId,b.id,'segunda carta válida encerra a rodada sem compra');
+  assert.notEqual(r.status,'playing');
+  assert.equal(b.hand.length,0);
 }
 
 // Valete final dobra pontos dos demais.
@@ -219,8 +221,8 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   assert.equal(r.currentPlayer,1);
   assert.equal(r.continuationPlayerId,bot.id);
   const second=Bot.takeTurn(r,bot,E);
-  assert(['burn-pass-drawn','burn-play-drawn','burn-second-card'].includes(second.action),'bot encerra continuação com a compra da Queima já contabilizada');
-  assert(bot.hand.length>=2,'penalidade da Queima é contabilizada');
+  assert(['burn-draw','burn-pass-drawn','burn-play-drawn','burn-second-card'].includes(second.action),'bot resolve continuação por outra jogada ou compra manual');
+  assert(bot.hand.length>=1,'nenhuma carta é acrescentada automaticamente ao bot');
 }
 
 // Regra validada: Dama com 2 jogadores inverte o sentido e devolve a vez a quem jogou.
@@ -313,7 +315,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   r.discard=[card('9','hearts','v4993-burn-top')];
   a.hand=[card('9','clubs','v4993-burn-legal'),card('2','spades','v4993-burn-other')];
   r.deck=[card('4','diamonds','v4993-burn-draw')];
-  assert.throws(()=>E.passTurn(r,a.id),/compra obrigatória.*n[aã]o est[aá] registrada/i);
+  assert.throws(()=>E.passTurn(r,a.id),/jogue outra carta|COMPRAR/i);
   assert.equal(r.currentPlayer,0);
   E.drawAction(r,a.id);
   E.passTurn(r,a.id);
@@ -606,7 +608,7 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
 }
 
 
-// V40.69.8.29 — penalidade da Queima ocorre no descarte, não no passe.
+// V40.69.8.30 — uma Queima sem continuação não compra automaticamente.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   r.currentPlayer=0;r.discard=[card('2','hearts','penalty-base')];
@@ -616,34 +618,40 @@ assert.equal(E.cardPoints(card('10','hearts')),10);
   E.playCard(r,a.id,'penalty-source');
   E.playCard(r,b.id,'penalty-burn'); // Clique direto, sem botão Queima.
   assert.equal(r.continuationPlayerId,b.id);
-  assert.equal(b.hand.length,3,'a Queima remove uma carta e compra uma de penalidade');
+  assert.equal(b.hand.length,2,'a Queima somente descarta a carta');
+  assert.equal(b.justDrawnCardId,null,'a compra deve aguardar o clique');
+  assert.equal(r.deck.length,1,'o baralho permanece intacto');
+  assert.throws(()=>E.passTurn(r,b.id),/jogue outra carta|COMPRAR/i);
+  E.drawAction(r,b.id); // COMPRAR acionado explicitamente.
   assert.equal(b.justDrawnCardId,'penalty-draw');
-  assert.throws(()=>E.drawAction(r,b.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
+  assert.throws(()=>E.drawAction(r,b.id),/j[aá] comprou/i,'um clique adicional não pode comprar duas vezes');
   E.passTurn(r,b.id);
   assert.equal(r.currentPlayer,0);
   assert(b.hand.some(c=>c.id==='penalty-draw'));
   assert.equal(r.continuationPlayerId,null);
 }
-// Outra carta compatível não libera o clique direto de Queima.
+// Se há carta legal para continuar, não existe compra ou penalidade de Queima.
 {
   const r=room2(),p=r.players[0];r.discard=[card('6','hearts','top-six')];
   p.hand=[card('6','hearts','six'),card('9','hearts','legal'),card('2','clubs','invalid')];
   r.deck=[card('8','spades','penalty')];
+  E.declare(r,p.id,'mau-mau');
   E.playCard(r,p.id,'six');
   assert.equal(r.continuationPlayerId,p.id);
-  assert.equal(p.justDrawnCardId,'penalty');
+  assert.equal(p.justDrawnCardId,null);
   E.playCard(r,p.id,'legal');
   assert.equal(r.continuationPlayerId,null);
-  assert(p.hand.some(c=>c.id==='penalty'),'a pena permanece mesmo após a continuação');
+  assert.equal(r.deck.length,1,'o monte não mudou');
+  assert.equal(p.hand.length,1,'as duas cartas foram descartadas');
 }
-// Mau-Mau batendo não elimina a penalidade obrigatória de Queima.
+// Mau-Mau batendo: quando a segunda carta legal termina a mão, pode bater.
 {
   const r=room2(),p=r.players[0];r.discard=[card('6','hearts','top')];
   p.hand=[card('6','hearts','burn'),card('9','hearts','follow')];
   r.deck=[card('3','clubs','penalty')];
   E.declare(r,p.id,'batendo');E.burnMatch(r,p.id,'burn');E.playCard(r,p.id,'follow');
-  assert.equal(r.winnerId,null);
-  assert.deepEqual(p.hand.map(c=>c.id),['penalty']);
-  assert.equal(r.status,'playing');
+  assert.equal(r.winnerId,p.id);
+  assert.deepEqual(p.hand.map(c=>c.id),[]);
+  assert.equal(r.deck.length,1);
 }
-console.log('✓ V40.69.8.29: Queima imediata, clique direto, segunda carta, passe, compra única e Mau-Mau batendo.');
+console.log('✓ V40.69.8.30: Queima sem compra automática, clique direto, segunda carta, compra manual e Mau-Mau batendo.');

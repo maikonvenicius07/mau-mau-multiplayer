@@ -39,8 +39,10 @@ for(let i=0;i<500;i++){
   assert(E.canBurnMatch(r,paulo).some(c=>c.id===`burn-${i}`));
   E.burnMatch(r,paulo.id,`burn-${i}`);
   assert.equal(r.continuationPlayerId,paulo.id);
-  assert(paulo.justDrawnCardId,'penalidade deve ser comprada no descarte');
-  assert.throws(()=>E.drawAction(r,paulo.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
+  assert.equal(paulo.justDrawnCardId,null,'nenhuma compra é feita ao descartar');
+  assert.throws(()=>E.passTurn(r,paulo.id),/jogue outra carta|COMPRAR/i);
+  E.drawAction(r,paulo.id);
+  assert(paulo.justDrawnCardId,'compra é feita só após COMPRAR');
   const beforePass=paulo.hand.length;
   E.passTurn(r,paulo.id);
   assert.equal(paulo.hand.length,beforePass);
@@ -77,8 +79,10 @@ for(let i=0;i<500;i++){
 
   E.playCard(r,carla.id,`dsource-${i}`);
   E.burnMatch(r,paulo.id,`dburn-${i}`);
-  assert.equal(paulo.justDrawnCardId,`draw-${i}`,'penalidade de 1 carta imediata');
-  assert.throws(()=>E.drawAction(r,paulo.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
+  assert.equal(paulo.justDrawnCardId,null,'Queima não retira carta do monte');
+  E.drawAction(r,paulo.id);
+  assert.equal(paulo.justDrawnCardId,`draw-${i}`,'compra manual de 1 carta');
+  assert.throws(()=>E.drawAction(r,paulo.id),/j[aá] comprou|j[aá] foi/i);
   assert.equal(paulo.justDrawnCardId,`draw-${i}`);
   const bought=paulo.hand.find(c=>c.id===`draw-${i}`);
   if (bought.rank === 'J') {
@@ -108,7 +112,9 @@ console.log('✓ V49.9.3 stress: 1.000 cenários de Queima com compra obrigatór
   const br=Bot.takeBurnOpportunity(r,bot,E);
   assert.equal(br.action,'burn-match');
   const pr=Bot.takeTurn(r,bot,E);
-  assert.equal(pr.action,'burn-pass-drawn');
+  assert.equal(pr.action,'burn-draw');
+  const pass=Bot.takeTurn(r,bot,E);
+  assert.equal(pass.action,'burn-pass-drawn');
   assert(bot.hand.some(c=>c.id==='bot-flex-j'));
   assert.equal(r.continuationPlayerId,null);
 }

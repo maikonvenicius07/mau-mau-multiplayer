@@ -104,7 +104,8 @@ function takeBurnOpportunity(room, bot, Engine) {
   const finishable = Engine.canFinishBurn(room, bot).some(c => c.id === first.id);
 
   // Com duas cartas, se houver continuação válida a máquina tenta bater.
-  // A Queima compra imediatamente 1 carta; o bot não deve cobrar outra.
+  // A Queima não compra automaticamente: se não houver continuação válida,
+  // o bot deve executar explicitamente drawAction antes de passar a vez.
   if (bot.hand.length === 2) {
     Engine.declare(room, bot.id, finishable ? 'batendo' : 'mau-mau');
   }

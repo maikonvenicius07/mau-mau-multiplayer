@@ -13,13 +13,13 @@ function scenario({ extraForA = false, withThird = false } = {}) {
   r.status = 'playing'; r.round = 1; r.direction = -1;
   r.currentPlayer = 1; // Jogador B encerra uma jogada anterior com 6 de Copas.
   r.discard = [card('5', 'hearts', 'prev-five')];
-  r.deck = [card('8', 'spades', 'reserve'), card('3', 'diamonds', 'drawn-by-B'), card('10', 'spades', 'burn-penalty')];
+  r.deck = [card('8', 'spades', 'reserve'), card('3', 'diamonds', 'drawn-by-B')];
   for (const p of r.players) {
     p.connected = true; p.hand = []; p.finishedRound = false;
     p.declaration = null; p.justDrawnCardId = null;
   }
   b.hand = [card('6', 'hearts', 'prior-six'), card('9', 'hearts', 'b-can-play'), card('2', 'clubs', 'b-rest')];
-  a.hand = [card('6', 'hearts', 'burn-six'), card('4', 'hearts', 'first-four'), card('4', 'hearts', 'second-four')];
+  a.hand = [card('6', 'hearts', 'burn-six'), card('4', 'hearts', 'first-four'), card('4', 'hearts', 'second-four'), card('2','clubs','left-after-quick')];
   if (c) c.hand = [card('9', 'clubs', 'c-one'), card('2', 'diamonds', 'c-two')];
   if (extraForA) a.hand.push(card('3', 'clubs', 'a-rest'));
 
@@ -27,7 +27,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
   assert.equal(r.players[r.currentPlayer].id, a.id);
   E.burnMatch(r, a.id, 'burn-six');
   assert.equal(r.continuationPlayerId, a.id);
-  // Após a compra de Queima, ainda existem 3 cartas; não anunciar Mau-Mau.
+  // Após a Queima não ocorre compra; sobra carta extra para não bater na reação.
   E.playCard(r, a.id, 'first-four');
   assert.equal(r.players[r.currentPlayer].id, c ? c.id : b.id, 'a vez normal passa ao próximo jogador');
   assert.equal(r.discard.at(-1).id, 'first-four');
@@ -51,7 +51,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     assert.deepEqual(E.roomPublicState(r, a.id).me.quickActionCardIds, ['second-four'], 'o cliente deve receber o ID para habilitar o botão ⚡');
     E.quickAction(r, a.id, 'second-four');
     assert.equal(r.discard.at(-1).id, 'second-four');
-    assert.equal(r.winnerId, null, 'a carta de penalidade da Queima impede vitória prematura');
+    assert.equal(r.winnerId, null, 'carta remanescente impede vitória prematura');
     assert.equal(r.status, 'playing', 'a partida continua após a Jogada Rápida');
     assert.throws(() => E.quickAction(r, a.id, 'second-four'), /indisponível|não encontrada/i, 'a carta não pode ser enviada duas vezes');
     assert.equal(r.discard.filter(c => c.id === 'second-four').length, 1, 'sem duplicidade no descarte');
@@ -133,7 +133,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     assert.equal(r.discard.at(-1).id, 'first-four');
     assert.deepEqual(E.canQuickAction(r, a).map(c => c.id), ['second-four']);
     E.quickAction(r, a.id, 'second-four');
-    assert.equal(r.winnerId, null, 'a penalidade da Queima permanece na mão');
+    assert.equal(r.winnerId, null, 'uma carta da mão permanece após a Queima e a Ação Rápida');
   }
   // 8. Na cadeia de 7 e na continuação de Queima, Ação Rápida segue proibida.
   {

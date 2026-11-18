@@ -46,7 +46,7 @@ for(const rank of specials){
   rosa.hand=[card('5','diamonds','burn5d-j'),card('J','spades','jsp'),card('2','clubs','left-j')];
   E.burnMatch(r,rosa.id,'burn5d-j');
   let st=E.roomPublicState(r,rosa.id);
-  assert.equal(st.me.burnMustDraw,false,'a compra de penalidade já deve ter ocorrido mesmo havendo Valete válido');
+  assert.equal(st.me.burnMustDraw,true,'a compra fica pendente até clique ou jogada válida, mesmo havendo Valete');
   assert(st.me.legalCardIds.includes('jsp'),'Valete deve ficar jogável após Queima');
   E.playCard(r,rosa.id,'jsp','clubs');
   assert.equal(r.requestedSuit,'clubs','Valete após Queima deve permitir escolher naipe');

@@ -25,7 +25,7 @@ function snapshot(r){
     drawIds:r.players.map(p=>p.justDrawnCardId)});
 }
 
-// 1. Exatamente o caso 6♥: clique direto = botão; compra imediata e única.
+// 1. Exatamente o caso 6♥: clique direto = botão; nenhuma compra automática.
 {
   const direct=setup(),button=setup();
   const a=direct.players[0],b=button.players[0];
@@ -36,27 +36,31 @@ function snapshot(r){
   assert.equal(direct.continuationPlayerId,a.id,'o clique direto deve iniciar a continuação da Queima');
   assert.equal(direct.currentPlayer,0,'a vez não pode avançar após a Queima');
   assert.equal(direct.discard.length,2,'o descarte ocorre exatamente uma vez');
-  assert.equal(a.hand.length,3,'carta descartada é substituída por uma compra obrigatória');
-  assert.equal(direct.deck.length,0,'compra acontece imediatamente ao efetivar a Queima');
+  assert.equal(a.hand.length,2,'a Queima descarta e não compra automaticamente');
+  assert.equal(direct.deck.length,1,'o monte de compra não é tocado durante a Queima');
   assert.equal(snapshot(direct),snapshot(button),'clique direto e botão devem ter estado idêntico');
-  assert.equal(a.justDrawnCardId,'bought','penalidade registrada no estado do jogador');
+  assert.equal(a.justDrawnCardId,null,'nenhuma compra registrada até o clique');
   const state=E.roomPublicState(direct,a.id);
   assert.equal(state.me.burnContinuationActive,true);
-  assert.equal(state.me.burnMustDraw,false);
+  assert.equal(state.me.burnMustDraw,true);
   assert.equal(state.currentPlayerId,a.id);
   const other=E.roomPublicState(direct,direct.players[1].id);
   assert.equal(other.currentPlayerId,a.id,'todos os clientes enxergam a mesma vez');
   assert.equal(other.me.burnMustDraw,false,'a obrigação é privada do jogador que queimou');
-  assert.equal(a.hand.length,3,'uma carta obrigatória já foi comprada');
-  assert.equal(a.justDrawnCardId,'bought');
-  assert.equal(direct.deck.length,0);
-  assert.equal(E.roomPublicState(direct,a.id).me.burnMustDraw,false);
-  assert.throws(()=>E.drawAction(direct,a.id),/j[aá] foi aplicada|j[aá] cumpriu/i,'não pode comprar duas vezes');
+  assert.equal(a.hand.length,2,'não houve compra no descarte');
+  assert.equal(a.justDrawnCardId,null);
+  assert.equal(direct.deck.length,1);
+  assert.equal(E.roomPublicState(direct,a.id).me.burnMustDraw,true);
+  assert.throws(()=>E.passTurn(direct,a.id),/jogue outra carta|COMPRAR/i);
+  E.drawAction(direct,a.id);
+  assert.equal(a.justDrawnCardId,'bought','compra somente após ação de COMPRAR');
+  assert.throws(()=>E.drawAction(direct,a.id),/j[aá] comprou|j[aá] foi/i,'não pode comprar duas vezes');
   E.passTurn(direct,a.id);
   assert.equal(direct.continuationPlayerId,null);
   assert.notEqual(direct.currentPlayer,0);
-  assert.equal(a.hand.length,3,'a carta comprada deve permanecer na mão ao passar');
+  assert.equal(a.hand.length,3,'a carta comprada manualmente permanece na mão ao passar');
   assert.equal(direct.discard.length,2);
+  E.drawAction(button,b.id);
   E.passTurn(button,b.id);
   assert.equal(snapshot(direct),snapshot(button),'após comprar e passar, botão e clique devem permanecer idênticos');
   assert.throws(()=>E.playCard(direct,a.id,'identical'),/N[aã]o [eé] a sua vez/i,'repetição não causa nova jogada');
@@ -72,7 +76,7 @@ for(const extra of [card('9','hearts','legal-suit'),card('6','clubs','legal-rank
   assert.equal(direct.continuationPlayerId,direct.players[0].id,`clique direto não pode escapar da Queima: ${extra.id}`);
   assert.equal(direct.currentPlayer,0,'Queima mantém a vez durante a continuação');
   assert.equal(snapshot(direct),snapshot(button),'botão e clique direto têm consequências equivalentes');
-  assert.equal(direct.players[0].justDrawnCardId,'bought','com opções extras a penalidade permanece obrigatória');
+  assert.equal(direct.players[0].justDrawnCardId,null,'com opções extras o jogador ainda escolhe entre jogar e comprar');
 }
 
 // 3. Todos os naipes e valores normais: sem outra opção, desvio proibido.
@@ -88,7 +92,7 @@ for(const rank of ranks) for(const suit of suits) for(const players of [2,3,4,5]
   E.playCard(r,p.id,'identical');
   assert.equal(r.continuationPlayerId,p.id,`${rank}/${suit}/${players}`);
   assert.equal(r.discard.length,2);
-  assert.equal(p.justDrawnCardId,'bought','pena deve ser automática para todos os naipes e quantidades');
+  assert.equal(p.justDrawnCardId,null,'não pode haver compra automática para nenhum naipe');
   matrix++;
 }
 
@@ -101,8 +105,8 @@ for(const rank of ranks) for(const suit of suits) for(const players of [2,3,4,5]
   E.declare(r,p.id,'mau-mau');
   E.playCard(r,p.id,'identical');
   assert.equal(r.continuationPlayerId,p.id);
-  assert.equal(p.hand.length,2);
-  assert.equal(p.justDrawnCardId,'bought','pena deve ser automática para todos os naipes e quantidades');
+  assert.equal(p.hand.length,1);
+  assert.equal(p.justDrawnCardId,null,'não pode haver compra automática para nenhum naipe');
 }
 
 // 5. Regra desativada, penalidade de 7, continuação e efeitos especiais preservados.
@@ -123,7 +127,7 @@ for(const rank of ranks) for(const suit of suits) for(const players of [2,3,4,5]
   const r=setup();const p=r.players[0];p.hand=[card('6','hearts','identical'),card('9','hearts','follow'),card('2','clubs','bad')];
   E.burnMatch(r,p.id,'identical');
   E.playCard(r,p.id,'follow');
-  assert.equal(r.continuationPlayerId,null,'segunda carta encerra a continuação após a penalidade já comprada');
+  assert.equal(r.continuationPlayerId,null,'segunda carta encerra a continuação sem compra');
   assert.equal(r.currentPlayer,2);
 }
 {
@@ -141,8 +145,9 @@ for(const rank of ranks) for(const suit of suits) for(const players of [2,3,4,5]
   assert(drawn);
   E.playDrawnCard(r,p.id,'identical');
   assert.equal(r.continuationPlayerId,p.id,'carta idêntica comprada continua sendo Queima');
-  assert(p.justDrawnCardId,'a carta da penalidade substitui a marca da compra normal');
-  assert.notEqual(p.justDrawnCardId,'bought','a segunda carta é uma penalidade nova');
+  assert.equal(p.justDrawnCardId,null,'a carta comprada normalmente não resolve a obrigação de uma Queima posterior');
+  E.drawAction(r,p.id);
+  assert(p.justDrawnCardId,'a compra manual posterior resolve a obrigação');
 }
 {
   const r=setup(3); const p=r.players[0];
@@ -163,4 +168,4 @@ for(const rank of ranks) for(const suit of suits) for(const players of [2,3,4,5]
   assert.match(client,/socket\.emit\('playCard',\{cardId:card\.id\}\)/);
   assert.match(client,/socket\.emit\('burnMatch',\{cardId:card\.id\}\)/);
 }
-console.log(`✓ V40.69.8.29: Queima automática com penalidade imediata, clique/botão equivalentes, ${matrix} combinações, Mau-Mau, Dupla, Rápida e 7.`);
+console.log(`✓ V40.69.8.30: Queima sem compra automática, clique/botão equivalentes, ${matrix} combinações, Mau-Mau, Dupla, Rápida e 7.`);
