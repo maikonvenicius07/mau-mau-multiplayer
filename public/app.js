@@ -4391,7 +4391,7 @@ function renderCenter(){
   }
   if(state.status==='playing'&&!state.paused&&state.continuationPlayerId===state.me.id){
     if(state.me?.justDrawnCardId) banner='🔥 Compra obrigatória cumprida: jogue uma carta válida, se quiser, ou passe a vez';
-    else banner='🔥 Após a queima: continue jogando ou, para encerrar, compre 1 carta antes de passar';
+    else banner='🔥 Sincronizando compra da Queima: aguarde a atualização da mesa';
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA DISPONÍVEL NA SUA VEZ! Jogue a carta igual e decida se continua ou passa';
@@ -4582,22 +4582,22 @@ function renderHand(){
     : passBlockedBySeven
       ? 'Resolva primeiro a cadeia de 7: rebata ou compre a penalidade.'
       : inBurn&&!boughtThisTurn
-        ? 'Após a queima, compre 1 carta do monte antes de passar. Você pode continuar jogando sem comprar.'
+        ? 'Aguarde o registro da carta obrigatória de Queima antes de passar.'
         : myTurn
           ? 'Para passar a vez normal, primeiro compre 1 carta do monte.'
           : 'Aguarde sua vez.';
 
   // Compra normal: uma carta por turno.
-  // V49.9.3 — após a Queima, a compra fica disponível mesmo havendo carta
-  // compatível, porque é ela que libera o PASSAR quando o jogador decide encerrar.
+  // V40.69.8.29 — a compra obrigatória da Queima ocorre no servidor ao
+  // descartar; o botão COMPRAR não deve cobrar a penalidade novamente.
   $('#drawPile').disabled=!!(passPending
     ||(myTurn&&boughtThisTurn&&!state.pendingSeven));
   $('#drawPile').title=boughtThisTurn
     ? (inBurn
-      ? 'Compra obrigatória da queima já cumprida. Jogue uma carta válida, se quiser, ou passe a vez.'
+      ? 'Carta de penalidade da Queima já comprada. Jogue uma carta válida, se quiser, ou passe a vez.'
       : 'Você já comprou nesta vez. Jogue qualquer carta válida da mão ou passe a vez.')
     : inBurn
-      ? 'Comprar 1 carta para poder encerrar a sequência da queima e liberar o passe.'
+      ? 'Aguarde a sincronização da carta de penalidade da Queima.'
       : 'Comprar 1 carta';
   previousHandIds=new Set(state.me.hand.map(c=>c.id));
   scheduleHandLayout();

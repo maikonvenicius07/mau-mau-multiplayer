@@ -554,7 +554,7 @@ function removeCard(player, cardId) {
 
 function applyMauMauPenaltyIfNeeded(room, player, beforeCount, afterCount) {
   if (beforeCount === 2 && afterCount === 1) {
-    if (player.declaration !== 'mau-mau') {
+    if (!['mau-mau','batendo'].includes(player.declaration)) {
       const n = room.rules.mauMauPenalty;
       drawCards(room, player, n);
       log(room, `${player.name} esqueceu de anunciar Mau-Mau e comprou ${n} carta(s) de penalidade.`, 'penalty');
@@ -570,12 +570,11 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   if (!card) throw new Error('Carta não encontrada.');
   if (!legalCard(room, card, player)) throw new Error('Essa carta não pode ser jogada agora.');
 
-  // V40.69.8.10.1 — Um clique comum não pode evitar a compra vinculada à
-  // Queima obrigatória. Se a carta normal é idêntica ao topo e o jogador não
-  // dispõe de NENHUMA outra carta legal, a ação é a mesma do botão Queima.
-  // Com outra opção legal na mão, a escolha entre jogada comum e Queima
-  // continua livre; cadeias de 7, continuação e regra desativada também
-  // preservam a validação original de cada ação.
+  // V40.69.8.29 — A carta normal idêntica ao topo é sempre Queima,
+  // mesmo existindo outra carta válida ou após uma compra normal.
+  // A validação é do motor, não do botão utilizado pelo jogador.
+  // A Queima cobra imediatamente uma carta, independentemente da via;
+  // continuação, especiais, Dupla, cadeia de 7 e Ação Rápida são preservados.
   if (mustBurnOnNormalPlay(room, player, card)) {
     return burnMatch(room, playerId, cardId);
   }
@@ -583,7 +582,9 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   const wasContinuation = room.continuationPlayerId === player.id;
   // V31: uma Queima válida transfere a jogada para quem queimou. Por isso, a
   // segunda carta pode ser especial e deve executar o mesmo efeito da jogada normal.
-  if (wasContinuation && player.hand.length === 1 && !['mau-mau','batendo'].includes(player.declaration)) {
+  // Se a última carta restante é a penalidade recém-recebida na Queima,
+  // não havia como anunciar um novo Mau-Mau entre a compra e a jogada.
+  if (wasContinuation && player.hand.length === 1 && !player.justDrawnCardId && !['mau-mau','batendo'].includes(player.declaration)) {
     throw new Error('Para usar a segunda carta após a queima e encerrar a rodada, anuncie antes “Mau-Mau” ou “Mau-Mau batendo/queimando”.');
   }
 
@@ -594,7 +595,7 @@ function playCard(room, playerId, cardId, chosenSuit=null, opts={}) {
   // V40.69.4 — Uma única carta pode causar penalidade por falta de Mau-Mau
   // E, na mesma jogada, compra pelo Oito ou Rei. Reservamos a capacidade
   // total antes de descartar e alterar reação, turno, pontuação ou mãos.
-  const mauMauDraw = player.hand.length === 2 && player.declaration !== 'mau-mau'
+  const mauMauDraw = player.hand.length === 2 && !['mau-mau','batendo'].includes(player.declaration)
     ? room.rules.mauMauPenalty : 0;
   const specialDraw = card.rank === '8' ? 2 : (card.rank === 'K' ? 1 : 0);
   // Na batida, K/8 não fazem o próprio vencedor comprar se ele for o único
@@ -887,10 +888,9 @@ function canFinishBurn(room, player) {
 // Na abertura, uma carta idêntica jogada FORA da vez é Ação Rápida, nunca Queima.
 // Depois da queima, a segunda carta NÃO é obrigatória. O jogador pode continuar
 // jogando uma carta legal da mão. Porém, se quiser ENCERRAR a sequência sem
-// jogar outra carta, deve obrigatoriamente comprar 1 carta antes de passar.
-// A compra obrigatória para encerrar independe de existirem outras cartas legais
-// na mão. Depois da compra, pode jogar uma carta válida (inclusive a comprada)
-// ou passar e guardar a carta comprada.
+// jogar outra carta, pode passar: a compra da Queima já ocorreu.
+// A compra obrigatória ocorre IMEDIATAMENTE ao queimar; depois pode jogar
+// outra carta válida (inclusive a comprada) ou passar, sem nova cobrança.
 // V31: cartas especiais A, 7, 8, J, Q e K não podem INICIAR a Queima.
 // Depois que uma carta normal idêntica é queimada, a continuação pode ser uma
 // carta especial legal, e seu efeito será executado normalmente.
@@ -921,32 +921,27 @@ function burnMatch(room, playerId, cardId) {
     throw new Error('Antes de queimar e ficar com uma carta, anuncie “Mau-Mau”. Se pretende usar também a última carta e encerrar a rodada, anuncie “Mau-Mau batendo/queimando”.');
   }
 
+  // Penalidade INCONDICIONAL de 1 carta. Verificar a capacidade ANTES de
+  // mudar mão, descarte ou turno, considerando o descarte que será feito.
+  requireDrawCapacity(room, 1, 1);
   const before = player.hand.length;
   closeReaction(room);
   const played = removeCard(player, first.id);
   room.discard.push(played);
   room.requestedSuit = null;
-  player.justDrawnCardId = null;
+  const [penaltyCard] = drawCards(room, player, 1);
+  player.justDrawnCardId = penaltyCard.id; // impede segunda compra pela mesma Queima
   room.lastPlayedById = player.id;
-
-  if (player.hand.length === 0) {
-    room.winnerId = player.id;
-    room.lastWinnerCard = played;
-    player.finishedRound = true;
-    player.declaration = null;
-    finalizeRound(room);
-    return;
-  }
 
   const previousCurrentPlayer = room.currentPlayer;
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;
   auditTurn(room,{fromIdx:previousCurrentPlayer,toIdx:idx,card:played,reason:'burn-continuation'});
 
-  log(room, `${player.name} QUEIMOU ${cardLabel(played)} na própria vez. Pode continuar jogando uma carta compatível. Se quiser encerrar a sequência, deve comprar 1 carta antes de passar.`, 'burn');
+  log(room, `${player.name} QUEIMOU ${cardLabel(played)} e recebeu 1 carta de compra obrigatória. Pode jogar uma carta compatível ou passar e guardar a carta comprada.`, 'burn');
 
-  if (before === 2 && player.hand.length === 1 && player.declaration === 'mau-mau') {
-    log(room, `${player.name} ficou com uma carta após a queima e havia anunciado Mau-Mau.`, 'mau');
+  if (before === 2 && player.declaration === 'mau-mau') {
+    log(room, `${player.name} havia anunciado Mau-Mau antes da Queima e recebeu a penalidade obrigatória.`, 'mau');
   }
 }
 
@@ -984,13 +979,11 @@ function drawAction(room, playerId) {
   // V53.1: comprar altera a mão, não a carta do topo. Preserve a oportunidade
   // de Ação Rápida para terceiros enquanto o topo for o mesmo.
 
-  // V49.9.3: durante a continuação de uma Queima, o jogador pode continuar
-  // jogando normalmente. Se optar por ENCERRAR a sequência, a compra de 1 carta
-  // é obrigatória antes do passe — independentemente de haver outras cartas
-  // compatíveis na mão. Não inspecionamos a mão para decidir se pode comprar.
+  // A carta de penalidade da Queima já foi comprada dentro de burnMatch.
+  // Não permitir uma segunda compra enquanto essa continuação estiver aberta.
   if (room.continuationPlayerId === p.id) {
     if (p.justDrawnCardId) {
-      throw new Error('Você já cumpriu a compra obrigatória após a queima. Jogue uma carta válida, se quiser, ou passe a vez.');
+      throw new Error('A compra obrigatória da Queima já foi aplicada. Jogue uma carta válida, se quiser, ou passe a vez.');
     }
     const drawn = drawOne(room);
     p.hand.push(drawn);
@@ -1038,11 +1031,8 @@ function drawAction(room, playerId) {
 
 // V49.9.3 — PASSAR A VEZ APÓS QUEIMA
 // Regra normal: continua obrigatório comprar 1 carta antes de passar.
-// Após uma QUEIMA, o jogador também NÃO pode passar diretamente. Ele pode
-// continuar jogando normalmente; porém, para encerrar a sequência sem jogar,
-// precisa primeiro comprar 1 carta. Depois dessa compra, pode jogar uma carta
-// válida ou simplesmente passar e guardar a carta comprada. A validação do passe
-// depende apenas da compra já ter ocorrido, sem examinar se há jogadas na mão.
+// Após uma QUEIMA, a compra obrigatória já ocorreu no próprio descarte;
+// pode continuar jogando ou passar e guardar a carta comprada, sem duplicá-la.
 function passTurn(room, playerId) {
   const idx = ensureTurn(room, playerId);
   const p = room.players[idx];
@@ -1056,7 +1046,7 @@ function passTurn(room, playerId) {
   if (inBurnContinuation) {
     const hasDrawn = !!p.justDrawnCardId;
     if (!hasDrawn) {
-      throw new Error('Após a queima, é obrigatório comprar 1 carta do monte antes de passar. Compre 1 carta.');
+      throw new Error('A compra obrigatória da Queima não está registrada; aguarde a sincronização.');
     }
 
     const keptCardId = p.justDrawnCardId;
@@ -1189,12 +1179,12 @@ function finalizeRound(room) {
   }
 }
 
-// Uma Queima é obrigatória para o clique direto apenas quando a própria
-// carta idêntica é a única carta jogável na mão. A decisão pertence ao motor
-// (e, portanto, ao servidor), não ao evento enviado pelo navegador.
+// Toda carta normal exatamente igual ao topo, jogada NA PRÓPRIA VEZ,
+// precisa seguir o caminho de Queima. O jogador pode optar por comprar em
+// vez de jogar; quando DESCARTA a idêntica, recebe imediatamente a compra
+// obrigatória de 1 carta, sem depender do botão e sem compra duplicada.
 function mustBurnOnNormalPlay(room, player, card) {
-  if (!card || !player || !canBurnMatch(room, player).some(c => c.id === card.id)) return false;
-  return !player.hand.some(other => other.id !== card.id && legalCard(room, other, player));
+  return !!card && !!player && canBurnMatch(room, player).some(c => c.id === card.id);
 }
 
 function canBurnMatch(room, player) {
@@ -1384,9 +1374,8 @@ function roomPublicState(room, viewerId) {
         : [],
       burnSecondRequired: false,
       burnContinuationActive: room.continuationPlayerId === viewer.id,
-      // Compatibilidade de protocolo: burnMustDraw agora significa que a compra
-      // obrigatória necessária para LIBERAR O PASSE após a Queima ainda não ocorreu.
-      // Não depende de examinar cartas compatíveis na mão.
+      // A compra da Queima já ocorreu; sinaliza apenas estado antigo/incompleto
+      // que ainda não contém o identificador da penalidade.
       burnMustDraw: room.continuationPlayerId === viewer.id
         && !viewer.justDrawnCardId,
     } : null,

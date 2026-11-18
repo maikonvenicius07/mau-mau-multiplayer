@@ -39,9 +39,8 @@ for(let i=0;i<500;i++){
   assert(E.canBurnMatch(r,paulo).some(c=>c.id===`burn-${i}`));
   E.burnMatch(r,paulo.id,`burn-${i}`);
   assert.equal(r.continuationPlayerId,paulo.id);
-  assert.throws(()=>E.passTurn(r,paulo.id),/obrigatório comprar 1 carta|Compre 1 carta/i);
-  r.deck=[card('4',suits[(i+1)%4],`pass-draw-${i}`)];
-  E.drawAction(r,paulo.id);
+  assert(paulo.justDrawnCardId,'penalidade deve ser comprada no descarte');
+  assert.throws(()=>E.drawAction(r,paulo.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
   const beforePass=paulo.hand.length;
   E.passTurn(r,paulo.id);
   assert.equal(paulo.hand.length,beforePass);
@@ -78,9 +77,8 @@ for(let i=0;i<500;i++){
 
   E.playCard(r,carla.id,`dsource-${i}`);
   E.burnMatch(r,paulo.id,`dburn-${i}`);
-  assert.equal(paulo.hand.filter(c=>E.legalCard(r,c,paulo)).length,0);
-  assert.throws(()=>E.passTurn(r,paulo.id),/Compre 1 carta/i);
-  E.drawAction(r,paulo.id);
+  assert.equal(paulo.justDrawnCardId,`draw-${i}`,'penalidade de 1 carta imediata');
+  assert.throws(()=>E.drawAction(r,paulo.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
   assert.equal(paulo.justDrawnCardId,`draw-${i}`);
   const bought=paulo.hand.find(c=>c.id===`draw-${i}`);
   if (bought.rank === 'J') {
@@ -109,8 +107,6 @@ console.log('✓ V49.9.3 stress: 1.000 cenários de Queima com compra obrigatór
   E.playCard(r,carla.id,'bot-flex-source');
   const br=Bot.takeBurnOpportunity(r,bot,E);
   assert.equal(br.action,'burn-match');
-  const dr=Bot.takeTurn(r,bot,E);
-  assert.equal(dr.action,'burn-draw');
   const pr=Bot.takeTurn(r,bot,E);
   assert.equal(pr.action,'burn-pass-drawn');
   assert(bot.hand.some(c=>c.id==='bot-flex-j'));

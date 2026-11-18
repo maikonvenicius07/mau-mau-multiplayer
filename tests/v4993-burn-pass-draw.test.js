@@ -22,15 +22,15 @@ function room2(){
   E.playCard(r,a.id,'source');
   E.burnMatch(r,b.id,'burn');
   assert(E.legalCard(r,b.hand.find(c=>c.id==='legal'),b));
-  assert.throws(()=>E.passTurn(r,b.id),/obrigatório comprar 1 carta|Compre 1 carta/i);
-  E.drawAction(r,b.id);
+  assert.equal(b.justDrawnCardId,'draw-valid','o servidor já comprou pela Queima');
+  assert.throws(()=>E.drawAction(r,b.id),/j[aá] foi aplicada|j[aá] cumpriu/i);
   assert.equal(b.justDrawnCardId,'draw-valid');
   E.passTurn(r,b.id);
   assert.equal(r.continuationPlayerId,null);
   assert(b.hand.some(c=>c.id==='draw-valid'),'carta comprada válida pode ser guardada');
 }
 
-// Após Queima, o jogador ainda pode continuar sem comprar.
+// Após Queima, o jogador ainda pode continuar depois da penalidade automática.
 {
   const r=room2(),a=r.players[0],b=r.players[1];
   r.discard=[card('2','hearts','base2')];
@@ -47,7 +47,7 @@ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 assert(html.includes('styles.css?v=40.69.2-v49.9.3-burn-pass-draw'),'cache-busting CSS V49.9.3 ausente');
 assert(/app\.js\?v=40\.69\.2-v49\.(9\.3-burn-pass-draw|10-mic-stability|11-mic-stability-phase1)/.test(html),'cache-busting JS compatível V49.9.3/V49.10/V49.11 ausente');
-assert(html.includes('não pode passar diretamente'),'regra visual deve informar que QUEIMA → PASSAR é proibido');
+assert(html.includes('compra obrigatória de 1 carta'),'regras devem explicar a compra automática na Queima');
 assert(app.includes('const canPassBurn=!!(inBurn&&boughtThisTurn)'),'frontend só deve liberar PASSAR após compra na Queima');
 assert(!app.includes('const burnDrawBlocked=inBurn'),'frontend não deve bloquear a compra por existir carta válida na mão');
-console.log('✓ V49.9.3: QUEIMA → PASSAR bloqueado; QUEIMA → COMPRAR → PASSAR/JOGAR permitido.');
+console.log('✓ V40.69.8.29: Queima aplica penalidade antes de PASSAR/JOGAR, sem cobrar duas vezes.');

@@ -27,6 +27,6 @@ assert(html.includes('Queima — somente na própria vez'),'regras visuais devem
 assert(html.includes('Na abertura:') && html.includes('Ação Rápida'),'regras visuais devem explicar que a primeira carta permite Ação Rápida sem roubar a vez');
 assert(app.includes('const canPassBurn=!!(inBurn&&boughtThisTurn)'),'cliente precisa liberar PASSAR após Queima somente depois da compra obrigatória');
 assert(app.includes('canPassBurn'),'cliente precisa permitir passar após a queima');
-assert(engine.includes('é obrigatório comprar 1 carta do monte antes de passar'),'motor deve bloquear QUEIMA → PASSAR sem compra');
-assert(engine.includes('cumpriu a compra obrigatória após a queima'),'motor deve registrar passe após compra obrigatória da Queima');
+assert(engine.includes('requireDrawCapacity(room, 1, 1)'),'motor deve validar a compra obrigatória antes do descarte por Queima');
+assert(engine.includes('recebeu 1 carta de compra obrigatória'),'motor deve registrar compra automática da Queima');
 console.log('✓ UI/servidor: Queima, Ação Rápida e Carta Dupla flutuantes conferidas.');

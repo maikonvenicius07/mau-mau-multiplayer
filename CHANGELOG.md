@@ -1,3 +1,13 @@
+## V40.69.8.29 — Queima obrigatória em todo descarte idêntico e compra imediata (18/11/2026)
+
+- **Correção comprovada:** `playCard()` somente encaminhava uma carta idêntica ao topo para a Queima quando não existia outra carta legal na mão. Com outra opção válida, o clique direto era processado como jogada comum, sem penalidade. A condição foi removida: toda carta NORMAL idêntica ao topo, descartada na vez do jogador, entra na mesma `burnMatch()` do botão Queima.
+- **Penalidade aplicada no descarte:** `burnMatch()` valida a disponibilidade de uma carta antes da mutação e efetua uma compra obrigatória imediatamente, registrando-a em `justDrawnCardId`. Tanto clique direto quanto botão Queima recebem exatamente uma carta; a tentativa de outra compra na mesma continuação é bloqueada. Depois, o jogador pode continuar com carta legal ou passar sem duplicar a penalidade.
+- **Compra normal independente:** mesmo com carta igual na mão, o jogador pode comprar. Se depois descartar uma carta idêntica (inclusive a recém-comprada), a Queima é reconhecida e uma carta de penalidade adicional é aplicada. Cartas apenas do mesmo valor ou só do mesmo naipe permanecem jogadas normais; especiais, cadeia de 7, Carta Dupla e Ação Rápida seguem caminhos separados.
+- **Mau-Mau/Batendo:** anúncios válidos continuam aceitos. Como agora a Queima sempre adiciona uma carta, a sequência de duas cartas não encerra a rodada enquanto a penalidade permanecer na mão. O motor impede cobranças duplicadas de anúncio Batendo nessa continuação. É permitido usar a carta recém-comprada como continuação quando legal.
+- **Interface/documentação:** corrigidas as regras exibidas aos usuários, dicas de compra e passe; versão do `app.js` na página atualizada para evitar cache antigo. `RELEASE_VERSION` do endpoint `/health` é `V40.69.8.29`.
+- **Proteção permanente:** teste novo de 16 cenários e atualização dos testes antigos que presumiam a regra anterior. Restante de partidas normais, ranking, torneios, cartas, observadores, câmera e microfone não foram alterados intencionalmente.
+- **Limitações:** os testes locais não substituem validação de WebSocket com clientes reais nem homologação no Render; o teste que depende de `socket.io-client` requer dependências instaladas. A versão do `package.json` permanece a identificação legada, conforme os contratos existentes.
+
 ## V40.69.8.28 — Exclusão controlada de torneio TESTE travado (17/11/2026)
 
 - Novo botão administrativo **EXCLUIR TORNEIO TESTE TRAVADO**, visível somente ao criador de torneios encerrados identificados com a palavra TESTE. Exige confirmação adicional por frase exata e não é executado automaticamente.

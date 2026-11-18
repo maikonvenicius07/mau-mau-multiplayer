@@ -41,7 +41,8 @@ for(const n of [2,3,4,5]) {
   assert.throws(()=>E.playCard(r,outsider.id,`follow-${n}`),/Não é a sua vez/i);
   // O mesmo jogador que tinha a vez continua podendo jogar uma carta legal.
   E.playCard(r,current.id,`burn-${n}`);
-  assert.equal(r.currentPlayer,openingTurn===undefined?-1:(openingTurn-1+n)%n,'o turno só avança pela jogada normal');
+  assert.equal(r.currentPlayer,openingTurn,'carta idêntica deve iniciar Queima e preservar a vez');
+  assert.equal(r.continuationPlayerId,current.id,'a continuação da Queima cabe ao jogador da vez');
 }
 
 // Se a primeira ação for do próprio jogador inicial, ele pode Queimar com continuação.
@@ -72,7 +73,7 @@ for(const n of [2,3,4,5]) {
   const p=r.players[(r.currentPlayer+1)%4];
   p.hand=[card('5','hearts','late'),card('3','clubs','keep')];
   const current=r.players[r.currentPlayer];
-  current.hand=[card('5','hearts','first-normal'),card('9','hearts','keep')]; // outra carta legal torna a Queima opcional
+  current.hand=[card('5','hearts','first-normal'),card('9','hearts','keep'),card('2','spades','extra')]; // outra carta legal NÃO desativa a Queima
   assert(E.canQuickAction(r,p).some(c=>c.id==='late'));
   E.playCard(r,current.id,'first-normal');
   assert.equal(r.openingReaction,false);

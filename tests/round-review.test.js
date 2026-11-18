@@ -44,7 +44,7 @@ function room3(){
 // Comecou uma nova rodada: a conferencia anterior nao pode vazar durante o jogo.
 {
   const r=room3(),[a,b,c]=r.players;
-  a.hand=[card('5','hearts','win')]; b.hand=[card('2','clubs','b')]; c.hand=[card('3','clubs','c')];
+  a.hand=[card('5','clubs','win')]; b.hand=[card('2','clubs','b')]; c.hand=[card('3','clubs','c')];
   E.playCard(r,a.id,'win');
   assert(r.roundReview);
   E.startRound(r);

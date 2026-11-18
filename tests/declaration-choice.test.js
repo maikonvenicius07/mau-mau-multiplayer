@@ -35,7 +35,8 @@ function room2(){
   Engine.declare(r,a.id,'mau-mau');
   Engine.burnMatch(r,a.id,'a1');
   Engine.playCard(r,a.id,'a2');
-  assert.equal(r.winnerId,a.id);
+  assert.equal(r.winnerId,null,'a compra obrigatória impede bater sem consumir a penalidade');
+  assert.equal(a.hand.length,1);
 }
 // Batendo/queimando continua válido para a mesma batida.
 {
@@ -45,6 +46,7 @@ function room2(){
   Engine.declare(r,a.id,'batendo');
   Engine.burnMatch(r,a.id,'a1');
   Engine.playCard(r,a.id,'a2');
-  assert.equal(r.winnerId,a.id);
+  assert.equal(r.winnerId,null,'a compra de Queima também vale para o anúncio batendo');
+  assert.equal(a.hand.length,1);
 }
 console.log('✓ V40.12: Mau-Mau simples e batendo/queimando podem concluir as duas últimas cartas.');

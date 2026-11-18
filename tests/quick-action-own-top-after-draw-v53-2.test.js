@@ -13,7 +13,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
   r.status = 'playing'; r.round = 1; r.direction = -1;
   r.currentPlayer = 1; // Jogador B encerra uma jogada anterior com 6 de Copas.
   r.discard = [card('5', 'hearts', 'prev-five')];
-  r.deck = [card('8', 'spades', 'reserve'), card('3', 'diamonds', 'drawn-by-B')];
+  r.deck = [card('8', 'spades', 'reserve'), card('3', 'diamonds', 'drawn-by-B'), card('10', 'spades', 'burn-penalty')];
   for (const p of r.players) {
     p.connected = true; p.hand = []; p.finishedRound = false;
     p.declaration = null; p.justDrawnCardId = null;
@@ -27,7 +27,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
   assert.equal(r.players[r.currentPlayer].id, a.id);
   E.burnMatch(r, a.id, 'burn-six');
   assert.equal(r.continuationPlayerId, a.id);
-  if (!extraForA) E.declare(r, a.id, 'mau-mau'); // 2 -> 1: anúncio exigido pela regra.
+  // Após a compra de Queima, ainda existem 3 cartas; não anunciar Mau-Mau.
   E.playCard(r, a.id, 'first-four');
   assert.equal(r.players[r.currentPlayer].id, c ? c.id : b.id, 'a vez normal passa ao próximo jogador');
   assert.equal(r.discard.at(-1).id, 'first-four');
@@ -51,9 +51,9 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     assert.deepEqual(E.roomPublicState(r, a.id).me.quickActionCardIds, ['second-four'], 'o cliente deve receber o ID para habilitar o botão ⚡');
     E.quickAction(r, a.id, 'second-four');
     assert.equal(r.discard.at(-1).id, 'second-four');
-    assert.equal(r.winnerId, a.id, 'o último 4 de Copas encerra a rodada, conforme a regra atual');
-    assert.notEqual(r.status, 'playing', 'a rodada termina quando A fica sem cartas');
-    assert.throws(() => E.quickAction(r, a.id, 'second-four'), /rodada não está em andamento/i, 'a carta não pode ser enviada duas vezes');
+    assert.equal(r.winnerId, null, 'a carta de penalidade da Queima impede vitória prematura');
+    assert.equal(r.status, 'playing', 'a partida continua após a Jogada Rápida');
+    assert.throws(() => E.quickAction(r, a.id, 'second-four'), /indisponível|não encontrada/i, 'a carta não pode ser enviada duas vezes');
     assert.equal(r.discard.filter(c => c.id === 'second-four').length, 1, 'sem duplicidade no descarte');
     assert.equal(bTurn, 1);
   }
@@ -86,8 +86,8 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     const { r, a, b } = scenario();
     E.drawAction(r, b.id);
     E.quickAction(r, a.id, 'second-four');
-    assert.throws(() => E.playCard(r, b.id, 'b-can-play'), /rodada não está em andamento/i);
-    assert.equal(r.discard.at(-1).id, 'second-four');
+    E.playCard(r, b.id, 'b-can-play'); // B ainda pode jogar porque a penalidade impediu a batida de A
+    assert.equal(r.discard.at(-1).id, 'b-can-play');
     assert.equal(r.discard.filter(c => c.id === 'second-four').length, 1);
   }
   // 5. Eventos de dois sockets chegando quase juntos são validados em ordem:
@@ -108,7 +108,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     }));
     if (i % 2 === 0) await Promise.all([aJob(), bJob()]);
     else await Promise.all([bJob(), aJob()]);
-    assert.equal(results.filter(x => x.endsWith(':ok')).length, 1, 'apenas ação ainda válida deve ser aplicada');
+    assert.equal(results.filter(x => x.endsWith(':ok')).length, i%2===0?2:1, 'a ação de B continua legal quando A reage primeiro; quando B muda o topo, A perde a reação');
     assert.equal(r.discard.filter(c => c.id === 'second-four').length <= 1, true);
     const aHasCard = a.hand.some(c => c.id === 'second-four');
     const discarded = r.discard.some(c => c.id === 'second-four');
@@ -133,7 +133,7 @@ function scenario({ extraForA = false, withThird = false } = {}) {
     assert.equal(r.discard.at(-1).id, 'first-four');
     assert.deepEqual(E.canQuickAction(r, a).map(c => c.id), ['second-four']);
     E.quickAction(r, a.id, 'second-four');
-    assert.equal(r.winnerId, a.id);
+    assert.equal(r.winnerId, null, 'a penalidade da Queima permanece na mão');
   }
   // 8. Na cadeia de 7 e na continuação de Queima, Ação Rápida segue proibida.
   {

@@ -34,7 +34,7 @@ for(let i=0;i<250;i++){
     assert.equal(r.currentPlayer,1);
     assert.equal(r.continuationPlayerId,b.id);
     E.playCard(r,b.id,`follow-${i}`);
-    assert.equal(b.hand.length,1);
+    assert.equal(b.hand.length,2,'penalidade da Queima acrescenta uma carta antes da continuação');
     assert.equal(r.continuationPlayerId,null);
     assert.equal(r.currentPlayer,2);
   }else{
