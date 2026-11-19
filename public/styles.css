@@ -5019,6 +5019,28 @@ button.bot-primary{
 @media(max-width:560px){.tournament-wait-banner{font-size:.8rem;padding:8px 10px;gap:6px}
  .tournament-wait-banner strong{font-size:.78rem}}
 
+/* V40.69.8.46 — mesma posição da mesa na sala comum e no torneio.
+   O cronômetro de espera continua visível e sincronizado pelo JS existente;
+   somente seu contêiner sai do fluxo que deslocava o feltro 58–62 px.
+   Colocação compacta na faixa superior livre, sem tocar em cartas/assentos. */
+#game .tournament-wait-banner:not(.hidden){
+  position:absolute;z-index:35;top:70px;left:50%;right:auto;
+  transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);
+  margin:0;padding:4px 10px;min-height:30px;
+  gap:5px;justify-content:center;box-shadow:0 3px 10px #0005;
+  pointer-events:none;
+}
+#game .tournament-wait-banner:not(.hidden) #tournamentWaitClock{font-size:1rem;line-height:1.2}
+@media(max-width:900px){
+  #game .tournament-wait-banner:not(.hidden){
+    top:calc(140px + var(--safe-top));left:auto;right:10px;
+    transform:none;padding:4px 8px;
+  }
+}
+@media(max-width:560px){
+  #game .tournament-wait-banner:not(.hidden){top:calc(80px + var(--safe-top));left:auto;right:7px;transform:none}
+}
+
 /* V40.69.8.23 — programação pública do torneio, separada da espera da mesa. */
 .tournament-schedule{margin:13px 0 17px;padding:14px;border:1px solid #967638;
   border-radius:13px;background:linear-gradient(155deg,#193627,#10271d);color:#f6eed5}

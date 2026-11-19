@@ -1,3 +1,11 @@
+## V40.69.8.46 — Paridade visual das mesas de jogo e torneio (19/11/2026)
+
+- Confirmado o uso do mesmo `#game .table-shell`, `.felt`, `.players-ring`, `visualSeatLayout`, `renderPlayers` e `renderHand` em mesas normais e de torneio, sem duplicação do layout.
+- Corrigido deslocamento de 58 a 62 px da mesa **somente na espera antes da partida de torneio**: o cronômetro visual foi transformado em indicador compacto posicionado na faixa superior livre, sem ocupar uma linha adicional no fluxo.
+- Nenhuma mudança de dimensões das cartas, avatares, placar, posições dos assentos, câmera, microfone, observador, regras, presença, sorteio, classificação ou avanço entre fases.
+- Identificação de versão funcional atualizada; o identificador técnico do `package.json` permanece intocado por compatibilidade.
+- Homologação visual em Chromium com telas e estados simulados; validação com jogadores reais em Android/iPhone/Render continua necessária.
+
 ## V40.69.8.45 — Limite de 4 jogadores por mesa de torneio (19/11/2026)
 
 - Sorteios iniciais e de etapas seguintes com 2, 3 ou 4 jogadores por mesa; salas comuns mantêm 5 vagas.
