@@ -50,7 +50,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.46';
+const RELEASE_VERSION = 'V40.69.8.47';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -1021,10 +1021,17 @@ app.get('/api/tournament', async(req,res)=>{
         spectatorLimit:MAX_SPECTATORS_PER_ROOM
       });
     }
+    // V40.69.8.47: aproveitar o vínculo da própria consulta de mesas para
+    // reconhecer a desistência, sem acrescentar chamadas ao catálogo/banco.
+    const forfeitedTablesForViewer=new Set();
     const games=Object.fromEntries(await Promise.all(displayTables.map(async t=>{
       const binding=currentStage==='qualifier'?(typeof tournamentGames.get==='function'?await tournamentGames.get(config.id,t.number):null):
         (typeof tournamentBracket.getBinding==='function'?await tournamentBracket.getBinding(config.id,currentStage,t.number):null);
       const room=binding?.roomCode?rooms.get(binding.roomCode):null;
+      if(session?.playerKey&&room?.tournament?.id===config.id&&room.tournament.phase===currentStage&&
+        room.tournament.tableNumber===t.number&&
+        room.tournament.forfeits?.some(entry=>entry.playerKey===session.playerKey))
+        forfeitedTablesForViewer.add(t.number);
       const storedSnapshot=!!(binding?.roomCode&&!room&&await roomSnapshotStore.hasStoredSnapshot(binding.roomCode));
       const classifiedAvailability=TournamentTableHealth.classify(binding,{room,snapshotsReady:snapshotsRestored,
         activeSnapshot:storedSnapshot,deleted:binding?.roomCode?roomSnapshotStore.isRoomDeleted(binding.roomCode):false});
@@ -1044,14 +1051,20 @@ app.get('/api/tournament', async(req,res)=>{
           requiresAttention:elapsed&&present===0&&!binding?.result
         }:null}];
     })));
-    // Apenas a mesa do titular autenticado; identificações privadas nunca retornam.
-    let myTable=null;
+    // V40.69.8.47 — o sorteio histórico continua contendo o desistente,
+    // mas uma desistência registrada NÃO representa uma vaga ativa. A conta
+    // deve ver ASSISTIR, e nunca ENTRAR NA MINHA MESA, enquanto a sala existir.
+    // Não alterar rosterKeys, sorteio, resultado nem critérios de classificação.
+    let myTable=null,forfeitedTable=null;
     if(session?.playerKey)for(const t of displayTables){
       const allowed=currentStage==='qualifier'?await tournamentDraw.seatFor(config.id,t.number,session.playerKey):
         await tournamentBracket.seatFor(config.id,currentStage,t.number,session.playerKey);
-      if(allowed){myTable=t.number;break;}
+      if(!allowed)continue;
+      if(forfeitedTablesForViewer.has(t.number))forfeitedTable=t.number;
+      else myTable=t.number;
+      break;
     }
-    res.json({ok:true,serverNow:Date.now(),canCreate:!!session?.playerKey,...result,tables:displayTables,games,myTable,bracket});
+    res.json({ok:true,serverNow:Date.now(),canCreate:!!session?.playerKey,...result,tables:displayTables,games,myTable,forfeitedTable,bracket});
   }catch(e){console.error('[tournament] consulta falhou:',e.message);res.status(503).json({ok:false,message:'Não foi possível consultar o torneio.'});}
 });
 app.post('/api/tournament/registration', async(req,res)=>{

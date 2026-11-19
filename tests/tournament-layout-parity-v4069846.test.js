@@ -25,5 +25,5 @@ assert.match(css,/#game \.tournament-wait-banner:not\(\.hidden\)[^}]*pointer-eve
 assert.match(css,/@media\(max-width:900px\)[\s\S]*?#game \.tournament-wait-banner:not\(\.hidden\)/);
 assert.match(css,/@media\(max-width:560px\)[\s\S]*?#game \.tournament-wait-banner:not\(\.hidden\)/);
 assert.match(html,/v4069846-layout-parity/,'Cache-busting do CSS necessário para disponibilizar correção');
-assert.match(server,/RELEASE_VERSION = 'V40\.69\.8\.46'/);
+assert.match(server,/RELEASE_VERSION = 'V40\.69\.8\.(?:4[6-9]|[5-9]\d|\d{3,})'/);
 console.log('✓ Paridade de componentes, cronômetro fora do fluxo e cache-busting validados');

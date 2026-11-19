@@ -12,7 +12,7 @@
   const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),forceDeleteTest=byId('tournamentAdminForceDeleteTest'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
   if(!button||!dialog||!close||!name||!state||!date||!action||!list||!picker||!panel)return;
-  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,gameStates={},currentStage='qualifier',bracket=null;
+  let pending=false,config=null,items=[],drawnTables=[],canCreate=false,myTable=null,forfeitedTable=null,gameStates={},currentStage='qualifier',bracket=null;
   let pendingTableEntry=null,entryFeedback=null;
   // Auto-refresh must not erase unsaved tournament settings or duplicate requests.
   let adminEditing=false,lastSelectedPayload=null,detailsInFlight=null,detailsInFlightId='';
@@ -180,7 +180,7 @@
     if(!config.registrationOpen)action.textContent='Inscrições indisponíveis';
     else if(!config.registered&&config.spotsRemaining===0)action.textContent='Vagas esgotadas';
     drawnTables=result.tables||[];
-    myTable=result.myTable??null;gameStates=result.games||{};
+    myTable=result.myTable??null;forfeitedTable=result.forfeitedTable??null;gameStates=result.games||{};
     bracket=result.bracket||null;currentStage=bracket?.currentStage||'qualifier';
     renderSchedule(result);
     const stagesLabel={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
@@ -311,6 +311,13 @@
           });
           card.append(enter,entryStatus);
         }else if(!needsRecovery){
+          // Ex-jogadores desclassificados assistem como observadores, sem recuperar
+          // a vaga histórica do sorteio ou receber ações de jogador.
+          if(t.number===forfeitedTable){
+            const note=document.createElement('p');note.className='tournament-note';
+            note.textContent='Sua desistência nesta mesa foi registrada. Você pode assistir enquanto a partida estiver disponível, sem voltar a competir.';
+            card.append(note);
+          }
           // Observadores podem entrar assim que a sala é criada, inclusive no lobby.
           const available=game?.liveStatus==='lobby'||game?.liveStatus==='playing'||game?.liveStatus==='between-rounds';
           if(available){

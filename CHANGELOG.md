@@ -1,3 +1,11 @@
+## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
+
+- Corrigida a apresentação de `myTable` no painel: o sorteio histórico continua preservado, mas uma desistência já registrada na sala retira a condição de jogador ativo e libera a opção **ASSISTIR AO TORNEIO**.
+- A API expõe apenas para a conta autenticada o número da sua mesa abandonada (`forfeitedTable`) para contextualizar a interface; não expõe código de sala, cartas, identidades privadas ou tokens.
+- O retorno usa o fluxo já existente e autenticado `watchTournamentTable` → `joinSpectatorSocket`, sem criar outro mecanismo de saída ou mudar permissões, sorteio, pontuação, abandono, progressão, áudio/vídeo, cronômetro ou regras do jogo.
+- Uma mesa encerrada continua indisponível para observação. O antigo jogador continua impossibilitado de reocupar vaga ou classificar-se.
+- Homologação com navegador real, vários usuários e WebRTC ainda é recomendada no Render.
+
 ## V40.69.8.46 — Paridade visual das mesas de jogo e torneio (19/11/2026)
 
 - Confirmado o uso do mesmo `#game .table-shell`, `.felt`, `.players-ring`, `visualSeatLayout`, `renderPlayers` e `renderHand` em mesas normais e de torneio, sem duplicação do layout.
