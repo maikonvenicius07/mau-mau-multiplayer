@@ -20,7 +20,8 @@ assert(snapshots.includes("kind VARCHAR(24) NOT NULL"),'tombstones devem disting
 assert(snapshots.includes('player_id TEXT'),'tombstone de jogador deve apontar para a associação/cadeira exata');
 assert(snapshots.includes('if(this.isRoomDeleted(code))return;'),'gravação atrasada não pode recriar sala tombstonada');
 assert(server.includes('await roomSnapshotStore.markPlayerAbandoned(room.code,playerKey,player.id,eventAt);'),'abandono deve persistir tombstone antes de alterar a cadeira');
-assert(server.includes("await abandonHumanSeatDurably(room,leaving,{reason:'saiu voluntariamente da sala',socket});"),'botão SAIR deve aguardar persistência forte');
+assert(server.includes("await abandonHumanSeatDurably(room,leaving,{reason:room.tournament?'abandonou definitivamente o torneio':'saiu voluntariamente da sala',socket});"),'abandono definitivo e saída de sala comum devem aguardar persistência forte');
+assert(server.includes('await roomSnapshotStore.saveNow(room);'),'saída temporária deve salvar a reserva antes de liberar a interface');
 assert(server.includes('await abandonHumanSeatDurably(room,player,{reason,socket});'),'troca de sala deve aguardar persistência forte da vaga anterior');
 assert(server.includes('await roomSnapshotStore.markRoomDeleted(room.code,eventAt);'),'exclusão após último humano deve gravar tombstone da sala');
 assert(server.includes('rooms.has(code) || roomSnapshotStore.isRoomDeleted(code)'),'código tombstonado não pode ser reutilizado enquanto protege snapshot antigo');

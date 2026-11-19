@@ -50,7 +50,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.47';
+const RELEASE_VERSION = 'V40.69.8.48';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -179,10 +179,12 @@ const ROLE_PLAYER = 'PLAYER';
 const ROLE_SPECTATOR = 'SPECTATOR';
 // V39.1 — timers de tolerância de reconexão ficam somente na memória do servidor.
 const reconnectTimers = new Map();
+// Operações de saída concorrentes da mesma cadeira não devem produzir desistência duplicada.
+const tournamentExitInProgress = new Set();
 const spectatorReconnectTimers = new Map();
 // V40.68.1 — se uma partida ativa ficar sem NENHUM humano conectado,
 // a sala aguarda no máximo 5 minutos. Robôs/AUTO não jogam sozinhos.
-// SAIR/troca de sala continuam aplicando as regras de abandono definitivo.
+// Saída temporária preserva a reserva sujeita aos prazos; abandono explícito/troca de sala seguem as regras existentes.
 const offlineRoomExpiryTimers = new Map();
 const ALL_HUMANS_OFFLINE_EXPIRY_MS = RetentionPolicy.ALL_HUMANS_OFFLINE_EXPIRY_MS;
 // V40.49 — microquedas de Wi‑Fi/4G de poucos segundos não congelam a mesa.
@@ -2045,6 +2047,51 @@ async function abandonHumanSeatDurably(room,player,{reason='saiu voluntariamente
   return result;
 }
 
+// V40.69.8.48 — a saída temporária do torneio usa as mesmas regras de
+// desconexão/ausência. Nunca registra tombstone, forfeit ou troca de jogador.
+// A identidade da vaga só é recuperável pela própria conta autenticada.
+async function leaveTournamentSeatTemporarily(room,player,socket){
+  if(!room?.tournament||!player||player.isBot)throw new Error('Saída temporária válida somente para jogadores de torneios.');
+  if(player.playerKey!==socket.data.auth?.playerKey||player.socketId!==socket.id||!player.connected)
+    throw new Error('Esta sessão não possui a vaga de jogador informada.');
+  await requireRoomPersistenceReady();
+  if(player.socketId!==socket.id||!player.connected)throw new Error('A vaga já foi recuperada em outra conexão.');
+  const before={connected:player.connected,socketId:player.socketId,disconnectedAt:player.disconnectedAt,
+    reconnectEligible:player.reconnectEligible,reconnectDeadlineAt:player.reconnectDeadlineAt,
+    autoControlled:player.autoControlled,voluntaryLeftAt:player.voluntaryLeftAt};
+  RoomLifecycle.markInvoluntaryDisconnect(player,{now:Date.now(),graceMs:runtimeReconnectGraceMs()});
+  try{await roomSnapshotStore.saveNow(room);}
+  catch(e){Object.assign(player,before);throw new Error('Não foi possível salvar a reserva da mesa. Tente novamente.');}
+  cancelDisconnectDebounce(ROLE_PLAYER,room.code,player.id);
+  cancelReconnectTimer(room.code,player.id);
+  // O prazo oficial continua igual ao de uma desconexão. A máquina jamais
+  // substitui alguém em torneios; se o prazo vencer, aplicam-se as regras atuais.
+  if(RoomLifecycle.isActiveMatch(room))scheduleReconnectTakeover(room,player);
+  else if(room.status==='lobby'){
+    const code=room.code,id=player.id;
+    const timer=setTimeout(async()=>{
+      reconnectTimers.delete(reconnectTimerKey(code,id));
+      const current=rooms.get(code),stale=current?.players.find(p=>p.id===id);
+      if(!current||current!==room||!stale||stale.connected||!stale.reconnectEligible||current.status!=='lobby')return;
+      // Como no handler de desconexão existente, a reserva pré-partida expira
+      // após a tolerância; o roster, sorteio e regras de ausência não mudam.
+      current.players=current.players.filter(p=>p.id!==id);
+      if(!current.players.length){
+        if(current.botTimer)clearTimeout(current.botTimer);
+        clearReconnectTimersForRoom(code);closeSpectatorsForRoom(current);
+        clearSpectatorReconnectTimersForRoom(code);
+        try{await removeRoomDurably(code);}catch(e){console.error('[tournament] falha ao encerrar sala vazia após ausência',e);return;}
+        invalidateInvitesForRoom(code);
+      }else{ensureHost(current);emitRoom(current);}
+      broadcastPresence();
+    },runtimeReconnectGraceMs());
+    timer.unref?.();reconnectTimers.set(reconnectTimerKey(code,id),timer);
+  }
+  Engine.appendLog(room,`🚪 ${player.name} saiu temporariamente da mesa. O prazo normal de reconexão/ausência continua valendo.`,'system');
+  emitRoom(room);
+  return {keepSeat:true,roomCode:room.code};
+}
+
 function withRoom(socket, fn) {
   try {
     const room = rooms.get(socket.data.roomCode);
@@ -3099,7 +3146,12 @@ io.on('connection', socket => {
       const key=String(socket.data.auth?.playerKey||'');
       const player=room.players.find(p=>!p.isBot&&p.playerKey===key&&(!token||p.token===token));
       if(!player){done({removed:false,reason:'seat-missing'});return;}
-      await abandonHumanSeatDurably(room,player,{reason:'confirmou a saída voluntária após recuperar a conexão'});
+      // Abandono offline exige intenção explícita nas mesas de torneio.
+      // Solicitações de saída temporária, inclusive de clientes antigos, não
+      // podem ser convertidas silenciosamente em desistência competitiva.
+      if(room.tournament&&payload?.action!=='abandon')
+        throw new Error('Para desistir do torneio, confirme ABANDONAR TORNEIO explicitamente.');
+      await abandonHumanSeatDurably(room,player,{reason:'confirmou abandono definitivo após recuperar a conexão'});
       done({removed:true,roomCode:code});
       broadcastPresence();
     }catch(e){
@@ -3932,56 +3984,65 @@ io.on('connection', socket => {
     broadcastPresence();
   }));
 
-  socket.on('leaveRoom', async (ack) => {
-    forgetCameraSocket(socket);
-    const confirmLeave=(payload={})=>{try{if(typeof ack==='function')ack({ok:true,...payload})}catch{}};
+  // V40.69.8.48: ações separadas e validadas no servidor.
+  // Mensagens legadas sem modo continuam aceitas apenas para salas comuns
+  // e observadores; em torneio não podem provocar desistência silenciosa.
+  socket.on('leaveRoom', async (payloadOrAck,optionalAck) => {
+    const payload=typeof payloadOrAck==='function'?null:payloadOrAck;
+    const ack=typeof payloadOrAck==='function'?payloadOrAck:optionalAck;
+    const answer=(data={})=>{try{if(typeof ack==='function')ack({ok:true,...data})}catch{}};
     try {
-      notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
-      const code = socket.data.roomCode;
-      const playerId = socket.data.playerId;
-      const room = rooms.get(code);
-      if (!room) {
-        socket.data.roomCode = null;
-        socket.data.playerId = null;
-        socket.data.spectatorId = null;
-        socket.data.role = null;
-        socket.emit('leftRoom');
-        confirmLeave({keepSeat:false});
-        return;
+      const code=socket.data.roomCode;
+      const playerId=socket.data.playerId;
+      const room=rooms.get(code);
+      if(!room){
+        socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
+        socket.emit('leftRoom');answer({keepSeat:false});return;
       }
       if(socket.data.role===ROLE_SPECTATOR){
+        forgetCameraSocket(socket);notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
         const spectator=spectatorForSocket(room,socket);
         if(spectator)removeSpectator(room,spectator,{announce:!room.tournament});
         socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
-        socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});confirmLeave({keepSeat:false});emitRoom(room);broadcastPresence();return;
+        socket.emit('leftRoom',{message:'Você saiu do Modo Observador.'});answer({keepSeat:false});emitRoom(room);broadcastPresence();return;
       }
-
-      const idx = room.players.findIndex(p => p.id === playerId);
-      if (idx < 0) {
-        socket.leave(code);
-        socket.data.roomCode = null;
-        socket.data.playerId = null;
-        socket.data.spectatorId = null;
-        socket.data.role = null;
-        socket.emit('leftRoom');
-        confirmLeave({keepSeat:false});
-        return;
+      const leaving=room.players.find(p=>p.id===playerId);
+      if(!leaving){
+        socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
+        socket.emit('leftRoom');answer({keepSeat:false});return;
       }
-
-      const leaving = room.players[idx];
-      // V40.59 — SAIR é abandono definitivo, nunca uma reconexão automática.
-      // Partidas comuns usam Máquina após saída; torneios registram desistência
-      // e continuam apenas com participantes humanos, sem substituir a cadeira.
-      await abandonHumanSeatDurably(room,leaving,{reason:'saiu voluntariamente da sala',socket});
-
-      socket.leave(code);
-      socket.data.roomCode = null;
-      socket.data.playerId = null;
-      socket.data.spectatorId = null;
-      socket.data.role = null;
-      socket.emit('leftRoom',{keepSeat:false,message:'Você saiu da sala. Para voltar depois, use novamente o código da sala, se ela ainda existir.'});
-      confirmLeave({keepSeat:false,roomCode:code});
-      broadcastPresence();
+      if(leaving.isBot||leaving.playerKey!==socket.data.auth?.playerKey||
+         leaving.socketId!==socket.id||!leaving.connected)
+        throw new Error('Esta conexão não possui autorização para sair por esta vaga.');
+      const mode=room.tournament?String(payload?.mode||''):null;
+      if(room.tournament&&!['temporary','abandon'].includes(mode))
+        throw new Error('Escolha SAIR DA MESA ou confirme ABANDONAR TORNEIO.');
+      // Uma mesa concluída já possui resultado/classificação em persistência.
+      // Não prometer desistência futura se a regra existente de saída após o
+      // resultado NÃO desclassifica ninguém. Essa operação pede tratamento próprio.
+      if(room.tournament&&mode==='abandon'&&room.status==='finished')
+        throw new Error('Mesa já concluída. Sua classificação foi registrada; a saída desta mesa não cancela a participação futura.');
+      const operationKey=`${code}:${leaving.id}`;
+      if(tournamentExitInProgress.has(operationKey))throw new Error('Já existe uma solicitação de saída em andamento.');
+      if(room.tournament)tournamentExitInProgress.add(operationKey);
+      try{
+        let result;
+        if(room.tournament&&mode==='temporary'){
+          result=await leaveTournamentSeatTemporarily(room,leaving,socket);
+        }else{
+          await abandonHumanSeatDurably(room,leaving,{reason:room.tournament?'abandonou definitivamente o torneio':'saiu voluntariamente da sala',socket});
+          result={keepSeat:false,roomCode:code};
+        }
+        forgetCameraSocket(socket);notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
+        socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
+        const temporary=!!result.keepSeat;
+        socket.emit('leftRoom',{...result,kind:temporary?'temporary':'abandon',message:temporary?
+          'Você saiu temporariamente. Sua vaga continua sujeita aos prazos oficiais de ausência/reconexão.':
+          (room.tournament?'Você abandonou definitivamente o torneio. Pode continuar assistindo como observador.':
+          'Você saiu da sala. Para voltar depois, use novamente o código, se ela ainda existir.')});
+        answer(result);
+        broadcastPresence();
+      }finally{if(room.tournament)tournamentExitInProgress.delete(operationKey);}
     } catch(e) {
       try{if(typeof ack==='function')ack({ok:false,message:e?.message||'Não foi possível sair da sala.'})}catch{}
       err(socket,e);

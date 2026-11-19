@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/app/icon-64.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/icon-180.png" />
   <title>Mau-Mau Candeias — Baralho Tradicional</title>
-  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-rank-tournament-20261116-v4069825-v4069826-observer-media-v4069839-v4069846-layout-parity" />
+  <link rel="stylesheet" href="styles.css?v=40.69.2-v49.9.3-burn-pass-draw-camera50.4-profile51.0.4-tournament51.6-mute51.6.2-home-clean-observer-compact-v2-seatqueue-chat-one-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-rank-tournament-20261116-v4069825-v4069826-observer-media-v4069839-v4069846-layout-parity-v4069848-tournament-exits" />
 </head>
 <body>
   <!-- V41.2 — splash premium web/PWA. Somente visual; não altera regras nem avatares. -->
@@ -89,6 +89,10 @@
 
 
   <section id="landing" class="screen landing hidden">
+    <div id="temporarySeatReturnBanner" class="temporary-seat-return hidden" role="status">
+      <span id="temporarySeatReturnText">Você saiu temporariamente. Sua vaga segue sujeita às regras de ausência.</span>
+      <button type="button" id="returnTemporarySeatBtn">↩ VOLTAR À MESA</button>
+    </div>
     <div class="hero-card">
       <div class="google-account-bar">
         <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da conta" referrerpolicy="no-referrer" />
@@ -248,7 +252,7 @@
       <div class="room-chip">Sala <strong id="roomCode">------</strong> <button id="copyInvite" title="Compartilhar convite da sala" aria-label="Compartilhar convite da sala">🔗</button></div>
       <div class="status-chip"><span id="roundText">Rodada 0/5</span> • <span id="directionText">↺ anti-horário</span></div>
       <button id="connectionChip" class="connection-chip connecting" type="button" title="Abrir diagnóstico da conexão" aria-label="Abrir diagnóstico da conexão">● Conectando</button>
-      <button id="leaveBtn" class="leave-btn" title="Sair da sala">🚪 Sair</button>
+      <button id="leaveBtn" class="leave-btn" type="button" title="Sair da sala">🚪 Sair</button>
       <button id="rankingOpen2" class="icon-btn" title="Ranking">🏆</button>
       <button id="onlinePlayersOpen2" class="icon-btn online-top-btn" title="Jogadores Online" aria-label="Abrir jogadores online">👥<span id="onlineTopBadge" class="online-top-badge">0</span></button>
       <button id="scoreToggleBtn" class="icon-btn player-aux-top-btn" type="button" title="Abrir placar da partida" aria-label="Abrir placar da partida">📊</button>
@@ -258,6 +262,10 @@
       <button id="vibrationBtn" class="icon-btn vibration-btn" type="button" title="Vibração de SUA VEZ" aria-label="Vibração de SUA VEZ">📳</button>
       <button id="rulesOpen2" class="icon-btn" title="Regras">?</button>
     </header>
+    <div id="tournamentExitBar" class="tournament-exit-bar hidden" aria-label="Saída do torneio">
+      <span>SAIR DA MESA é temporário e não suspende o prazo de ausência.</span>
+      <button id="abandonTournamentBtn" type="button">⛔ ABANDONAR TORNEIO</button>
+    </div>
 
     <div id="tournamentWaitBanner" class="tournament-wait-banner hidden" role="status" aria-live="off">
       <span id="tournamentWaitClock" aria-label="Tempo restante">02:00</span>
@@ -916,10 +924,20 @@
   <script src="media-session.js?v=1-midia-reconexao"></script>
   <script src="camera-video.js?v=50.3-trocar-camera-v50.4-adversarios-maior-perf-phase2b-restore1-v40697-wake-v406989-observers-v4069839"></script>
   <script src="tournament-schedule.js?v=40.69.8.23"></script>
-  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822-schedule-v4069823-v4069824-v4069826-v4069828-v4069830-burn-manual-v4069831-manual-phase-v4069832-draw-v4069834-no-tournament-bots-v4069835-walkover-clock-v4069838-auto-phase-observer-media-v4069839-v4069844"></script>
+  <script src="app.js?v=40.69.2-v49.11-mic-stability-phase1-camera50.2-profile51.0.4-mute51.6.2-v53.5-controls-no-overlap-v53.6-scoreboard-default-v53.7-spectator-score-fix-v53.8-vertical-mobile-score-v53.11-placar-sobre-mesa-mobile-media-restore1-v40697-v406983-watch-tournament-mobile7-4069843-rank845-hand-dom-406988-mobile-wake-406989-final-4069810-auto-tournament-20261116-recovery-v4069820-wait-v4069822-schedule-v4069823-v4069824-v4069826-v4069828-v4069830-burn-manual-v4069831-manual-phase-v4069832-draw-v4069834-no-tournament-bots-v4069835-walkover-clock-v4069838-auto-phase-observer-media-v4069839-v4069844-v4069848-tournament-exits"></script>
   <script src="controls-positioning.js?v=53.12-mobile-left-stack"></script>
   <script src="tournament-dashboard.js?v=51.6-wait-40.69.8.21"></script>
   <script src="tournament-auto-refresh.js?v=40.69.8.18"></script>
   <script src="tournament-ui.js?v=51.6-auto-refresh-40.69.8.18-v4069823-v4069824-v4069825-final-recovery-v4069828-test-cleanup-v4069831-manual-phase-v4069832-draw-v4069838-auto-phase-v4069844-v4069847"></script>
+  <dialog id="abandonTournamentDialog" class="tournament-abandon-dialog" aria-labelledby="abandonTournamentTitle">
+    <h3 id="abandonTournamentTitle">⚠️ ATENÇÃO — ABANDONAR TORNEIO</h3>
+    <p>Você tem certeza de que deseja abandonar definitivamente este torneio?</p>
+    <p>Ao confirmar, sua participação será encerrada e você não poderá voltar a competir neste torneio.</p>
+    <p>Você poderá continuar assistindo às partidas como observador.</p>
+    <div class="tournament-abandon-actions">
+      <button type="button" id="cancelAbandonTournamentBtn">CANCELAR</button>
+      <button type="button" id="confirmAbandonTournamentBtn">CONFIRMAR ABANDONO</button>
+    </div>
+  </dialog>
 </body>
 </html>

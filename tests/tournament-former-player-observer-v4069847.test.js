@@ -129,7 +129,7 @@ async function testWatcher(room){
   assert(ui.includes('if(t.number===forfeitedTable)'));
   assert(ui.includes('socket.emit(\'watchTournamentTable\''));
   assert(html.includes('tournament-ui.js?v=')&&html.includes('v4069847'));
-  assert.match(server,/const RELEASE_VERSION = 'V40\.69\.8\.47'/);
+  assert.match(server,/const RELEASE_VERSION = 'V40\.69\.8\.(?:4[7-9]|[5-9]\d|\d{3,})'/);
   assert(server.includes("if(room.tournament?.forfeits?.some(p=>p.playerKey===key))throw new Error('Você já desistiu desta mesa e não pode retornar como jogador.')"));
   assert(server.includes("throw new Error('Modo Observador: esta ação é exclusiva dos jogadores da mesa.')"));
   console.log('✓ V40.69.8.47: desistência real, painel, observação autenticada, F5, sem nova vaga ou classificação.');

@@ -121,6 +121,7 @@ const pileSidePositionStorage='maumauPileSidePositionV1';
 const sessionKey='maumauSessionV1';
 const pendingVoluntaryLeaveKey='maumauPendingVoluntaryLeaveV1';
 let savedSessionResumePending=false,accountSeatResumePending=false,accountSeatResumeAttempts=0,accountSeatResumeRetryTimer=null;
+let manualTemporaryReturnPending=false;
 const customAvatarStoragePrefix='maumauCustomAvatarV1:';
 const CUSTOM_AVATAR_MAX_DIMENSION=192;
 const CUSTOM_AVATAR_WEBP_QUALITY=.78;
@@ -773,7 +774,7 @@ function saveSession(data){localStorage.setItem(sessionKey,JSON.stringify(data))
 function clearSession(){localStorage.removeItem(sessionKey)}
 function clearAccountSeatResumeRetry(){if(accountSeatResumeRetryTimer){clearTimeout(accountSeatResumeRetryTimer);accountSeatResumeRetryTimer=null}}
 function requestAccountSeatResume(attempt=0){
-  if(!socket.connected||state||pendingRoomSwitch)return;
+  if(saved()?.temporaryExit||!socket.connected||state||pendingRoomSwitch)return;
   clearAccountSeatResumeRetry();
   accountSeatResumePending=true;accountSeatResumeAttempts=attempt;
   socket.emit('resumeActiveSeat');
@@ -1973,44 +1974,97 @@ $('#linkInviteJoin')?.addEventListener('click',()=>{
 });
 $('#linkInviteCopy')?.addEventListener('click',()=>copyRoomInvite($('#linkInviteCode')?.textContent||''));
 $('#copyInvite').onclick=()=>shareRoomInvite(state?.code);
-$('#leaveBtn').onclick=()=>{
-  if(!state||leaveRoomPending) return;
-  const spectator=isSpectatorState();
-  const activeMatch=Number(state.round||0)>0&&state.status!=='finished';
-  const tournamentRoom=!!(state.tournamentWait||state.tournamentSchedule);
-  const message=spectator
-    ? 'Deseja sair do Modo Observador? A partida continuará normalmente para os jogadores.'
-    : activeMatch&&tournamentRoom
-      ? 'Deseja DESISTIR desta mesa de torneio? A saída durante a partida pode causar sua desclassificação. Nenhuma Máquina ocupará seu lugar.'
-      : activeMatch
-        ? 'Deseja sair definitivamente desta sala? A partida poderá continuar com uma Máquina no seu lugar, mas sua reserva de reconexão será cancelada. Para voltar depois, será necessário usar novamente o código da sala.'
-        : tournamentRoom&&state.status==='finished'
-          ? 'A mesa já terminou. Deseja voltar à tela principal para entrar manualmente na próxima fase pelo painel Torneios? Sua classificação será preservada.'
-          : 'Deseja sair desta sala?';
-  if(!window.confirm(message)) return;
+// V40.69.8.48 — torneios: duas ações independentes e autorizadas no servidor.
+function isPlayingTournamentSeat(){return !!state&&(!!state.tournamentWait||!!state.tournamentSchedule)&&!isSpectatorState();}
+function syncTournamentExitControls(){
+  const tournament=isPlayingTournamentSeat(),leave=$('#leaveBtn');
+  $('#tournamentExitBar')?.classList.toggle('hidden',!tournament||state?.status==='finished');
+  if(leave){leave.textContent=tournament?'🚪 SAIR DA MESA':'🚪 Sair';
+    leave.title=tournament?'Sair temporariamente (sujeito aos prazos de ausência e reconexão)':'Sair da sala';
+    leave.setAttribute('aria-label',leave.title);}
+}
+function syncTemporarySeatReturnBanner(){
+  const sess=saved(),active=!!sess?.temporaryExit&&sess.role==='PLAYER';
+  const banner=$('#temporarySeatReturnBanner');
+  banner?.classList.toggle('hidden',!active);
+  const label=$('#temporarySeatReturnText');
+  if(label&&active)label.textContent=`Sua saída da mesa ${sess.code} foi temporária. Os prazos oficiais de reconexão e ausência continuam. Você pode tentar voltar enquanto sua vaga ainda existir.`;
+}
+function emitConfirmedExit(mode){
+  if(!state||leaveRoomPending)return;
+  const tournament=isPlayingTournamentSeat(),spectator=isSpectatorState();
+  if(tournament&&mode!=='temporary'&&mode!=='abandon')return;
+  if(!tournament&&mode==='abandon')return;
+  const previous=saved();
   if(!socket.connected){
-    // V40.59 — o clique em SAIR continua sendo voluntário mesmo se a rede caiu
-    // exatamente nesse momento. Guardamos a intenção e a confirmamos no servidor
-    // assim que o Socket.IO voltar, antes de qualquer tentativa de auto-reconexão.
-    const sess=saved();
-    savePendingVoluntaryLeave({code:String(state?.code||sess?.code||'').toUpperCase(),token:sess?.token||'',at:Date.now()});
+    if(tournament&&mode==='temporary'){
+      if(previous)saveSession({...previous,temporaryExit:true});
+      returnToLanding('Você saiu temporariamente. O prazo normal de ausência continua valendo.');
+      syncTemporarySeatReturnBanner();
+      return;
+    }
+    // Abandono definitivo confirmado sem internet: só é enviado após a
+    // reconexão. Até sua confirmação durável, o servidor aplica as regras
+    // existentes de ausência, não uma desistência inventada pelo navegador.
+    savePendingVoluntaryLeave({code:String(state?.code||previous?.code||'').toUpperCase(),
+      token:previous?.token||'',action:tournament?'abandon':undefined,at:Date.now()});
     clearSession();window.MauMediaSession?.clear();
-    returnToLanding('Saída registrada. Assim que a conexão voltar, sua reserva será cancelada no servidor.');
+    returnToLanding('Confirmação de saída pendente. Será enviada quando a conexão voltar.');
+    syncTemporarySeatReturnBanner();
     return;
   }
-  if(liveMicOn)stopLiveMic({notify:true,showToast:false});
   leaveRoomPending=true;
   const btn=$('#leaveBtn');
-  if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent||'🚪 Sair';btn.textContent='⏳ Saindo...'}
-  socket.timeout(5000).emit('leaveRoom',(timeoutErr,response)=>{
-    if(!state)return; // o evento leftRoom já confirmou e voltou ao lobby
+  if(btn){btn.disabled=true;btn.textContent='⏳ Saindo...';}
+  const abandonBtn=$('#abandonTournamentBtn');if(abandonBtn)abandonBtn.disabled=true;
+  // Se a rede cair após o clique, não reiniciar automaticamente uma vaga que
+  // o usuário está tentando deixar temporariamente.
+  if(tournament&&mode==='temporary'&&previous)saveSession({...previous,temporaryExit:true});
+  if(liveMicOn)stopLiveMic({notify:true,showToast:false,keepWanted:tournament&&mode==='temporary'});
+  socket.timeout(5000).emit('leaveRoom',tournament?{mode}:null,(timeoutErr,response)=>{
+    if(!state)return; // leftRoom já confirmou a saída.
     if(timeoutErr||!response?.ok){
       leaveRoomPending=false;
-      if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'🚪 Sair'}
+      if(tournament&&mode==='temporary'&&previous)saveSession(previous);
+      if(btn)btn.disabled=false;
+      if(abandonBtn)abandonBtn.disabled=false;
+      syncTournamentExitControls();
       toast(response?.message||'Não foi possível confirmar a saída. Tente novamente.');
     }
   });
+}
+$('#leaveBtn').onclick=()=>{
+  if(!state||leaveRoomPending)return;
+  if(isPlayingTournamentSeat()){
+    if(!window.confirm('SAIR DA MESA é temporário. Sua vaga, seus pontos e seu vínculo com o torneio serão preservados conforme as regras existentes, MAS o prazo de ausência/reconexão continua contando. Deseja sair?'))return;
+    emitConfirmedExit('temporary');return;
+  }
+  const spectator=isSpectatorState(),activeMatch=Number(state.round||0)>0&&state.status!=='finished';
+  const message=spectator?'Deseja sair do Modo Observador? A partida continuará normalmente.':
+    activeMatch?'Deseja sair definitivamente desta sala? Nas partidas normais, uma Máquina poderá assumir sua vaga.':
+    'Deseja sair desta sala?';
+  if(window.confirm(message))emitConfirmedExit('normal');
 };
+$('#abandonTournamentBtn')?.addEventListener('click',()=>{
+  if(!isPlayingTournamentSeat()||leaveRoomPending)return;
+  const dlg=$('#abandonTournamentDialog');if(dlg&&!dlg.open)dlg.showModal();
+});
+function closeAbandonTournamentDialog(){const dlg=$('#abandonTournamentDialog');if(dlg?.open)dlg.close();}
+$('#cancelAbandonTournamentBtn')?.addEventListener('click',closeAbandonTournamentDialog);
+$('#confirmAbandonTournamentBtn')?.addEventListener('click',()=>{
+  if(!isPlayingTournamentSeat()||leaveRoomPending)return closeAbandonTournamentDialog();
+  closeAbandonTournamentDialog();emitConfirmedExit('abandon');
+});
+$('#abandonTournamentDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeAbandonTournamentDialog();});
+$('#returnTemporarySeatBtn')?.addEventListener('click',()=>{
+  if(!saved()?.temporaryExit)return syncTemporarySeatReturnBanner();
+  if(!socket.connected)return toast('Sem conexão. Conecte-se para tentar retornar à mesa.');
+  // O servidor confere a identidade, a reserva existente e o forfeit.
+  const sess=saved();saveSession({...sess,temporaryExit:false});
+  manualTemporaryReturnPending=true;
+  syncTemporarySeatReturnBanner();
+  requestAccountSeatResume(0);
+});
 
 applyPileSide();
 initDraggablePileSide();
@@ -3369,7 +3423,7 @@ function tournamentPhaseNotice(data,detail=''){
 
 function clearAutoTournamentTimer(){if(autoTournamentTimer){clearTimeout(autoTournamentTimer);autoTournamentTimer=null;}}
 function requestTournamentSeatLocation(){
-  if(!socket.connected||pendingVoluntaryLeave()||leaveRoomPending)return;
+  if(saved()?.temporaryExit||!socket.connected||pendingVoluntaryLeave()||leaveRoomPending)return;
   // Um convite ?room continua tendo prioridade ANTES da entrada na sala.
   // Depois que ela virou apenas um lobby comum sem rodada, não bloquear a
   // convocação da final por causa de um parâmetro antigo na URL.
@@ -3380,6 +3434,7 @@ function requestTournamentSeatLocation(){
   socket.emit('locateTournamentSeat');
 }
 function autoEnterTournamentSeat(data,manualRetry=false){
+  if(saved()?.temporaryExit)return;
   if(!socket.connected||!data||!/^[-a-z0-9]{3,64}$/i.test(String(data.tournamentId||''))||
     !['qualifier','quarter','semi','final'].includes(data.stage)||
     !Number.isInteger(data.tableNumber)||data.tableNumber<1||
@@ -3739,15 +3794,17 @@ socket.on('gameError',e=>{
   playGameSound('error');toast(e.message);render(true);
 });
 socket.on('leftRoom',data=>{
-  window.MauMediaSession?.clear();
-  window.MauCamera?.stop();
-  tournamentWatchMode=false;
-  leaveRoomPending=false;
-  const leaveBtn=$('#leaveBtn');if(leaveBtn){leaveBtn.disabled=false;leaveBtn.textContent=leaveBtn.dataset.oldText||'🚪 Sair'}
-  // V40.59 — leftRoom é uma saída voluntária confirmada: nunca preserva token
-  // de reconexão automática. Para voltar, o usuário deverá informar o código.
-  clearSession();
+  const temporary=data?.kind==='temporary'&&data?.keepSeat;
+  if(!temporary)window.MauMediaSession?.clear();
+  window.MauCamera?.stop({keepWanted:temporary});
+  tournamentWatchMode=false;leaveRoomPending=false;
+  const btn=$('#leaveBtn');if(btn)btn.disabled=false;
+  const abandonBtn=$('#abandonTournamentBtn');if(abandonBtn)abandonBtn.disabled=false;
+  if(data?.kind==='temporary'&&data?.keepSeat){
+    const sess=saved();if(sess)saveSession({...sess,temporaryExit:true});
+  }else clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
+  syncTemporarySeatReturnBanner();
   syncPresenceProfile();
 });
 socket.on('reconnectionEvent',event=>{
@@ -3758,7 +3815,7 @@ socket.on('reconnectionEvent',event=>{
 });
 socket.on('resumeActiveSeatResult',info=>{
   accountSeatResumePending=false;
-  if(info?.ok){accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();return;}
+  if(info?.ok){if(typeof manualTemporaryReturnPending!=='undefined')manualTemporaryReturnPending=false;accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();return;}
   // Uma resposta 'none' pode ocorrer na microjanela de reload/redeploy. Fazemos
   // poucas tentativas silenciosas antes de concluir que não há cadeira ativa.
   if(info?.reason==='none'&&!state&&!pendingRoomSwitch&&accountSeatResumeAttempts<2){
@@ -3780,6 +3837,18 @@ socket.on('resumeActiveSeatResult',info=>{
     return;
   }
   accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();
+  if(typeof manualTemporaryReturnPending!=='undefined'&&manualTemporaryReturnPending){
+    manualTemporaryReturnPending=false;
+    if(info?.reason==='none'){
+      clearSession();syncTemporarySeatReturnBanner();
+      toast('Sua vaga anterior não está mais disponível. Consulte o torneio para verificar sua situação.');
+    }else{
+      const sess=saved();if(sess)saveSession({...sess,temporaryExit:true});
+      syncTemporarySeatReturnBanner();
+      toast(info?.message||'Não foi possível voltar à mesa. Tente novamente.');
+    }
+    return;
+  }
   if(info?.reason==='error'&&info?.message)toast(info.message);
   if(!state&&socket.connected)requestTournamentSeatLocation();
 });
@@ -3795,7 +3864,7 @@ socket.on('connect',()=>{
   // Enquanto o servidor não confirmar o abandono, não tentamos recuperar a cadeira.
   const pendingLeave=pendingVoluntaryLeave();
   if(pendingLeave?.code){
-    socket.timeout(5000).emit('abandonReservedSeat',{code:pendingLeave.code,token:pendingLeave.token||''},(timeoutErr,response)=>{
+    socket.timeout(5000).emit('abandonReservedSeat',{code:pendingLeave.code,token:pendingLeave.token||'',action:pendingLeave.action},(timeoutErr,response)=>{
       if(timeoutErr||!response?.ok)return;
       clearPendingVoluntaryLeave();
       clearSession();
@@ -3804,6 +3873,11 @@ socket.on('connect',()=>{
     return;
   }
   const sess=saved();
+  syncTemporarySeatReturnBanner();
+  // A saída temporária NÃO equivale a desconexão involuntária para fins de
+  // navegação: não puxar o jogador de volta sem ele pedir. O servidor continua
+  // contando o prazo de ausência e preserva a reserva enquanto for válida.
+  if(sess?.temporaryExit)return;
 
   // Mantemos o comportamento do convite por link: quando o link aponta para
   // outra sala, ele continua preenchido na tela. Antes de qualquer entrada manual,
@@ -3862,6 +3936,7 @@ function returnToLanding(message=''){
   renderLinkInviteBanner('');
   syncPresenceProfile();
   if(message) toast(message);
+  syncTemporarySeatReturnBanner();
 }
 
 
@@ -4145,6 +4220,7 @@ function tournamentStartHint(now=tournamentScheduleClock?.now()??Date.now()){
   return 'Tempo encerrado. O anfitrião pode iniciar ou continuar esperando.';
 }
 function render(force=false){
+  if(typeof syncTournamentExitControls==='function')syncTournamentExitControls();
   if(!state)return;
   $('#landing').classList.add('hidden');$('#game').classList.remove('hidden');
   const spectator=isSpectatorState();
@@ -4680,6 +4756,7 @@ function renderSpectatorLivePanel(){
 }
 function renderLog(){const l=$('#log');l.innerHTML=state.log.slice().reverse().map(x=>`<div class="log-item ${x.kind}">${esc(x.message)}</div>`).join('')}
 function renderControls(){
+  if(typeof syncTournamentExitControls==='function')syncTournamentExitControls();
   const box=$('#hostControls');
   if(!state?.me){box.innerHTML='';return}
   const me=state.players.find(p=>p.id===state.me.id);box.innerHTML='';
