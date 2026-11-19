@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.40';
+const RELEASE_VERSION = 'V40.69.8.44';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -3473,6 +3473,7 @@ io.on('connection', socket => {
         // Uma sala restaurada de snapshot de versão anterior pode ainda não ter
         // os dados públicos da programação. Sincronize-os com o catálogo real.
         if(room?.tournament){room.tournament.startAt=event.startAt;room.tournament.name=event.name;}
+        // A sala restaurada mantém suas regras do snapshot; não reinicializar partidas em curso.
         if(binding?.result)throw new Error('Esta mesa já concluiu sua partida.');
         if(room?.tournament?.forfeits?.some(p=>p.playerKey===socket.data.auth?.playerKey))
           throw new Error('Você desistiu desta mesa e não pode retornar ao torneio.');
@@ -3537,9 +3538,11 @@ io.on('connection', socket => {
             const candidate=Engine.createRoom(code,{socketId:socket.id,token:crypto.randomUUID(),
               name:cleanPresenceName(socket.data.auth.name),avatar:cleanAvatar(payload?.avatar||'macaco'),playerKey:socket.data.auth.playerKey});
             const deadlineAt=await tournamentWaitDeadline(id,phase,number,binding);
+            // Toda fase e toda mesa herdam a mesma regra persistida no catálogo.
+            candidate.rules.rounds=event.rounds;
             candidate.tournament={id,phase,tableNumber:number,rosterKeys:seat.players.map(p=>p.playerKey),
               rosterNames:seat.players.map(p=>({playerKey:p.playerKey,name:p.name})),waitDeadlineAt:deadlineAt,
-              startAt:event.startAt,name:event.name,forfeits:[]};
+              startAt:event.startAt,name:event.name,rounds:event.rounds,forfeits:[]};
             candidate.isPublic=false;ensureSocial(candidate);
             await prepareForRoomSwitch(socket,code);
             const saved=await roomSnapshotStore.saveNow(candidate);

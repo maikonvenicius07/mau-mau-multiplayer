@@ -77,7 +77,7 @@ const root=path.join(__dirname,'..');
      return {rows:[{count:pool.rows.filter(x=>x.actor===args[0]&&x.status!=='cancelled').length}]};
     }
     if(sql.startsWith('INSERT INTO mm_tournaments')){
-     pending={id:args[0],actor:args[4],status:'draft'};return {rows:[],rowCount:1};
+     pending={id:args[0],actor:args.at(-1),status:'draft'};return {rows:[],rowCount:1};
     }
     if(sql==='COMMIT'){if(pending)pool.rows.push(pending);pool.commits++;unlock?.();return {rows:[]};}
     if(sql==='ROLLBACK'){pending=null;pool.rollbacks++;unlock?.();return {rows:[]};}

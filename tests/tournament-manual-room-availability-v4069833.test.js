@@ -21,10 +21,10 @@ assert(client.includes("entryStatus.classList.add('is-error')"));
 const id='cup-v33',stage='final',number=1;
 const seat={players:[{playerKey:'a',name:'Ana'},{playerKey:'b',name:'Bia'}]};
 function makeRoom(code,playerKey){
-  return {code,status:'lobby',round:0,players:[{id:`seat-${playerKey}`,playerKey,isBot:false,connected:true,
+  return {code,status:'lobby',round:0,rules:{rounds:5},players:[{id:`seat-${playerKey}`,playerKey,isBot:false,connected:true,
     name:playerKey==='a'?'Ana':'Bia',avatar:'macaco',host:true,token:'t'}],chat:[],log:[],deck:[],discard:[],tournament:null};
 }
-function scenario({previousBinding=null,savedSnapshot=null,snapshotExists=!!savedSnapshot,failSave=false,failClaim=false,failWait=false}={}){
+function scenario({previousBinding=null,savedSnapshot=null,snapshotExists=!!savedSnapshot,failSave=false,failClaim=false,failWait=false,rounds=5}={}){
   const rooms=new Map(),locks=new Set(),events=new Map(),order=[],snapshots=new Map(),errors=[];
   let binding=previousBinding;
   if(savedSnapshot)snapshots.set(savedSnapshot.code,savedSnapshot);
@@ -51,7 +51,7 @@ function scenario({previousBinding=null,savedSnapshot=null,snapshotExists=!!save
       claim:async(_id,_phase,_number,code)=>{order.push('claim');if(failClaim)throw Error('Falha no banco');if(!binding)binding={roomCode:code,roomState:'lobby',claimedAt:Date.now(),result:null};return binding;},
       reclaimLobby:async(_id,_phase,_number,oldCode,code)=>{order.push('reclaim');if(binding?.roomCode!==oldCode)throw Error('Concorrência');binding={...binding,roomCode:code,claimedAt:Date.now()};return binding;}
     },
-    tournamentCatalog:{get:async()=>({status:'closed',startAt:Date.now(),name:'Copa'})},
+    tournamentCatalog:{get:async()=>({status:'closed',startAt:Date.now(),name:'Copa',rounds})},
     rooms,
     activePlayerRoomForKey:()=>null,TournamentSeatHandoff:{canAutoSwitchFrom:()=>false},
     awaitTournamentTableJoinLock:async key=>{const until=Date.now()+1500;for(;;){if(!locks.has(key)){locks.add(key);return;}if(Date.now()>until)throw Error('lock timeout');await new Promise(resolve=>setTimeout(resolve,5));}},
@@ -85,6 +85,14 @@ function scenario({previousBinding=null,savedSnapshot=null,snapshotExists=!!save
   return {connect,rooms,snapshots,order,getBinding:()=>binding,errors};
 }
 (async()=>{
+  for(const total of [5,10,15]){
+    const s=scenario({rounds:total}),a=s.connect('a');await a.run();
+    const room=[...s.rooms.values()][0];
+    assert(room,`mesa de ${total} rodadas criada no servidor`);
+    assert.equal(room.rules.rounds,total,`regras aplicadas ao lobby ${total}`);
+    assert.equal(room.tournament.rounds,total,'metadado competitivo preservado');
+    assert.equal(s.snapshots.get(room.code).rules.rounds,total,'snapshot preserva duração em reinício');
+  }
   {
     const s=scenario(),a=s.connect('a');await a.run();
     assert.deepEqual(s.order.slice(0,2),['snapshot','claim'],'Persistência ANTES do registro da sala');

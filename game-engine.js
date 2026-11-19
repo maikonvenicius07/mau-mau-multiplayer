@@ -330,7 +330,7 @@ function startRound(room) {
   const availableCount = room.players.filter(p => p.connected || p.isBot || p.autoControlled).length;
   if (availableCount < 2) throw new Error('São necessários pelo menos 2 jogadores disponíveis.');
   if (room.players.some(p => !p.isBot && !p.connected && !p.autoControlled)) throw new Error('Há jogador dentro do prazo de reconexão. Aguarde o retorno ou a Máquina assumir temporariamente.');
-  if (room.round >= room.rules.rounds) throw new Error('As 5 rodadas já foram concluídas.');
+  if (room.round >= room.rules.rounds) throw new Error(`As ${room.rules.rounds} rodadas já foram concluídas.`);
 
   // V40.62 — OFICIAL/TREINO é decidido uma única vez, no início da partida.
   // Saída posterior, AUTO temporário ou conversão de uma cadeira humana em
@@ -1167,7 +1167,7 @@ function finalizeRound(room) {
     room.finishedAt = Date.now();
     const min = Math.min(...room.players.map(p => p.score));
     const winners = room.players.filter(p => p.score === min);
-    log(room, `Fim das 5 rodadas. ${winners.map(p=>p.name).join(' e ')} ${winners.length>1?'empataram':'venceu'} com ${min} ponto(s).`, 'champion');
+    log(room, `Fim das ${room.rules.rounds} rodadas. ${winners.map(p=>p.name).join(' e ')} ${winners.length>1?'empataram':'venceu'} com ${min} ponto(s).`, 'champion');
   }
 }
 
@@ -1282,6 +1282,7 @@ function roomPublicState(room, viewerId) {
     // programado nao comanda o inicio da partida.
     tournamentSchedule:room.tournament?{
       name:String(room.tournament.name||'Torneio').slice(0,70),
+      rounds:room.rules.rounds,
       startAt:room.tournament.startAt||null,serverNow:Date.now()
     }:null,
     tournamentWait:room.tournament&&room.status==='lobby'&&Number(room.round||0)===0?

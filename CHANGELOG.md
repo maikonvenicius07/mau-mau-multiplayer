@@ -1,3 +1,12 @@
+## V40.69.8.44 — Torneios com 5, 10 ou 15 rodadas por partida (19/11/2026)
+
+- Ao criar torneios, organizador escolhe 5, 10 ou 15 rodadas; padrão de 5 mantido. A regra é por **partida**, não altera as fases.
+- PostgreSQL recebe coluna `rounds` na inicialização (`DEFAULT 5`) e registros JSON antigos passam a ser interpretados como cinco rodadas. Novos lobbies de cada fase herdam a duração do catálogo e preservam essa configuração no snapshot.
+- Uma vez realizado o sorteio, a duração não pode ser alterada, evitando incoerência entre mesas; reconexão e recuperação não reinicializam as regras de uma partida em curso.
+- Interface apresenta a duração no cadastro, nas inscrições, no acompanhamento do torneio e na mesa; mensagens do motor usam a quantidade real de rodadas.
+- Sorteio, transição automática entre fases, ingresso automático dos classificados, começo exclusivamente manual, cronômetro persistido de 2 minutos, ranking, modo observador e regras das cartas não foram refatorados.
+- `package.json` continua com a versão técnica `40.69.8-rank.11` por compatibilidade com testes históricos; a identificação funcional no servidor é `V40.69.8.44`.
+
 ## V40.69.8.40 — Cronômetro dos torneios: 2 minutos de espera (19/11/2026)
 
 - **Alteração restrita à espera do torneio:** `tournament-wait.js` agora define `WAIT_MS=120000` (02:00), usado pelo sorteio inicial em `tournament-draw.js` e pela formação das fases seguintes em `tournament-bracket.js`.

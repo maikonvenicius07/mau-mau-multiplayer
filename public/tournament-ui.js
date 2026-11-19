@@ -6,7 +6,8 @@
   const name=byId('tournamentName'),state=byId('tournamentStatus'),date=byId('tournamentDate');
   const action=byId('tournamentJoin'),list=byId('tournamentPlayers'),picker=byId('tournamentPicker');
   const panel=byId('tournamentAdminPanel'),adminName=byId('tournamentAdminName');
-  const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart');
+  const capacity=byId('tournamentAdminCapacity'),start=byId('tournamentAdminStart'),rounds=byId('tournamentAdminRounds');
+  const roundsInfo=byId('tournamentRoundsInfo');
   const create=byId('tournamentAdminCreate'),save=byId('tournamentAdminSave');
   const toggle=byId('tournamentAdminToggle'),cancel=byId('tournamentAdminCancel'),remove=byId('tournamentAdminDelete'),forceDeleteTest=byId('tournamentAdminForceDeleteTest'),message=byId('tournamentAdminMessage');
   const drawButton=byId('tournamentDrawButton'),tablesPanel=byId('tournamentTables'),tablesList=byId('tournamentTableList'),adminHint=byId('tournamentAdminHint');
@@ -106,7 +107,7 @@
     if(forceDeleteTest){forceDeleteTest.hidden=!(config?.canManage&&['closed','cancelled'].includes(config?.status)&&/(?:^|[\s_-])teste(?:$|[\s_-])/i.test(config.name||''));forceDeleteTest.disabled=value||forceDeleteTest.hidden;}
     if(drawButton)drawButton.disabled=value||!config?.canManage||config.status!=='closed'||config.enrolled<2||drawnTables.length>0;}
   function setFields(t){
-    adminName.value=t.name||'';capacity.value=t.capacity||20;
+    adminName.value=t.name||'';capacity.value=t.capacity||20;if(rounds)rounds.value=String(t.rounds||5);
     if(t.startAt){const d=new Date(t.startAt);const inRO=new Date(d.getTime()-4*60*60*1000);start.value=inRO.toISOString().slice(0,16);}
     else start.value='';
   }
@@ -169,7 +170,8 @@
   }
   function render(result){
     config=result.tournament;name.textContent='🏆 '+config.name;
-    state.textContent=`${config.enrolled} de ${config.capacity} inscritos • ${statusText[config.status]||'Em preparação'}`;
+    state.textContent=`${config.enrolled} de ${config.capacity} inscritos • ${config.rounds||5} rodadas por partida • ${statusText[config.status]||'Em preparação'}`;
+    if(roundsInfo)roundsInfo.textContent=`🏆 TORNEIO DE ${config.rounds||5} RODADAS — todas as mesas, fases e a grande final.`;
     date.textContent='Início previsto: '+formatDate(config.startAt);
     list.replaceChildren();
     if(!result.players?.length){const li=document.createElement('li');li.textContent='Nenhum jogador inscrito ainda.';list.append(li);}
@@ -189,7 +191,7 @@
         t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
       else if(bracket?.stages?.length){const p=document.createElement('p');
         if(currentStage==='final'){
-          p.textContent='🏆 GRANDE FINAL FORMADA! Os finalistas são encaminhados automaticamente para sua mesa após concluir a fase anterior. Se necessário, a entrada também pode ser retomada pelo botão ENTRAR NA MINHA MESA. O início é manual; o relógio de cinco minutos NÃO inicia sozinho.';
+          p.textContent='🏆 GRANDE FINAL FORMADA! Os finalistas são encaminhados automaticamente para sua mesa após concluir a fase anterior. Se necessário, a entrada também pode ser retomada pelo botão ENTRAR NA MINHA MESA. O início é manual; o relógio de dois minutos NÃO inicia sozinho.';
         }else if(currentStage!=='qualifier'){
           p.textContent='🎲 '+(drawnTables.length>1?'Novo sorteio realizado: consulte sua mesa abaixo.':'Mesa única da nova fase formada.')+' Os classificados são encaminhados automaticamente; o botão de entrada é apenas uma alternativa. A partida começa apenas após o início manual.';
         }else{
@@ -337,7 +339,7 @@
     panel.hidden=!canCreate;
     if(canCreate){
       if(config.canManage){if(!adminEditing)setFields(config);}
-      else if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
+      else if(!adminEditing){adminName.value='';capacity.value=20;start.value='';if(rounds)rounds.value='5';}
       toggle.textContent=config.status==='open'?'Encerrar inscrições':'Abrir inscrições';
       toggle.disabled=pending||!config.canManage||config.status==='cancelled';save.disabled=pending||!config.canManage||config.status==='cancelled';cancel.disabled=pending||!config.canManage||config.status==='cancelled';
       if(remove)remove.disabled=pending||!config.canManage;
@@ -369,7 +371,7 @@
       for(const t of items){
         const opt=document.createElement('option');opt.value=t.id;
         const programmed=schedule?.format(t.startAt);
-        opt.textContent=t.name+' — '+(programmed?`${programmed.date}, ${programmed.time} (RO)`:'Data a definir')+' — '+(statusText[t.status]||t.status);
+        opt.textContent=t.name+' — '+(t.rounds||5)+' rodadas — '+(programmed?`${programmed.date}, ${programmed.time} (RO)`:'Data a definir')+' — '+(statusText[t.status]||t.status);
         picker.append(opt);
       }
       if(!items.length){const opt=document.createElement('option');opt.textContent='Nenhum torneio cadastrado';opt.value='';picker.append(opt);}
@@ -382,7 +384,7 @@
       if(overview)overview.hidden=true;if(stageList)stageList.replaceChildren();
       name.textContent='🏆 Torneios';state.textContent='Nenhum torneio cadastrado.';list.replaceChildren();action.disabled=true;
       if(schedulePanel)schedulePanel.hidden=true;
-      if(!adminEditing){adminName.value='';capacity.value=20;start.value='';}
+      if(!adminEditing){adminName.value='';capacity.value=20;start.value='';if(rounds)rounds.value='5';}
       for(const btn of [save,toggle,cancel,remove,forceDeleteTest])if(btn)btn.hidden=true;
       if(drawButton?.parentElement)drawButton.parentElement.hidden=true;
       setBusy(false);return;
@@ -421,7 +423,7 @@
     // datetime-local expresses a wall-clock time in Rondônia (UTC-04).
     const d=start.value?new Date(start.value+':00-04:00'):null;
     if(d&&!Number.isFinite(d.getTime()))throw new Error('Data inválida.');
-    return {name:adminName.value.trim(),capacity:Number(capacity.value),startAt:d?d.toISOString():null};
+    return {name:adminName.value.trim(),capacity:Number(capacity.value),rounds:Number(rounds?.value||5),startAt:d?d.toISOString():null};
   }
   async function adminRequest(kind){
     if(pending||panel.hidden)return;
@@ -440,7 +442,7 @@
         ...(payload===null?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})});
       adminEditing=false;lastSelectedPayload=null;
       await loadList((kind==='delete'||kind==='forceDeleteTest')?'':data.tournament.id);
-      message.textContent=kind==='forceDeleteTest'?'Torneio TESTE travado excluído. As convocações antigas foram encerradas.':kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?'Torneio criado. Abra as inscrições quando estiver pronto.':'Alteração salva.';
+      message.textContent=kind==='forceDeleteTest'?'Torneio TESTE travado excluído. As convocações antigas foram encerradas.':kind==='delete'?'Torneio e inscrições excluídos.':kind==='create'?`Torneio de ${data.tournament?.rounds||5} rodadas por partida criado. Abra as inscrições quando estiver pronto.`:'Alteração salva.';
     }catch(e){message.textContent=e.message;}
     finally{setBusy(false);}
   }
@@ -498,7 +500,7 @@
   window.addEventListener('online',()=>{setAutoStatus('Atualização automática ativa');autoRefresh?.resume();});
   if(typeof socket!=='undefined')socket.on('connect',()=>autoRefresh?.resume());
   // Do not overwrite the organizer's form during background refreshes.
-  for(const field of [adminName,capacity,start])field?.addEventListener('input',()=>{adminEditing=true;});
+  for(const field of [adminName,capacity,start,rounds])field?.addEventListener('input',()=>{adminEditing=true;});
   // V40.69.8.15 — Resultado completo do torneio dentro do Ranking.
   // A pontuação e a posição são as registradas, sem recalcular o ranking oficial.
   function appendRankingStandings(container,standings){

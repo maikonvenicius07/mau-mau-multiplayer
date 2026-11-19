@@ -4075,7 +4075,7 @@ function syncTournamentLobbySchedule(){
   if(!visible)return;
   const title=document.getElementById('tournamentLobbyScheduleName');
   const text=document.getElementById('tournamentLobbyScheduleStart');
-  if(title)title.textContent='🏆 '+String(info.name||'Torneio');
+  if(title)title.textContent='🏆 '+String(info.name||'Torneio')+' · '+String(info.rounds||state.rounds||5)+' rodadas';
   if(text)text.textContent=detail?
     `Início programado: ${detail.date} às ${detail.time} (${detail.zone})`:
     'Início programado: data e horário ainda não definidos';
@@ -4158,7 +4158,7 @@ function render(force=false){
   if(bannerHint)bannerHint.textContent=(typeof isTournamentWatcher==='function'&&isTournamentWatcher())?'Assistindo ao torneio · sem participar':'Acompanhando a mesa · cartas privadas protegidas';
   syncSpectatorCompactUI();
   syncTournamentWaitBanner();
-  $('#roomCode').textContent=state.code;$('#roundText').textContent=`Rodada ${state.round}/${state.rounds}`;
+  $('#roomCode').textContent=state.code;$('#roundText').textContent=state.tournamentSchedule?`Rodada ${state.round} de ${state.rounds}`:`Rodada ${state.round}/${state.rounds}`;
   $('#directionText').textContent=state.direction===1?'↻ horário':'↺ anti-horário';$('#deckCount').textContent=state.deckCount;
   // O nome e a quantidade de cartas ja aparecem no assento do jogador.
   // A mao mostra a contagem somente no celular, onde a ficha local da mesa fica oculta.
