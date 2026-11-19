@@ -189,9 +189,9 @@
         t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
       else if(bracket?.stages?.length){const p=document.createElement('p');
         if(currentStage==='final'){
-          p.textContent='🏆 GRANDE FINAL FORMADA! Os finalistas devem voltar à tela principal, abrir TORNEIOS e clicar em ENTRAR NA MINHA MESA. A sala é aberta na primeira entrada autorizada. O início da partida é manual; o relógio de cinco minutos NÃO inicia sozinho.';
+          p.textContent='🏆 GRANDE FINAL FORMADA! Os finalistas são encaminhados automaticamente para sua mesa após concluir a fase anterior. Se necessário, a entrada também pode ser retomada pelo botão ENTRAR NA MINHA MESA. O início é manual; o relógio de cinco minutos NÃO inicia sozinho.';
         }else if(currentStage!=='qualifier'){
-          p.textContent='🎲 '+(drawnTables.length>1?'Novo sorteio realizado: consulte sua mesa abaixo.':'Mesa única da nova fase formada.')+' Os classificados entram manualmente por ENTRAR NA MINHA MESA. A partida começa apenas após o início manual.';
+          p.textContent='🎲 '+(drawnTables.length>1?'Novo sorteio realizado: consulte sua mesa abaixo.':'Mesa única da nova fase formada.')+' Os classificados são encaminhados automaticamente; o botão de entrada é apenas uma alternativa. A partida começa apenas após o início manual.';
         }else{
           p.textContent='Fase atual: '+(stagesLabel[currentStage]||currentStage)+'. A próxima fase será criada automaticamente quando todas as mesas terminarem.';
         }
@@ -225,7 +225,7 @@
             help.textContent='✅ FINAL PRONTA: jogadores conectados na mesa oficial. O anfitrião deve clicar em INICIAR 1ª RODADA.';
           }else{
             help.textContent=`🎮 GRANDE FINAL: ${present} de ${t.players.length} presentes na mesa oficial. `+
-              'Cada finalista deve abrir TORNEIOS e clicar em ENTRAR NA MINHA MESA; a vaga já está reservada. ' +
+              'Os finalistas serão encaminhados automaticamente; a vaga já está reservada. Se necessário, use ENTRAR NA MINHA MESA. ' +
               'O início da partida é manual e exige pelo menos dois participantes.';
           }
           card.append(help);
@@ -273,7 +273,7 @@
         }else if(t.number===myTable&&!needsRecovery){
           const note=document.createElement('p');note.className='tournament-note';
           note.textContent=currentStage==='qualifier'?'🎮 Sua vaga nas classificatórias está reservada.':
-            '🏆 Você está classificado! Após concluir a fase anterior, use o botão abaixo para entrar nesta mesa. Sua vaga está reservada.';
+            '🏆 Você está classificado! Após concluir a fase anterior, a entrada nesta mesa é automática. O botão abaixo serve como alternativa em caso de falha de conexão.';
           card.append(note);
           // Recuperação explícita caso a convocação Socket.IO tenha sido
           // perdida durante F5, mudança de fase ou conexão oscilante.

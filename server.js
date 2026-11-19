@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.36';
+const RELEASE_VERSION = 'V40.69.8.38';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -2498,7 +2498,7 @@ async function abandonOtherPlayerMembershipsForSwitch(socket, exceptCode=null, r
 async function prepareForRoomSwitch(socket, exceptCode=null) {
   forgetCameraSocket(socket);
   const currentCode=String(socket.data.roomCode||'');
-  // V40.69.8.31: ao acessar manualmente uma fase seguinte, desconectar a
+  // V40.69.8.38: ao avançar automaticamente ou recuperar uma fase seguinte, desconectar a
   // sessão da mesa de torneio CONCLUÍDA sem registrar abandono ou eliminar
   // o classificado. Resultados ainda pendentes mantêm o elenco original.
   if(currentCode&&currentCode!==exceptCode&&socket.data.role===ROLE_PLAYER){
@@ -3431,13 +3431,19 @@ io.on('connection', socket => {
           throw new Error('Você ainda está em outra partida. Encerre ou saia dessa mesa antes de entrar na próxima fase pelo painel Torneios.');
       }
       if(payload?.automatic){
-        // Compatibilidade com cliente antigo: a transferência automática de
-        // fases seguintes fica proibida também no servidor.
-        if(phase!=='qualifier')throw new Error('Entre manualmente na próxima fase pelo painel Torneios.');
+        // V40.69.8.38: convocação da etapa seguinte é automática, mas a
+        // autorização permanece vinculada à conta e ao sorteio. Nunca tirar
+        // alguém de outra partida ativa, observador ou torneio diferente.
+        // Uma sala FINALIZADA de outro jogo também não é descartada sem
+        // consentimento (pode ter uma revanche pendente).
+        const previous=socket.data.roomCode?rooms.get(socket.data.roomCode):null;
+        if(phase!=='qualifier'&&previous?.status==='finished'&&
+          (!previous.tournament||previous.tournament.id!==id))
+          throw new Error('Conclua a sessão anterior antes de avançar automaticamente neste torneio.');
         const other=activePlayerRoomForKey(socket.data.auth.playerKey);
         if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number)
           &&!TournamentSeatHandoff.canAutoSwitchFrom(other))
-          throw new Error('Você está em outra partida. Saia dela antes de participar da mesa do torneio.');
+          throw new Error('Você está em outra partida. Aguarde seu término antes de avançar no torneio.');
       }
       // A validação da desistência é repetida no caminho de entrada abaixo,
       // após identificar a sala persistida (evita o retorno entre rodadas).
@@ -3492,7 +3498,7 @@ io.on('connection', socket => {
               rooms.set(restored.code,restored);
               for(const previous of restored.players)scheduleRestoredPlayerGrace(restored,previous);
               refreshOfflineRoomExpiry(restored);
-              console.info('[tournament] lobby restaurado para entrada manual',{id,phase,number});
+              console.info('[tournament] lobby restaurado para entrada de classificado',{id,phase,number});
             }
             room=rooms.get(restored.code);
           }
@@ -3579,7 +3585,7 @@ io.on('connection', socket => {
       }finally{tournamentTableJoinLocks.delete(lockKey);}
     }catch(e){
       const reason=e?.message||'Não foi possível acessar a mesa.';
-      console.warn('[tournament] entrada manual recusada',{id,phase,number,reason});
+      console.warn('[tournament] ingresso de classificado recusado',{id,phase,number,reason});
       socket.emit('tournamentTableEntryResult',{ok:false,tournamentId:id,stage:phase,tableNumber:number,message:reason});
       err(socket,e);
     }

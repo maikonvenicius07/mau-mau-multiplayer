@@ -9,7 +9,7 @@ const app=fs.readFileSync(path.join(dir,'public/app.js'),'utf8');
 const ui=fs.readFileSync(path.join(dir,'public/tournament-ui.js'),'utf8');
 const html=fs.readFileSync(path.join(dir,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(dir,'public/styles.css'),'utf8');
-const begin=app.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
+const begin=app.indexOf('// V40.69.8.38 — encaminhamento automático de cada fase');
 const end=app.indexOf("socket.on('joined',data=>{",begin);
 assert(begin>=0&&end>begin);
 const block=app.slice(begin,end);
@@ -32,24 +32,24 @@ function clientScenario({state=null,role='PLAYER'}={}){
 const target=stage=>({tournamentId:'copa-teste',stage,tableNumber:1});
 for(const stage of ['semi','quarter','final']){
  const x=clientScenario();x.events.get('tournamentSeatAssigned')(target(stage));
- assert.equal(x.sent.length,0,`${stage}: não entrar automaticamente`);
- assert.equal(x.toasts.length,1,`${stage}: exibir uma orientação`);
- assert.equal(x.nodes.tournamentNextPhaseEnter.hidden,false);
- assert.match(x.nodes.tournamentNextPhaseStatus.textContent,/Torneios.*ENTRAR NA MINHA MESA/);
+ assert.equal(x.sent.length,1,`${stage}: ingresso automático exigido`);
+ assert.equal(x.sent[0].event,'enterTournamentTable');
+ assert.equal(x.sent[0].payload.automatic,true);
+ assert.equal(x.nodes.tournamentNextPhaseEnter.hidden,false,'retentativa opcional é exibida');
+ assert.match(x.nodes.tournamentNextPhaseStatus.textContent,/Encaminhamento automático/);
  x.events.get('tournamentSeatAssigned')(target(stage));
- assert.equal(x.toasts.length,1,'convocação repetida não pode gerar avisos sem fim');
+ assert.equal(x.sent.length,1,'convocação repetida não duplica ingresso');
  x.nodes.tournamentNextPhaseEnter.click();
- assert.equal(x.nodes.tournamentOpenHome.clicks,1,'botão de aviso abre painel; não entra em sala');
- assert.equal(x.sent.length,0);
+ assert.equal(x.sent.length,2,'botão opcional solicita retentativa da mesma vaga');
+ assert.equal(x.nodes.tournamentOpenHome.clicks,0,'não precisa voltar ao painel de torneios');
  x.nodes.tournamentNextPhaseClose.click();
  assert.equal(x.nodes.tournamentNextPhaseNotice.hidden,true);
- x.events.get('tournamentSeatAssigned')(target(stage));
- assert.equal(x.nodes.tournamentNextPhaseNotice.hidden,true,'aviso fechado não reaparece a cada reconciliação');
 }
 for(const situation of [{status:'finished',round:5},{status:'lobby',round:0},{status:'playing',round:4}]){
  const x=clientScenario({state:situation});
  x.events.get('tournamentSeatAssigned')(target('final'));
- assert.equal(x.sent.length,0,'nenhuma mudança de mesa sem clique');
+ assert.equal(x.sent.length,situation.status==='playing'?0:1,
+  'Mudar de fase somente depois do fim da partida ou de lobby comum inativo');
 }
 const first=clientScenario();first.events.get('tournamentSeatAssigned')(target('qualifier'));
 assert.equal(first.sent.length,1,'inscritos da primeira fase continuam com entrada automática');
@@ -63,12 +63,14 @@ assert(html.indexOf('tournamentNextPhaseNotice')<html.indexOf('id="game"'));
 assert(css.includes('position:relative;z-index:1;width:min(560px,100%)'),'aviso não é overlay na mesa');
 assert(ui.includes("socket.emit('enterTournamentTable'"),'entrada manual pelo painel');
 assert(ui.includes('GRANDE FINAL FORMADA!'));
-assert(server.includes("if(phase!=='qualifier')throw new Error('Entre manualmente"),
- 'clientes antigos não podem transferir automaticamente na semifinal/final');
+assert(server.includes("if(phase!=='qualifier'&&previous?.status==='finished'"),
+ 'transferência não pode abandonar sessão concluída de outro jogo');
+assert(server.includes('await tournamentBracket.seatFor('),
+ 'classificado é validado no servidor independentemente da convocação');
 assert(server.includes('await awaitTournamentTableJoinLock(lockKey)'),'concorrência da mesma mesa deve aguardar');
 assert(server.includes('if(room.tournament&&room.status===\'finished\')'),'mesa concluída sai sem tombstone');
 assert(server.includes('await abandonHumanSeatDurably(previous,member,'),'troca da mesa concluída preserva a classificação');
-console.log('✓ V40.69.8.31: classificatórias automáticas, semifinais/finais manuais, aviso compacto fechável, observador protegido e saída concluída segura.');
+console.log('✓ V40.69.8.38: classificados seguem automaticamente, sem abandonar partidas ativas, com retry e início manual preservados.');
 // Testes de transição de sala e espera por entradas simultâneas com persistência simulada.
 (async()=>{
  const part=(from,to)=>{

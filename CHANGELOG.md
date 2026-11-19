@@ -1,3 +1,13 @@
+## V40.69.8.38 — Entrada automática nas mesas das próximas fases, mantendo o início manual (19/11/2026)
+
+- **Base preservada:** criada a partir da V40.69.8.36 aprovada em teste real, sem alterar `if(binding?.roomCode&&!room)`, sorteio persistido, vinculação de sala, snapshot, classificação ou motor de cartas. A referência estável permanece em ZIP separado.
+- **Pedido do usuário:** semifinal, quartas e final recebem a convocação `tournamentSeatAssigned` e solicitam ingresso autenticado com `enterTournamentTable` (`automatic:true`) assim que a partida anterior estiver concluída; não é obrigatório sair, abrir Torneios ou clicar em **ENTRAR NA MINHA MESA**.
+- **Segurança:** servidor revalida identidade, fase, mesa, desistências, elenco e partida ativa. Sala comum vazia pode ser trocada; partida em andamento, mesa de torneio diferente e observadores continuam protegidos. Não abandona automaticamente uma sessão finalizada de OUTRO jogo que possa ter revanche.
+- **Resiliência:** se a convocação chegar antes de `state.status==='finished'`, a tarefa é guardada e retomada ao chegar o estado final. Retentativas limitadas; convocação duplicada de uma mesa já ocupada é ignorada; botão **TENTAR ENTRADA** e painel Torneios são alternativas, não requisitos. Convites antigos não bloqueiam a passagem de mesa já concluída.
+- **Início da partida:** permanece exclusivamente manual, observando o relógio de cinco minutos. A recuperação de lobby nunca reinicia uma partida já começada sem estado recuperável.
+- **Testes locais:** 9 inscritos em 2 mesas (5+4), quatro finalistas com ingresso automático concorrente na mesma sala, 1 eliminado recusado, transferência prematura de partida ativa recusada, snapshot/lobby restaurado, campeão registrado por resultado simulado. Outros testes de regressão conferem notificações, tentativas, observadores, sorteio e início manual.
+- **Limitações:** a simulação usa resultados sintéticos; não substitui uma rodada real completa, clientes Socket.IO conectados nem homologação no Render/PostgreSQL. `package.json` mantém identificador legado por compatibilidade; `server.js` informa V40.69.8.38.
+
 ## V40.69.8.36 — Correção comprovada: final com reserva sem código tratada como sala perdida (18/11/2026)
 
 - **Causa reproduzida:** a condição `if(binding&&!room)` em `enterTournamentTable` considerava uma linha da próxima fase ainda sem `roomCode` como se fosse uma sala desaparecida. Como a final é formada com linha persistida e código inicialmente vazio, o primeiro finalista era barrado na rotina de recuperação e a sala nunca era criada. **Correção:** recuperar apenas quando `binding.roomCode` realmente existe (`if(binding?.roomCode&&!room)`).

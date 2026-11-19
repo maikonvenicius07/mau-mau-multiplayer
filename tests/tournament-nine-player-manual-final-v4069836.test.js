@@ -89,9 +89,9 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
      on:(name,fn)=>events.set(`${p.playerKey}:${name}`,fn),
      emit:(name,body)=>messages.push({name,body}),join:()=>{}};
    vm.runInNewContext(src,{...ctx,socket:sock});
-   const instance={socket:sock,messages,enter:async(stage,tableNumber)=>{
+   const instance={socket:sock,messages,enter:async(stage,tableNumber,automatic=false)=>{
      const before=messages.length;
-     await events.get(`${p.playerKey}:enterTournamentTable`)({tournamentId:event.id,stage,tableNumber,automatic:false});
+     await events.get(`${p.playerKey}:enterTournamentTable`)({tournamentId:event.id,stage,tableNumber,automatic});
      const response=messages.slice(before);
      assert(!response.some(m=>m.name==='gameError'||(m.name==='tournamentTableEntryResult'&&m.body?.ok===false)),
        `${p.playerKey} ${stage}: ${JSON.stringify(response)}`);
@@ -129,12 +129,25 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  assert.equal(finals.length,1);assert.equal(finals[0].players.length,4);
  const keys=finals[0].players.map(p=>p.playerKey);
  assert.equal(new Set(keys).size,4);
- // Os 4 finalistas NÃO entram automaticamente. O primeiro clique cria e grava
- // o lobby; os 3 cliques paralelos reencontram o MESMO vínculo.
+ // Quatro finalistas convocados automaticamente; o primeiro ingresso cria
+ // o lobby e os outros três reencontram o MESMO vínculo pela identidade.
  assert.equal(finals[0].roomCode,null,'a fase está preparada mas não começou');
  const finalPlayers=keys.map(key=>players.find(p=>p.playerKey===key));
- const finalCodes=await Promise.all(finalPlayers.map(p=>socketFor(p).enter('final',1)));
- assert.equal(new Set(finalCodes).size,1,'4 ingressos manuais resultam em 1 sala');
+ // Uma convocação adiantada NÃO retira o classificado de partida que ainda
+ // está ativa. No término confirmado, o mesmo sorteado pode entrar.
+ const protectedPlayer=finalPlayers[0];
+ const earlier=[...rooms.values()].find(r=>r.players.some(p=>p.playerKey===protectedPlayer.playerKey));
+ assert(earlier,'classificado mantém referência à mesa da fase anterior');
+ earlier.status='playing';
+ const premature=socketFor(protectedPlayer),prematureCount=premature.messages.length;
+ await events.get(`${protectedPlayer.playerKey}:enterTournamentTable`)({
+   tournamentId:event.id,stage:'final',tableNumber:1,automatic:true
+ });
+ assert(premature.messages.slice(prematureCount).some(m=>m.name==='gameError'),
+   'servidor recusa transferência automática de partida ainda ativa');
+ earlier.status='finished';
+ const finalCodes=await Promise.all(finalPlayers.map(p=>socketFor(p).enter('final',1,true)));
+ assert.equal(new Set(finalCodes).size,1,'4 ingressos automáticos concorrentes resultam em 1 sala');
  let finalRoom=rooms.get(finalCodes[0]);
  assert.equal(finalRoom.players.length,4);assert.equal(finalRoom.status,'lobby');
  assert(finalRoom.players.every(p=>!p.isBot));
@@ -153,7 +166,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  // Um classificado indevido não passa pela validação da vaga.
  const eliminated=players.find(p=>!keys.includes(p.playerKey));
  const bad=[];const other=socketFor(eliminated),old=other.messages.length;
- await events.get(`${eliminated.playerKey}:enterTournamentTable`)({tournamentId:event.id,stage:'final',tableNumber:1,automatic:false});
+ await events.get(`${eliminated.playerKey}:enterTournamentTable`)({tournamentId:event.id,stage:'final',tableNumber:1,automatic:true});
  bad.push(...other.messages.slice(old));
  assert(bad.some(m=>m.name==='tournamentTableEntryResult'&&m.body.ok===false));
  // Reinício lógico: remover a sala da memória, manter o snapshot.
@@ -182,6 +195,6 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  const complete=await bracket.advance(event.id,initial);
  assert(complete.champion,'campeão confirmado após resultado final');
  assert.equal(complete.champion.names.length,1);
- console.log('✓ V40.69.8.36: 9 inscritos = 5+4, 2 classificatórias com motor iniciado, 4 classificados, 1 final, 4 entradas manuais concorrentes, acesso indevido negado, F5, restauração do lobby, início manual e campeão por resultado simulado.');
+ console.log('✓ V40.69.8.38: 9 inscritos = 5+4, 2 classificatórias, 4 classificados, 1 final, 4 entradas AUTOMÁTICAS concorrentes, fallback manual, não classificados negados, recuperação, início manual e campeão simulado.');
  await snapshots.close();
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>fs.rmSync(dir,{recursive:true,force:true}));

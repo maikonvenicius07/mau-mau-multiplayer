@@ -81,8 +81,9 @@ async function stageRace(){
  const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  assert(ui.includes('🎲 Novo sorteio'));
  assert(ui.includes('ENTRAR NA MINHA MESA'));
- assert(client.includes('// V40.69.8.31 — ingresso automático SOMENTE'));
- assert(server.includes("if(phase!=='qualifier')throw new Error('Entre manualmente"));
+ assert(client.includes('// V40.69.8.38 — encaminhamento automático de cada fase'));
+ assert(server.includes("if(phase!=='qualifier'&&previous?.status==='finished'"));
+ assert(client.includes('automatic:true'));
  assert(!ui.includes("socket.emit('startRound'"));
- console.log('✓ V40.69.8.32: sorteio em todas as fases, 8 em 2 mesas, persistência, recuperação, simultaneidade, final única, bloqueio de corrupção e acesso manual.');
+ console.log('✓ V40.69.8.38: sorteio em todas as fases, 8 em 2 mesas, persistência, recuperação, simultaneidade, final única e transição automática.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

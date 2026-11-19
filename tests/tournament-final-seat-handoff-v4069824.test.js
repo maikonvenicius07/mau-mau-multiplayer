@@ -49,7 +49,7 @@ async function main(){
     'Finalista em sala comum sem rodada deve receber convocação da final');
   assert.equal((await locate({...idle,status:'playing'})).length,0,
     'Jamais convocar automaticamente quem está jogando uma partida');
-  const begin=client.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
+  const begin=client.indexOf('// V40.69.8.38 — encaminhamento automático de cada fase');
   const end=client.indexOf("socket.on('joined',data=>{",begin);
   assert(begin>0&&end>begin);
   function clientScenario(state,search=""){
@@ -64,13 +64,16 @@ async function main(){
     return sent;
   }
   assert.equal(clientScenario({status:'lobby',round:0,viewerRole:'PLAYER',tournamentWait:null,tournamentSchedule:null})
-    .filter(m=>m.name==='enterTournamentTable').length,0,
-    'A final NÃO pode gerar transferência automática, mesmo com sala comum parada');
+    .filter(m=>m.name==='enterTournamentTable').length,1,
+    'A final deve gerar ingresso automático a partir de lobby comum parado');
   assert.equal(clientScenario({status:'lobby',round:0,viewerRole:'PLAYER'},'?room=FGRYM6')
-    .filter(m=>m.name==='enterTournamentTable').length,0,
-    'Link antigo de sala não deve disparar entrada automática na final');
+    .filter(m=>m.name==='enterTournamentTable').length,1,
+    'Depois de entrar num lobby comum, link antigo não deve bloquear classificado');
   assert.equal(clientScenario(null,'?room=FGRYM6').length,0,
     'Antes de concluir o convite não se deve ignorar a intenção de entrar na sala');
+  assert.equal(clientScenario({status:'finished',round:5,viewerRole:'PLAYER'},'?room=FGRYM6')
+    .filter(m=>m.name==='enterTournamentTable').length,1,
+    'Convite antigo não pode reter finalista na mesa de torneio já concluída');
   for(const state of [
     {status:'playing',round:2,viewerRole:'PLAYER'},
     {status:'lobby',round:0,viewerRole:'PLAYER',tournamentSchedule:{name:'Outra copa'}},
@@ -82,6 +85,6 @@ async function main(){
   assert(client.includes('🏆 Mesa de torneio · observadores: Torneios'));
   assert(ui.includes("game?.liveStatus==='lobby'"),'Observadores podem assistir à espera');
   assert(ui.includes('Aguardando pelo menos dois jogadores na mesa do torneio'));
-  console.log('✓ V40.69.8.31: finalista é avisado sem entrar automaticamente; partida ativa, observador e entrada autenticada manual preservados.');
+  console.log('✓ V40.69.8.38: ingresso automático na final concluída, lobby comum seguro, convite antigo, partida ativa e observador protegidos.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

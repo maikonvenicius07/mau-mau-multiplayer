@@ -7,7 +7,7 @@ const root=path.join(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public/styles.css'),'utf8');
-const start=client.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
+const start=client.indexOf('// V40.69.8.38 — encaminhamento automático de cada fase');
 const end=client.indexOf("socket.on('joined',data=>{",start);
 assert(start>0&&end>start);
 const code=client.slice(start,end);
@@ -62,8 +62,19 @@ deferredCtx.state={status:'finished',round:5};
 vm.runInNewContext('autoEnterTournamentSeat(autoTournamentSeat)',deferredCtx);
 assert.equal(deferredCalls.filter(x=>x.name==='enterTournamentTable').length,1,
   'A mesma convocação deve ser retomada após término da partida anterior');
+// Finalistas também aguardam a finalização da mesa antiga, sem clique.
+const finalEvents=new Map(),finalCalls=[];
+const finalCtx={...deferredCtx,state:{status:'playing',round:5,viewerRole:'PLAYER'},
+ socket:{connected:true,on:(name,fn)=>finalEvents.set(name,fn),emit:(name,payload)=>finalCalls.push({name,payload})}};
+vm.runInNewContext(code,finalCtx);
+finalEvents.get('tournamentSeatAssigned')({tournamentId:'copa123',stage:'final',tableNumber:1});
+assert.equal(finalCalls.length,0,'Não iniciar transferência da final enquanto a rodada anterior está ativa');
+finalCtx.state={status:'finished',round:5};
+vm.runInNewContext('autoEnterTournamentSeat(autoTournamentSeat)',finalCtx);
+assert.equal(finalCalls.filter(x=>x.name==='enterTournamentTable'&&x.payload.automatic).length,1,
+ 'Finalista classificado deve entrar automaticamente depois do estado finished');
 assert(client.includes("if(!$('#networkDiagnosticsDialog')?.open)return;"),
   'O diagnóstico fechado não deve escrever os diversos campos ocultos a cada estado');
 assert(client.includes('sampleNow-lastStatePayloadSampleAt>=5000'),
   'Medição do tamanho do estado não deve serializar todos os eventos');
-console.log('✓ V40.69.8.31: limite de tentativas automáticas apenas na primeira fase, aviso manual nas posteriores e diagnóstico seletivo.');
+console.log('✓ V40.69.8.38: limite de tentativas automático, progressão pós-finished inclusive final, reconexão e diagnóstico seletivo.');

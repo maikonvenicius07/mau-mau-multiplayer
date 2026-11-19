@@ -3343,12 +3343,13 @@ function syncReconnectCountdownTimer(){
   if(!reconnectCountdownTimer)reconnectCountdownTimer=setInterval(updateReconnectCountdown,1000);
 }
 
-// V40.69.8.31 — ingresso automático SOMENTE nas classificatórias. Nas fases
-// seguintes a notificação informa a vaga; o jogador entra pelo painel Torneios.
-// Nunca transferir o classificado sem uma ação manual sua.
+// V40.69.8.38 — encaminhamento automático de cada fase após a conclusão
+// da partida anterior. O ingresso só solicita a vaga reservada: o servidor
+// revalida a identidade, fase, elenco e sala; a PARTIDA continua com início manual.
 let autoTournamentSeat=null,autoTournamentJoining=false,autoTournamentAttempts=0,autoTournamentTimer=null;
 let autoTournamentWindowStartedAt=0,autoTournamentBlockedKey='';
-let lastManualTournamentNoticeKey='',dismissedManualTournamentNoticeKey='';
+let lastJoinedTournamentSeat=null;
+let dismissedManualTournamentNoticeKey='';
 const AUTO_TOURNAMENT_RETRY_WINDOW_MS=60000;
 function tournamentPhaseNotice(data,detail=''){
   if(typeof document==='undefined')return;
@@ -3364,9 +3365,9 @@ function tournamentPhaseNotice(data,detail=''){
   const enter=document.getElementById('tournamentNextPhaseEnter');
   if(title)title.textContent=data.stage==='qualifier'?'🏆 SUA MESA DAS CLASSIFICATÓRIAS':`🏆 VOCÊ ESTÁ CLASSIFICADO — ${label}`;
   if(status)status.textContent=detail||(data.stage==='qualifier'
-    ?`Mesa ${data.tableNumber} reservada. Você será encaminhado para as classificatórias.`
-    :`Mesa ${data.tableNumber} reservada. Volte à tela principal, abra Torneios e clique em ENTRAR NA MINHA MESA.`);
-  if(enter){enter.hidden=data.stage==='qualifier';enter.textContent='🏆 ABRIR TORNEIOS';}
+    ?`Mesa ${data.tableNumber} reservada. Encaminhamento automático em preparação.`
+    :`Mesa ${data.tableNumber} reservada. Encaminhamento automático após a conclusão da fase; a partida só começa manualmente.`);
+  if(enter){enter.hidden=data.stage==='qualifier';enter.textContent='↻ TENTAR ENTRADA';}
   box.hidden=false;
 }
 
@@ -3378,7 +3379,7 @@ function requestTournamentSeatLocation(){
   // convocação da final por causa de um parâmetro antigo na URL.
   const idleLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
     !state.tournamentSchedule&&!state.tournamentWait;
-  if(new URLSearchParams(location.search).has('room')&&!idleLobby)return;
+  if(new URLSearchParams(location.search).has('room')&&!idleLobby&&state?.status!=='finished')return;
   if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
   socket.emit('locateTournamentSeat');
 }
@@ -3387,26 +3388,22 @@ function autoEnterTournamentSeat(data,manualRetry=false){
     !['qualifier','quarter','semi','final'].includes(data.stage)||
     !Number.isInteger(data.tableNumber)||data.tableNumber<1||
     pendingVoluntaryLeave()||leaveRoomPending)return;
-  // V40.69.8.24: permite passar de uma sala COMUM ainda sem rodada para a
-  // mesa reservada da final. Nunca sair automaticamente de uma partida em
-  // andamento, outra mesa de torneio ou de uma vaga de observador.
+  // V40.69.8.38: permite troca de sala concluída da fase anterior ou
+  // de lobby comum ainda não iniciado. Nunca sair de partida em andamento,
+  // outra mesa de torneio ativa ou vaga de observador.
   const idleRegularLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
     !state.tournamentSchedule&&!state.tournamentWait;
   // Não sobrescrever um link de convite ainda não concluído; uma vez em
   // um lobby comum, a vaga autenticada da final volta a ter prioridade.
-  if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby)return;
+  if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby&&state?.status!=='finished')return;
   if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
   const key=`${data.tournamentId}:${data.stage}:${data.tableNumber}`;
-  if(data.stage!=='qualifier'){
-    clearAutoTournamentTimer();autoTournamentJoining=false;autoTournamentAttempts=0;
-    autoTournamentSeat={key,tournamentId:data.tournamentId,stage:data.stage,tableNumber:data.tableNumber};
-    tournamentPhaseNotice(data);
-    if(lastManualTournamentNoticeKey!==key){
-      lastManualTournamentNoticeKey=key;
-      toast('🏆 Você avançou! Acesse Torneios na tela principal e clique em ENTRAR NA MINHA MESA.');
-    }
-    return; // SEM enterTournamentTable, redirecionamento ou tentativas automáticas.
-  }
+  // A reconciliação pode repetir a convocação a cada 20s. Se já ocupamos
+  // exatamente esta mesa, não criar pendência nem tentar entrar de novo.
+  if(lastJoinedTournamentSeat?.key===key&&state?.code===lastJoinedTournamentSeat.code&&
+    state.status!=='finished')return;
+  // Sem etapa manual obrigatória: a atribuição é suficiente para tentar
+  // entrar, mas não para iniciar a partida ou alterar a classificação.
   if(state&&state.status!=='finished'&&!idleRegularLobby){
     // A convocação pode chegar ANTES do estado final da rodada anterior.
     // Guardar a tarefa e retomá-la após o estado 'finished'; descartá-la
@@ -3431,7 +3428,7 @@ function autoEnterTournamentSeat(data,manualRetry=false){
   if(autoTournamentJoining)return;
   if(autoTournamentAttempts>=8){
     if(Date.now()-autoTournamentWindowStartedAt<AUTO_TOURNAMENT_RETRY_WINDOW_MS){
-      tournamentPhaseNotice(data,'A entrada automática está aguardando nova tentativa. Se quiser, toque em ENTRAR NA MINHA MESA.');
+      tournamentPhaseNotice(data,'A entrada automática está aguardando nova tentativa. Se necessário, use TENTAR ENTRADA.');
       return;
     }
     autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;
@@ -3452,8 +3449,8 @@ function autoEnterTournamentSeat(data,manualRetry=false){
     autoTournamentJoining=false;
     if(autoTournamentAttempts<8)autoEnterTournamentSeat(data);
     else{
-      tournamentPhaseNotice(data,'A entrada automática não foi concluída. Toque no botão para tentar novamente ou abra Torneios para ver o status da mesa.');
-      toast('Sua vaga continua reservada. Use ENTRAR NA MINHA MESA para tentar novamente.');
+      tournamentPhaseNotice(data,'A entrada automática não foi concluída. Use TENTAR ENTRADA ou consulte Torneios para verificar a mesa.');
+      toast('Sua vaga continua reservada. Use TENTAR ENTRADA caso a conexão não seja restabelecida.');
     }
   },4000);
 }
@@ -3462,20 +3459,14 @@ socket.on('tournamentSeatAssigned',autoEnterTournamentSeat);
 socket.on('tournamentSeatRevoked',data=>{
   if(!data?.tournamentId||autoTournamentSeat?.tournamentId!==data.tournamentId)return;
   clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;
-  autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';lastManualTournamentNoticeKey='';dismissedManualTournamentNoticeKey='';tournamentPhaseNotice(null);
+  autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';dismissedManualTournamentNoticeKey='';tournamentPhaseNotice(null);
   toast(data.message||'Torneio encerrado pelo organizador.');
 });
 const tournamentPhaseEnter=typeof document==='undefined'?null:document.getElementById('tournamentNextPhaseEnter');
 tournamentPhaseEnter?.addEventListener('click',()=>{
-  // Fases seguintes: ir para o painel de torneios, nunca emitir entrada daqui.
+  // Botão opcional de retentativa, não um requisito para a progressão.
   if(!autoTournamentSeat||autoTournamentSeat.stage==='qualifier')return;
-  const open=document.getElementById('tournamentOpenHome');
-  if(!open)return;
-  if(state&&state.status!=='finished'){
-    toast('Saia da mesa concluída para voltar à tela principal e abra Torneios.');
-    return;
-  }
-  open.click();
+  autoEnterTournamentSeat(autoTournamentSeat,true);
 });
 (typeof document==='undefined'?null:document.getElementById('tournamentNextPhaseClose'))?.addEventListener('click',()=>{
   if(autoTournamentSeat?.stage!=='qualifier')dismissedManualTournamentNoticeKey=autoTournamentSeat?.key||'';
@@ -3484,6 +3475,10 @@ tournamentPhaseEnter?.addEventListener('click',()=>{
 
 socket.on('joined',data=>{
   const joinedTournament=data?.source==='tournament'||data?.source==='tournament-resume';
+  // Guardar a última convocação que efetivamente chegou à mesa indicada.
+  // Não equivale a autorização, apenas evita reingressos repetidos no lobby.
+  lastJoinedTournamentSeat=joinedTournament&&autoTournamentSeat?.key?
+    {key:autoTournamentSeat.key,code:data.code}:null;
   if(joinedTournament||!autoTournamentSeat){
     clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';
     tournamentPhaseNotice(null);
@@ -3569,7 +3564,7 @@ socket.on('state',s=>{
   render();
   // Quando a notificação da nova fase chegou antes de a antiga marcar
   // 'finished', retomar automaticamente sem depender de F5 ou novo socket.
-  if(autoTournamentSeat?.stage==='qualifier'&&!autoTournamentJoining&&
+  if(autoTournamentSeat&&!autoTournamentJoining&&
     (s.status==='finished'||(s.status==='lobby'&&Number(s.round||0)===0&&
        !s.tournamentWait&&!s.tournamentSchedule))){
     autoEnterTournamentSeat(autoTournamentSeat);

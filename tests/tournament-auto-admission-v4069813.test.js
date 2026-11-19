@@ -58,14 +58,14 @@ async function main(){
   assert.equal(notifications.length,2,'A fase classificatória também requer chaves privadas');
   assert.equal(notifications[0].value.tableNumber,3);
   assert.equal('code' in notifications[0].value,false);
-  // Fluxo legado da primeira fase: mantém entrada automática; fases seguintes são manuais.
+  // Todas as fases utilizam ingresso automático após o término da anterior.
   const autoEvents=new Map(),autoEmits=[];
   const client={socket:{connected:true,on:(name,fn)=>autoEvents.set(name,fn),emit:(name,value)=>autoEmits.push({name,value})},
     pendingVoluntaryLeave:()=>null,leaveRoomPending:false,URLSearchParams,location:{search:''},
     state:null,saved:()=>({role:'PLAYER'}),tournamentWatchMode:false,
     savedSessionResumePending:false,accountSeatResumePending:false,
     setTimeout:()=>1,clearTimeout:()=>{},toast:()=>{}};
-  const begin=app.indexOf('// V40.69.8.31 — ingresso automático SOMENTE');
+  const begin=app.indexOf('// V40.69.8.38 — encaminhamento automático de cada fase');
   const end=app.indexOf("socket.on('joined',data=>{",begin);
   assert(begin>=0&&end>begin,'Bloco de entrada automática não encontrado');
   vm.runInNewContext(app.slice(begin,end),client);
@@ -76,17 +76,26 @@ async function main(){
   assert.equal(autoEmits[0].name,'enterTournamentTable');
   assert.equal(autoEmits[0].value.automatic,true);
   assert.equal(autoEmits[0].value.tableNumber,3);
+  onAssignment({tournamentId:'cup-abc',stage:'semi',tableNumber:3});
+  assert.equal(autoEmits.length,2,'Semifinal deve solicitar automaticamente a vaga autenticada');
+  assert.equal(autoEmits[1].value.automatic,true);
+  // Após ingressar na mesa, o reconciliador pode repetir a convocação.
+  // Isso não deve recriar uma pendência enquanto o jogador está no lobby.
+  client.state={code:'TBL123',status:'lobby',tournamentSchedule:{name:'Copa'}};
+  vm.runInNewContext("lastJoinedTournamentSeat={key:'cup-abc:semi:3',code:'TBL123'};autoTournamentJoining=false;",client);
+  onAssignment({tournamentId:'cup-abc',stage:'semi',tableNumber:3});
+  assert.equal(autoEmits.length,2,'Convocação repetida para mesa já ocupada é ignorada');
   const observer={...client,socket:{connected:true,on:()=>{},emit:()=>{throw Error('Observador jamais entra automaticamente');}},saved:()=>({role:'SPECTATOR'})};
   vm.runInNewContext(app.slice(begin,end),observer);
   vm.runInNewContext(`autoEnterTournamentSeat(${JSON.stringify(target)})`,observer);
   // User-facing UI and client automation contract.
   assert(ui.includes('ASSISTIR AO TORNEIO'));
   assert(ui.includes("game?.liveStatus==='lobby'"),'Espectador deve poder entrar no lobby do torneio');
-  assert(ui.includes('🎮 ENTRAR NA MINHA MESA'),'Participação nas fases seguintes deve exigir botão manual');
+  assert(ui.includes('🎮 ENTRAR NA MINHA MESA'),'A entrada manual permanece como recuperação opcional');
   assert(app.includes("socket.on('tournamentSeatAssigned',autoEnterTournamentSeat)"));
   assert(app.includes('automatic:true'));
   assert(server.includes("if(tournamentWatch?room.status==='finished'"));
-  assert(html.includes('Os jogadores entram nas próximas fases pelo painel Torneios'));
-  console.log('✓ V40.69.8.31: convocação autenticada, entrada automática apenas nas classificatórias e acesso manual nas fases seguintes.');
+  assert(html.includes('Os classificados são encaminhados automaticamente'));
+  console.log('✓ V40.69.8.38: convocação autenticada, entrada automática em todas as fases e fallback manual opcional.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
