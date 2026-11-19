@@ -15,17 +15,17 @@ const {TournamentStore}=require('../tournament-store');
 const Forfeit=require('../tournament-forfeit');
 
 async function testWait(){
-  assert.equal(Wait.WAIT_MS,300000);
-  const start=Date.UTC(2026,10,17,15,0);assert.equal(Wait.deadlineAt(start),start+300000);
-  assert.equal(Wait.deadlineAt(new Date(start).toISOString()),start+300000);
+  assert.equal(Wait.WAIT_MS,120000);
+  const start=Date.UTC(2026,10,17,15,0);assert.equal(Wait.deadlineAt(start),start+120000);
+  assert.equal(Wait.deadlineAt(new Date(start).toISOString()),start+120000);
   const roster=Array.from({length:5},(_,i)=>({playerKey:`p${i}`,name:`P ${i}`}));
-  const plan=(present,now)=>Wait.decide({roster,present,deadline:start+300000,now});
+  const plan=(present,now)=>Wait.decide({roster,present,deadline:start+120000,now});
   assert.equal(plan(['p0','p1','p2','p3','p4'],start+1000).action,'ready','todos chegam: liberar início manual');
-  assert.equal(plan(['p0','p1','p2','p3'],start+299999).action,'wait','falta um: aguardar');
-  assert.equal(plan(['p0','p1','p2','p3'],start+300000).action,'ready','quatro chegam: botão liberado ao prazo');
-  assert.equal(plan(['p0'],start+300000).action,'needs-attention','um presente: sem partida inválida');
-  assert.equal(plan([],start+300000).action,'needs-attention','sem presentes: não inventar vencedor');
-  assert.equal(plan(['p0','p0'],start+300000).present,1,'uma conta não ocupa dois lugares');
+  assert.equal(plan(['p0','p1','p2','p3'],start+119999).action,'wait','falta um: aguardar');
+  assert.equal(plan(['p0','p1','p2','p3'],start+120000).action,'ready','quatro chegam: botão liberado ao prazo');
+  assert.equal(plan(['p0'],start+120000).action,'needs-attention','um presente: sem partida inválida');
+  assert.equal(plan([],start+120000).action,'needs-attention','sem presentes: não inventar vencedor');
+  assert.equal(plan(['p0','p0'],start+120000).present,1,'uma conta não ocupa dois lugares');
 }
 
 async function testManualServer(){
@@ -83,12 +83,12 @@ async function testManualServer(){
     }
     return {marks,room};
   }
-  await scenario({present:5,deadlineOffset:300000});
-  await scenario({present:4,deadlineOffset:300000});
+  await scenario({present:5,deadlineOffset:120000});
+  await scenario({present:4,deadlineOffset:120000});
   await scenario({present:4,deadlineOffset:-1000});
   await scenario({present:1,deadlineOffset:-1000});
   await scenario({present:0,deadlineOffset:-1000});
-  await scenario({present:5,deadlineOffset:300000,phase:'final',concurrent:true});
+  await scenario({present:5,deadlineOffset:120000,phase:'final',concurrent:true});
 }
 
 async function ninePlayers(){
@@ -109,8 +109,8 @@ async function ninePlayers(){
     assert.deepEqual(tables.map(x=>x.players.length),[5,4]);
     const start=await draw.waitStartedAt(cup.id,1);
     assert(start>0);assert.equal(await draw.waitStartedAt(cup.id,2),start);
-    assert.equal(await draw.waitDeadlineAt(cup.id,1),start+300000);
-    assert.equal(await draw.waitDeadlineAt(cup.id,2),start+300000);
+    assert.equal(await draw.waitDeadlineAt(cup.id,1),start+120000);
+    assert.equal(await draw.waitDeadlineAt(cup.id,2),start+120000);
     for(const table of tables){
       const entries=await draw.seatAssignments(cup.id);const first=entries.find(p=>p.tableNumber===table.number);
       const roster=(await draw.seatFor(cup.id,table.number,first.playerKey)).players;
@@ -124,12 +124,12 @@ async function ninePlayers(){
     const final=await bracket.getBinding(cup.id,'final',1);
     assert.equal(final.players.length,4,'dois classificados de cada mesa');
     assert(final.createdAt>0,'fase final tem início persistido');
-    assert.equal(final.waitDeadlineAt,final.createdAt+300000,'final tem data-limite absoluta persistida');
+    assert.equal(final.waitDeadlineAt,final.createdAt+120000,'final tem data-limite absoluta persistida');
     const repeat=await bracket.advance(cup.id,tables);
     assert.equal(repeat.stages.find(s=>s.stage==='final').tables.length,1,'final não duplicada');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 }
 (async()=>{
   await testWait();await testManualServer();await ninePlayers();
-  console.log('✓ V40.69.8.22: cronômetro não inicia partidas, cliques únicos, 5/5, 4/5, 1/5, final e 9 inscritos → final.');
+  console.log('✓ V40.69.8.40: cronômetro de 2 minutos, início manual, cliques únicos e 9 inscritos → final.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

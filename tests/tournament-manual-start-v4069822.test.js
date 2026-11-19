@@ -13,10 +13,10 @@ const clockBanner=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const makeRoster=(n=5)=>Array.from({length:n},(_,i)=>({playerKey:`id${i}`,name:`Jogador ${i}`}));
 const day=Date.UTC(2026,10,17,12,0);
 function checkWait(){
- const roster=makeRoster();const deadline=day+300000;
+ const roster=makeRoster();const deadline=day+120000;
  const decision=(n,now)=>Wait.decide({roster,present:roster.slice(0,n).map(p=>p.playerKey),deadline,now});
  assert.equal(decision(5,day).action,'ready','com todos presentes, botão libera antes do prazo');
- assert.equal(decision(4,day+299999).action,'wait','com um ausente, não libera antes do prazo');
+ assert.equal(decision(4,day+119999).action,'wait','com um ausente, não libera antes do prazo');
  assert.equal(decision(4,deadline).action,'ready','ao chegar em zero, libera início manual');
  assert.equal(decision(4,deadline).missing.length,1);
  assert.equal(decision(5,deadline+5000).action,'ready','atrasado antes do clique ainda participa');
@@ -31,14 +31,14 @@ function checkBrowser(){
  assert(start>0&&end>start,'regra do botão deve existir no navegador');
  const snippet=app.slice(start,end);
  const values=(present,expected,deadlineAt,now)=>{
-   const sandbox={state:{status:'lobby',tournamentWait:{present,expected,deadlineAt}}};
+   const sandbox={tournamentScheduleClock:null,state:{status:'lobby',tournamentWait:{present,expected,deadlineAt}}};
    vm.runInNewContext(snippet+'; this.ready=isTournamentStartReady;',sandbox);
    return sandbox.ready(now);
  };
- assert.equal(values(5,5,day+300000,day),true);
- assert.equal(values(4,5,day+300000,day),false);
- assert.equal(values(4,5,day+300000,day+300000),true);
- assert.equal(values(1,5,day+300000,day+300000),false);
+ assert.equal(values(5,5,day+120000,day),true);
+ assert.equal(values(4,5,day+120000,day),false);
+ assert.equal(values(4,5,day+120000,day+120000),true);
+ assert.equal(values(1,5,day+120000,day+120000),false);
  assert.equal(values(5,5,null,day),true,'legado com todos ainda pode iniciar');
  assert(app.includes("b.id='tournamentManualStartButton'"),'botão deve ter referência para o ticker');
  assert(app.includes("b.disabled=blocked||(tournamentLobby&&!isTournamentStartReady())"));

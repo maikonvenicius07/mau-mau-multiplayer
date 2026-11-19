@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.39';
+const RELEASE_VERSION = 'V40.69.8.40';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -358,7 +358,7 @@ async function notifyTournamentSeats(id,stage,tables){
 // V40.69.8.21 — prazo do sorteio e de cada fase persistido no PostgreSQL.
 // Não recomeça em F5, reconnect, criação tardia da sala ou restart do Render.
 async function tournamentWaitDeadline(id,phase,number,binding=null){
-  // NULL significa legado: não criar retroativamente um prazo de 5 minutos
+  // NULL significa legado: não criar retroativamente um prazo de 2 minutos
   // a partir de um torneio sorteado antes da atualização do Render.
   if(phase==='qualifier')return await tournamentDraw.waitDeadlineAt(id,number);
   const row=binding||await tournamentBracket.getBinding(id,phase,number);
@@ -366,7 +366,7 @@ async function tournamentWaitDeadline(id,phase,number,binding=null){
 }
 
 // V40.69.8.22 — somente uma solicitação explícita e autenticada pode iniciar
-// a primeira rodada de torneio. O prazo de 5 minutos libera o botão com menos
+// a primeira rodada de torneio. O prazo de 2 minutos libera o botão com menos
 // participantes; nem entrada na mesa nem reconciliação disparam o início.
 async function startTournamentLobbyOnRequest(room,player,socketId){
   if(!room?.tournament||room.status!=='lobby'||Number(room.round||0)!==0||
@@ -1604,7 +1604,7 @@ function maybeResolveTournamentLobbyWalkover(room,{now=Date.now()}={}){
     room.reactionTopCardId=null;
     room.lastPass=null;
     room.openingReaction=false;
-    Engine.appendLog(room,`🏆 ${room.players[0].name} venceu a mesa por ausência dos demais participantes após o prazo de 5 minutos.`,'system');
+    Engine.appendLog(room,`🏆 ${room.players[0].name} venceu a mesa por ausência dos demais participantes após o prazo de espera da mesa.`,'system');
     return true;
   }catch(e){
     console.error('[tournament] falha ao aplicar vitória por ausência',room.code,e?.message||e);

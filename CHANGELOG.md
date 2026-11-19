@@ -1,3 +1,13 @@
+## V40.69.8.40 — Cronômetro dos torneios: 2 minutos de espera (19/11/2026)
+
+- **Alteração restrita à espera do torneio:** `tournament-wait.js` agora define `WAIT_MS=120000` (02:00), usado pelo sorteio inicial em `tournament-draw.js` e pela formação das fases seguintes em `tournament-bracket.js`.
+- **Prazo absoluto preservado:** o prazo já gravado para mesas criadas antes da atualização permanece intacto; mesas novas recebem 120 segundos. Reconexões, atualização da página e consultas não recriam o cronômetro.
+- **Início somente manual:** presença completa libera o botão imediatamente; com ausentes, o prazo libera a solicitação de início com ao menos dois jogadores; depois de 00:00 a mesa continua esperando até um jogador autorizado iniciar. As proteções existentes para ausência de apenas um jogador permanecem.
+- **Interface:** texto inicial do cronômetro ajustado para `02:00`; os contadores continuam lendo a data-limite enviada pelo servidor. Mensagem de vitória por ausência é neutra quanto à duração, pois mesas anteriores podem conservar prazos já persistidos.
+- **Preservação:** classificação, sorteio, avanço/encaminhamento automático, recuperação de salas, mídia dos observadores, motor das cartas e retenção de 5 minutos de partidas totalmente desconectadas não foram modificados.
+- **Testes:** atualizados os testes que assumiam o limite antigo, acrescentados testes de persistência, fase inicial/final, relógio de reconexão, início manual e prazo legado. Testes de mídia WebRTC e PostgreSQL em produção ainda exigem homologação real.
+- **Identificação funcional:** `server.js` informa `V40.69.8.40`; `package.json` preserva versão legada por compatibilidade.
+
 ## V40.69.8.38 — Entrada automática nas mesas das próximas fases, mantendo o início manual (19/11/2026)
 
 - **Base preservada:** criada a partir da V40.69.8.36 aprovada em teste real, sem alterar `if(binding?.roomCode&&!room)`, sorteio persistido, vinculação de sala, snapshot, classificação ou motor de cartas. A referência estável permanece em ZIP separado.

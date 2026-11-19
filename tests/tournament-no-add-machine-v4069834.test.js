@@ -29,7 +29,7 @@ function render({tournament=false,withBot=false,status='lobby'}={}){
   if(withBot)players.push({id:'bot',name:'Máquina',isBot:true,connected:true,host:false});
   const state={me:{id:'p1'},players,status,round:status==='between-rounds'?1:0,
     rules:{rounds:5},isPublic:true,
-    ...(tournament?{tournamentSchedule:{name:'Copa Oficial'},tournamentWait:status==='lobby'?{deadlineAt:Date.now()+300000}:null}:{})};
+    ...(tournament?{tournamentSchedule:{name:'Copa Oficial'},tournamentWait:status==='lobby'?{deadlineAt:Date.now()+120000}:null}:{})};
   const context={state,document:{createElement:makeNode},$:selector=>selector==='#hostControls'?host:null,
     socket:{connected:true,emit(){}},isSpectatorState:()=>false,
     isTournamentStartReady:()=>true,tournamentStartHint:()=> 'Aguardando início manual.',

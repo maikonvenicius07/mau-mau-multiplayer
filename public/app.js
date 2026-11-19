@@ -4062,7 +4062,7 @@ function renderWhenChanged(name,dependencies,callback,force=false){
 // Cronômetro visual: somente apresenta o prazo persistido e enviado pelo servidor.
 let tournamentWaitTicker=null;
 // V40.69.8.23 — horário do campeonato (informativo) distinto da espera
-// de 5 minutos da mesa. O tempo decorre do servidor, não do relógio do celular.
+// de 2 minutos da mesa. O tempo decorre do servidor, não do relógio do celular.
 let tournamentScheduleClock=null,tournamentScheduleServerAnchor=null;
 function syncTournamentLobbySchedule(){
   const section=document.getElementById('tournamentLobbySchedule');
@@ -4110,7 +4110,7 @@ function syncTournamentWaitBanner(){
   if(missing)missing.textContent=wait.absent?.length?'Ausentes: '+wait.absent.join(', '):'Todos presentes. O anfitrião pode iniciar a partida.';
   const update=()=>{
     const clock=document.getElementById('tournamentWaitClock');if(!clock)return;
-    const seconds=Math.max(0,Math.ceil((Number(state?.tournamentWait?.deadlineAt||0)-Date.now())/1000));
+    const seconds=Math.max(0,Math.ceil((Number(state?.tournamentWait?.deadlineAt||0)-(tournamentScheduleClock?.now()??Date.now()))/1000));
     clock.textContent=state?.tournamentWait?.deadlineAt?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'--:--';
     banner.classList.toggle('tournament-wait-urgent',seconds<=60);
     if(seconds===0&&wait.deadlineAt&&missing)missing.textContent=wait.present===0?'Nenhum jogador presente. Aguardando solução segura.':'Tempo encerrado. O anfitrião pode iniciar com pelo menos dois presentes ou continuar aguardando.';
@@ -4119,7 +4119,7 @@ function syncTournamentWaitBanner(){
 }
 function syncTournamentWaitBannerTick(){
   const wait=state?.tournamentWait,clock=document.getElementById('tournamentWaitClock');if(!wait||!clock)return;
-  const s=Math.max(0,Math.ceil((Number(wait.deadlineAt||0)-Date.now())/1000));
+  const s=Math.max(0,Math.ceil((Number(wait.deadlineAt||0)-(tournamentScheduleClock?.now()??Date.now()))/1000));
   clock.textContent=wait.deadlineAt?String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):'--:--';
   document.getElementById('tournamentWaitBanner')?.classList.toggle('tournament-wait-urgent',s<=60);
   tickTournamentLobbySchedule();
@@ -4128,12 +4128,12 @@ function syncTournamentWaitBannerTick(){
   const message=document.getElementById('tournamentManualStartHint');
   if(message)message.textContent=tournamentStartHint();
 }
-function isTournamentStartReady(now=Date.now()){
+function isTournamentStartReady(now=tournamentScheduleClock?.now()??Date.now()){
   if(!state?.tournamentWait||state.status!=='lobby')return false;
   const w=state.tournamentWait,present=Number(w.present)||0,expected=Number(w.expected)||0;
   return expected>=2&&present>=2&&(present>=expected||(Number(w.deadlineAt)>0&&now>=Number(w.deadlineAt)));
 }
-function tournamentStartHint(now=Date.now()){
+function tournamentStartHint(now=tournamentScheduleClock?.now()??Date.now()){
   const w=state?.tournamentWait;
   if(!w)return '';
   const present=Number(w.present)||0,expected=Number(w.expected)||0;
@@ -4141,7 +4141,7 @@ function tournamentStartHint(now=Date.now()){
   if(present<2)return 'Aguarde pelo menos dois jogadores. O torneio não inicia automaticamente.';
   if(present>=expected)return 'Todos presentes! O anfitrião pode clicar em Iniciar partida.';
   if(!Number(w.deadlineAt))return 'Mesa antiga sem cronômetro: aguarde todos os sorteados para iniciar.';
-  if(Number(w.deadlineAt)>now)return 'Aguarde os cinco minutos ou a chegada dos demais jogadores.';
+  if(Number(w.deadlineAt)>now)return 'Aguarde o tempo restante ou a chegada dos demais jogadores.';
   return 'Tempo encerrado. O anfitrião pode iniciar ou continuar esperando.';
 }
 function render(force=false){

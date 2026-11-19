@@ -1,7 +1,7 @@
 'use strict';
 // V40.69.8.22 — regra pura de liberação manual do início. O horário vem do sorteio/criação da fase
 // persistido, nunca do relógio da aba nem da entrada/reconexão de um jogador.
-const WAIT_MS=5*60*1000;
+const WAIT_MS=2*60*1000;
 function timestamp(value){
   if(value instanceof Date)return value.getTime();
   if(typeof value==='string'&&!/^\d+(?:\.\d+)?$/.test(value))return Date.parse(value)||0;
