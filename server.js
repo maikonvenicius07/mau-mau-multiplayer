@@ -49,7 +49,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.38';
+const RELEASE_VERSION = 'V40.69.8.39';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -59,7 +59,7 @@ const LIVEKIT_API_SECRET=String(process.env.LIVEKIT_API_SECRET||'').trim();
 const CAMERA_ENABLED=(()=>{
   try{const u=new URL(LIVEKIT_URL);return u.protocol==='wss:' && !!u.hostname && !!LIVEKIT_API_KEY && LIVEKIT_API_SECRET.length>=16;}catch{return false;}
 })();
-const cameraPublishers=new Map(); // sala -> Map(socket.id -> playerId); NÃO persistido.
+const cameraPublishers=new Map(); // sala -> Map(socket.id -> participantId); NÃO persistido.
 function cameraPresenceFor(code){return [...new Set([...(cameraPublishers.get(code)?.values()||[])])];}
 function sendCameraPresence(roomCode,target=null){
   const payload={code:roomCode,playerIds:cameraPresenceFor(roomCode)};
@@ -2923,7 +2923,7 @@ function currentVoiceParticipant(socket) {
   const room = rooms.get(socket.data.roomCode);
   if (!room) return null;
   if (socket.data.role === ROLE_SPECTATOR) {
-    if(room.tournament)return null; // Torneio: assistir sem voz, WebRTC ou relay.
+    // Observadores de torneio usam exatamente o mesmo canal de voz dos observadores comuns.
     const spectator = spectatorForSocket(room,socket);
     if (!spectator || !spectator.connected || spectator.socketId !== socket.id) return null;
     return {room, actor:{id:spectator.id,name:spectator.name,avatar:spectator.avatar,role:ROLE_SPECTATOR,isBot:false}, socket};
@@ -3038,13 +3038,13 @@ io.on('connection', socket => {
       const code=socket.data.roomCode,room=rooms.get(code);
       const actor=room&&socialActorForSocket(room,socket);
       if(!actor || (actor.role!==ROLE_PLAYER && actor.role!==ROLE_SPECTATOR))return answer({ok:false,message:'Entre em uma sala para usar a câmera.'});
-      if(room.tournament&&actor.role===ROLE_SPECTATOR)return answer({ok:false,message:'Observadores de torneio não usam câmera.'});
+      // A autorização de mídia é independente das permissões de participar do torneio.
       const now=Date.now();
       if(now-Number(socket.data.cameraLastTokenRequestAt||0)<2500)return answer({ok:false,message:'Aguarde antes de reconectar a câmera.'});
       socket.data.cameraLastTokenRequestAt=now;
       socket.data.cameraTokenAt=now;
-      const allowPublish=actor.role===ROLE_PLAYER;
-      const identity=`${allowPublish?'p':'s'}_${actor.id}`;
+      const allowPublish=actor.role===ROLE_PLAYER || (actor.role===ROLE_SPECTATOR && !!room.tournament);
+      const identity=`${actor.role===ROLE_SPECTATOR?'s':'p'}_${actor.id}`;
       return answer({ok:true,url:LIVEKIT_URL,token:cameraTokenJWT({room:`mmc-${code}`,identity,allowPublish}),identity,allowPublish});
     }catch(e){return answer({ok:false,message:'Não foi possível conectar à câmera.'});}
   });
@@ -3055,7 +3055,7 @@ io.on('connection', socket => {
   socket.on('cameraPublishState', payload=>{
     const code=socket.data.roomCode,room=rooms.get(code);
     const actor=room&&socialActorForSocket(room,socket);
-    if(!actor || actor.role!==ROLE_PLAYER)return;
+    if(!actor || (actor.role!==ROLE_PLAYER && !(room.tournament && actor.role===ROLE_SPECTATOR)))return;
     const active=!!payload?.active;
     if(active && (!CAMERA_ENABLED || Date.now()-Number(socket.data.cameraTokenAt||0)>600000))return;
     let publishers=cameraPublishers.get(code);

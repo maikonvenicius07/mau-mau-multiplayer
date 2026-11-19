@@ -12,7 +12,8 @@
   let cameraWanted=false,restoreTimer=null,restoreAttempts=0,restoreDeferred=false,wakeCheckTimer=null;
   let suspendedRoomCode=''; // Retorno do bfcache no iOS/Safari sem novo evento joined.
   let tournamentWatchMode=false;
-  const videoNodes=new Map(); // id de jogador -> elemento <video>, apenas em memória.
+  const videoNodes=new Map(); // id do participante -> elemento <video>, apenas em memória.
+  const spectatorTiles=new Map(); // câmeras de observadores sem alterar assentos do jogo.
   // FASE 2B: evita reconstruir o <video> quando LiveKit reapresenta a mesma faixa.
   const videoTrackRefs=new Map(); // identidade da MediaStreamTrack, sem persistência.
   let localPreview=null;
@@ -49,8 +50,9 @@
     lastExpandedTrigger=sourceElement||null;
     const seat=document.querySelectorAll('.player-seat');
     const player=[...seat].find(el=>el.dataset.cameraPlayerId===id);
+    const spectator=(getState()?.spectators||[]).find(s=>String(s.id)===id);
     const title=document.getElementById('cameraOpponentName');
-    if(title)title.textContent=player?.dataset.playerName||'Adversário';
+    if(title)title.textContent=player?.dataset.playerName||spectator?.name||'Participante';
     enlarged.srcObject=video.srcObject;
     overlay.classList.remove('hidden');
     enlarged.play().catch(()=>{});
@@ -69,7 +71,7 @@
   function updateSwitchButton(){
     const control=document.getElementById('cameraSwitchBtn');
     if(control){
-      const show=enabled&&publishing&&!isSpectator()&&!!localCameraTrack();
+      const show=enabled&&publishing&&canPublishCamera()&&!!localCameraTrack();
       control.classList.toggle('hidden',!show);
       control.disabled=busy||!socket?.connected;
       control.title=onPhone()?'Alternar câmera frontal e traseira':'Trocar webcam ou câmera conectada';
@@ -81,23 +83,25 @@
   function me(){return getState()?.me||null;}
   function code(){return String(joinedRoomCode||getState()?.code||'');}
   function isSpectator(){return getState()?.viewerRole==='SPECTATOR'||getState()?.me?.role==='SPECTATOR';}
+  // Observador comum mantém o botão VER VÍDEOS; no torneio pode também publicar câmera.
+  function canPublishCamera(){return !isSpectator()||tournamentWatchMode;}
   function playerByIdentity(identity){
     const raw=String(identity||'');
-    return raw.startsWith('p_')?raw.slice(2):null;
+    return (raw.startsWith('p_')||raw.startsWith('s_'))?raw.slice(2):null;
   }
   function updateButton(){
     const button=document.getElementById('liveCameraBtn');if(!button)return;
     const active=!!getState()&&!!code();
     const wasHidden=button.classList.contains('hidden');
-    button.classList.toggle('hidden',!active||tournamentWatchMode);
+    button.classList.toggle('hidden',!active);
     button.disabled=!enabled||busy||!socket?.connected;
     const cameraTrack=localCameraTrack()?.mediaStreamTrack;
     const cameraTransmitting=!!publishing&&!!cameraTrack&&cameraTrack.readyState==='live'&&cameraTrack.muted!==true&&cameraTrack.enabled!==false;
     button.classList.toggle('camera-on',cameraTransmitting);
     button.classList.toggle('camera-loading',busy);
     const label=document.getElementById('liveCameraLabel');
-    if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':isSpectator()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(cameraTransmitting?'DESLIGAR CÂMERA':cameraWanted?'RECONECTANDO...':'LIGAR CÂMERA');
-    button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':isSpectator()?'Mostrar ou ocultar vídeos dos jogadores. Observadores não podem ligar câmera.':cameraTransmitting?'Desligar câmera e voltar ao avatar.':cameraWanted?'Recuperando transmissão de vídeo.':'Ligar câmera ao vivo; a câmera não é gravada.';
+    if(label)label.textContent=!enabled?'CÂMERA INDISPONÍVEL':busy?'CONECTANDO...':!canPublishCamera()?(spectatorWatchEnabled?'OCULTAR VÍDEOS':'VER VÍDEOS'):(cameraTransmitting?'DESLIGAR CÂMERA':cameraWanted?'RECONECTANDO...':'LIGAR CÂMERA');
+    button.title=!enabled?'Configure LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET no Render.':!canPublishCamera()?'Mostrar ou ocultar vídeos dos jogadores.':cameraTransmitting?'Desligar câmera e voltar ao avatar.':cameraWanted?'Recuperando transmissão de vídeo.':'Ligar câmera ao vivo; a câmera não é gravada.';
     button.setAttribute('aria-label',button.title);
     if(active&&wasHidden)window.MauCameraFloating?.reclamp('button');
     updateSwitchButton();
@@ -115,10 +119,13 @@
     try{element.pause();element.srcObject=null;element.remove();}catch{}
     videoNodes.delete(id);
     videoTrackRefs.delete(id);
+    spectatorTiles.get(id)?.remove();spectatorTiles.delete(id);
   }
   function clearVideo(){
     closeExpanded();
     for(const id of [...videoNodes.keys()])removeVideo(id);
+    for(const tile of spectatorTiles.values())tile.remove();spectatorTiles.clear();
+    document.getElementById('cameraSpectatorStreams')?.classList.add('hidden');
     if(localPreview){try{localPreview.pause();localPreview.srcObject=null;localPreview.remove()}catch{}localPreview=null;}
     lastPreviewPlayAttemptAt=0;
     document.getElementById('cameraSelfPreview')?.classList.add('hidden');
@@ -136,7 +143,7 @@
     removeVideo(id);
     const video=document.createElement('video');
     video.className='camera-video';video.muted=true;video.autoplay=true;video.playsInline=true;
-    video.setAttribute('playsinline','');video.setAttribute('aria-label','Vídeo ao vivo do jogador');
+    video.setAttribute('playsinline','');video.setAttribute('aria-label','Vídeo ao vivo do participante');
     video.srcObject=new MediaStream([track.mediaStreamTrack]);
     videoNodes.set(id,video);
     videoTrackRefs.set(id,track.mediaStreamTrack);
@@ -156,12 +163,33 @@
     const state=getState();
     if(!ring||!state)return;
     const myId=String(state.me?.id||'');
-    const valid=new Set((state.players||[]).filter(p=>!p.isBot&&p.connected&&!p.autoControlled).map(p=>String(p.id)));
+    const spectators=new Map((state.spectators||[]).filter(v=>v.connected).map(v=>[String(v.id),v]));
+    const valid=new Set([...(state.players||[]).filter(p=>!p.isBot&&p.connected&&!p.autoControlled).map(p=>String(p.id)),...spectators.keys()]);
     // Uma busca de assentos por atualização (antes: uma busca por vídeo).
     const seatById=new Map([...ring.querySelectorAll('.player-seat')]
       .map(seat=>[seat.dataset.cameraPlayerId,seat]));
     for(const [id,video] of videoNodes){
       if(!valid.has(id) && id!==myId){removeVideo(id);continue;}
+      if(spectators.has(id)&&id!==myId){
+        const shelf=document.getElementById('cameraSpectatorStreams');
+        if(shelf){
+          let tile=spectatorTiles.get(id);
+          if(!tile){
+            tile=document.createElement('div');tile.className='camera-spectator-tile';
+            const name=document.createElement('span');name.className='camera-spectator-name';tile.appendChild(name);
+            tile.setAttribute('role','button');tile.tabIndex=0;
+            tile.addEventListener('click',()=>openExpanded(id,tile));
+            tile.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpanded(id,tile);}});
+            spectatorTiles.set(id,tile);shelf.appendChild(tile);
+          }
+          const name=String(spectators.get(id)?.name||'Observador');
+          tile.querySelector('.camera-spectator-name').textContent=name;
+          tile.setAttribute('aria-label',`Ampliar câmera de ${name}`);
+          if(video.parentElement!==tile)tile.appendChild(video);
+          shelf.classList.remove('hidden');
+        }
+        continue;
+      }
       const seat=seatById.get(id);
       const avatar=seat?.querySelector('.player-card .avatar');
       if(avatar){
@@ -188,6 +216,8 @@
         }
       }
     }
+    const shelf=document.getElementById('cameraSpectatorStreams');
+    if(shelf)shelf.classList.toggle('hidden',!spectatorTiles.size);
     const holder=document.getElementById('cameraSelfPreview');
     const myVideo=videoNodes.get(myId);
     if(holder){
@@ -264,7 +294,7 @@
       if(events.Reconnected)newRoom.on(events.Reconnected,()=>{
         if(room!==newRoom||!socket?.connected)return;
         const track=localCameraTrack()?.mediaStreamTrack;
-        if(cameraWanted&&!isSpectator()&&(!track||track.readyState==='ended')){
+        if(cameraWanted&&canPublishCamera()&&(!track||track.readyState==='ended')){
           publishing=false;updateLocalVideo();updateButton();scheduleRestore(400);
         }else if(publishing&&track?.readyState==='live'){
           socket.emit('cameraPublishState',{active:true});updateLocalVideo();updateButton();
@@ -293,13 +323,13 @@
   // A troca de aplicativo no celular pode silenciar uma track sem disparar ended
   // ou pagehide. Confere a publicação ao voltar, sem tocar em dispositivo desligado.
   function scheduleWakeCheck(delay=950){
-    if(!cameraWanted||!joinedRoomCode||!socket?.connected||isSpectator()||tournamentWatchMode)return;
+    if(!cameraWanted||!joinedRoomCode||!socket?.connected||!canPublishCamera())return;
     clearWakeCheck();
     const seq=generation,expectedCode=joinedRoomCode;
     wakeCheckTimer=setTimeout(()=>{
       wakeCheckTimer=null;
       if(seq!==generation||expectedCode!==joinedRoomCode||!cameraWanted||
-         !socket?.connected||isSpectator()||tournamentWatchMode||document.visibilityState==='hidden')return;
+         !socket?.connected||!canPublishCamera()||document.visibilityState==='hidden')return;
       const track=localCameraTrack()?.mediaStreamTrack;
       if(publishing&&track&&track.readyState==='live'&&track.muted!==true&&track.enabled!==false){updateButton();return;}
       // Ícone e presença não podem indicar vídeo ativo quando a captura foi silenciada.
@@ -309,7 +339,7 @@
     },delay);
   }
   function scheduleRestore(delay=500){
-    if(!cameraWanted||!socket?.connected||!joinedRoomCode||isSpectator()||publishing||restoreTimer)return;
+    if(!cameraWanted||!socket?.connected||!joinedRoomCode||!canPublishCamera()||publishing||restoreTimer)return;
     if(busy){restoreDeferred=true;return;}
     if(!enabled){window.MauMediaSession?.failed('camera','Serviço de câmera não configurado ou indisponível.');return;}
     if(restoreAttempts>=3){window.MauMediaSession?.failed('camera','Não foi possível recuperar o vídeo. Toque para tentar novamente.');return;}
@@ -338,7 +368,7 @@
   }
   async function restore({userGesture=false}={}){
     if(userGesture){restoreAttempts=0;clearRestoreTimer();}
-    if(!cameraWanted||publishing||busy||!joinedRoomCode||!socket?.connected||isSpectator())return;
+    if(!cameraWanted||publishing||busy||!joinedRoomCode||!socket?.connected||!canPublishCamera())return;
     if(!enabled){window.MauMediaSession?.failed('camera','Serviço de câmera indisponível.');return;}
     if(restoreAttempts>=3){window.MauMediaSession?.failed('camera','Não foi possível recuperar a câmera automaticamente.');return;}
     const seq=generation;restoreAttempts++;busy=true;updateButton();
@@ -383,7 +413,7 @@
     publishing=false;if(socket?.connected)socket.emit('cameraPublishState',{active:false});updateButton();
     try{await room?.localParticipant?.setCameraEnabled(false)}catch{}
     removeVideo(String(me()?.id||''));renderIntoSeats();
-    if(!watchedIds.size && !isSpectator())closeRoom();
+    if(!watchedIds.size)closeRoom();
   }
   function closeRoom(){
     generation++; // cancela também conexão WebRTC ainda em andamento.
@@ -399,8 +429,8 @@
     closeRoom();updateButton();
   }
   async function toggle(){
-    if(busy||!enabled||!socket?.connected||!code()||tournamentWatchMode)return;
-    if(isSpectator()){
+    if(busy||!enabled||!socket?.connected||!code())return;
+    if(!canPublishCamera()){
       spectatorWatchEnabled=!spectatorWatchEnabled;
       if(spectatorWatchEnabled&&watchedIds.size)ensureConnected().catch(()=>notice('Câmeras indisponíveis.'));
       else if(!spectatorWatchEnabled)closeRoom();
@@ -443,7 +473,7 @@
   // V50.3: troca de dispositivo SEM criar uma segunda transmissão e SEM gravar.
   // LiveKit reinicia/substitui a mesma faixa de vídeo publicada, preservando a sala e o microfone.
   async function switchCamera(){
-    if(busy||!enabled||!publishing||isSpectator()||!socket?.connected)return;
+    if(busy||!enabled||!publishing||!canPublishCamera()||!socket?.connected)return;
     const activeRoom=room;
     const seq=generation;
     const track=localCameraTrack();
@@ -508,7 +538,7 @@
     }
   }
   function onPresence(payload){
-    if(!payload||payload.code!==code()||tournamentWatchMode)return;
+    if(!payload||payload.code!==code())return;
     watchedIds=new Set((payload.playerIds||[]).map(String));
     if(!enabled)return;
     if(watchedIds.size && (!isSpectator()||spectatorWatchEnabled)){
@@ -519,8 +549,8 @@
   function onJoined(newRoomCode,{restoreCamera=false,role='PLAYER',tournamentWatch=false}={}){
     stop({keepWanted:true});joinedRoomCode=String(newRoomCode||'');
     tournamentWatchMode=!!tournamentWatch;
-    if(tournamentWatchMode)spectatorWatchEnabled=false;
-    cameraWanted=!tournamentWatchMode&&!!restoreCamera&&role==='PLAYER';restoreAttempts=0;
+    if(tournamentWatchMode)spectatorWatchEnabled=true;
+    cameraWanted=!!restoreCamera&&(role==='PLAYER'||tournamentWatchMode);restoreAttempts=0;
     if(socket?.connected)socket.emit('cameraPresenceRequest');
     updateButton();
     if(cameraWanted)scheduleRestore(450);
@@ -541,7 +571,7 @@
       suspendedRoomCode='';
       if(!socket?.connected||String(getState()?.code||'')!==priorCode)return;
       socket.emit('cameraPresenceRequest');
-      if(cameraWanted&&!isSpectator())scheduleRestore(450);
+      if(cameraWanted&&canPublishCamera())scheduleRestore(450);
     }
     scheduleWakeCheck(1000);
   }

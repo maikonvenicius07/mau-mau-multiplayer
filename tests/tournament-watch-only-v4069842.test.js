@@ -86,9 +86,6 @@ async function run(){
   // Security contract, server side rather than UI-only:
   for(const expected of [
     "if(room.tournament)throw new Error('Não é possível entrar em torneios como observador.')",
-    'if(room.tournament)return null; // Torneio: assistir sem voz',
-    "if(room.tournament&&actor.role===ROLE_SPECTATOR)return answer({ok:false",
-    'if(room.tournament&&actor.role===ROLE_SPECTATOR)',
     "emitRoomSocial(room,'voiceMessage'",
     "emitRoomSocial(room,'chatMessage'",
     "emitRoomSocial(room,'soundEffect'",
@@ -98,7 +95,7 @@ async function run(){
   assert(ui.includes("game?.liveStatus==='playing'"));
   assert(app.includes("sess.role==='SPECTATOR'&&sess.tournamentWatch"));
   assert(app.includes('if(isTournamentWatcher())return;'));
-  assert(css.includes('#game.tournament-watch #liveMicBtn'));
+  assert(!css.includes('#game.tournament-watch #liveMicBtn'), 'Botão de microfone deve ficar disponível no torneio');
   assert(camera.includes('tournamentWatchMode=!!tournamentWatch'));
   const sample=Engine.createRoom('TEST',{socketId:'player',token:'tok',name:'Alice',avatar:'macaco',playerKey:'alice'});
   sample.round=1;sample.status='playing';
@@ -106,6 +103,6 @@ async function run(){
   assert.equal(publicState.viewerRole,'SPECTATOR');
   assert.deepEqual(publicState.me.hand,[]);
   assert(!('deck' in publicState),'O deck não pode sair do servidor');
-  console.log('✓ V40.69.8.4.2: torneio somente assistir, autorização por mesa, reconexão e isolamento de mídia/chat.');
+  console.log('✓ V40.69.8.4.2: torneio somente jogar é vedado, observação autenticada, reconexão e isolamento de chat.');
 }
 run().catch(e=>{console.error(e);process.exitCode=1});
