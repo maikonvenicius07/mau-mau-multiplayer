@@ -30,7 +30,7 @@ async function run(size){
    currentStage=data.currentStage;
    const priv=await bracket.rows(id);stageTables=priv.filter(x=>x.stage===currentStage);
    assert(stageTables.length>=1);
-   assert(stageTables.every(t=>t.players.length>=2&&t.players.length<=5));
+   assert(stageTables.every(t=>t.players.length>=2&&t.players.length<=4));
    assert.equal(new Set(stageTables.flatMap(t=>t.players.map(p=>p.playerKey))).size,stageTables.reduce((a,t)=>a+t.players.length,0));
    const former=priv.filter(x=>x.stage==='qualifier');
    assert(former.every(x=>x.result&&x.result.results.length===x.players.length));
@@ -38,13 +38,13 @@ async function run(size){
    await bracket.advance(id,initial);assert.equal(JSON.stringify(await bracket.rows(id)),before,'sorteio não pode ser repetido');
   }
   const last=await bracket.summary(id,initial);assert(last.champion,'precisa declarar campeão ao concluir todas as fases');
-  if(size===20){assert.equal(stageCount.qualifier,4);assert.equal(stageCount.semi,2);assert.equal(stageCount.final,1);}
-  if(size===100){assert.equal(stageCount.qualifier,20);assert.equal(stageCount.quarter,4);assert.equal(stageCount.semi,2);assert.equal(stageCount.final,1);}
-  if(size<=5){assert.equal(stageCount.qualifier,1);assert.equal(stageCount.final,0);}
+  if(size===20){assert.equal(stageCount.qualifier,5);assert.equal(stageCount.quarter,3);assert.equal(stageCount.semi,2);assert.equal(stageCount.final,1);}
+  if(size===64){assert.equal(stageCount.qualifier,16);assert.equal(stageCount.quarter,4);assert.equal(stageCount.semi,2);assert.equal(stageCount.final,1);}
+  if(size<=4){assert.equal(stageCount.qualifier,1);assert.equal(stageCount.final,0);}
  }finally{fs.rmSync(folder,{recursive:true,force:true});}
 }
 (async()=>{
- for(const n of [2,3,4,5,6,7,8,10,11,20,25,26,50,51,100])await run(n);
+ for(const n of [2,3,4,5,6,7,8,9,10,11,12,16,17,20,25,26,50,51,64])await run(n);
  const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  assert(source.includes("socket.emit('joined',{code,playerId:p.id,token:p.token,role:ROLE_PLAYER,source:'tournament'});"));
  assert(source.includes('recordTournamentResult('));

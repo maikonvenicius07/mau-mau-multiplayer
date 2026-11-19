@@ -22,6 +22,7 @@ const ReservedLobby=require('../tournament-reserved-lobby');
 const TableHealth=require('../tournament-table-health');
 const SeatRecovery=require('../tournament-seat-recovery');
 const {canAutoSwitchFrom}=require('../tournament-seat-handoff');
+const {assertTournamentTable,MAX_TOURNAMENT_PLAYERS}=require('../tournament-table-capacity');
 const server=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
 const begin=server.indexOf("  socket.on('enterTournamentTable'");
 const end=server.indexOf("  socket.on('createRoom'",begin);
@@ -45,11 +46,11 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  for(const p of players)await signup.change({action:'join',playerKey:p.playerKey,name:p.name,config:event});
  event=await catalog.update({id:event.id,data:{status:'closed'}});
  const initial=await draw.draw(event.id);
- assert.deepEqual(initial.map(t=>t.players.length),[5,4],'9 inscritos formam 5+4; ninguém desaparece');
+ assert.deepEqual(initial.map(t=>t.players.length),[3,3,3],'9 inscritos formam 3+3+3; ninguém desaparece');
  const locks=new Set(),rooms=new Map(),events=new Map(),errors=[];
  const sockets=new Map();let counter=0;
  const ctx={
-  Number,String,Error,Set,Map,Promise,Date,crypto,console,
+  Number,String,Error,Set,Map,Promise,Date,crypto,console,assertTournamentTable,MAX_TOURNAMENT_PLAYERS,
   ROLE_SPECTATOR:'SPECTATOR',ROLE_PLAYER:'PLAYER',
   tournamentTableJoinLocks:locks,tournamentTestDeleteLocks:new Set(),tournamentRoundStartLocks:new Set(),
   ensureTournamentBracketReady:async()=>true,requireRoomPersistenceReady:async()=>{},
@@ -124,7 +125,21 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  }
  await bracket.advance(event.id,initial);
  const phase=await bracket.summary(event.id,initial);
- assert.equal(phase.currentStage,'final','as duas classificatórias geram a final');
+ assert.equal(phase.currentStage,'semi','três classificatórias geram duas semifinais');
+ const semifinalTables=(await bracket.rows(event.id)).filter(r=>r.stage==='semi');
+ for(const t of semifinalTables){
+   const codes=await Promise.all(t.players.map(async member=>socketFor(players.find(p=>p.playerKey===member.playerKey)).enter('semi',t.number,true)));
+   assert.equal(new Set(codes).size,1);
+   const room=rooms.get(codes[0]);
+   assert.equal(room.players.length,t.players.length);
+   await bracket.markStarted(event.id,'semi',t.number,room.code);
+   Engine.startRound(room);
+   const result={matchId:'semi-'+t.number,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))};
+   await recordTournamentResult({bracket,games,id:event.id,phase:'semi',number:t.number,roomCode:room.code,record:result,roster:t.players});
+   room.status='finished';await snapshots.saveNow(room);
+ }
+ await bracket.advance(event.id,initial);
+ assert.equal((await bracket.summary(event.id,initial)).currentStage,'final');
  const finals=(await bracket.rows(event.id)).filter(r=>r.stage==='final');
  assert.equal(finals.length,1);assert.equal(finals[0].players.length,4);
  const keys=finals[0].players.map(p=>p.playerKey);
@@ -155,7 +170,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  // Repetir o clique (F5) não duplica cadeiras ou salas.
  await socketFor(finalPlayers[0]).enter('final',1);
  assert.equal(finalRoom.players.length,4);
- assert.equal(rooms.size,3,'2 classificatórias encerradas + 1 final');
+ assert.equal(rooms.size,6,'3 classificatórias + 2 semifinais + 1 final');
  // O vínculo não pode admitir jogadores quando o elenco da sala difere
  // das vagas sorteadas — proteção de integridade, sem alterar cartas.
  finalRoom.tournament.rosterKeys.push('conta-intrusa');
@@ -195,6 +210,6 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-final-nine-'));
  const complete=await bracket.advance(event.id,initial);
  assert(complete.champion,'campeão confirmado após resultado final');
  assert.equal(complete.champion.names.length,1);
- console.log('✓ V40.69.8.38: 9 inscritos = 5+4, 2 classificatórias, 4 classificados, 1 final, 4 entradas AUTOMÁTICAS concorrentes, fallback manual, não classificados negados, recuperação, início manual e campeão simulado.');
+ console.log('✓ V40.69.8.38: 9 inscritos = 3+3+3, 3 classificatórias, 2 semifinais, 1 final, 4 entradas AUTOMÁTICAS concorrentes, fallback manual, não classificados negados, recuperação, início manual e campeão simulado.');
  await snapshots.close();
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>fs.rmSync(dir,{recursive:true,force:true}));

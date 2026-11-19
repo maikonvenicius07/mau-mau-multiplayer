@@ -87,11 +87,12 @@ async function testPersistenceAndFinal(){
     for(let i=0;i<9;i++)await store.change({action:'join',playerKey:`user-${i}`,name:`Jogador ${i}`,config:opened});
     await cat.update({id:cup.id,data:{status:'closed'}});
     const initial=await draw.draw(cup.id);
-    assert.deepEqual(initial.map(t=>t.players.length),[5,4],'nove inscritos continuam em mesas 5+4');
+    assert.deepEqual(initial.map(t=>t.players.length),[3,3,3],'nove inscritos distribuídos em três mesas de três');
     const start=await draw.waitStartedAt(cup.id,1);
     const originalDeadline=await draw.waitDeadlineAt(cup.id,1);
     assert.equal(originalDeadline,start+120000,'primeira mesa tem 2 minutos');
     assert.equal(await draw.waitDeadlineAt(cup.id,2),originalDeadline,'mesmo prazo no sorteio');
+    assert.equal(await draw.waitDeadlineAt(cup.id,3),originalDeadline,'mesmo prazo para todas as mesas');
     const restartedDraw=new TournamentDraw(args);await restartedDraw.init();
     assert.equal(await restartedDraw.waitDeadlineAt(cup.id,1),originalDeadline,
       'consulta/reinício não renova prazo inicial');
@@ -106,7 +107,14 @@ async function testPersistenceAndFinal(){
       await recordTournamentResult({bracket,games,id:cup.id,phase:'qualifier',number:t.number,roomCode,record,roster:authorized});
     }
     const progressed=await bracket.advance(cup.id,initial);
-    assert.equal(progressed.currentStage,'final');
+    assert.equal(progressed.currentStage,'semi');
+    for(const t of (await bracket.rows(cup.id)).filter(x=>x.stage==='semi')){
+      const code='SEM'+t.number;
+      await bracket.claim(cup.id,'semi',t.number,code);
+      const record={matchId:'semi-'+code,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))};
+      await recordTournamentResult({bracket,games,id:cup.id,phase:'semi',number:t.number,roomCode:code,record,roster:t.players});
+    }
+    await bracket.advance(cup.id,initial);
     const final=await bracket.getBinding(cup.id,'final',1);
     assert.equal(final.players.length,4,'a final ainda tem quatro classificados');
     assert.equal(final.waitDeadlineAt,final.createdAt+120000,'a final recebe novo prazo de 2 minutos');

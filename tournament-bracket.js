@@ -5,6 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {planNextStageDraw,assertExistingStageDraw}=require('./tournament-next-stage-draw');
 const TournamentWait=require('./tournament-wait');
+const {assertTournamentTable}=require('./tournament-table-capacity');
 const STAGES=['qualifier','quarter','semi','final'];
 const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
 function fail(s,status=409){return Object.assign(new Error(s),{status});}
@@ -41,8 +42,12 @@ function nextStage(stage,tables){
   if(stage==='qualifier'){
     if(n===1)return null;
     if(n===2)return {phase:'final',quota:2};
-    if(n<=5)return {phase:'semi',quota:2};
-    if(n<=10)return {phase:'semi',quota:1};
+    // A cap de quatro lugares cria mais mesas que o antigo sorteio de cinco.
+    // Mantemos a quota original POR mesa de origem; usamos as quartas (fase
+    // existente) para que 5+ mesas não produzam mais de 4 finalistas.
+    if(n===3||n===4)return {phase:'semi',quota:2};
+    if(n===5)return {phase:'quarter',quota:2};
+    if(n<=10)return {phase:'quarter',quota:1};
     return {phase:'quarter',quota:1};
   }
   if(stage==='quarter')return {phase:'semi',quota:2};
@@ -70,6 +75,13 @@ class TournamentBracket{
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS wait_deadline_at TIMESTAMPTZ`);
+      await this.pool.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mm_tournament_stage_max4'
+          AND conrelid = 'mm_tournament_stage_tables'::regclass) THEN
+          ALTER TABLE mm_tournament_stage_tables ADD CONSTRAINT mm_tournament_stage_max4
+            CHECK (jsonb_typeof(players_json) = 'array' AND jsonb_array_length(players_json) BETWEEN 2 AND 4) NOT VALID;
+        END IF;
+      END $$;`);
     }
     else {fs.mkdirSync(path.dirname(this.filePath),{recursive:true});this.reload();}
   }
@@ -143,6 +155,7 @@ class TournamentBracket{
       throw fail('A partida não tem o resultado completo dos jogadores sorteados. Avanço bloqueado.');
     const record={matchId:String(result.matchId||'').slice(0,160),finishedAt:String(result.finishedAt||new Date().toISOString()),results:mapped};
     const seats=players.map((p,i)=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),seat:i+1}));
+    assertTournamentTable(seats);
     const normalizedRows=rows=>rows.map(p=>({playerKey:p.playerKey,name:p.name,score:p.score,
       position:p.position,won:p.won,forfeited:p.forfeited})).sort((a,b)=>a.playerKey.localeCompare(b.playerKey));
     const same=(saved)=>!!saved && saved.matchId===record.matchId && Array.isArray(saved.results) &&
@@ -222,8 +235,16 @@ class TournamentBracket{
         assertExistingStageDraw(current,move.quota,existing);
         continue;
       }
+      // Com 65+ inscritos, o torneio de quatro etapas e quotas legadas
+      // não pode obter uma final única de até quatro sem alterar a regra
+      // oficial de classificação. Nunca gravar fase/final inválida.
+      if(stage==='quarter'&&current.length>4)
+        throw fail('A progressão deste torneio exige mais etapas para manter uma única final de até quatro jogadores. Os critérios oficiais foram preservados; não foi criado um sorteio inválido.');
       const qualified=candidatesFromStage(current,move.quota);
       const tables=planNextStageDraw(qualified);
+      for(const table of tables)assertTournamentTable(table.players);
+      if(move.phase==='final'&&tables.length!==1)
+        throw fail('A grande final exige uma mesa única de dois a quatro classificados. Avanço bloqueado para proteger os resultados.');
       const createdAt=Date.now(),waitDeadlineAt=createdAt+TournamentWait.WAIT_MS;
       if(this.pool){for(const t of tables)await conn.query(`INSERT INTO mm_tournament_stage_tables(tournament_id,stage,table_number,players_json,wait_deadline_at)
         VALUES($1,$2,$3,$4::jsonb,$5::timestamptz) ON CONFLICT DO NOTHING`,[id,move.phase,t.number,JSON.stringify(t.players),new Date(waitDeadlineAt).toISOString()]);}

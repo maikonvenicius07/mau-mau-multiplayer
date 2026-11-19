@@ -18,22 +18,22 @@ const {buildMatchRecord}=require('../ranking-store');
     const draw=new TournamentDraw({databaseUrl:'',filePath:path.join(dir,'tournament-draws.json'),signupsFilePath:cfg.signupsFilePath});
     const games=new TournamentGames({databaseUrl:'',filePath:path.join(dir,'tournament-games.json')});
     await store.init();await catalog.init();await draw.init();await games.init();
-    const cup=await catalog.create({data:{name:'Copa Teste V51.4',capacity:5,startAt:null},actor:'dono'});
+    const cup=await catalog.create({data:{name:'Copa Teste V51.4',capacity:4,startAt:null},actor:'dono'});
     const open=await catalog.update({id:cup.id,data:{status:'open'}});
-    for(let i=0;i<5;i++)await store.change({action:'join',playerKey:'key-'+i,name:'Pessoa '+i,config:open});
+    for(let i=0;i<4;i++)await store.change({action:'join',playerKey:'key-'+i,name:'Pessoa '+i,config:open});
     await catalog.update({id:cup.id,data:{status:'closed'}});
     const groups=await draw.draw(cup.id);
-    assert.equal(groups.length,1);assert.equal(groups[0].players.length,5);
+    assert.equal(groups.length,1);assert.equal(groups[0].players.length,4);
     assert.equal(await draw.seatFor(cup.id,1,'outsider'),null);
     const seat=await draw.seatFor(cup.id,1,'key-0');
-    assert.equal(seat.players.length,5);
+    assert.equal(seat.players.length,4);
     assert(seat.players.every(p=>p.playerKey));
     const room=Engine.createRoom('ABC123',{name:'Pessoa 0',avatar:'macaco',playerKey:'key-0',token:'tok0'});
     room.tournament={id:cup.id,tableNumber:1,rosterKeys:seat.players.map(p=>p.playerKey)};
     for(const p of seat.players.filter(p=>p.playerKey!=='key-0')){
       Engine.addPlayer(room,{name:p.name,avatar:'macaco',playerKey:p.playerKey,token:p.playerKey});
     }
-    assert.equal(room.players.length,5);
+    assert.equal(room.players.length,4);
     const binding=await games.claim(cup.id,1,room.code);assert.equal(binding.roomCode,room.code);
     assert.equal((await games.claim(cup.id,1,'XYZ987')).roomCode,'ABC123');
     Engine.startRound(room);assert.equal(room.round,1);
@@ -41,13 +41,13 @@ const {buildMatchRecord}=require('../ranking-store');
     room.players.forEach((p,i)=>p.score=10+i*10);
     room.status='finished';room.finishedAt=Date.now();
     const rec=buildMatchRecord(room);
-    assert(rec.results.length===5);
-    const result=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:5});
-    assert.equal(result.results.length,5);assert.equal(result.results.filter(p=>p.won).length,1);
-    const again=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:5});
+    assert(rec.results.length===4);
+    const result=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:4});
+    assert.equal(result.results.length,4);assert.equal(result.results.filter(p=>p.won).length,1);
+    const again=await games.finish({id:cup.id,number:1,roomCode:room.code,result:rec,expectedPlayers:4});
     assert.deepEqual(again,result,'a repetição idêntica deve ser idempotente');
     await assert.rejects(games.finish({id:cup.id,number:1,roomCode:room.code,
-      result:{...rec,results:rec.results.map(p=>({...p,score:999}))},expectedPlayers:5}),
+      result:{...rec,results:rec.results.map(p=>({...p,score:999}))},expectedPlayers:4}),
       /resultado diferente|incompleto/i,'resultado conflitante deve ser recusado, nunca sobrescrito');
     const statuses=await games.statuses(cup.id,[1]);assert.equal(statuses[1].finished,true);
     const persisted=new TournamentGames({databaseUrl:'',filePath:path.join(dir,'tournament-games.json')});await persisted.init();
@@ -62,6 +62,6 @@ const {buildMatchRecord}=require('../ranking-store');
     assert(src.includes("if(room.tournament)throw new Error('Máquinas não podem ocupar vagas em torneios.')"));
     assert(src.includes('if(room.tournament){\n    room.rankingRecording=true;'));
     assert(src.indexOf('if(room.tournament){\n    room.rankingRecording=true;')<src.indexOf('return rankingStore.recordMatch(record)'));
-    console.log('✓ V51.4: roster autenticado, sala única, partida com 5 jogadores, resultado idempotente, sem cartas privadas nem alteração do ranking.');
+    console.log('✓ V51.4: roster autenticado, sala única, partida com 4 jogadores, resultado idempotente, sem cartas privadas nem alteração do ranking.');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

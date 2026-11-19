@@ -78,7 +78,7 @@ async function fullCycle(size){
 }
 (async()=>{
   const results=[];
-  for(const n of [2,6,20,50,100])results.push(await fullCycle(n));
-  console.log('✓ V40.69.8.19: ciclo completo local de inscricao ate campeao com 2, 6, 20, 50 e 100 jogadores.');
+  for(const n of [2,6,20,50,64])results.push(await fullCycle(n));
+  console.log('✓ V40.69.8.19: ciclo completo local de inscricao ate campeao com 2, 6, 20, 50 e 64 jogadores.');
   for(const r of results)console.log(`  ${r.size} inscritos: ${r.phases.join(' → ')} → ${r.champion}`);
 })().catch(e=>{console.error(e);process.exitCode=1;});

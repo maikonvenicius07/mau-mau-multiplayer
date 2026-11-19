@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const TournamentWait=require('./tournament-wait');
+const {MAX_TOURNAMENT_PLAYERS,assertTournamentTable}=require('./tournament-table-capacity');
 
 function fail(message, status=409){return Object.assign(new Error(message),{status});}
 function shuffled(rows, randomInt=crypto.randomInt){
@@ -13,7 +14,10 @@ function shuffled(rows, randomInt=crypto.randomInt){
 }
 function distribute(rows, randomInt=crypto.randomInt){
   if(rows.length<2)throw fail('O sorteio exige pelo menos dois inscritos.');
-  const count=Math.ceil(rows.length/5);
+  const keys=rows.map(p=>p?.playerKey);
+  if(keys.some(k=>typeof k!=='string'||!k)||new Set(keys).size!==keys.length)
+    throw fail('O sorteio foi bloqueado: há participante inválido ou duplicado.');
+  const count=Math.ceil(rows.length/MAX_TOURNAMENT_PLAYERS);
   const base=Math.floor(rows.length/count),extra=rows.length%count;
   const groups=[],list=shuffled(rows,randomInt);let index=0;
   for(let t=0;t<count;t++){
@@ -21,6 +25,7 @@ function distribute(rows, randomInt=crypto.randomInt){
     for(let seat=1;seat<=size;seat++){
       const p=list[index++];players.push({playerKey:p.playerKey,name:p.name,seat});
     }
+    assertTournamentTable(players);
     groups.push({number:t+1,players});
   }
   return groups;
@@ -39,7 +44,7 @@ class TournamentDraw{
         player_key VARCHAR(80) NOT NULL,
         display_name VARCHAR(24) NOT NULL,
         table_number INTEGER NOT NULL CHECK(table_number>=1),
-        seat_number INTEGER NOT NULL CHECK(seat_number BETWEEN 1 AND 5),
+        seat_number INTEGER NOT NULL CHECK(seat_number BETWEEN 1 AND 4),
         drawn_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         wait_deadline_at TIMESTAMPTZ,
         PRIMARY KEY(tournament_id,player_key),
@@ -48,6 +53,15 @@ class TournamentDraw{
       // Nullable: torneios sorteados antes desta versão não devem ser
       // desclassificados retroativamente com base em um sorteio antigo.
       await this.pool.query('ALTER TABLE mm_tournament_table_seats ADD COLUMN IF NOT EXISTS wait_deadline_at TIMESTAMPTZ');
+      // NOT VALID preserva registros antigos para auditoria, mas recusa novas
+      // atribuições que ultrapassem quatro lugares mesmo em bases antigas.
+      await this.pool.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mm_tournament_seat_max4'
+          AND conrelid = 'mm_tournament_table_seats'::regclass) THEN
+          ALTER TABLE mm_tournament_table_seats ADD CONSTRAINT mm_tournament_seat_max4
+            CHECK (seat_number BETWEEN 1 AND 4) NOT VALID;
+        END IF;
+      END $$;`);
     }else{
       fs.mkdirSync(path.dirname(this.filePath),{recursive:true});
       try{const data=JSON.parse(fs.readFileSync(this.filePath,'utf8'));this.local=data&&typeof data==='object'&&!Array.isArray(data)?data:{};}

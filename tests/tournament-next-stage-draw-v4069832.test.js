@@ -11,13 +11,13 @@ function keys(tables){return tables.flatMap(t=>t.players.map(p=>p.playerKey));}
 for(const n of [2,3,4,5,6,7,8,9,10,12,20,25,50,100]){
   const players=participants(n);
   const tables=planNextStageDraw(players,()=>0);
-  assert.equal(tables.length,Math.ceil(n/5));
+  assert.equal(tables.length,Math.ceil(n/4));
   assert.equal(keys(tables).length,n);
   assert.equal(new Set(keys(tables)).size,n);
   assert.deepEqual(new Set(keys(tables)),new Set(players.map(p=>p.playerKey)));
-  assert(tables.every(t=>t.players.length>=2&&t.players.length<=5));
-  if(n<=5)assert.deepEqual(keys(tables),players.map(p=>p.playerKey),'mesa única dispensa novo sorteio');
-  if(n>5)assert.notDeepEqual(keys(tables),players.map(p=>p.playerKey),'sorteio embaralha entre mesas');
+  assert(tables.every(t=>t.players.length>=2&&t.players.length<=4));
+  if(n<=4)assert.deepEqual(keys(tables),players.map(p=>p.playerKey),'mesa única dispensa novo sorteio');
+  if(n>4)assert.notDeepEqual(keys(tables),players.map(p=>p.playerKey),'sorteio embaralha entre mesas');
 }
 assert.throws(()=>planNextStageDraw([{playerKey:'a',name:'A'},{playerKey:'a',name:'A'}]),/duplicada/);
 assert.throws(()=>planNextStageDraw([{playerKey:'a',name:'A'}]),/dois classificados/);
@@ -28,7 +28,7 @@ async function stageRace(){
   const filePath=path.join(temp,'bracket.json');
   const bracket=new TournamentBracket({databaseUrl:'',filePath});await bracket.init();
   const id='copa-sorteio-v32';
-  const initial=distribute(participants(20),()=>0);
+  const initial=distribute(participants(16),()=>0);
   const source=[];
   for(const table of initial){
     const roster=table.players;

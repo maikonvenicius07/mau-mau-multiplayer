@@ -12,7 +12,7 @@ const {TournamentDraw,distribute}=require('../tournament-draw');
   const groups=distribute(rows, n=>n-1);
   assert.equal(groups.flatMap(g=>g.players).length,count);
   assert.equal(new Set(groups.flatMap(g=>g.players.map(x=>x.playerKey))).size,count);
-  assert(groups.every(g=>g.players.length>=2&&g.players.length<=5));
+  assert(groups.every(g=>g.players.length>=2&&g.players.length<=4));
   const sizes=groups.map(g=>g.players.length);assert(Math.max(...sizes)-Math.min(...sizes)<=1);
  }
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mau-v513-'));
@@ -29,7 +29,7 @@ const {TournamentDraw,distribute}=require('../tournament-draw');
   const closed=await catalog.update({id:a.id,data:{status:'closed'}});
   assert(!closed.registrationOpen);
   const tables=await draw.draw(a.id);
-  assert.deepEqual(tables.map(t=>t.players.length),[5,4,4,4]);
+  assert.deepEqual(tables.map(t=>t.players.length),[4,4,3,3,3]);
   assert.equal(new Set(tables.flatMap(t=>t.players.map(x=>x.name))).size,17);
   await assert.rejects(draw.draw(a.id),/já foram sorteadas/i);
   await assert.rejects(catalog.update({id:a.id,data:{status:'open'}}),/não é possível reabrir/i);

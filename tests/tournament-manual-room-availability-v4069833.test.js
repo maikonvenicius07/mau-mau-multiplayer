@@ -10,6 +10,7 @@ const lobby=require('../tournament-reserved-lobby');
 const recovery=require('../tournament-lobby-recovery');
 const health=require('../tournament-table-health');
 const {restoreRoomSnapshot,plainRoomSnapshot}=require('../room-snapshot-store');
+const {assertTournamentTable,MAX_TOURNAMENT_PLAYERS}=require('../tournament-table-capacity');
 const handler=server.slice(server.indexOf("  socket.on('enterTournamentTable'"),server.indexOf("  socket.on('createRoom'"));
 assert(handler.includes("roomSnapshotStore.saveNow(candidate)"));
 assert(handler.indexOf('roomSnapshotStore.saveNow(candidate)')<handler.indexOf('await tournamentBracket.claim('));
@@ -42,6 +43,7 @@ function scenario({previousBinding=null,savedSnapshot=null,snapshotExists=!!save
   };
   const context={socket:null,crypto:{randomUUID:()=> 'uuid'},Number,String,Error,Set,Map,Promise,Date,console:{warn:(...v)=>errors.push(v),info:()=>{},error:()=>{}},
     tournamentTableJoinLocks:locks,tournamentTestDeleteLocks:new Set(),
+    assertTournamentTable,MAX_TOURNAMENT_PLAYERS,
     ROLE_SPECTATOR:'SPECTATOR',ROLE_PLAYER:'PLAYER',
     ensureTournamentBracketReady:async()=>true,requireRoomPersistenceReady:async()=>{},
     tournamentDraw:{get:async()=>[{number:1}],seatFor:async()=>seat},

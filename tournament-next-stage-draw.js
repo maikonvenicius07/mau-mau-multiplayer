@@ -2,6 +2,7 @@
 // Novo sorteio a cada fase com mais de uma mesa. O resultado persistido nunca
 // é embaralhado novamente; esta validação não modifica critérios de avanço.
 const {distribute}=require('./tournament-draw');
+const {MAX_TOURNAMENT_PLAYERS,assertTournamentTable}=require('./tournament-table-capacity');
 
 function fail(message){return Object.assign(new Error(message),{status:409});}
 
@@ -12,7 +13,7 @@ function planNextStageDraw(qualified, randomInt){
   if(keys.some(key=>typeof key!=='string'||!key)||new Set(keys).size!==keys.length)
     throw fail('Há classificação duplicada ou sem identificação. O sorteio foi bloqueado.');
   // Mesa única: todos os classificados já jogam juntos, sem sorteio desnecessário.
-  const tables=qualified.length<=5
+  const tables=qualified.length<=MAX_TOURNAMENT_PLAYERS
     ? [{number:1,players:qualified.map((p,i)=>({playerKey:p.playerKey,name:p.name,seat:i+1}))}]
     : distribute(qualified,randomInt);
   assertDrawIntegrity(tables,qualified);
@@ -22,13 +23,14 @@ function planNextStageDraw(qualified, randomInt){
 function assertDrawIntegrity(tables,qualified){
   if(!Array.isArray(tables)||!Array.isArray(qualified)||!qualified.length)
     throw fail('Sorteio da fase inválido.');
-  const expected=Math.ceil(qualified.length/5);
+  const expected=Math.ceil(qualified.length/MAX_TOURNAMENT_PLAYERS);
   if(tables.length!==expected)throw fail('Quantidade de mesas incompatível com os classificados.');
   const known=new Set(qualified.map(p=>p.playerKey)),seen=new Set();
   const sizes=[];
   tables.forEach((table,i)=>{
-    if(table.number!==i+1||!Array.isArray(table.players)||table.players.length<2||table.players.length>5)
+    if(table.number!==i+1||!Array.isArray(table.players)||table.players.length<2||table.players.length>MAX_TOURNAMENT_PLAYERS)
       throw fail('Mesa inválida no sorteio da próxima fase.');
+    assertTournamentTable(table.players);
     sizes.push(table.players.length);
     table.players.forEach((p,seat)=>{
       if(!known.has(p.playerKey)||seen.has(p.playerKey)||p.seat!==seat+1)

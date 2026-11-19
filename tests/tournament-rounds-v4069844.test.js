@@ -115,7 +115,7 @@ async function caseRounds(rounds,{participants=9,complete=false}={}){
   }
   assert(server.includes('candidate.rules.rounds=event.rounds'),'novo lobby usa o total armazenado');
   assert(server.includes('rounds:event.rounds,forfeits:[]'),'snapshot da mesa mantém a duração');
-  assert(server.includes("const RELEASE_VERSION = 'V40.69.8.44'"));
+  assert(server.includes("const RELEASE_VERSION = 'V40.69.8.45'"));
   assert(server.includes('await tournamentBracket.seatFor('),'segurança da entrada de classificados permanece');
   assert(server.includes("if(binding?.roomCode&&!room)"),'proteção da transição aprovada permanece');
   assert(server.includes('await startTournamentLobbyOnRequest(room,p,socket.id)'),'início exclusivo manual permanece');

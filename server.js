@@ -25,6 +25,7 @@ const InputSafety = require('./input-safety');
 const { RoomSnapshotStore, restoreRoomSnapshot } = require('./room-snapshot-store');
 const TournamentLobbyRecovery = require('./tournament-lobby-recovery');
 const TournamentTableHealth = require('./tournament-table-health');
+const {assertTournamentTable,MAX_TOURNAMENT_PLAYERS}=require('./tournament-table-capacity');
 const ReplaySession = require('./replay-session');
 const RankingFinalization = require('./ranking-finalization');
 const { RankingStore, buildMatchRecord, normalizePeriod, normalizeMode, CURRENT_SEASON_ID, CURRENT_SEASON_NAME } = require('./ranking-store');
@@ -49,7 +50,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.44';
+const RELEASE_VERSION = 'V40.69.8.45';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -393,6 +394,9 @@ async function startTournamentLobbyOnRequest(room,player,socketId){
   const validate=()=>{
     if(!stillAuthorized())throw new Error('A mesa ou o anfitrião mudou durante a preparação.');
     if(room.players.some(p=>p.isBot))throw new Error('Mesa de torneio contém máquina. Início bloqueado.');
+    assertTournamentTable(roster);
+    if(room.players.length>MAX_TOURNAMENT_PLAYERS)
+      throw new Error('A mesa do torneio ultrapassou quatro jogadores.');
     const plan=decision();
     if(plan.action!=='ready'){
       if(plan.present<2)throw new Error('São necessários pelo menos dois jogadores conectados para iniciar a partida.');
@@ -3424,6 +3428,9 @@ io.on('connection', socket => {
       const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
         await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
+      // Impede criar ou recuperar mesas antigas com cinco cadeiras: a
+      // recuperação nunca refaz sorteios e não remove participantes.
+      assertTournamentTable(seat.players);
       if(phase!=='qualifier'){
         const other=activePlayerRoomForKey(socket.data.auth.playerKey);
         if(other&&(other.tournament?.id!==id||other.tournament?.phase!==phase||other.tournament?.tableNumber!==number)
@@ -3463,7 +3470,9 @@ io.on('connection', socket => {
           const actual=tournament?.rosterKeys;
           if(!tournament || tournament.id!==id || tournament.phase!==phase ||
             Number(tournament.tableNumber)!==number || !Array.isArray(actual) ||
-            actual.length!==expected.size || actual.some(key=>!expected.has(key)) ||
+            actual.length!==expected.size || actual.length>MAX_TOURNAMENT_PLAYERS ||
+            (room.players.length>MAX_TOURNAMENT_PLAYERS ||
+              new Set(room.players.map(p=>p.playerKey)).size!==room.players.length) || actual.some(key=>!expected.has(key)) ||
             room.players.some(p=>p.isBot || (p.playerKey&&!expected.has(p.playerKey)))){
             console.error('[tournament] vínculo apontando para sala incompatível, ingresso recusado',
               {id,phase,number,hasTournament:!!tournament});

@@ -7,6 +7,7 @@ const os=require('node:os');
 const vm=require('node:vm');
 const Wait=require('../tournament-wait');
 const {distribute,TournamentDraw}=require('../tournament-draw');
+const {assertTournamentTable,MAX_TOURNAMENT_PLAYERS}=require('../tournament-table-capacity');
 const {TournamentBracket}=require('../tournament-bracket');
 const {TournamentGames}=require('../tournament-games');
 const {recordTournamentResult}=require('../tournament-result-commit');
@@ -40,7 +41,7 @@ async function testManualServer(){
   assert(!reconcile.includes('startTournamentLobbyOnRequest('),'Reconciliação não inicia partida');
   const manual=src.slice(src.indexOf("socket.on('startRound'"),src.indexOf("socket.on('declare'"));
   assert(manual.includes('await startTournamentLobbyOnRequest(room,p,socket.id)'),'Apenas clique solicita início');
-  async function scenario({present,expected=5,deadlineOffset,phase='qualifier',concurrent=false}){
+  async function scenario({present,expected=4,deadlineOffset,phase='qualifier',concurrent=false}){
     const roster=Array.from({length:expected},(_,i)=>({playerKey:`p${i}`,name:`Pessoa ${i}`}));
     const room={code:'WAIT21',status:'lobby',round:0,
       players:roster.slice(0,present).map((r,i)=>({...r,isBot:false,connected:true,id:`seat${i}`,score:0,host:i===0,socketId:`sock${i}`})),
@@ -54,7 +55,7 @@ async function testManualServer(){
       tournamentBracket:{getBinding:async()=>binding(),markStarted:async()=>{marks++;return true;}},
       roomSnapshotStore:{saveNow:async()=>{saved++;return true;}},
       tournamentWaitDeadline:async()=>room.tournament.waitDeadlineAt,
-      TournamentWait:Wait,TournamentForfeit:Forfeit,
+      TournamentWait:Wait,TournamentForfeit:Forfeit,assertTournamentTable,MAX_TOURNAMENT_PLAYERS,
       requireRoomPersistenceReady:async()=>true,ensureTournamentBracketReady:async()=>true,
       Engine:{startRound:rm=>{engineStarts++;rm.round=1;rm.status='playing';},appendLog:()=>{}},
       ensureHost:()=>{},emitRoom:()=>{emits++;},broadcastPresence:()=>{},console
@@ -83,12 +84,13 @@ async function testManualServer(){
     }
     return {marks,room};
   }
-  await scenario({present:5,deadlineOffset:120000});
   await scenario({present:4,deadlineOffset:120000});
-  await scenario({present:4,deadlineOffset:-1000});
+  await scenario({present:3,deadlineOffset:120000});
+  await scenario({present:3,deadlineOffset:-1000});
+  await scenario({present:2,deadlineOffset:-1000});
   await scenario({present:1,deadlineOffset:-1000});
   await scenario({present:0,deadlineOffset:-1000});
-  await scenario({present:5,deadlineOffset:120000,phase:'final',concurrent:true});
+  await scenario({present:4,deadlineOffset:120000,phase:'final',concurrent:true});
 }
 
 async function ninePlayers(){
@@ -106,7 +108,7 @@ async function ninePlayers(){
     for(let i=0;i<9;i++)await store.change({action:'join',playerKey:`p${i}`,name:`Pessoa ${i}`,config:opened});
     await cat.update({id:cup.id,data:{status:'closed'}});
     const tables=await draw.draw(cup.id);
-    assert.deepEqual(tables.map(x=>x.players.length),[5,4]);
+    assert.deepEqual(tables.map(x=>x.players.length),[3,3,3]);
     const start=await draw.waitStartedAt(cup.id,1);
     assert(start>0);assert.equal(await draw.waitStartedAt(cup.id,2),start);
     assert.equal(await draw.waitDeadlineAt(cup.id,1),start+120000);
@@ -118,6 +120,14 @@ async function ninePlayers(){
       await games.claim(cup.id,table.number,code);await games.markStarted(cup.id,table.number,code);
       const record={matchId:'game-'+code,results:roster.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))};
       await recordTournamentResult({bracket,games,id:cup.id,phase:'qualifier',number:table.number,roomCode:code,record,roster});
+    }
+    const advanced=await bracket.advance(cup.id,tables);
+    assert.equal(advanced.currentStage,'semi');
+    for(const t of (await bracket.rows(cup.id)).filter(t=>t.stage==='semi')){
+      const code='S'+t.number;
+      await bracket.claim(cup.id,'semi',t.number,code);
+      const record={matchId:'semi-'+code,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))};
+      await recordTournamentResult({bracket,games,id:cup.id,phase:'semi',number:t.number,roomCode:code,record,roster:t.players});
     }
     const advance=await bracket.advance(cup.id,tables);
     assert.equal(advance.currentStage,'final');

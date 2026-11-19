@@ -225,6 +225,15 @@ function createRoom(code, hostInfo) {
 }
 
 function addPlayer(room, info) {
+  if (room.tournament) {
+    const {MAX_TOURNAMENT_PLAYERS}=require('./tournament-table-capacity');
+    const roster=room.tournament.rosterKeys;
+    if(!Array.isArray(roster)||roster.length<2||roster.length>MAX_TOURNAMENT_PLAYERS||
+        new Set(roster).size!==roster.length||!roster.includes(info?.playerKey))
+      throw new Error('A vaga não pertence a uma mesa válida de torneio (máximo de 4 jogadores).');
+    if(room.players.length>=MAX_TOURNAMENT_PLAYERS || room.players.some(p=>p.playerKey===info?.playerKey))
+      throw new Error('A mesa do torneio já está completa ou o jogador já ocupa uma vaga.');
+  }
   if (room.players.length >= 5) throw new Error('A sala já possui 5 jogadores.');
   if (room.status === 'playing') throw new Error('Não é permitido entrar durante uma rodada.');
   if (room.status === 'finished') throw new Error('A partida já terminou.');

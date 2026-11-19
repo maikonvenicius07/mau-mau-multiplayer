@@ -1,3 +1,12 @@
+## V40.69.8.45 — Limite de 4 jogadores por mesa de torneio (19/11/2026)
+
+- Sorteios iniciais e de etapas seguintes com 2, 3 ou 4 jogadores por mesa; salas comuns mantêm 5 vagas.
+- Verificação no servidor, no motor do jogo e em restrições incrementais de banco sem apagar registros antigos.
+- Mantidos início manual, dois minutos de espera e vitória automática por ausência do único jogador presente.
+- Preservadas quotas de classificados por mesa. Para mais mesas, uso de etapa de quartas já existente quando necessário.
+- Limitação identificada: torneios com 65 a 100 inscritos exigem ajuste futuro do formato/quotas para produzir final única; progressão fica bloqueada antes de criar etapa inválida.
+- Sorteios já gravados não são refeitos automaticamente. Torneios legados com mesas de cinco precisam de avaliação individual.
+
 ## V40.69.8.44 — Torneios com 5, 10 ou 15 rodadas por partida (19/11/2026)
 
 - Ao criar torneios, organizador escolhe 5, 10 ou 15 rodadas; padrão de 5 mantido. A regra é por **partida**, não altera as fases.
