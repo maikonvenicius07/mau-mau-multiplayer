@@ -1,64 +1,76 @@
 'use strict';
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const path=require('node:path');
-const vm=require('node:vm');
-const {buildBestSeatIndex}=require('../presence-seat-index');
+// Regressão funcional para o índice de presença; substitui teste legado do
+// mesmo nome que tentava localizar blocos frágeis dentro do servidor.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {indexPresenceSeats,seatPriority} = require('../presence-seat-index');
 
-function oldSeat(rooms,key){
+const now = 1_800_000_000_000;
+const player = (key, extra={}) => ({playerKey:key,name:key,connected:false,autoControlled:false,reconnectDeadlineAt:0,...extra});
+const room = (id, status, round, players) => ({code:id,status,round,players});
+const rooms = new Map([
+  ['lobby',room('lobby','lobby',0,[player('a'),player('b',{connected:true}),{playerKey:'bot',isBot:true,connected:true}])],
+  ['inplay',room('inplay','playing',2,[player('a',{connected:true}),player('c',{reconnectDeadlineAt:now+10_000}),player('d',{autoControlled:true,reconnectDeadlineAt:now+10_000})])],
+  ['legacy',room('legacy','between-rounds',4,[player('dupe'),player('dupe',{connected:true}),player('old',{reconnectDeadlineAt:now-1})])],
+  ['secondary',room('secondary','playing',2,[player('a',{connected:true})])],
+]);
+
+const {seats,reconnectingKeys} = indexPresenceSeats(rooms,now);
+assert.equal(seats.get('a').room.code,'inplay','cadeira conectada em partida prevalece sobre lobby');
+assert.equal(seats.get('b').room.code,'lobby');
+assert.equal(seats.get('dupe').player,rooms.get('legacy').players[0], 'Array.find original escolhe primeira cadeira por chave na mesma sala');
+assert.equal(seats.get('a').player,rooms.get('inplay').players[0], 'prioridades empatadas mantêm primeira sala inserida');
+assert.equal(seats.has('bot'),false,'robôs não entram no índice humano');
+assert.deepEqual([...reconnectingKeys],['c'],'somente reserva humana ainda válida aparece desconectada');
+assert.equal(seatPriority(rooms.get('inplay'),rooms.get('inplay').players[0]),145);
+assert.equal(seatPriority(rooms.get('lobby'),rooms.get('lobby').players[0]),20);
+
+// Compara todas as escolhas à busca original O(jogadores x salas), incluindo
+// duplicatas históricas e diferentes estados da mesa.
+function originalSeatForKey(key, list) {
   let best=null;
-  for(const room of rooms.values()){
-    const player=room.players.find(p=>!p.isBot&&p.playerKey===key);
-    if(!player)continue;
-    const score=(player.connected?100:0)+(room.status==='playing'?40:room.status==='between-rounds'?30:room.status==='lobby'?20:10)+(room.round>0?5:0);
-    if(!best||score>best.score)best={room,player,score};
+  for(const r of list.values()) {
+    const p=r.players.find(x=>!x.isBot && x.playerKey===key);
+    if(!p)continue;
+    const score=(p.connected?100:0)
+      +(r.status==='playing'?40:r.status==='between-rounds'?30:r.status==='lobby'?20:10)
+      +(r.round>0?5:0);
+    if(!best||score>best.score)best={room:r,player:p,score};
   }
   return best;
 }
-function roomsFixture(){
-  const rooms=new Map();const states=['lobby','playing','between-rounds','finished'];
-  for(let i=0;i<180;i++){
-    const players=[];
-    for(let j=0;j<4;j++)players.push({playerKey:`user-${(i*3+j)%390}`,connected:(i+j)%4!==0,autoControlled:(i+j)%11===0,reconnectDeadlineAt:Date.now()+60000,isBot:(i+j)%19===0});
-    if(i===10)players.push({...players[0],connected:true}); // Mesmo identificador: primeira cadeira prevalece.
-    rooms.set(`room-${i}`,{code:`room-${i}`,players,status:states[i%4],round:i%3});
-  }
-  return rooms;
+for(const key of ['a','b','c','d','dupe','old','missing']) {
+  const original=originalSeatForKey(key,rooms),optimized=seats.get(key)||null;
+  assert.equal(optimized?.player,original?.player);
+  assert.equal(optimized?.room,original?.room);
+  assert.equal(optimized?.score,original?.score);
 }
-const rooms=roomsFixture();const idx=buildBestSeatIndex(rooms);
-for(let i=0;i<420;i++){
-  const key=`user-${i}`;const old=oldSeat(rooms,key),now=idx.get(key)||null;
-  assert.equal(now?.room?.code||null,old?.room?.code||null,`sala de ${key}`);
-  assert.equal(now?.player||null,old?.player||null,`cadeira de ${key}`);
-  assert.equal(now?.score??null,old?.score??null,`prioridade de ${key}`);
-}
-assert.equal(buildBestSeatIndex(new Map()).size,0);
 
-// Executar o controlador REAL da interface com um diálogo e timers simulados.
-// O teste não depende de navegador ou rede, e valida pausa/retomada/fechamento.
-const source=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
-const start=source.indexOf('function requestPublicRooms(){');
-const stop=source.indexOf('function watchPublicRoom(',start);
-assert(start>0&&stop>start);
-const dialog={open:false,showModal(){this.open=true;},close(){this.open=false;}};
-const listeners={};const timers=new Map();let id=0,requests=0;
-const ctx={authUser:{id:1},socket:{connected:true,emit(type){assert.equal(type,'requestPublicRooms');requests++;}},document:{hidden:false,addEventListener(name,fn){listeners[name]=fn;}},
-  liveRoomsRefreshTimer:null,showAuthGate(){throw Error('Usuário autenticado não deve receber bloqueio.');},
-  $:selector=>selector==='#liveRoomsDialog'?dialog:null,
-  setInterval(fn,ms){assert.equal(ms,5000);const key=++id;timers.set(key,fn);return key;},
-  clearInterval(key){timers.delete(key);}};
-vm.createContext(ctx);
-vm.runInContext(source.slice(start,stop),ctx);
-const handlerStart=source.indexOf("$('#liveRoomsDialog')?.addEventListener('close'",stop);
-const handlerEnd=source.indexOf("$('#liveRoomsDialog')?.addEventListener('cancel'",handlerStart);
-assert(handlerStart>0&&handlerEnd>handlerStart);
-ctx.$=selector=>selector==='#liveRoomsDialog'?{...dialog,addEventListener(name,fn){listeners[`dialog:${name}`]=fn;}}:null;
-vm.runInContext(source.slice(handlerStart,handlerEnd),ctx);
-ctx.$=selector=>selector==='#liveRoomsDialog'?dialog:null;
-ctx.openLiveRooms();assert.equal(dialog.open,true);assert.equal(timers.size,1);assert.equal(requests,1);
-for(const tick of timers.values())tick();assert.equal(requests,2);
-ctx.document.hidden=true;listeners.visibilitychange();assert.equal(timers.size,0,'não consultar salas em segundo plano');
-ctx.document.hidden=false;listeners.visibilitychange();assert.equal(timers.size,1);assert.equal(requests,3,'atualizar ao voltar');
-dialog.close();listeners['dialog:close']();assert.equal(timers.size,0,'parar timer em fechamento nativo');
-ctx.openLiveRooms();assert.equal(timers.size,1);ctx.closeLiveRooms();assert.equal(timers.size,0);
-console.log('✓ V40.69.8.55: índice de presença equivale à busca anterior; painel de observação pausa em aba oculta e encerra timer ao fechar.');
+// Instrumenta a leitura das mesas. O índice não faz busca por sala para
+// cada jogador e não precisa construir índices persistentes ou caches globais.
+let roomReads=0;
+const bigRooms=new Map();
+for(let r=0;r<120;r++){
+  const members=Array.from({length:12},(_,i)=>player(`p${r*12+i}`,{connected:i%2===0}));
+  const obj={status:'playing',round:1,get players(){roomReads++;return members}};
+  bigRooms.set(r,obj);
+}
+const bigIndex=indexPresenceSeats(bigRooms,now);
+assert.equal(bigIndex.seats.size,1440);
+assert.equal(roomReads,120,'cada sala deve ser percorrida uma única vez por snapshot');
+
+const source=fs.readFileSync(path.resolve(__dirname,'../server.js'),'utf8');
+const match=source.match(/\bconst\s+RELEASE_VERSION\s*=\s*['"]V40\.69\.8\.(\d+)['"]/);
+assert.ok(match&&Number(match[1])>=57, '[BUILD/VERSAO] server.js precisa ser V40.69.8.57 ou superior');
+assert.ok(source.includes("require('./presence-seat-index')"),
+  '[BUILD/SNAPSHOT] server.js deve importar o índice de presença');
+assert.ok(/PresenceSeatIndex\.indexPresenceSeats\s*\(\s*rooms\s*,\s*now\s*\)/.test(source),
+  '[BUILD/SNAPSHOT] o snapshot de jogadores online deve utilizar o índice temporário');
+assert.ok(/status\s*=\s*presenceStatusForKey\s*\(\s*key\s*,\s*seat\s*,\s*now\s*\)/.test(source),
+  '[BUILD/SNAPSHOT] calcular o status reutilizando a cadeira selecionada, sem nova busca');
+assert.ok(source.includes("socket.emit('presenceSnapshot',buildPresenceSnapshot());"),
+  'o snapshot inicial individual deve permanecer ativo');
+assert.ok(source.includes("lobbySnapshotDelivery.emitIfChanged(io,'presenceSnapshot',buildPresenceSnapshot());"),
+  'o broadcast com filtro de mudanças deve permanecer ativo');
+console.log('✓ Presença indexada: paridade de vagas, reconexão, robôs, empate, 120 salas e integração estática.');

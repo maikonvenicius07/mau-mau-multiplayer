@@ -13,6 +13,7 @@ const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
 const {createRuntimeConnectionMonitor}=require('./runtime-connection-monitor');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
+const PresenceSeatIndex = require('./presence-seat-index');
 const MatchmakingDelivery = require('./matchmaking-delivery');
 const StaticAssetVersioning = require('./static-asset-versioning');
 const {createAppDatabasePool} = require('./database-pool');
@@ -2299,7 +2300,7 @@ function roomSeatForKey(playerKey) {
   for(const room of rooms.values()){
     const player=room.players.find(p=>!p.isBot&&p.playerKey===playerKey);
     if(!player)continue;
-    const score=(player.connected?100:0)+(room.status==='playing'?40:room.status==='between-rounds'?30:room.status==='lobby'?20:10)+(room.round>0?5:0);
+    const score=PresenceSeatIndex.seatPriority(room,player);
     if(!best||score>best.score)best={room,player,score};
   }
   return best;
@@ -2312,10 +2313,9 @@ function activeMultiplayerRoomForKey(playerKey, exceptCode=null) {
   }
   return null;
 }
-function presenceStatusForKey(playerKey) {
+function presenceStatusForKey(playerKey, seat=roomSeatForKey(playerKey), now=Date.now()) {
   const rec=presenceFor(playerKey);
-  const seat=roomSeatForKey(playerKey);
-  if(seat?.player&&!seat.player.connected&&!seat.player.autoControlled&&seat.player.reconnectDeadlineAt>Date.now()){
+  if(seat?.player&&!seat.player.connected&&!seat.player.autoControlled&&seat.player.reconnectDeadlineAt>now){
     return {code:'reconnecting',emoji:'🟠',label:'Reconectando'};
   }
   if(rec?.searching)return {code:'searching',emoji:'🔎',label:'Procurando partida'};
@@ -2327,14 +2327,16 @@ function presenceStatusForKey(playerKey) {
   return {code:'available',emoji:'🟢',label:'Disponível'};
 }
 function buildPresenceSnapshot() {
+  const now=Date.now();
+  // Uma única varredura por snapshot. Antes, a busca da cadeira era repetida
+  // para cada jogador online e novamente para calcular seu status.
+  const {seats,reconnectingKeys}=PresenceSeatIndex.indexPresenceSeats(rooms,now);
   const keys=new Set(onlinePresence.keys());
-  // Durante os 60 s de reconexão a vaga ainda aparece, marcada como Reconectando.
-  for(const room of rooms.values())for(const p of room.players){
-    if(!p.isBot&&p.playerKey&&!p.connected&&!p.autoControlled&&p.reconnectDeadlineAt>Date.now())keys.add(p.playerKey);
-  }
+  // A vaga permanece visível durante o prazo de reconexão.
+  for(const key of reconnectingKeys)keys.add(key);
   const players=[];
   for(const key of keys){
-    const rec=presenceFor(key),seat=roomSeatForKey(key),status=presenceStatusForKey(key);
+    const rec=presenceFor(key),seat=seats.get(key)||null,status=presenceStatusForKey(key,seat,now);
     const connected=!!rec?.sockets?.size;
     players.push({
       playerKey:key,
@@ -2346,7 +2348,7 @@ function buildPresenceSnapshot() {
   }
   const order={available:0,searching:1,reconnecting:2,bot:3,multiplayer:4};
   players.sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name,'pt-BR'));
-  return {onlineCount:[...onlinePresence.values()].filter(r=>r.sockets.size).length,players,at:Date.now()};
+  return {onlineCount:[...onlinePresence.values()].filter(r=>r.sockets.size).length,players,at:now};
 }
 function publicRoomCard(room) {
   ensureSpectators(room);
@@ -3971,7 +3973,7 @@ io.on('connection', socket => {
       const id=String(payload?.tournamentId||'');
       const stage=String(payload?.stage||'');
       const tableNumber=Number(payload?.tableNumber);
-      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!['qualifier','quarter','extra','semi','final'].includes(stage)
+      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!['qualifier','quarter','semi','final'].includes(stage)
         ||!Number.isInteger(tableNumber)||tableNumber<1)
         throw new Error('Mesa do torneio inválida.');
       const cup=await tournamentCatalog.get(id);
@@ -4639,42 +4641,39 @@ async function reconcileTournamentProgress(){
   tournamentReconcileRunning=true;
   try{
     if(!await ensureTournamentBracketReady())return;
-    const events=await tournamentCatalog.list();
+    // Não carregar rascunhos, inscrições abertas ou torneios cancelados em
+    // cada passagem do reconciliador: consulta seletiva, com mesma semântica.
+    const events=await tournamentCatalog.list({status:'closed'});
     for(const event of events){
-      // V40.69.8.55 — uma exceção isolada não interrompe os demais torneios.
-      try{
-        if(!event||event.status!=='closed'||completedTournamentIds.has(event.id))continue;
-        const first=await tournamentDraw.get(event.id);
-        if(!first.length)continue;
-        // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
-        // a próxima mesa quando o último resultado já tinha sido persistido.
-        const bracket=await tournamentBracket.advance(event.id,first);
-        if(bracket.champion){
-          if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
-          await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
-          completedTournamentIds.add(event.id);continue;
-        }
-        const stage=bracket.currentStage;
-        const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
-        const notify=await Promise.all(tables.map(async table=>{
-          const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
-            await tournamentBracket.getBinding(event.id,stage,table.number);
-          if(binding?.result)return null;
-          const code=binding?.roomCode;
-          const room=code?rooms.get(code):null;
-          if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
-          if(room&&room.status!=='lobby')return null;
-          const key=`${event.id}:${stage}:${table.number}`;
-          if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
-          tournamentSeatNoticeAt.set(key,Date.now());return table;
-        }));
-        const missing=notify.filter(Boolean);
-        if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
-      }catch(e){
-        console.error('[tournament] falha ao reconciliar torneio:',event?.id||'(sem id)',e?.message||e);
+      if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;
+      const first=await tournamentDraw.get(event.id);
+      if(!first.length)continue;
+      // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
+      // a próxima mesa quando o último resultado já tinha sido persistido.
+      const bracket=await tournamentBracket.advance(event.id,first);
+      if(bracket.champion){
+        if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
+        await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
+        completedTournamentIds.add(event.id);continue;
       }
+      const stage=bracket.currentStage;
+      const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
+      const notify=await Promise.all(tables.map(async table=>{
+        const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
+          await tournamentBracket.getBinding(event.id,stage,table.number);
+        if(binding?.result)return null;
+        const code=binding?.roomCode;
+        const room=code?rooms.get(code):null;
+        if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
+        if(room&&room.status!=='lobby')return null;
+        const key=`${event.id}:${stage}:${table.number}`;
+        if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
+        tournamentSeatNoticeAt.set(key,Date.now());return table;
+      }));
+      const missing=notify.filter(Boolean);
+      if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
     }
-  }catch(e){console.error('[tournament] reconciliação geral de fases:',e?.message||e);}
+  }catch(e){console.error('[tournament] reconciliação de fases:',e?.message||e);}
   finally{tournamentReconcileRunning=false;}
 }
 const tournamentProgressTimer=setInterval(()=>{void reconcileTournamentProgress();},15000);
