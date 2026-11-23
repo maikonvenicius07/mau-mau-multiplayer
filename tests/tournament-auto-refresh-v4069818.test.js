@@ -36,6 +36,19 @@ async function testScheduler(){
   busy.resume();assert.equal(timers.size,0,'resume must not duplicate an in-flight request');
   done();await flush();assert.equal(busy.working,false);assert.equal(timers.size,1);
   busy.stop();
+  // Regressão V40.69.8.55: uma resposta HTTP que chegue após pause()
+  // nunca deve rearmar o timer, inclusive em celulares com aba oculta.
+  let releasePaused,pausedStarts=0;
+  const pauseGate=new Promise(resolve=>{releasePaused=resolve;});
+  const paused=create({refreshDetails:()=>{pausedStarts++;return pauseGate;},refreshList:async()=>{},
+    schedule,cancel,clock:()=>now});
+  paused.start();await next();assert.equal(pausedStarts,1);
+  paused.pause();assert.equal(timers.size,0);
+  releasePaused();await flush();
+  assert.equal(timers.size,0,'pause during in-flight request must not re-arm timer');
+  paused.resume();assert.equal(timers.size,1,'resume re-arms exactly one timer');
+  await next();assert.equal(pausedStarts,2);
+  paused.stop();assert.equal(timers.size,0);
   // Request failure does not stop later refresh cycles.
   let failures=0,attempts=0;
   const retry=create({refreshDetails:async()=>{attempts++;if(attempts===1)throw new Error('temporário');},
@@ -68,6 +81,7 @@ async function testBrowser(){
     showModal(){this.open=true;}
     close(){this.open=false;this.handlers.close?.();}
   }
+  const intervals=new Map();let nextInterval=0;
   const elements=new Map();const byId=id=>{if(!elements.has(id))elements.set(id,new Elem());return elements.get(id);};
   const document={getElementById:byId,createElement:tag=>new Elem(tag),hidden:false,
     addEventListener:(name,fn)=>callbacks.set(name,fn)};
@@ -89,9 +103,13 @@ async function testBrowser(){
   };
   const context={document,window,fetch,console,navigator:{onLine:true},Date,
     setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;},
-    clearTimeout:id=>timers.delete(id),confirm:()=>true};
+    clearTimeout:id=>timers.delete(id),
+    setInterval:(fn,delay)=>{const id=++nextInterval;intervals.set(id,{fn,delay});return id;},
+    clearInterval:id=>intervals.delete(id),confirm:()=>true};
   vm.runInNewContext(js,context,{filename:'public/tournament-ui.js'});
+  assert.equal(intervals.size,0,'clock must not run while dialog is closed');
   byId('tournamentOpenHome').handlers.click();await flush();
+  assert.equal(intervals.size,1,'clock starts once only after dialog opens');
   assert.equal(byId('tournamentName').textContent,'🏆 Copa');
   assert.equal(byId('tournamentStages').children.length,1);
   assert.equal(timers.size,1,'one timer after opening');
@@ -110,9 +128,12 @@ async function testBrowser(){
   assert.equal(byId('tournamentAdminName').value,'Meu torneio em rascunho','unsaved admin form survives polling');
   assert.equal(byId('tournamentDialog').scrollTop,scroll,'scroll stays stable');
   document.hidden=true;callbacks.get('visibilitychange')();assert.equal(timers.size,0,'background tab stops timers');
+  assert.equal(intervals.size,0,'background tab stops 1-second clock');
   document.hidden=false;callbacks.get('visibilitychange')();assert.equal(timers.size,1);
+  assert.equal(intervals.size,1,'foreground tab restores clock exactly once');
   await tick();
   byId('tournamentDialog').close();assert.equal(timers.size,0,'closing stops timers');
+  assert.equal(intervals.size,0,'closing stops the 1-second clock');
   assert.equal(byId('tournamentAutoStatus').textContent,'Atualização automática ativa');
 }
 (async()=>{await testScheduler();await testBrowser();console.log('✓ V40.69.8.18: atualização controlada, sem sobreposição, preservação da tela, pausa e retomada.');})()

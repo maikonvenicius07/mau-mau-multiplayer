@@ -11,14 +11,16 @@
     schedule=setTimeout,cancel=clearTimeout,clock=()=>Date.now(),
     interval=DEFAULT_INTERVAL,listInterval=DEFAULT_LIST_INTERVAL}={}){
     if(typeof refreshDetails!=='function'||typeof refreshList!=='function')throw new TypeError('Refresh callbacks required');
-    let running=false,timer=null,working=false,lastListRefresh=clock();
+    // Uma consulta em andamento pode terminar APÓS pause(). A pausa precisa
+    // impedir também o rearmamento feito pelo finally de tick().
+    let running=false,paused=false,timer=null,working=false,lastListRefresh=clock();
     function clear(){if(timer!==null){cancel(timer);timer=null;}}
     function queue(delay){
       clear();
-      if(running)timer=schedule(()=>{timer=null;void tick();},delay);
+      if(running&&!paused)timer=schedule(()=>{timer=null;void tick();},delay);
     }
     async function tick(){
-      if(!running)return;
+      if(!running||paused)return;
       if(working||!canRefresh()){queue(interval);return;}
       working=true;
       try{
@@ -28,13 +30,13 @@
           lastListRefresh=clock();
         }
       }catch(error){if(running)onError(error);}
-      finally{working=false;if(running)queue(interval);}
+      finally{working=false;if(running&&!paused)queue(interval);}
     }
     return {
-      start(){if(running)return;running=true;lastListRefresh=clock();queue(interval);},
-      stop(){running=false;clear();},
-      pause(){clear();},
-      resume(){if(running&&!working)queue(0);},
+      start(){if(running)return;running=true;paused=false;lastListRefresh=clock();queue(interval);},
+      stop(){running=false;paused=false;clear();},
+      pause(){paused=true;clear();},
+      resume(){if(!running)return;paused=false;if(!working)queue(0);},
       get running(){return running;},
       get working(){return working;}
     };

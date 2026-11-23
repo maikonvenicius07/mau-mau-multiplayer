@@ -86,9 +86,13 @@ class TournamentCatalog {
     }
   }
   save(){const temp=this.filePath+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.local,null,2));fs.renameSync(temp,this.filePath);}
-  async list({actor='',isAdmin=false}={}){
-    const rows=this.pool?(await this.pool.query(`SELECT id,name,capacity,rounds,start_at AS "startAt",status,created_by AS "createdBy" FROM mm_tournaments ORDER BY CASE WHEN status='open' THEN 0 WHEN status='draft' THEN 1 WHEN status='closed' THEN 2 ELSE 3 END,created_at DESC`)).rows:
-      [...this.local].sort((a,b)=>(a.status==='open'?0:a.status==='draft'?1:a.status==='closed'?2:3)-(b.status==='open'?0:b.status==='draft'?1:b.status==='closed'?2:3)||String(b.createdAt).localeCompare(String(a.createdAt)));
+  async list({actor='',isAdmin=false,status=null}={}){
+    // A reconciliação a cada 15 s só precisa dos torneios encerrados para
+    // inscrições. Não transferir todo o catálogo nem ordenar os demais.
+    // Sem filtro, a API pública preserva exatamente o comportamento anterior.
+    const filter=STATES.has(status)?status:null;
+    const rows=this.pool?(await this.pool.query(`SELECT id,name,capacity,rounds,start_at AS "startAt",status,created_by AS "createdBy" FROM mm_tournaments${filter?' WHERE status=$1':''} ORDER BY CASE WHEN status='open' THEN 0 WHEN status='draft' THEN 1 WHEN status='closed' THEN 2 ELSE 3 END,created_at DESC`,filter?[filter]:[])).rows:
+      [...this.local].filter(row=>!filter||row.status===filter).sort((a,b)=>(a.status==='open'?0:a.status==='draft'?1:a.status==='closed'?2:3)-(b.status==='open'?0:b.status==='draft'?1:b.status==='closed'?2:3)||String(b.createdAt).localeCompare(String(a.createdAt)));
     return rows.map(row=>toPublic(row,{actor,isAdmin}));
   }
   async get(id,{actor='',isAdmin=false}={}){

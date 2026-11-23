@@ -1,3 +1,13 @@
+## V40.69.8.55 — Auditoria de estabilidade e otimização conservadora (23/11/2026)
+
+- **Torneio (interface):** o relógio visual de 1 segundo só é executado quando o diálogo está aberto e a aba está visível. Ao fechar ou ocultar a aba, o timer é removido.
+- **Torneio (rede):** pausa de atualização automática impede novo agendamento quando uma requisição iniciada antes da pausa é concluída. Retomada mantém no máximo um timer de polling.
+- **Torneio (servidor):** a reconciliação periódica de 15 segundos consulta apenas torneios com inscrições encerradas (`status='closed'`). A lista pública mantém os demais estados; nenhum sorteio ou resultado foi alterado.
+- **Publicação (cache):** arquivos auxiliares `media-session.js`, `controls-positioning.js`, `tournament-schedule.js` e `tournament-auto-refresh.js` passam a usar versionamento automático por hash em seus endereços no HTML servido.
+- **Regressões:** adicionados testes de pausa durante requisição em andamento, ciclo de vida do timer visual, filtro local/SQL e versionamento; benchmark sintético opcional em `scripts/bench-tournament-catalog-v4069855.js`.
+- **Banco/regras:** nenhum dado, esquema, jogada, classificação, sala ou regra foi migrado; `package.json` permanece na identificação legada necessária aos testes.
+- **Validação local:** 227 de 228 testes executados aprovaram; o teste de integração Socket.IO ficou bloqueado por ausência da dependência `socket.io-client` (instalação npm indisponível neste ambiente). Não há resultados de estresse de produção nem PostgreSQL real.
+
 ## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
 
 - Corrigida a apresentação de `myTable` no painel: o sorteio histórico continua preservado, mas uma desistência já registrada na sala retira a condição de jogador ativo e libera a opção **ASSISTIR AO TORNEIO**.

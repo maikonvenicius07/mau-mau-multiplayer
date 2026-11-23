@@ -53,7 +53,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.54';
+const RELEASE_VERSION = 'V40.69.8.55';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -4639,7 +4639,9 @@ async function reconcileTournamentProgress(){
   tournamentReconcileRunning=true;
   try{
     if(!await ensureTournamentBracketReady())return;
-    const events=await tournamentCatalog.list();
+    // Não carregar rascunhos, inscrições abertas ou torneios cancelados em
+    // cada passagem do reconciliador: consulta seletiva, com mesma semântica.
+    const events=await tournamentCatalog.list({status:'closed'});
     for(const event of events){
       if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;
       const first=await tournamentDraw.get(event.id);

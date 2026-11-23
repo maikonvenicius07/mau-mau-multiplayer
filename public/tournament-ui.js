@@ -93,7 +93,17 @@
       el.classList.toggle('tournament-wait-urgent',sec<=60);
     }
   }
-  if(typeof setInterval==='function')setInterval(()=>{tickTableWaits();tickTournamentSchedule();},1000);
+  // V40.69.8.55: não manter um timer de 1 s rodando enquanto o diálogo
+  // está fechado ou a aba está oculta (principalmente em celulares).
+  let tournamentClockTimer=null;
+  function stopTournamentClock(){
+    if(tournamentClockTimer!==null){clearInterval(tournamentClockTimer);tournamentClockTimer=null;}
+  }
+  function startTournamentClock(){
+    if(tournamentClockTimer!==null||!dialog.open||document.hidden||typeof setInterval!=='function')return;
+    tickTableWaits();tickTournamentSchedule();
+    tournamentClockTimer=setInterval(()=>{tickTableWaits();tickTournamentSchedule();},1000);
+  }
 
   function setAutoStatus(label,failed=false){
     if(!autoStatus)return;
@@ -497,11 +507,13 @@
     if(!dialog.open)dialog.showModal();
     setAutoStatus('Atualização automática ativa');
     autoRefresh?.start();
+    startTournamentClock();
     loadList().catch(e=>{state.textContent=e.message;setAutoStatus('Atualização indisponível; use Atualizar.',true);});
   });
-  dialog.addEventListener('close',()=>autoRefresh?.stop());
+  dialog.addEventListener('close',()=>{autoRefresh?.stop();stopTournamentClock();});
   document.addEventListener('visibilitychange',()=>{
-    if(document.hidden)autoRefresh?.pause();else autoRefresh?.resume();
+    if(document.hidden){autoRefresh?.pause();stopTournamentClock();}
+    else{autoRefresh?.resume();startTournamentClock();}
   });
   window.addEventListener('offline',()=>{autoRefresh?.pause();setAutoStatus('Sem conexão; atualização pausada.');});
   window.addEventListener('online',()=>{setAutoStatus('Atualização automática ativa');autoRefresh?.resume();});
