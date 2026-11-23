@@ -84,7 +84,14 @@ async function testRetryAfterTransientOutage(){
   assert.equal(await ensureReady(),false);assert.equal(attempts,1,'cooldown impede tempestade');
   now=5000;assert.equal(await ensureReady(),true);assert.equal(attempts,2);
   assert.equal(await ensureReady(),true);assert.equal(attempts,2);
-  assert(src.includes('void ensureTournamentBracketReady()'));
+  // A inicializacao agora parte do arquivo de podios, que depende da fase.
+  // O teste cobre a cadeia atual; nao exige uma chamada antiga inexistente.
+  assert.match(src,/const \{ensureReady:ensureTournamentPodiumReady\}=createRetryableInitialization\(/,
+    'o historico de podios deve ter inicializacao recuperavel');
+  assert.match(src,/initialize:async\(\)=>\{if\(!await ensureTournamentBracketReady\(\)\)/,
+    'o arquivo de podios so deve iniciar depois das fases');
+  assert.match(src,/void\s+ensureTournamentPodiumReady\(\)\s*;/,
+    'o servidor deve inicializar a cadeia de torneios');
 }
 (async()=>{
   await testApiConsultation();await testPartialQualifiers();await testRetryAfterTransientOutage();

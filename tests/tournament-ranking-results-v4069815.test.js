@@ -53,29 +53,59 @@ assert(legacy.textContent.includes('não está disponível'),'legado sem resulta
 assert(css.includes('.ranking-cup-table'));
 assert(html.includes('tournamentResultsInfo'));
 
-// Public API returns stage history but never private keys, room code or tokens.
+// API publica: historico permanente preserva apenas o podio e nao expoe
+// fases, jogadores eliminados, chaves privadas, salas ou credenciais.
 const routeStart=server.indexOf("app.get('/api/tournaments/champions'");
 const routeEnd=server.indexOf('// V51.3 - sorteio persistente',routeStart);
 assert(routeStart>0&&routeEnd>routeStart);
-let handler=null,response=null;
+let handler=null,response=null,archiveReads=0,archiveWrites=0;
 const publicBracket={champion:cup.champion,stages:cup.stages};
+const podiumOnly={id:cup.id,name:cup.name,champion:{
+  names:[{name:'maikon2'}],standings:cup.champion.standings.slice(0,3)
+}};
+let archived=[podiumOnly];
 const apiCtx={
   app:{get:(name,fn)=>{assert.equal(name,'/api/tournaments/champions');handler=fn;}},
-  ensureTournamentBracketReady:async()=>true,
-  tournamentCatalog:{list:async()=>[{id:'copa-teste',name:'Copa Teste'}]},
+  ensureTournamentPodiumReady:async()=>true,
+  tournamentPodiumArchive:{
+    list:async()=>{archiveReads++;return archived.slice();},
+    record:async({id,name,champion})=>{
+      archiveWrites++;
+      assert.equal(id,cup.id);assert.equal(name,cup.name);
+      assert.equal(champion.standings.length,7,'reconciliacao usa a classificacao oficial completa');
+      return podiumOnly;
+    }
+  },
+  tournamentCatalog:{list:async()=>[{id:'copa-teste',name:'Copa Teste',status:'closed'}]},
   tournamentDraw:{get:async()=>[{number:1,players:[{name:'Public'}]}]},
   tournamentBracket:{summary:async()=>publicBracket},console
 };
 vm.runInNewContext(server.slice(routeStart,routeEnd),apiCtx);
-(async()=>{
-  const res={setHeader:()=>{},json:value=>response=value,status:code=>{throw Error('HTTP '+code)}};
+async function callChampions(){
+  let code=200;
+  response=null;
+  const res={setHeader:()=>{},json:value=>{response=value;return res;},status:value=>{code=value;return res;}};
   await handler({},res);
+  return code;
+}
+(async()=>{
+  assert.equal(await callChampions(),200);
+  assert.equal(response.ok,true);
   assert.equal(response.completed.length,1);
-  assert.equal(response.completed[0].stages.length,2);
-  assert.deepEqual(Array.from(response.completed[0].champion.standings).map(p=>p.name),finalistNames);
-  assert(!JSON.stringify(response).includes('playerKey'),'não revelar identificadores privados');
-  assert(!JSON.stringify(response).includes('roomCode'),'não revelar código de sala');
-  assert(!JSON.stringify(response).includes('token'),'não revelar credenciais');
-  assert(bracketSource.includes('forfeited:!!p.forfeited'),'final deve mostrar desclassificação sem alterar pontos');
-  console.log('✓ V40.69.8.15: classificação completa no Ranking, todas as fases, proteção de privacidade e sem alterar vitórias.');
-})().catch(error=>{console.error(error);process.exitCode=1;});
+  assert.equal(response.completed[0].champion.standings.length,3,'API deve expor apenas o podio');
+  assert.deepEqual(Array.from(response.completed[0].champion.standings).map(p=>p.name),finalistNames.slice(0,3));
+  assert.equal(Object.hasOwn(response.completed[0],'stages'),false,'fases removidas nao devem reaparecer');
+  assert.equal(archiveWrites,0,'podio arquivado nao deve ser gravado novamente');
+  assert.equal(archiveReads,1);
+  // Torneio antigo: a API pode reconstruir e arquivar o podio somente se ja terminou.
+  archived=[];
+  assert.equal(await callChampions(),200);
+  assert.equal(archiveWrites,1,'reconciliacao deve registrar apenas o legado encerrado');
+  assert.equal(response.completed.length,1);
+  assert.equal(response.completed[0].champion.standings.length,3);
+  assert(!JSON.stringify(response).includes('playerKey'),'nao revelar identificadores privados');
+  assert(!JSON.stringify(response).includes('roomCode'),'nao revelar codigo de sala');
+  assert(!JSON.stringify(response).includes('token'),'nao revelar credenciais');
+  assert(bracketSource.includes('forfeited:!!p.forfeited'),'final deve registrar desistencias sem alterar pontos');
+  console.log('✓ Ranking de torneios: UI historica segura, API de podio compacto, legado reconciliado e privacidade preservada.');
+})().catch(error=>{console.error(error);process.exitCode=1});
