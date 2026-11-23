@@ -1,12 +1,10 @@
-## V40.69.8.55 — Auditoria de estabilidade e otimização conservadora (23/11/2026)
+## V40.69.8.55 — Isolamento de erros na reconciliação dos torneios (23/11/2026)
 
-- **Torneio (interface):** o relógio visual de 1 segundo só é executado quando o diálogo está aberto e a aba está visível. Ao fechar ou ocultar a aba, o timer é removido.
-- **Torneio (rede):** pausa de atualização automática impede novo agendamento quando uma requisição iniciada antes da pausa é concluída. Retomada mantém no máximo um timer de polling.
-- **Torneio (servidor):** a reconciliação periódica de 15 segundos consulta apenas torneios com inscrições encerradas (`status='closed'`). A lista pública mantém os demais estados; nenhum sorteio ou resultado foi alterado.
-- **Publicação (cache):** arquivos auxiliares `media-session.js`, `controls-positioning.js`, `tournament-schedule.js` e `tournament-auto-refresh.js` passam a usar versionamento automático por hash em seus endereços no HTML servido.
-- **Regressões:** adicionados testes de pausa durante requisição em andamento, ciclo de vida do timer visual, filtro local/SQL e versionamento; benchmark sintético opcional em `scripts/bench-tournament-catalog-v4069855.js`.
-- **Banco/regras:** nenhum dado, esquema, jogada, classificação, sala ou regra foi migrado; `package.json` permanece na identificação legada necessária aos testes.
-- **Validação local:** 227 de 228 testes executados aprovaram; o teste de integração Socket.IO ficou bloqueado por ausência da dependência `socket.io-client` (instalação npm indisponível neste ambiente). Não há resultados de estresse de produção nem PostgreSQL real.
+- **Falha corrigida:** a verificação periódica de torneios (`reconcileTournamentProgress`, `server.js`) tinha tratamento de exceção apenas ao redor do processamento de todas as competições. Uma falha de uma competição interrompia a atualização das seguintes no mesmo ciclo.
+- **Mudança pontual:** cada torneio com inscrições encerradas passa a ser processado dentro do próprio `try/catch`; falhas de sorteio, avanço, consulta do vínculo ou aviso são registradas com identificador do torneio, sem impedir que os demais sejam tratados. Erros de infraestrutura compartilhada continuam no tratamento geral.
+- **Testes adicionados:** `tests/tournament-reconciliation-isolation-v4069855.test.js` exercita a rotina real do servidor com erros simulados e confirma que uma competição saudável continua recebendo sua notificação no mesmo ciclo.
+- **Preservação:** nenhum algoritmo de sorteio, classificação, avanço automático, entrada nas mesas, cronômetro, início manual, jogo normal, cartas, ranking, mídia ou layout foi alterado. Identificador técnico legado no `package.json` permanece inalterado.
+- **Pendente, fora do escopo:** o modelo de progressão atual ainda não comporta certos torneios a partir de 65 inscritos (auditoria de 23/11/2026); esta versão isola seus erros, mas não altera quotas ou inventa novas fases. Homologação em Render/PostgreSQL com jogadores reais continua necessária.
 
 ## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
 

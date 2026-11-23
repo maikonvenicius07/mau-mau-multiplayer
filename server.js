@@ -4639,39 +4639,42 @@ async function reconcileTournamentProgress(){
   tournamentReconcileRunning=true;
   try{
     if(!await ensureTournamentBracketReady())return;
-    // Não carregar rascunhos, inscrições abertas ou torneios cancelados em
-    // cada passagem do reconciliador: consulta seletiva, com mesma semântica.
-    const events=await tournamentCatalog.list({status:'closed'});
+    const events=await tournamentCatalog.list();
     for(const event of events){
-      if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;
-      const first=await tournamentDraw.get(event.id);
-      if(!first.length)continue;
-      // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
-      // a próxima mesa quando o último resultado já tinha sido persistido.
-      const bracket=await tournamentBracket.advance(event.id,first);
-      if(bracket.champion){
-        if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
-        await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
-        completedTournamentIds.add(event.id);continue;
+      // V40.69.8.55 — uma exceção isolada não interrompe os demais torneios.
+      try{
+        if(!event||event.status!=='closed'||completedTournamentIds.has(event.id))continue;
+        const first=await tournamentDraw.get(event.id);
+        if(!first.length)continue;
+        // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
+        // a próxima mesa quando o último resultado já tinha sido persistido.
+        const bracket=await tournamentBracket.advance(event.id,first);
+        if(bracket.champion){
+          if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
+          await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
+          completedTournamentIds.add(event.id);continue;
+        }
+        const stage=bracket.currentStage;
+        const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
+        const notify=await Promise.all(tables.map(async table=>{
+          const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
+            await tournamentBracket.getBinding(event.id,stage,table.number);
+          if(binding?.result)return null;
+          const code=binding?.roomCode;
+          const room=code?rooms.get(code):null;
+          if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
+          if(room&&room.status!=='lobby')return null;
+          const key=`${event.id}:${stage}:${table.number}`;
+          if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
+          tournamentSeatNoticeAt.set(key,Date.now());return table;
+        }));
+        const missing=notify.filter(Boolean);
+        if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
+      }catch(e){
+        console.error('[tournament] falha ao reconciliar torneio:',event?.id||'(sem id)',e?.message||e);
       }
-      const stage=bracket.currentStage;
-      const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
-      const notify=await Promise.all(tables.map(async table=>{
-        const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
-          await tournamentBracket.getBinding(event.id,stage,table.number);
-        if(binding?.result)return null;
-        const code=binding?.roomCode;
-        const room=code?rooms.get(code):null;
-        if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
-        if(room&&room.status!=='lobby')return null;
-        const key=`${event.id}:${stage}:${table.number}`;
-        if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
-        tournamentSeatNoticeAt.set(key,Date.now());return table;
-      }));
-      const missing=notify.filter(Boolean);
-      if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
     }
-  }catch(e){console.error('[tournament] reconciliação de fases:',e?.message||e);}
+  }catch(e){console.error('[tournament] reconciliação geral de fases:',e?.message||e);}
   finally{tournamentReconcileRunning=false;}
 }
 const tournamentProgressTimer=setInterval(()=>{void reconcileTournamentProgress();},15000);
