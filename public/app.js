@@ -1857,10 +1857,15 @@ function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
   box.querySelectorAll('[data-watch-room]').forEach(btn=>btn.onclick=()=>watchPublicRoom(btn.dataset.watchRoom,btn));
 }
 function requestPublicRooms(){if(socket.connected)socket.emit('requestPublicRooms')}
+function syncLiveRoomsRefresh(){
+  clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;
+  if($('#liveRoomsDialog')?.open&&!document.hidden&&socket.connected)
+    liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
+}
 function openLiveRooms(){
   if(!authUser)return showAuthGate('Entre na sua conta para assistir partidas.');
-  const dlg=$('#liveRoomsDialog');requestPublicRooms();if(dlg&&!dlg.open)dlg.showModal();
-  clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
+  const dlg=$('#liveRoomsDialog');if(dlg&&!dlg.open)dlg.showModal();
+  requestPublicRooms();syncLiveRoomsRefresh();
 }
 function closeLiveRooms(){clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;const dlg=$('#liveRoomsDialog');if(dlg?.open)dlg.close()}
 function watchPublicRoom(code,button=null){
@@ -1873,6 +1878,12 @@ function watchPublicRoom(code,button=null){
 $('#watchRoomsOpen')?.addEventListener('click',openLiveRooms);
 $('#liveRoomsClose')?.addEventListener('click',closeLiveRooms);
 $('#liveRoomsRefresh')?.addEventListener('click',requestPublicRooms);
+$('#liveRoomsDialog')?.addEventListener('close',()=>{clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;});
+document.addEventListener('visibilitychange',()=>{
+  if(!$('#liveRoomsDialog')?.open)return;
+  if(!document.hidden&&socket.connected)requestPublicRooms();
+  syncLiveRoomsRefresh();
+});
 $('#liveRoomsDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeLiveRooms()});
 $('#liveRoomsDialog')?.addEventListener('click',e=>{if(e.target===$('#liveRoomsDialog'))closeLiveRooms()});
 

@@ -1,10 +1,10 @@
-## V40.69.8.55 — Isolamento de erros na reconciliação dos torneios (23/11/2026)
+## V40.69.8.55 — Auditoria de desempenho e otimizações pontuais (23/11/2026)
 
-- **Falha corrigida:** a verificação periódica de torneios (`reconcileTournamentProgress`, `server.js`) tinha tratamento de exceção apenas ao redor do processamento de todas as competições. Uma falha de uma competição interrompia a atualização das seguintes no mesmo ciclo.
-- **Mudança pontual:** cada torneio com inscrições encerradas passa a ser processado dentro do próprio `try/catch`; falhas de sorteio, avanço, consulta do vínculo ou aviso são registradas com identificador do torneio, sem impedir que os demais sejam tratados. Erros de infraestrutura compartilhada continuam no tratamento geral.
-- **Testes adicionados:** `tests/tournament-reconciliation-isolation-v4069855.test.js` exercita a rotina real do servidor com erros simulados e confirma que uma competição saudável continua recebendo sua notificação no mesmo ciclo.
-- **Preservação:** nenhum algoritmo de sorteio, classificação, avanço automático, entrada nas mesas, cronômetro, início manual, jogo normal, cartas, ranking, mídia ou layout foi alterado. Identificador técnico legado no `package.json` permanece inalterado.
-- **Pendente, fora do escopo:** o modelo de progressão atual ainda não comporta certos torneios a partir de 65 inscritos (auditoria de 23/11/2026); esta versão isola seus erros, mas não altera quotas ou inventa novas fases. Homologação em Render/PostgreSQL com jogadores reais continua necessária.
+- **Servidor:** `buildPresenceSnapshot()` monta uma única vez um índice temporário das cadeiras por conta. Mantidas a prioridade de sala, a recuperação de 60 s, os estados públicos, a ordem de desempate e as permissões. Evita consultar todas as salas duas vezes para cada jogador online.
+- **Cliente:** o diálogo de partidas públicas consulta a cada cinco segundos apenas enquanto está aberto e a página está visível. A atualização é retomada ao voltar à aba e o timer é encerrado também quando o diálogo é fechado por outro caminho.
+- **Testes:** adicionado teste de equivalência de posições e de pausa/retomada do timer; microbenchmark reprodutível para a busca de cadeiras, sem representar desempenho real no Render.
+- Não houve alterações de schema, índices, classificação, rodadas, regras das cartas, placar, tamanho das cartas, câmeras, microfones, início manual, sorteio ou transição entre fases.
+- A identificação funcional no `server.js` foi atualizada; a versão técnica no `package.json` permaneceu intacta por compatibilidade com contratos legados.
 
 ## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
 
