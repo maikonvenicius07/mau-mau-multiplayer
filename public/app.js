@@ -4482,7 +4482,7 @@ function renderCenter(){
     else banner='🔥 QUEIMA: jogue outra carta válida OU clique em COMPRAR';
   }
   else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length&&state.me?.quickActionCardIds?.length) banner='🔥 QUEIMA ou ⚡ AÇÃO RÁPIDA disponível! Escolha sua reação';
-  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner='🔥 QUEIMA disponível: após jogar a carta idêntica, jogue outra válida ou clique em COMPRAR';
+  else if(state.status==='playing'&&!state.paused&&state.me?.burnableCardIds?.length) banner=state.me.hand?.length===1?'🔥 Última carta idêntica: ao descartar, você bate a rodada!':'🔥 QUEIMA disponível: após jogar a carta idêntica, jogue outra válida ou clique em COMPRAR';
   else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner=state.openingReaction?'⚡ AÇÃO RÁPIDA NA ABERTURA! Descarte a carta igual sem tomar a vez':'⚡ AÇÃO RÁPIDA! Jogue a carta igual enquanto o topo não mudar';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}

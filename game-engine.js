@@ -935,6 +935,21 @@ function burnMatch(room, playerId, cardId) {
   player.justDrawnCardId = null;
   room.lastPlayedById = player.id;
 
+  // V40.69.8.50 — A batida da última carta tem prioridade sobre a
+  // continuação da Queima. A obrigação de anunciar Mau-Mau é verificada pelo
+  // mecanismo existente quando a mão chega a uma carta (com penalidade se
+  // necessário); não se exige um segundo anúncio após isso.
+  // Também vale para o clique direto, que chega aqui por playCard().
+  if (player.hand.length === 0) {
+    room.winnerId = player.id;
+    room.lastWinnerCard = played;
+    player.finishedRound = true;
+    player.declaration = null;
+    log(room, `${player.name} QUEIMOU ${cardLabel(played)} com a última carta e bateu a rodada, sem obrigação de compra.`, 'winner');
+    finalizeRound(room);
+    return;
+  }
+
   const previousCurrentPlayer = room.currentPlayer;
   room.currentPlayer = idx;
   room.continuationPlayerId = player.id;

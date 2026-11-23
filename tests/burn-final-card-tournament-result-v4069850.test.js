@@ -1,0 +1,62 @@
+'use strict';
+// V40.69.8.50 — integra a batida da ultima carta ao resultado e classificacao oficiais de torneio.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const E=require('../game-engine');
+const {TournamentCatalog}=require('../tournament-catalog');
+const {TournamentStore}=require('../tournament-store');
+const {TournamentDraw}=require('../tournament-draw');
+const {TournamentGames}=require('../tournament-games');
+const {TournamentBracket}=require('../tournament-bracket');
+const {recordTournamentResult}=require('../tournament-result-commit');
+const {tournamentMatchRecord}=require('../tournament-forfeit');
+const {buildMatchRecord}=require('../ranking-store');
+const C=(rank,suit,id)=>({rank,suit,id,copy:1});
+(async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-last-burn-tour-'));
+  try{
+    const filePath=path.join(dir,'tournaments.json');const signupsFilePath=path.join(dir,'tournament-signups.json');
+    const catalog=new TournamentCatalog({databaseUrl:'',filePath,signupsFilePath});
+    const store=new TournamentStore({databaseUrl:'',filePath:signupsFilePath});
+    const draw=new TournamentDraw({databaseUrl:'',filePath:path.join(dir,'draw.json'),signupsFilePath});
+    const games=new TournamentGames({databaseUrl:'',filePath:path.join(dir,'games.json')});
+    const bracket=new TournamentBracket({databaseUrl:'',filePath:path.join(dir,'bracket.json'),draw});
+    await Promise.all([catalog.init(),store.init(),draw.init(),games.init(),bracket.init()]);
+    const event=await catalog.create({data:{name:'Batida por Queima',capacity:2,rounds:5,startAt:null},actor:'owner'});
+    const config=await catalog.update({id:event.id,data:{status:'open'}});
+    for(const [key,name] of [['ana','Ana'],['bruno','Bruno']])
+      await store.change({action:'join',playerKey:key,name,config});
+    await catalog.update({id:event.id,data:{status:'closed'}});
+    const first=await draw.draw(event.id);assert.equal(first.length,1);
+    const seat=await draw.seatFor(event.id,1,'ana');
+    const roster=seat.players;
+    const room=E.createRoom('BT5001',{name:roster[0].name,playerKey:roster[0].playerKey,socketId:'s0',token:'t0'});
+    E.addPlayer(room,{name:roster[1].name,playerKey:roster[1].playerKey,socketId:'s1',token:'t1'});
+    room.tournament={id:event.id,phase:'qualifier',tableNumber:1,rosterKeys:roster.map(p=>p.playerKey)};
+    room.rules.rounds=5;room.round=5;room.status='playing';room.currentPlayer=0;room.direction=1;
+    room.discard=[C('6','spades','top')];room.deck=[C('3','spades','buy')];
+    const [p,other]=room.players;
+    p.hand=[C('6','diamonds','first'),C('6','hearts','last')];
+    other.hand=[C('6','hearts','opp'),C('9','hearts','keep'),C('10','clubs','keep2')];
+    E.declare(room,p.id,'mau-mau');E.playCard(room,p.id,'first');
+    E.playCard(room,other.id,'opp');
+    E.playCard(room,p.id,'last');
+    assert.equal(room.status,'finished');
+    assert.equal(room.winnerId,p.id);
+    assert.equal(room.deck.length,1);
+    const record=tournamentMatchRecord(room,buildMatchRecord(room));
+    assert.equal(record.results.length,2);
+    assert.equal(record.results.find(r=>r.playerKey===p.playerKey).position,1);
+    await games.claim(event.id,1,room.code);await games.markStarted(event.id,1,room.code);
+    await recordTournamentResult({bracket,games,id:event.id,phase:'qualifier',number:1,roomCode:room.code,record,roster});
+    const results=await games.get(event.id,1);
+    assert.equal((await games.statuses(event.id,[1]))[1].finished,true,'resultado concluido foi persistido');
+    assert.equal(results.result.results.find(r=>r.name===p.name).score,0);
+    const advance=await bracket.advance(event.id,first);
+    assert(advance.champion,'torneio de dois participantes encerra com campeao');
+    assert.equal(advance.champion.names[0].name,p.name,'o campeao foi o jogador que bateu com a ultima carta');
+    const resumed=new TournamentGames({databaseUrl:'',filePath:path.join(dir,'games.json')});await resumed.init();
+    assert.equal((await resumed.statuses(event.id,[1]))[1].finished,true,'resultado persiste apos reabrir armazenamento');
+    console.log('✓ V40.69.8.50: carta final igual -> motor -> placar -> registro de resultado -> campeao de torneio -> persistencia.');
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;});

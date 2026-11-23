@@ -45,12 +45,13 @@ const { TournamentDraw } = require('./tournament-draw');
 const { TournamentGames } = require('./tournament-games');
 const { TournamentBracket } = require('./tournament-bracket');
 const { recordTournamentResult } = require('./tournament-result-commit');
+const {TournamentPodiumArchive}=require('./tournament-podium-archive');
 
 const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.48';
+const RELEASE_VERSION = 'V40.69.8.50';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -316,7 +317,13 @@ const {ensureReady:ensureTournamentBracketReady}=createRetryableInitialization({
   cooldownMs:5000,
   onFailure:e=>console.error('[tournament] fases indisponíveis; nova tentativa em 5s:',e),
 });
-void ensureTournamentBracketReady();
+const tournamentPodiumArchive=new TournamentPodiumArchive({pool:tournamentStore.pool||null,databaseUrl:''});
+const {ensureReady:ensureTournamentPodiumReady}=createRetryableInitialization({
+  initialize:async()=>{if(!await ensureTournamentBracketReady())throw new Error('Fases indisponíveis.');await tournamentPodiumArchive.init();},
+  cooldownMs:5000,
+  onFailure:e=>console.error('[tournament] arquivo de podios indisponivel:',e),
+});
+void ensureTournamentPodiumReady();
 const tournamentTableJoinLocks=new Set();
 async function awaitTournamentTableJoinLock(key,{timeoutMs=30000}={}){
   const until=Date.now()+timeoutMs;
@@ -1216,14 +1223,20 @@ app.post('/api/tournaments/:id/force-delete-test',async(req,res)=>{
 app.get('/api/tournaments/champions', async(req,res)=>{
   res.setHeader('Cache-Control','public, max-age=30');
   try{
-    if(!await ensureTournamentBracketReady())throw new Error('Fases indisponíveis.');
-    const tournaments=await tournamentCatalog.list();
-    const completed=[];
-    for(const cup of tournaments){
+    if(!await ensureTournamentPodiumReady())throw new Error('Historico dos podios indisponivel.');
+    const completed=await tournamentPodiumArchive.list();
+    const savedIds=new Set(completed.map(cup=>cup.id));
+    // Compatibilidade com torneios encerrados antes da migracao. A rotina de
+    // reconciliacao os arquivara sem expor fases/intermediarios no ranking.
+    for(const cup of await tournamentCatalog.list()){
+      if(savedIds.has(cup.id)||cup.status!=='closed')continue;
       const initial=await tournamentDraw.get(cup.id);
       if(!initial.length)continue;
       const bracket=await tournamentBracket.summary(cup.id,initial);
-      if(bracket.champion)completed.push({id:cup.id,name:cup.name,champion:bracket.champion,stages:bracket.stages});
+      if(bracket.champion){
+        const podium=await tournamentPodiumArchive.record({id:cup.id,name:cup.name,champion:bracket.champion});
+        completed.push(podium);savedIds.add(cup.id);
+      }
     }
     res.json({ok:true,completed});
   }catch(e){console.error('[tournament] campeões indisponíveis:',e);res.status(503).json({ok:false,message:'Resultados indisponíveis.'});}
@@ -1382,6 +1395,12 @@ function maybeRecordFinished(room) {
         roomCode:room.code,record,roster});
       const initial=await tournamentDraw.get(room.tournament.id);
       const advanced=await tournamentBracket.advance(room.tournament.id,initial);
+      if(advanced.champion){
+        if(!await ensureTournamentPodiumReady())throw new Error('Nao foi possivel persistir o podio final.');
+        const event=await tournamentCatalog.get(room.tournament.id);
+        if(!event)throw new Error('Torneio sem cadastro ao tentar registrar o podio.');
+        await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:advanced.champion});
+      }
       if(!advanced.champion&&advanced.currentStage!==phase){
         const next=advanced.stages.find(stage=>stage.stage===advanced.currentStage);
         try{await notifyTournamentSeats(room.tournament.id,advanced.currentStage,next?.tables||[]);}
@@ -4568,7 +4587,11 @@ async function reconcileTournamentProgress(){
       // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
       // a próxima mesa quando o último resultado já tinha sido persistido.
       const bracket=await tournamentBracket.advance(event.id,first);
-      if(bracket.champion){completedTournamentIds.add(event.id);continue;}
+      if(bracket.champion){
+        if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
+        await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
+        completedTournamentIds.add(event.id);continue;
+      }
       const stage=bracket.currentStage;
       const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
       const notify=await Promise.all(tables.map(async table=>{
@@ -4591,6 +4614,64 @@ async function reconcileTournamentProgress(){
 }
 const tournamentProgressTimer=setInterval(()=>{void reconcileTournamentProgress();},15000);
 tournamentProgressTimer.unref?.();
+
+// V40.69.8.49 — limpeza pos-encerramento: o podio ja foi confirmado em
+// armazenamento independente. Nunca retirar usuarios de mesas em uso.
+let tournamentPodiumCleanupRunning=false;
+async function cleanupCompletedTournamentData(){
+  if(tournamentPodiumCleanupRunning||!snapshotsRestored)return;
+  tournamentPodiumCleanupRunning=true;
+  try{
+    if(!await ensureTournamentPodiumReady())return;
+    for(const id of await tournamentPodiumArchive.pending()){
+      try{
+        const active=[...rooms.values()].filter(room=>room.tournament?.id===id);
+        if(active.some(room=>room.status!=='finished'||room.rankingRecorded!==true||
+          room.rankingRecording||room.pendingRankingRecord&&room.rankingRecorded!==true||
+          room.players?.some(p=>!p.isBot&&p.connected)||
+          ensureSpectators(room).some(p=>p.connected)))continue;
+        // Primeiro tombstones de todas as salas, incluindo snapshots deixados
+        // por etapas anteriores. Evita restaurar uma mesa ja arquivada.
+        const recordedCodes=new Set(active.map(room=>room.code));
+        for(const t of await tournamentBracket.rows(id))if(t.roomCode)recordedCodes.add(t.roomCode);
+        for(const t of await tournamentDraw.get(id)){
+          const game=await tournamentGames.get(id,t.number);
+          if(game?.roomCode)recordedCodes.add(game.roomCode);
+        }
+        // Nunca reutilizar um codigo historico para apagar uma sala que ja
+        // pertence a outro jogo: nesse caso adiar toda a limpeza.
+        for(const code of recordedCodes){
+          const current=rooms.get(code);
+          if(current && current.tournament?.id!==id)
+            throw new Error('Codigo historico em uso por outra partida; limpeza adiada.');
+        }
+        for(const room of active){
+          // Confirmar novamente antes de descartar o lobby/snapshot final;
+          // um participante pode ter reconectado durante as consultas.
+          if(room.status!=='finished'||room.rankingRecorded!==true||
+            room.players?.some(p=>!p.isBot&&p.connected)||
+            ensureSpectators(room).some(p=>p.connected))
+            throw new Error('Participante reconectou; limpeza adiada.');
+          if(rooms.get(room.code)===room && !await removeRoomDurably(room.code,Date.now(),'Torneio encerrado; resultado preservado no ranking.'))
+            throw new Error('Uma sala ainda nao pode ser removida.');
+        }
+        for(const code of recordedCodes){
+          if(rooms.has(code))throw new Error('Sala historica ocupada; limpeza adiada.');
+          await roomSnapshotStore.markRoomDeleted(code);
+        }
+        const changed=await tournamentPodiumArchive.cleanup(id,{
+          catalog:tournamentCatalog,store:tournamentStore,draw:tournamentDraw,games:tournamentGames,bracket:tournamentBracket
+        });
+        completedTournamentIds.delete(id);
+        for(const key of tournamentSeatNoticeAt.keys())if(key.startsWith(id+':'))tournamentSeatNoticeAt.delete(key);
+        if(changed)console.info('[tournament] dados operacionais descartados apos salvar o podio:',id);
+      }catch(error){console.error('[tournament] limpeza adiada, podio preservado:',id,error?.message||error);}
+    }
+  }catch(error){console.error('[tournament] consulta da fila de limpeza falhou:',error?.message||error);}
+  finally{tournamentPodiumCleanupRunning=false;}
+}
+const tournamentPodiumCleanupTimer=setInterval(()=>{void cleanupCompletedTournamentData();},30000);
+tournamentPodiumCleanupTimer.unref?.();
 
 
 
