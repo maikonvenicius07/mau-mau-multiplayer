@@ -45,6 +45,7 @@ const { TournamentDraw } = require('./tournament-draw');
 const { TournamentGames } = require('./tournament-games');
 const { TournamentBracket, nextStage } = require('./tournament-bracket');
 const TournamentQualifiedWait = require('./tournament-qualified-wait');
+const TournamentObserverHandoff = require('./tournament-observer-handoff');
 const { recordTournamentResult } = require('./tournament-result-commit');
 const {TournamentPodiumArchive}=require('./tournament-podium-archive');
 
@@ -52,7 +53,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.53';
+const RELEASE_VERSION = 'V40.69.8.54';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -2622,6 +2623,8 @@ async function prepareForRoomSwitch(socket, exceptCode=null) {
     socket.data.playerId=null;
     socket.data.spectatorId=null;
     socket.data.role=null;
+    socket.data.tournamentWatchId=null;
+    socket.data.tournamentWatchStage=null;
   }
   await abandonOtherPlayerMembershipsForSwitch(socket,exceptCode,'entrou em outra sala');
   requireNoOtherActivePlayerRoom(socket,exceptCode);
@@ -3443,7 +3446,10 @@ io.on('connection', socket => {
   socket.on('locateTournamentSeat',async()=>{
     try{
       const key=socket.data.auth?.playerKey;
-      if(!key||socket.data.role===ROLE_SPECTATOR)return;
+      // Apenas espectadores do próprio torneio podem localizar a nova vaga;
+      // espectadores comuns ou de outras competições não são promovidos.
+      const watcher=socket.data.role===ROLE_SPECTATOR;
+      if(!key||(watcher&&!socket.data.tournamentWatchId))return;
       const now=Date.now();
       if(now-Number(socket.data.lastTournamentSeatLookup||0)<2000)return;
       socket.data.lastTournamentSeatLookup=now;
@@ -3455,12 +3461,18 @@ io.on('connection', socket => {
       if(!await ensureTournamentBracketReady())return;
       const tournaments=await tournamentCatalog.list();
       for(const cup of tournaments){
-        if(cup.status!=='closed')continue;
+        if(cup.status!=='closed'||(watcher&&cup.id!==socket.data.tournamentWatchId))continue;
         const original=await tournamentDraw.get(cup.id);
         if(!original.length)continue;
         const bracket=await tournamentBracket.summary(cup.id,original);
         if(bracket.champion)continue;
         const stage=bracket.currentStage;
+        // A cadeira da fase atual não pode promover um observador da própria
+        // fase nem interromper a observação de outro campeonato.
+        if(watcher&&!TournamentObserverHandoff.canHandoffObserver({
+          role:socket.data.role,watchTournamentId:socket.data.tournamentWatchId,
+          watchStage:socket.data.tournamentWatchStage,tournamentId:cup.id,
+          stage,automatic:true}))continue;
         const number=stage==='qualifier'?(await tournamentDraw.assignedTableFor(cup.id,key)):
           (await tournamentBracket.rows(cup.id)).find(row=>row.stage===stage&&row.players.some(p=>p.playerKey===key))?.number;
         if(!Number.isInteger(number)||number<1)continue;
@@ -3532,7 +3544,14 @@ io.on('connection', socket => {
     const phase=String(payload?.stage||'qualifier');
     const lockKey=`${id}:${phase}:${number}`;
     try{
-      if(socket.data.role===ROLE_SPECTATOR)throw new Error('Saia do modo observador antes de entrar na mesa.');
+      // V40.69.8.54: permitir apenas o salto AUTOMÁTICO de um observador
+      // autorizado de fase anterior da MESMA competição. A vaga continua sendo
+      // validada abaixo pelo sorteio oficial, antes de tocar na sessão atual.
+      if(socket.data.role===ROLE_SPECTATOR&&!TournamentObserverHandoff.canHandoffObserver({
+        role:socket.data.role,watchTournamentId:socket.data.tournamentWatchId,
+        watchStage:socket.data.tournamentWatchStage,tournamentId:id,stage:phase,
+        automatic:payload?.automatic}))
+        throw new Error('Saia do modo observador antes de entrar na mesa.');
       if(!await ensureTournamentBracketReady())throw new Error('Mesas do torneio temporariamente indisponíveis.');
       if(!/^[-a-z0-9]{3,64}$/i.test(id)||!Number.isInteger(number)||number<1)throw new Error('Mesa inválida.');
       if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
@@ -3928,7 +3947,11 @@ io.on('connection', socket => {
       // um pedido recuperado do snapshot pode ser associado à nova sessão.
       if(!tournamentWatch)SpectatorSeatAdmission.claimRestoredSeatRequest(room,spectator);
       removeFromMatchmaking(key,{reason:'Busca encerrada porque você entrou como observador.',notify:true});
-      socket.data.roomCode=code;socket.data.playerId=null;socket.data.spectatorId=spectator.id;socket.data.role=ROLE_SPECTATOR;socket.join(code);
+      socket.data.roomCode=code;socket.data.playerId=null;socket.data.spectatorId=spectator.id;socket.data.role=ROLE_SPECTATOR;
+      // Estado de confiança do SERVIDOR, nunca fornecido pelo navegador.
+      socket.data.tournamentWatchId=tournamentWatch?room.tournament.id:null;
+      socket.data.tournamentWatchStage=tournamentWatch?room.tournament.phase:null;
+      socket.join(code);
       updatePresenceFromSocket(socket,{name:spectator.name,avatar:spectator.avatar});
       StateDelivery.invalidate(socket);
       socket.emit('joined',{code,spectatorId:spectator.id,token:spectator.token,role:ROLE_SPECTATOR,

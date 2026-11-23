@@ -3467,6 +3467,13 @@ function tournamentPhaseNotice(data,detail=''){
 }
 
 function clearAutoTournamentTimer(){if(autoTournamentTimer){clearTimeout(autoTournamentTimer);autoTournamentTimer=null;}}
+function watchingPreviousTournamentPhase(data){
+  const sess=saved();
+  const stages=['qualifier','quarter','semi','final'];
+  return !!(data&&tournamentWatchMode&&isSpectatorState()&&sess?.role==='SPECTATOR'&&
+    sess?.tournamentWatch&&sess.tournamentId===data.tournamentId&&
+    stages.indexOf(data.stage)>stages.indexOf(sess.stage)&&stages.includes(sess.stage));
+}
 function requestTournamentSeatLocation(){
   if(saved()?.temporaryExit||!socket.connected||pendingVoluntaryLeave()||leaveRoomPending)return;
   // Um convite ?room continua tendo prioridade ANTES da entrada na sala.
@@ -3474,8 +3481,8 @@ function requestTournamentSeatLocation(){
   // convocação da final por causa de um parâmetro antigo na URL.
   const idleLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
     !state.tournamentSchedule&&!state.tournamentWait;
-  if(new URLSearchParams(location.search).has('room')&&!idleLobby&&state?.status!=='finished')return;
-  if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
+  if(new URLSearchParams(location.search).has('room')&&!idleLobby&&state?.status!=='finished'&&!tournamentWatchMode)return;
+  if((state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR')&&!tournamentWatchMode)return;
   socket.emit('locateTournamentSeat');
 }
 function autoEnterTournamentSeat(data,manualRetry=false){
@@ -3492,10 +3499,11 @@ function autoEnterTournamentSeat(data,manualRetry=false){
   // outra mesa de torneio ativa ou vaga de observador.
   const idleRegularLobby=state?.status==='lobby'&&Number(state.round||0)===0&&
     !state.tournamentSchedule&&!state.tournamentWait;
+  const watchingPrior=watchingPreviousTournamentPhase(data);
   // Não sobrescrever um link de convite ainda não concluído; uma vez em
   // um lobby comum, a vaga autenticada da final volta a ter prioridade.
-  if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby&&state?.status!=='finished')return;
-  if(state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)return;
+  if(new URLSearchParams(location.search).has('room')&&!idleRegularLobby&&state?.status!=='finished'&&!watchingPrior)return;
+  if((state?.viewerRole==='SPECTATOR'||saved()?.role==='SPECTATOR'||tournamentWatchMode)&&!watchingPrior)return;
   const key=`${data.tournamentId}:${data.stage}:${data.tableNumber}`;
   // A reconciliação pode repetir a convocação a cada 20s. Se já ocupamos
   // exatamente esta mesa, não criar pendência nem tentar entrar de novo.
@@ -3503,7 +3511,7 @@ function autoEnterTournamentSeat(data,manualRetry=false){
     state.status!=='finished')return;
   // Sem etapa manual obrigatória: a atribuição é suficiente para tentar
   // entrar, mas não para iniciar a partida ou alterar a classificação.
-  if(state&&state.status!=='finished'&&!idleRegularLobby){
+  if(state&&state.status!=='finished'&&!idleRegularLobby&&!watchingPrior){
     // A convocação pode chegar ANTES do estado final da rodada anterior.
     // Guardar a tarefa e retomá-la após o estado 'finished'; descartá-la
     // aqui perdia a única notificação e deixava finalistas na mesa antiga.
@@ -3584,7 +3592,7 @@ socket.on('joined',data=>{
     tournamentPhaseNotice(null);
   }
   // Em F5, um jogo da fase anterior pode ser restaurado antes de a nova mesa ficar pronta.
-  if(data?.source!=='tournament'&&data?.role!=='SPECTATOR')
+  if(data?.source!=='tournament'&&(data?.role!=='SPECTATOR'||data?.tournamentWatch))
     setTimeout(()=>{if(socket.connected)requestTournamentSeatLocation();},1700);
   savedSessionResumePending=false;accountSeatResumePending=false;accountSeatResumeAttempts=0;clearAccountSeatResumeRetry();pendingRoomSwitch=null;closeRoomSwitchDialog();
   // V40.58.3 — o chat é por SALA: trocas de sala limpam o histórico local.
