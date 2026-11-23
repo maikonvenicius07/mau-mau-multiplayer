@@ -1,7 +1,7 @@
 'use strict';
-// V40.69.8.57 — teste de compatibilidade da reconciliação de torneios.
-// O catálogo lista torneios sem filtro de status na API; a reconciliação
-// filtra os eventos encerrados. Testar o comportamento, não uma expressão exata.
+// V40.69.8.59 — contrato atual da reconciliação de torneios.
+// O catálogo aceita list({status:'closed'}), enquanto a rotina faz a validação
+// defensiva do status e isola exceções de um torneio sem parar os demais.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -53,8 +53,10 @@ vm.runInContext(routine, context);
 (async () => {
   await vm.runInContext('reconcileTournamentProgress()', context);
   assert.equal(listArguments.length, 1, 'Um único acesso ao catálogo no ciclo');
-  assert.equal(listArguments[0].length, 0,
-    'A API do catálogo é list() sem filtro de status; o filtro é feito pela rotina');
+  assert.equal(listArguments[0].length, 1,
+    'A consulta de reconciliação deve usar o filtro seletivo de status');
+  assert.equal(listArguments[0][0]?.status, 'closed',
+    "O catálogo já aceita list({status:'closed'}); não consultar torneios abertos no banco");
   assert.deepEqual(processed, ['falhou', 'saudavel'],
     'Somente torneios com inscrições encerradas são processados');
   assert.deepEqual(notified, ['saudavel:qualifier:1'],
@@ -63,5 +65,5 @@ vm.runInContext(routine, context);
     'A falha isolada é registrada com o identificador correto');
   assert.equal(vm.runInContext('tournamentReconcileRunning', context), false,
     'A trava do ciclo é liberada');
-  console.log('✓ V40.69.8.57: auditoria da reconciliação usa contrato real de list() e valida status e isolamento de falhas.');
+  console.log('✓ V40.69.8.59: catálogo filtrado, reconciliação isolada por torneio e proteção da trava.');
 })().catch(error => {console.error(error); process.exitCode = 1;});

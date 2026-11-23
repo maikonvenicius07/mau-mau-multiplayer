@@ -1,35 +1,40 @@
-## V40.69.8.58 — Compatibilidade do teste de presença no Render (23/11/2026)
+## V40.69.8.59 — Correção consolidada dos builds e reconciliação segura (23/11/2026)
 
-- O build do Render executava `tests/presence-snapshot-index-v4069855.test.js` que não constava no ZIP completo da V40.69.8.57. O teste antigo falhava ao procurar delimitadores de um bloco específico do `server.js`, antes de verificar o comportamento real.
-- O teste de mesmo nome agora está incluído no projeto e valida as funções reais de presença: status de jogo humano e contra robô, busca de partidas, sala encerrada, reconexão com prazo, múltiplas abas, identidade de conta e ausência de robôs na lista.
-- A rotina de presença e os handlers do servidor não foram modificados. A alteração funcional é restrita ao arquivo de teste; o servidor tem apenas o identificador de release atualizado.
-- No GitHub é obrigatório substituir o teste de mesmo caminho. Arquivos antigos existentes no repositório não são removidos ao simplesmente adicionar ZIPs de atualização.
-- A verificação local não equivale a um build no Render; novos erros de outros arquivos antigos só poderão ser descartados após sincronização completa da pasta `tests/` e execução de `npm run verify` no repositório efetivamente publicado.
+- **Base:** ZIP `mau-mau-multiplayer-main (7)(5).zip` fornecido pelo usuário, cujo `server.js` informava V40.69.8.57, mas incluía novas otimizações com testes inconsistentes de outras versões. Mantido o filtro de catálogo `list({status:'closed'})` em vez de retroceder a API.
+- **Falha do Render:** corrigido `tests/auditoria-torneios-v4069855.test.js`, que ainda exigia `list()` sem parâmetros e falhava com `1 !== 0`. Agora confere a assinatura real e a filtragem segura.
+- **Regressão real:** restaurado o tratamento de exceções por torneio em `reconcileTournamentProgress()`, preservando a consulta seletiva; um torneio com erro não impede o avanço dos demais.
+- **Fase adicional:** restaurada a validação da fase `extra` na entrada de observadores, compatível com torneios de 65 a 100 inscritos.
+- **Painel mobile:** relógio de 1 segundo é executado só com o diálogo aberto e aba visível; o fechamento e o segundo plano removem o intervalo, sem mexer no cronômetro persistido das mesas.
+- **Diagnóstico do build:** `tests/run-all.js` continua retornando erro se algum teste falhar, mas agora lista TODAS as falhas antes de terminar, evitando corrigir uma por deploy às cegas.
+- **Testes:** atualizado o teste de reconciliação e criado teste específico do contrato `TournamentCatalog.list({status:'closed'})` (memória e SQL). Os testes existentes de múltiplas fases, presença e isolamento continuam ativos. Nenhum teste foi desativado ou removido.
+- **Preservado:** regras de cartas, Queima, ranking, sorteio, limite de quatro jogadores, vitória por ausência, entrada automática dos classificados, começo manual das partidas, áudio/vídeo e bancos de dados. Nenhuma migração destrutiva.
+- **Limite da validação local:** a integração Socket.IO exige a instalação completa de dependências (`npm ci`); sem pacote disponível na sessão de análise, não pode ser considerada aprovada até execução em ambiente com dependências instaladas, como Render.
 
-## V40.69.8.57 — Compatibilidade do teste de reconciliação no deploy (23/11/2026)
+## V40.69.8.57 — Correção do teste de presença no Render e índice de presença (23/11/2026)
 
-- **Falha identificada no Render:** `tests/auditoria-torneios-v4069855.test.js` existente no repositório publicado esperava `tournamentCatalog.list({status:'closed'})`, embora o código funcional use `list()` e descarte eventos que não estejam encerrados no próprio processamento.
-- **Correção:** o teste é incluído no ZIP com verificações de comportamento: catálogo consultado uma vez, somente torneios `closed` processados, falha individual registrada e torneio saudável continuando no mesmo ciclo. O teste verifica a API de fato implementada e não depende de correspondência textual antiga.
-- **Preservação:** nenhuma alteração nas rotinas de torneio, sorteio, classificação, criação de mesas, entrada automática, observadores, cronômetro, cartas, ranking, câmera ou microfone. Apenas a identificação funcional da versão no servidor foi atualizada.
-- **Publicação:** substituir especificamente `tests/auditoria-torneios-v4069855.test.js` no GitHub; a simples atualização dos outros arquivos não remove testes antigos presentes no repositório. Executar `npm run verify` após sincronizar.
+- Identificado no log do Render um teste `presence-snapshot-index-v4069855.test.js` que NÃO existia nos pacotes completos V40.69.8.55/56: possível teste legado remanescente na árvore Git utilizada pelo deploy.
+- `presence-seat-index.js` novo: construção temporária de índice de vagas humanas em uma única varredura de salas, preservando prioridade de assentos, primeira ocorrência na mesma sala, empates, robôs e reconexão.
+- `server.js`: snapshot de jogadores online reutiliza o índice para identificação da vaga e cálculo de status; release `V40.69.8.57`. Nenhuma alteração de lógica de jogo, classificação, ranking, banco, UI ou dependências.
+- `tests/presence-snapshot-index-v4069855.test.js` criado no pacote para substituir o teste legado no próximo commit, com verificações comportamentais e diagnósticos curtos sem inspeção frágil de blocos internos.
+- Validação: 228 testes locais aprovados de 229; teste Socket.IO bloqueado por dependência ausente, não executado. 293 arquivos JS passaram em `node --check`; lockfile validado.
+- Instruções de publicação e sincronização de testes em `docs/CORRECAO_RENDER_PRESENCA_V40_69_8_57.md`.
 
-## V40.69.8.56 — Progressão segura de torneios com 65 a 100 inscritos (23/11/2026)
+## V40.69.8.56 — Correção do diagnóstico de falha de build no Render (23/11/2026)
 
-- **Problema corrigido:** competições com 65+ inscritos podiam produzir mais de quatro mesas na etapa de quartas e paravam antes de formar semifinal e final.
-- **Solução:** quando as quartas têm mais de quatro mesas, o torneio cria automaticamente uma **Fase adicional** entre quartas e semifinal. A vaga de cada classificado é definida por novo sorteio persistido, com **dois classificados por mesa**, preservando as cotas já usadas nas demais etapas. Isso reduz as mesas até que haja uma final única de quatro participantes.
-- **Compatibilidade:** torneios de até 64 inscritos continuam percorrendo exatamente as fases anteriores. Os registros de torneios grandes que já tenham chegado às quartas podem continuar sem desfazer o sorteio salvo.
-- **Persistência:** o PostgreSQL aceita a nova fase por migração idempotente da restrição `stage`, sem apagar mesas, inscrições ou resultados; o armazenamento local JSON também a reconhece.
-- **Interface e observadores:** painel, avisos e validações de entrada/observação reconhecem a nova fase; não há alteração de layout da mesa ou de regras das cartas.
-- **Testes:** simulações até o campeão para 64, 65, 66, 70, 75, 80, 81, 90, 95, 99 e 100 participantes; observador, integridade de sorteios, cotas, fases persistidas e não duplicação; 228 testes locais executáveis aprovados. Integração Socket.IO e PostgreSQL reais dependem de homologação.
-- **Não modificado:** mecanismo de entrada automática de classificados, início manual, cronômetro de dois minutos, vitória por ausência, Queima, Dupla, Jogada Rápida, câmera, microfone, ranking e partidas normais.
+- `server.js`: versão de entrega atualizada para V40.69.8.56; preservada a filtragem seletiva `list({status:'closed'})` no reconciliador, introduzida na V40.69.8.55.
+- `tests/auditoria-torneios-v4069855.test.js`: verificação de versão compatível com lançamentos posteriores; inspeção restrita ao reconciliador, tolerante a espaços/aspas, com erro curto e orientações explícitas em caso de mistura de arquivos durante publicação. **A verificação funcional do filtro não foi removida.**
+- Novo guia `docs/CORRECAO_BUILD_RENDER_V40_69_8_56.md` para substituir corretamente os arquivos e verificar o build e a versão ativa.
+- Sem mudanças no motor do jogo, torneio, regras, layout, banco ou dependências.
 
-## V40.69.8.55 — Isolamento de erros na reconciliação dos torneios (23/11/2026)
+## V40.69.8.55 — Auditoria de estabilidade e otimização conservadora (23/11/2026)
 
-- **Falha corrigida:** a verificação periódica de torneios (`reconcileTournamentProgress`, `server.js`) tinha tratamento de exceção apenas ao redor do processamento de todas as competições. Uma falha de uma competição interrompia a atualização das seguintes no mesmo ciclo.
-- **Mudança pontual:** cada torneio com inscrições encerradas passa a ser processado dentro do próprio `try/catch`; falhas de sorteio, avanço, consulta do vínculo ou aviso são registradas com identificador do torneio, sem impedir que os demais sejam tratados. Erros de infraestrutura compartilhada continuam no tratamento geral.
-- **Testes adicionados:** `tests/tournament-reconciliation-isolation-v4069855.test.js` exercita a rotina real do servidor com erros simulados e confirma que uma competição saudável continua recebendo sua notificação no mesmo ciclo.
-- **Preservação:** nenhum algoritmo de sorteio, classificação, avanço automático, entrada nas mesas, cronômetro, início manual, jogo normal, cartas, ranking, mídia ou layout foi alterado. Identificador técnico legado no `package.json` permanece inalterado.
-- **Pendente, fora do escopo:** o modelo de progressão atual ainda não comporta certos torneios a partir de 65 inscritos (auditoria de 23/11/2026); esta versão isola seus erros, mas não altera quotas ou inventa novas fases. Homologação em Render/PostgreSQL com jogadores reais continua necessária.
+- **Torneio (interface):** o relógio visual de 1 segundo só é executado quando o diálogo está aberto e a aba está visível. Ao fechar ou ocultar a aba, o timer é removido.
+- **Torneio (rede):** pausa de atualização automática impede novo agendamento quando uma requisição iniciada antes da pausa é concluída. Retomada mantém no máximo um timer de polling.
+- **Torneio (servidor):** a reconciliação periódica de 15 segundos consulta apenas torneios com inscrições encerradas (`status='closed'`). A lista pública mantém os demais estados; nenhum sorteio ou resultado foi alterado.
+- **Publicação (cache):** arquivos auxiliares `media-session.js`, `controls-positioning.js`, `tournament-schedule.js` e `tournament-auto-refresh.js` passam a usar versionamento automático por hash em seus endereços no HTML servido.
+- **Regressões:** adicionados testes de pausa durante requisição em andamento, ciclo de vida do timer visual, filtro local/SQL e versionamento; benchmark sintético opcional em `scripts/bench-tournament-catalog-v4069855.js`.
+- **Banco/regras:** nenhum dado, esquema, jogada, classificação, sala ou regra foi migrado; `package.json` permanece na identificação legada necessária aos testes.
+- **Validação local:** 227 de 228 testes executados aprovaram; o teste de integração Socket.IO ficou bloqueado por ausência da dependência `socket.io-client` (instalação npm indisponível neste ambiente). Não há resultados de estresse de produção nem PostgreSQL real.
 
 ## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
 
