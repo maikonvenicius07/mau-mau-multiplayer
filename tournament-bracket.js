@@ -6,8 +6,10 @@ const path=require('node:path');
 const {planNextStageDraw,assertExistingStageDraw}=require('./tournament-next-stage-draw');
 const TournamentWait=require('./tournament-wait');
 const {assertTournamentTable}=require('./tournament-table-capacity');
-const STAGES=['qualifier','quarter','semi','final'];
-const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
+// Fase adicional apenas para torneios grandes (65–100 inscritos).
+// A progressão de torneios menores permanece intocada.
+const STAGES=['qualifier','quarter','extra','semi','final'];
+const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',extra:'Fase adicional',semi:'Semifinais',final:'Grande final'};
 function fail(s,status=409){return Object.assign(new Error(s),{status});}
 function validate(id,phase,number){
   if(!/^[-a-z0-9]{3,64}$/i.test(id||'')||!STAGES.includes(phase)||!Number.isInteger(number)||number<1||number>30)throw fail('Mesa inválida.',400);
@@ -50,7 +52,11 @@ function nextStage(stage,tables){
     if(n<=10)return {phase:'quarter',quota:1};
     return {phase:'quarter',quota:1};
   }
-  if(stage==='quarter')return {phase:'semi',quota:2};
+  // Com mais de quatro mesas de quartas, manter os dois classificados por
+  // mesa, mas criar uma fase adicional antes das semifinais. Isso permite
+  // reduzir 10–14 classificados a 6–8 e preservar uma final única de 4.
+  if(stage==='quarter')return {phase:n>4?'extra':'semi',quota:2};
+  if(stage==='extra')return {phase:'semi',quota:2};
   if(stage==='semi')return {phase:'final',quota:2};
   return null;
 }
@@ -62,7 +68,7 @@ class TournamentBracket{
   async init(){
     if(this.pool){await this.pool.query(`CREATE TABLE IF NOT EXISTS mm_tournament_stage_tables(
       tournament_id VARCHAR(64) NOT NULL REFERENCES mm_tournaments(id) ON DELETE CASCADE,
-      stage VARCHAR(12) NOT NULL CHECK(stage IN ('qualifier','quarter','semi','final')),
+      stage VARCHAR(12) NOT NULL CHECK(stage IN ('qualifier','quarter','extra','semi','final')),
       table_number INTEGER NOT NULL CHECK(table_number>=1),
       players_json JSONB NOT NULL,
       room_code VARCHAR(10) UNIQUE,
@@ -72,6 +78,16 @@ class TournamentBracket{
       wait_deadline_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY(tournament_id,stage,table_number))`);
+      // Instalação existente: o CHECK criado nas versões anteriores não permite
+      // 'extra'. A migração é idempotente e não altera mesas já gravadas.
+      await this.pool.query('ALTER TABLE mm_tournament_stage_tables DROP CONSTRAINT IF EXISTS mm_tournament_stage_tables_stage_check');
+      await this.pool.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='mm_tournament_stage_allowed'
+          AND conrelid='mm_tournament_stage_tables'::regclass) THEN
+          ALTER TABLE mm_tournament_stage_tables ADD CONSTRAINT mm_tournament_stage_allowed
+            CHECK(stage IN ('qualifier','quarter','extra','semi','final')) NOT VALID;
+        END IF;
+      END $$;`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
       await this.pool.query(`ALTER TABLE mm_tournament_stage_tables ADD COLUMN IF NOT EXISTS wait_deadline_at TIMESTAMPTZ`);
@@ -88,7 +104,7 @@ class TournamentBracket{
   reload(){if(this.pool)return;try{this.local=JSON.parse(fs.readFileSync(this.filePath,'utf8'));}catch(e){if(e.code==='ENOENT')this.local={};else throw e;}}
   save(){const tmp=this.filePath+'.tmp';fs.writeFileSync(tmp,JSON.stringify(this.local,null,2));fs.renameSync(tmp,this.filePath);}
   async rows(id,client=null){
-    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt",EXTRACT(EPOCH FROM created_at)*1000 AS "createdAt",EXTRACT(EPOCH FROM wait_deadline_at)*1000 AS "waitDeadlineAt" FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'semi' THEN 2 ELSE 3 END,table_number`,[id]);return r.rows;}
+    if(this.pool){const r=await (client||this.pool).query(`SELECT stage,table_number AS number,players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState",EXTRACT(EPOCH FROM claimed_at)*1000 AS "claimedAt",EXTRACT(EPOCH FROM created_at)*1000 AS "createdAt",EXTRACT(EPOCH FROM wait_deadline_at)*1000 AS "waitDeadlineAt" FROM mm_tournament_stage_tables WHERE tournament_id=$1 ORDER BY CASE stage WHEN 'qualifier' THEN 0 WHEN 'quarter' THEN 1 WHEN 'extra' THEN 2 WHEN 'semi' THEN 3 ELSE 4 END,table_number`,[id]);return r.rows;}
     this.reload();return this.local[id]||[];
   }
   async seatFor(id,phase,number,playerKey){
@@ -235,11 +251,6 @@ class TournamentBracket{
         assertExistingStageDraw(current,move.quota,existing);
         continue;
       }
-      // Com 65+ inscritos, o torneio de quatro etapas e quotas legadas
-      // não pode obter uma final única de até quatro sem alterar a regra
-      // oficial de classificação. Nunca gravar fase/final inválida.
-      if(stage==='quarter'&&current.length>4)
-        throw fail('A progressão deste torneio exige mais etapas para manter uma única final de até quatro jogadores. Os critérios oficiais foram preservados; não foi criado um sorteio inválido.');
       const qualified=candidatesFromStage(current,move.quota);
       const tables=planNextStageDraw(qualified);
       for(const table of tables)assertTournamentTable(table.players);

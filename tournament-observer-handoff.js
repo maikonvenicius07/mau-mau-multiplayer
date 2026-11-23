@@ -5,9 +5,9 @@
 function canHandoffObserver({role,watchTournamentId,watchStage,tournamentId,stage,automatic}){
   return role==='SPECTATOR'&&automatic===true&&
     !!watchTournamentId&&watchTournamentId===tournamentId&&
-    ['qualifier','quarter','semi','final'].includes(watchStage)&&
-    ['qualifier','quarter','semi','final'].includes(stage)&&
-    ['qualifier','quarter','semi','final'].indexOf(stage)>
-      ['qualifier','quarter','semi','final'].indexOf(watchStage);
+    ['qualifier','quarter','extra','semi','final'].includes(watchStage)&&
+    ['qualifier','quarter','extra','semi','final'].includes(stage)&&
+    ['qualifier','quarter','extra','semi','final'].indexOf(stage)>
+      ['qualifier','quarter','extra','semi','final'].indexOf(watchStage);
 }
 module.exports={canHandoffObserver};

@@ -1,10 +1,20 @@
-## V40.69.8.55 — Auditoria de desempenho e otimizações pontuais (23/11/2026)
+## V40.69.8.56 — Progressão segura de torneios com 65 a 100 inscritos (23/11/2026)
 
-- **Servidor:** `buildPresenceSnapshot()` monta uma única vez um índice temporário das cadeiras por conta. Mantidas a prioridade de sala, a recuperação de 60 s, os estados públicos, a ordem de desempate e as permissões. Evita consultar todas as salas duas vezes para cada jogador online.
-- **Cliente:** o diálogo de partidas públicas consulta a cada cinco segundos apenas enquanto está aberto e a página está visível. A atualização é retomada ao voltar à aba e o timer é encerrado também quando o diálogo é fechado por outro caminho.
-- **Testes:** adicionado teste de equivalência de posições e de pausa/retomada do timer; microbenchmark reprodutível para a busca de cadeiras, sem representar desempenho real no Render.
-- Não houve alterações de schema, índices, classificação, rodadas, regras das cartas, placar, tamanho das cartas, câmeras, microfones, início manual, sorteio ou transição entre fases.
-- A identificação funcional no `server.js` foi atualizada; a versão técnica no `package.json` permaneceu intacta por compatibilidade com contratos legados.
+- **Problema corrigido:** competições com 65+ inscritos podiam produzir mais de quatro mesas na etapa de quartas e paravam antes de formar semifinal e final.
+- **Solução:** quando as quartas têm mais de quatro mesas, o torneio cria automaticamente uma **Fase adicional** entre quartas e semifinal. A vaga de cada classificado é definida por novo sorteio persistido, com **dois classificados por mesa**, preservando as cotas já usadas nas demais etapas. Isso reduz as mesas até que haja uma final única de quatro participantes.
+- **Compatibilidade:** torneios de até 64 inscritos continuam percorrendo exatamente as fases anteriores. Os registros de torneios grandes que já tenham chegado às quartas podem continuar sem desfazer o sorteio salvo.
+- **Persistência:** o PostgreSQL aceita a nova fase por migração idempotente da restrição `stage`, sem apagar mesas, inscrições ou resultados; o armazenamento local JSON também a reconhece.
+- **Interface e observadores:** painel, avisos e validações de entrada/observação reconhecem a nova fase; não há alteração de layout da mesa ou de regras das cartas.
+- **Testes:** simulações até o campeão para 64, 65, 66, 70, 75, 80, 81, 90, 95, 99 e 100 participantes; observador, integridade de sorteios, cotas, fases persistidas e não duplicação; 228 testes locais executáveis aprovados. Integração Socket.IO e PostgreSQL reais dependem de homologação.
+- **Não modificado:** mecanismo de entrada automática de classificados, início manual, cronômetro de dois minutos, vitória por ausência, Queima, Dupla, Jogada Rápida, câmera, microfone, ranking e partidas normais.
+
+## V40.69.8.55 — Isolamento de erros na reconciliação dos torneios (23/11/2026)
+
+- **Falha corrigida:** a verificação periódica de torneios (`reconcileTournamentProgress`, `server.js`) tinha tratamento de exceção apenas ao redor do processamento de todas as competições. Uma falha de uma competição interrompia a atualização das seguintes no mesmo ciclo.
+- **Mudança pontual:** cada torneio com inscrições encerradas passa a ser processado dentro do próprio `try/catch`; falhas de sorteio, avanço, consulta do vínculo ou aviso são registradas com identificador do torneio, sem impedir que os demais sejam tratados. Erros de infraestrutura compartilhada continuam no tratamento geral.
+- **Testes adicionados:** `tests/tournament-reconciliation-isolation-v4069855.test.js` exercita a rotina real do servidor com erros simulados e confirma que uma competição saudável continua recebendo sua notificação no mesmo ciclo.
+- **Preservação:** nenhum algoritmo de sorteio, classificação, avanço automático, entrada nas mesas, cronômetro, início manual, jogo normal, cartas, ranking, mídia ou layout foi alterado. Identificador técnico legado no `package.json` permanece inalterado.
+- **Pendente, fora do escopo:** o modelo de progressão atual ainda não comporta certos torneios a partir de 65 inscritos (auditoria de 23/11/2026); esta versão isola seus erros, mas não altera quotas ou inventa novas fases. Homologação em Render/PostgreSQL com jogadores reais continua necessária.
 
 ## V40.69.8.47 — Retorno como observador após desistir do torneio (19/11/2026)
 

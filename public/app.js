@@ -1857,15 +1857,10 @@ function renderPublicRoomsSnapshot(snapshot=publicRoomsSnapshot){
   box.querySelectorAll('[data-watch-room]').forEach(btn=>btn.onclick=()=>watchPublicRoom(btn.dataset.watchRoom,btn));
 }
 function requestPublicRooms(){if(socket.connected)socket.emit('requestPublicRooms')}
-function syncLiveRoomsRefresh(){
-  clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;
-  if($('#liveRoomsDialog')?.open&&!document.hidden&&socket.connected)
-    liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
-}
 function openLiveRooms(){
   if(!authUser)return showAuthGate('Entre na sua conta para assistir partidas.');
-  const dlg=$('#liveRoomsDialog');if(dlg&&!dlg.open)dlg.showModal();
-  requestPublicRooms();syncLiveRoomsRefresh();
+  const dlg=$('#liveRoomsDialog');requestPublicRooms();if(dlg&&!dlg.open)dlg.showModal();
+  clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=setInterval(requestPublicRooms,5000);
 }
 function closeLiveRooms(){clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;const dlg=$('#liveRoomsDialog');if(dlg?.open)dlg.close()}
 function watchPublicRoom(code,button=null){
@@ -1878,12 +1873,6 @@ function watchPublicRoom(code,button=null){
 $('#watchRoomsOpen')?.addEventListener('click',openLiveRooms);
 $('#liveRoomsClose')?.addEventListener('click',closeLiveRooms);
 $('#liveRoomsRefresh')?.addEventListener('click',requestPublicRooms);
-$('#liveRoomsDialog')?.addEventListener('close',()=>{clearInterval(liveRoomsRefreshTimer);liveRoomsRefreshTimer=null;});
-document.addEventListener('visibilitychange',()=>{
-  if(!$('#liveRoomsDialog')?.open)return;
-  if(!document.hidden&&socket.connected)requestPublicRooms();
-  syncLiveRoomsRefresh();
-});
 $('#liveRoomsDialog')?.addEventListener('cancel',e=>{e.preventDefault();closeLiveRooms()});
 $('#liveRoomsDialog')?.addEventListener('click',e=>{if(e.target===$('#liveRoomsDialog'))closeLiveRooms()});
 
@@ -3465,7 +3454,7 @@ function tournamentPhaseNotice(data,detail=''){
   if(data.stage!=='qualifier'&&dismissedManualTournamentNoticeKey===
     `${data.tournamentId}:${data.stage}:${data.tableNumber}`){box.hidden=true;return;}
   const label=data.stage==='final'?'GRANDE FINAL':data.stage==='semi'?'SEMIFINAL':
-    data.stage==='quarter'?'QUARTAS DE FINAL':'CLASSIFICATÓRIAS';
+    data.stage==='quarter'?'QUARTAS DE FINAL':data.stage==='extra'?'FASE ADICIONAL':'CLASSIFICATÓRIAS';
   const title=document.getElementById('tournamentNextPhaseTitle');
   const status=document.getElementById('tournamentNextPhaseStatus');
   const enter=document.getElementById('tournamentNextPhaseEnter');
@@ -3480,7 +3469,7 @@ function tournamentPhaseNotice(data,detail=''){
 function clearAutoTournamentTimer(){if(autoTournamentTimer){clearTimeout(autoTournamentTimer);autoTournamentTimer=null;}}
 function watchingPreviousTournamentPhase(data){
   const sess=saved();
-  const stages=['qualifier','quarter','semi','final'];
+  const stages=['qualifier','quarter','extra','semi','final'];
   return !!(data&&tournamentWatchMode&&isSpectatorState()&&sess?.role==='SPECTATOR'&&
     sess?.tournamentWatch&&sess.tournamentId===data.tournamentId&&
     stages.indexOf(data.stage)>stages.indexOf(sess.stage)&&stages.includes(sess.stage));
@@ -3502,7 +3491,7 @@ function autoEnterTournamentSeat(data,manualRetry=false){
   }
   if(saved()?.temporaryExit)return;
   if(!socket.connected||!data||!/^[-a-z0-9]{3,64}$/i.test(String(data.tournamentId||''))||
-    !['qualifier','quarter','semi','final'].includes(data.stage)||
+    !['qualifier','quarter','extra','semi','final'].includes(data.stage)||
     !Number.isInteger(data.tableNumber)||data.tableNumber<1||
     pendingVoluntaryLeave()||leaveRoomPending)return;
   // V40.69.8.38: permite troca de sala concluída da fase anterior ou

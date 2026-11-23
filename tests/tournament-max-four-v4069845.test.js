@@ -134,7 +134,7 @@ async function walkoverAdvances(){
     assert.equal(summary.champion.standings.length,3);
   }finally{fs.rmSync(folder,{recursive:true,force:true});}
 }
-async function rejectUnsafeLargeProgression(n){
+async function supportLargeProgression(n){
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mm-four-too-large-'));
   try{
     const id='cup-too-large-'+n;
@@ -154,14 +154,37 @@ async function rejectUnsafeLargeProgression(n){
       await bracket.recordResult({id,stage:'quarter',number:t.number,roomCode:'QR'+t.number,players:t.players,
         result:{matchId:'qr-'+t.number,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))}});
     }
-    await assert.rejects(bracket.advance(id,initial),/mais etapas|até quatro/i);
-    assert.equal((await bracket.rows(id)).filter(t=>t.stage==='semi'||t.stage==='final').length,0,
-      'nunca persistir semifinal/final inválida nem declarar campeão incorreto');
+    await bracket.advance(id,initial);
+    const additional=(await bracket.rows(id)).filter(t=>t.stage==='extra');
+    assert(additional.length>=3&&additional.length<=4,'a fase adicional é criada para torneios grandes');
+    assert(additional.every(t=>t.players.length>=2&&t.players.length<=4));
+    assert.equal(additional.flatMap(t=>t.players).length,quarters.length*2);
+    for(const t of additional){
+      await bracket.claim(id,'extra',t.number,'EX'+t.number);
+      await bracket.recordResult({id,stage:'extra',number:t.number,roomCode:'EX'+t.number,players:t.players,
+        result:{matchId:'ex-'+t.number,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))}});
+    }
+    await bracket.advance(id,initial);
+    const semifinal=(await bracket.rows(id)).filter(t=>t.stage==='semi');
+    assert.equal(semifinal.length,2);
+    for(const t of semifinal){
+      await bracket.claim(id,'semi',t.number,'SM'+t.number);
+      await bracket.recordResult({id,stage:'semi',number:t.number,roomCode:'SM'+t.number,players:t.players,
+        result:{matchId:'sm-'+t.number,results:t.players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))}});
+    }
+    await bracket.advance(id,initial);
+    const final=(await bracket.rows(id)).filter(t=>t.stage==='final');
+    assert.equal(final.length,1);
+    assert.equal(final[0].players.length,4);
+    await bracket.claim(id,'final',1,'FIN'+n);
+    await bracket.recordResult({id,stage:'final',number:1,roomCode:'FIN'+n,players:final[0].players,
+      result:{matchId:'fin-'+n,results:final[0].players.map((p,i)=>({playerKey:p.playerKey,name:p.name,score:i*10,position:i+1,won:i===0}))}});
+    assert((await bracket.summary(id,initial)).champion,'torneio grande chega ao campeão');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 }
 (async()=>{
   await walkoverAdvances();
-  for(const n of [65,100])await rejectUnsafeLargeProgression(n);
-  console.log('✓ V40.69.8.45: 2–4 vagas, distribuições, servidor/motor, ausência (0/1/2/3/4), observador, classificação, final, salas normais e bloqueio seguro de 65/100 inscritos.');
+  for(const n of [65,100])await supportLargeProgression(n);
+  console.log('✓ V40.69.8.56: 2–4 vagas, ausências, e torneios de 65/100 jogadores até final única e campeão.');
 })()
   .catch(error=>{console.error(error);process.exitCode=1;});

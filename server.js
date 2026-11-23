@@ -12,7 +12,6 @@ const BotDifficulty = require('./bot-difficulty');
 const AvatarWire = require('./avatar-wire');
 const StateDelivery = require('./state-delivery');
 const {createRuntimeConnectionMonitor}=require('./runtime-connection-monitor');
-const {buildBestSeatIndex}=require('./presence-seat-index');
 const LobbySnapshotDelivery = require('./lobby-snapshot-delivery');
 const MatchmakingDelivery = require('./matchmaking-delivery');
 const StaticAssetVersioning = require('./static-asset-versioning');
@@ -54,7 +53,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.55';
+const RELEASE_VERSION = 'V40.69.8.56';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -2313,9 +2312,9 @@ function activeMultiplayerRoomForKey(playerKey, exceptCode=null) {
   }
   return null;
 }
-function presenceStatusForKey(playerKey, precomputedSeat=undefined) {
+function presenceStatusForKey(playerKey) {
   const rec=presenceFor(playerKey);
-  const seat=precomputedSeat===undefined?roomSeatForKey(playerKey):precomputedSeat;
+  const seat=roomSeatForKey(playerKey);
   if(seat?.player&&!seat.player.connected&&!seat.player.autoControlled&&seat.player.reconnectDeadlineAt>Date.now()){
     return {code:'reconnecting',emoji:'🟠',label:'Reconectando'};
   }
@@ -2328,18 +2327,14 @@ function presenceStatusForKey(playerKey, precomputedSeat=undefined) {
   return {code:'available',emoji:'🟢',label:'Disponível'};
 }
 function buildPresenceSnapshot() {
-  // Antes, duas buscas por jogador percorriam todas as salas. O índice é
-  // gerado apenas para este snapshot e não altera vagas nem sessões reais.
-  const seatIndex=buildBestSeatIndex(rooms);
   const keys=new Set(onlinePresence.keys());
-  const now=Date.now();
   // Durante os 60 s de reconexão a vaga ainda aparece, marcada como Reconectando.
   for(const room of rooms.values())for(const p of room.players){
-    if(!p.isBot&&p.playerKey&&!p.connected&&!p.autoControlled&&p.reconnectDeadlineAt>now)keys.add(p.playerKey);
+    if(!p.isBot&&p.playerKey&&!p.connected&&!p.autoControlled&&p.reconnectDeadlineAt>Date.now())keys.add(p.playerKey);
   }
   const players=[];
   for(const key of keys){
-    const rec=presenceFor(key),seat=seatIndex.get(key)||null,status=presenceStatusForKey(key,seat);
+    const rec=presenceFor(key),seat=roomSeatForKey(key),status=presenceStatusForKey(key);
     const connected=!!rec?.sockets?.size;
     players.push({
       playerKey:key,
@@ -3976,7 +3971,7 @@ io.on('connection', socket => {
       const id=String(payload?.tournamentId||'');
       const stage=String(payload?.stage||'');
       const tableNumber=Number(payload?.tableNumber);
-      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!['qualifier','quarter','semi','final'].includes(stage)
+      if(!/^[-a-z0-9]{3,64}$/i.test(id)||!['qualifier','quarter','extra','semi','final'].includes(stage)
         ||!Number.isInteger(tableNumber)||tableNumber<1)
         throw new Error('Mesa do torneio inválida.');
       const cup=await tournamentCatalog.get(id);
@@ -4646,35 +4641,40 @@ async function reconcileTournamentProgress(){
     if(!await ensureTournamentBracketReady())return;
     const events=await tournamentCatalog.list();
     for(const event of events){
-      if(event.status!=='closed'||completedTournamentIds.has(event.id))continue;
-      const first=await tournamentDraw.get(event.id);
-      if(!first.length)continue;
-      // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
-      // a próxima mesa quando o último resultado já tinha sido persistido.
-      const bracket=await tournamentBracket.advance(event.id,first);
-      if(bracket.champion){
-        if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
-        await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
-        completedTournamentIds.add(event.id);continue;
+      // V40.69.8.55 — uma exceção isolada não interrompe os demais torneios.
+      try{
+        if(!event||event.status!=='closed'||completedTournamentIds.has(event.id))continue;
+        const first=await tournamentDraw.get(event.id);
+        if(!first.length)continue;
+        // Mesmo sem evento Socket.IO: confirmar todas as fases gravadas e criar
+        // a próxima mesa quando o último resultado já tinha sido persistido.
+        const bracket=await tournamentBracket.advance(event.id,first);
+        if(bracket.champion){
+          if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
+          await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
+          completedTournamentIds.add(event.id);continue;
+        }
+        const stage=bracket.currentStage;
+        const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
+        const notify=await Promise.all(tables.map(async table=>{
+          const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
+            await tournamentBracket.getBinding(event.id,stage,table.number);
+          if(binding?.result)return null;
+          const code=binding?.roomCode;
+          const room=code?rooms.get(code):null;
+          if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
+          if(room&&room.status!=='lobby')return null;
+          const key=`${event.id}:${stage}:${table.number}`;
+          if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
+          tournamentSeatNoticeAt.set(key,Date.now());return table;
+        }));
+        const missing=notify.filter(Boolean);
+        if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
+      }catch(e){
+        console.error('[tournament] falha ao reconciliar torneio:',event?.id||'(sem id)',e?.message||e);
       }
-      const stage=bracket.currentStage;
-      const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
-      const notify=await Promise.all(tables.map(async table=>{
-        const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
-          await tournamentBracket.getBinding(event.id,stage,table.number);
-        if(binding?.result)return null;
-        const code=binding?.roomCode;
-        const room=code?rooms.get(code):null;
-        if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
-        if(room&&room.status!=='lobby')return null;
-        const key=`${event.id}:${stage}:${table.number}`;
-        if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
-        tournamentSeatNoticeAt.set(key,Date.now());return table;
-      }));
-      const missing=notify.filter(Boolean);
-      if(missing.length)await notifyTournamentSeats(event.id,stage,missing);
     }
-  }catch(e){console.error('[tournament] reconciliação de fases:',e?.message||e);}
+  }catch(e){console.error('[tournament] reconciliação geral de fases:',e?.message||e);}
   finally{tournamentReconcileRunning=false;}
 }
 const tournamentProgressTimer=setInterval(()=>{void reconcileTournamentProgress();},15000);

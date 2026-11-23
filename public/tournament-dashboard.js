@@ -5,7 +5,7 @@
   else root.MauMauTournamentDashboard=value;
 })(typeof window==='undefined'?globalThis:window,function(){
   'use strict';
-  const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',semi:'Semifinais',final:'Grande final'};
+  const LABELS={qualifier:'Classificatórias',quarter:'Quartas de final',extra:'Fase adicional',semi:'Semifinais',final:'Grande final'};
   function tableStatus(table,game={}){
     if(table.finished||game.finished)return 'finished';
     if(game.liveStatus==='playing'||game.liveStatus==='between-rounds')return 'playing';
