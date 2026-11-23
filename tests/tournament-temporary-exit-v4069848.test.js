@@ -127,7 +127,7 @@ function setup(room,{savedError=false}={}){
     'temporarySeatReturnBanner','returnTemporarySeatBtn'])assert(html.includes(`id="${id}"`));
   assert(app.includes("socket.timeout(5000).emit('leaveRoom',tournament?{mode}:null"));
   assert(app.includes("if(sess?.temporaryExit)return;"),'voltar após saída temporária é ação intencional');
-  assert(app.includes("if(!temporary)window.MauMediaSession?.clear()"),'preferências de mídia preservadas na saída temporária');
+  assert(app.includes("if(!temporary||finishedWait)window.MauMediaSession?.clear()"),'preferências de mídia preservadas na saída temporária');
   assert(css.includes('.tournament-exit-bar'));
   assert(server.includes("if(room.tournament&&payload?.action!=='abandon')"),'abandono offline depende de intenção explícita');
   console.log('✓ V40.69.8.48: ações reais temporária/definitiva, autorização, repetição, reconexão, lobby, mídia e compatibilidade.');

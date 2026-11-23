@@ -1980,7 +1980,9 @@ function syncTournamentExitControls(){
   const tournament=isPlayingTournamentSeat(),leave=$('#leaveBtn');
   $('#tournamentExitBar')?.classList.toggle('hidden',!tournament||state?.status==='finished');
   if(leave){leave.textContent=tournament?'🚪 SAIR DA MESA':'🚪 Sair';
-    leave.title=tournament?'Sair temporariamente (sujeito aos prazos de ausência e reconexão)':'Sair da sala';
+    leave.title=tournament?(state?.status==='finished'?
+      'Mesa concluída: voltar ao início sem perder o resultado. Se classificado, você será encaminhado automaticamente.':
+      'Sair temporariamente (sujeito aos prazos de ausência e reconexão)'):'Sair da sala';
     leave.setAttribute('aria-label',leave.title);}
 }
 function syncTemporarySeatReturnBanner(){
@@ -1998,8 +2000,15 @@ function emitConfirmedExit(mode){
   const previous=saved();
   if(!socket.connected){
     if(tournament&&mode==='temporary'){
-      if(previous)saveSession({...previous,temporaryExit:true});
-      returnToLanding('Você saiu temporariamente. O prazo normal de ausência continua valendo.');
+      // A mesa já terminou: não bloquear a próxima convocação só porque o
+      // navegador ficou offline. Ao reconectar, a conta localiza sua fase.
+      if(state.status==='finished'){
+        clearSession();
+        returnToLanding('Mesa concluída. Seu resultado foi preservado; se classificado, sua próxima fase será localizada ao reconectar.');
+      }else{
+        if(previous)saveSession({...previous,temporaryExit:true});
+        returnToLanding('Você saiu temporariamente. O prazo normal de ausência continua valendo.');
+      }
       syncTemporarySeatReturnBanner();
       return;
     }
@@ -2019,7 +2028,8 @@ function emitConfirmedExit(mode){
   const abandonBtn=$('#abandonTournamentBtn');if(abandonBtn)abandonBtn.disabled=true;
   // Se a rede cair após o clique, não reiniciar automaticamente uma vaga que
   // o usuário está tentando deixar temporariamente.
-  if(tournament&&mode==='temporary'&&previous)saveSession({...previous,temporaryExit:true});
+  if(tournament&&mode==='temporary'&&state.status!=='finished'&&previous)
+    saveSession({...previous,temporaryExit:true});
   if(liveMicOn)stopLiveMic({notify:true,showToast:false,keepWanted:tournament&&mode==='temporary'});
   socket.timeout(5000).emit('leaveRoom',tournament?{mode}:null,(timeoutErr,response)=>{
     if(!state)return; // leftRoom já confirmou a saída.
@@ -2036,7 +2046,10 @@ function emitConfirmedExit(mode){
 $('#leaveBtn').onclick=()=>{
   if(!state||leaveRoomPending)return;
   if(isPlayingTournamentSeat()){
-    if(!window.confirm('SAIR DA MESA é temporário. Sua vaga, seus pontos e seu vínculo com o torneio serão preservados conforme as regras existentes, MAS o prazo de ausência/reconexão continua contando. Deseja sair?'))return;
+    const finished=state.status==='finished';
+    if(!window.confirm(finished?
+      'Esta mesa já terminou. Você pode voltar à tela principal sem perder o resultado. Se classificado, será encaminhado automaticamente à próxima mesa. Deseja sair?':
+      'SAIR DA MESA é temporário. Sua vaga, seus pontos e seu vínculo com o torneio serão preservados conforme as regras existentes, MAS o prazo de ausência/reconexão continua contando. Deseja sair?'))return;
     emitConfirmedExit('temporary');return;
   }
   const spectator=isSpectatorState(),activeMatch=Number(state.round||0)>0&&state.status!=='finished';
@@ -3795,17 +3808,33 @@ socket.on('gameError',e=>{
 });
 socket.on('leftRoom',data=>{
   const temporary=data?.kind==='temporary'&&data?.keepSeat;
-  if(!temporary)window.MauMediaSession?.clear();
-  window.MauCamera?.stop({keepWanted:temporary});
+  // Somente o servidor pode reconhecer a mesa encerrada após a confirmação da
+  // saída. Não reaproveitar o token da mesa antiga nem marcar temporaryExit:
+  // isso impedia tanto o aviso como a entrada automática na fase seguinte.
+  const finishedWait=!!(temporary&&data?.completedTournamentTable);
+  if(!temporary||finishedWait)window.MauMediaSession?.clear();
+  window.MauCamera?.stop({keepWanted:temporary&&!finishedWait});
   tournamentWatchMode=false;leaveRoomPending=false;
   const btn=$('#leaveBtn');if(btn)btn.disabled=false;
   const abandonBtn=$('#abandonTournamentBtn');if(abandonBtn)abandonBtn.disabled=false;
-  if(data?.kind==='temporary'&&data?.keepSeat){
+  if(finishedWait){
+    // A classificação continua no servidor, vinculada ao playerKey. Limpar o
+    // token da mesa encerrada evita F5/restauração de uma cadeira antiga.
+    clearSession();
+  }else if(temporary){
     const sess=saved();if(sess)saveSession({...sess,temporaryExit:true});
   }else clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
   syncTemporarySeatReturnBanner();
   syncPresenceProfile();
+  if(finishedWait&&socket.connected){
+    requestTournamentSeatLocation();
+    // A consulta no servidor limita pedidos a um a cada 2 s. Se uma busca
+    // anterior foi feita pouco antes da saída, repetir UMA vez após o prazo
+    // evita perder a convocação já existente (sem polling contínuo).
+    setTimeout(()=>{if(!state&&socket.connected&&!saved()?.temporaryExit)
+      requestTournamentSeatLocation();},2500);
+  }
 });
 socket.on('reconnectionEvent',event=>{
   if(event?.kind==='lost') toast(`🔴 ${event.name||'Jogador'} perdeu a conexão. 60 segundos para retornar.`);

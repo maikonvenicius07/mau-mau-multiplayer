@@ -51,7 +51,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.50';
+const RELEASE_VERSION = 'V40.69.8.51';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -4055,11 +4055,18 @@ io.on('connection', socket => {
         forgetCameraSocket(socket);notifyLiveVoicePeerUnavailable(socket);clearLiveVoiceSender(socket);
         socket.leave(code);socket.data.roomCode=null;socket.data.playerId=null;socket.data.spectatorId=null;socket.data.role=null;
         const temporary=!!result.keepSeat;
-        socket.emit('leftRoom',{...result,kind:temporary?'temporary':'abandon',message:temporary?
-          'Você saiu temporariamente. Sua vaga continua sujeita aos prazos oficiais de ausência/reconexão.':
-          (room.tournament?'Você abandonou definitivamente o torneio. Pode continuar assistindo como observador.':
-          'Você saiu da sala. Para voltar depois, use novamente o código, se ela ainda existir.')});
-        answer(result);
+        // V40.69.8.51 — sair de uma mesa JÁ FINALIZADA não é ausência da
+        // próxima fase. O servidor informa isso somente após validar a conta,
+        // o estado da mesa e concluir a saída. O cliente pode aguardar o novo
+        // sorteio na tela principal sem bloquear a convocação automática.
+        const completedTournamentTable=!!(temporary&&room.tournament&&room.status==='finished');
+        socket.emit('leftRoom',{...result,kind:temporary?'temporary':'abandon',completedTournamentTable,
+          message:completedTournamentTable?
+            'Mesa encerrada. Seu resultado foi preservado. Se você se classificou, a próxima mesa será acessada automaticamente quando estiver disponível.':
+            (temporary?'Você saiu temporariamente. Sua vaga continua sujeita aos prazos oficiais de ausência/reconexão.':
+            (room.tournament?'Você abandonou definitivamente o torneio. Pode continuar assistindo como observador.':
+            'Você saiu da sala. Para voltar depois, use novamente o código, se ela ainda existir.'))});
+        answer({...result,completedTournamentTable});
         broadcastPresence();
       }finally{if(room.tournament)tournamentExitInProgress.delete(operationKey);}
     } catch(e) {
