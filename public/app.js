@@ -763,7 +763,7 @@ async function initializeAuth(){
 async function logoutAuth(){
   if(state) return toast('Saia da sala antes de desconectar sua conta.');
   try{await fetch('/api/auth/logout',{method:'POST'});}catch{}
-  clearSession();authUser=null;
+  clearSession();tournamentWaitingOutcome=null;syncTournamentQualifiedWait();authUser=null;
   if(socket.connected)socket.disconnect();
   try{window.google?.accounts?.id?.disableAutoSelect?.()}catch{}
   showAuthGate('Você saiu da sua conta. Entre novamente para jogar.');
@@ -3406,6 +3406,38 @@ function syncReconnectCountdownTimer(){
   if(!reconnectCountdownTimer)reconnectCountdownTimer=setInterval(updateReconnectCountdown,1000);
 }
 
+// V40.69.8.53 — aviso apenas para resultado confirmado no servidor.
+// A posição da mesa não se confunde com classificação oficial em caso de empate.
+let tournamentWaitingOutcome=null;
+function syncTournamentQualifiedWait(){
+  const data=tournamentWaitingOutcome;
+  const title=data?.status==='qualified'?'🏆 VOCÊ ESTÁ CLASSIFICADO!':
+    data?.status==='pending'?'🏆 MESA ENCERRADA — CLASSIFICAÇÃO PENDENTE':'Resultado registrado';
+  const text=data?.status==='qualified'?'Sua vaga está assegurada. Aguarde o encerramento das outras mesas.':
+    'O resultado da sua mesa foi registrado. Aguarde a definição das vagas e possíveis desempates.';
+  const visible=!!data&&['qualified','pending'].includes(data.status);
+  const gameVisible=visible&&state?.status==='finished'&&isPlayingTournamentSeat();
+  const homeVisible=visible&&!state;
+  document.getElementById('tournamentQualifiedGame')?.classList.toggle('hidden',!gameVisible);
+  document.getElementById('tournamentQualifiedLanding')?.classList.toggle('hidden',!homeVisible);
+  for(const prefix of ['tournamentQualifiedGame','tournamentQualifiedLanding']){
+    const header=document.getElementById(prefix+'Title');if(header)header.textContent=title;
+    const body=document.getElementById(prefix+'Text');if(body)body.textContent=text;
+  }
+}
+socket.on('tournamentTableOutcome',data=>{
+  if(!data||!['qualified','pending','eliminated'].includes(data.status))return;
+  // A sessão não recebe confirmação adiantada quando a nova fase já começou.
+  if(autoTournamentSeat&&autoTournamentSeat.tournamentId===data.tournamentId&&
+     autoTournamentSeat.stage!==data.stage)return;
+  tournamentWaitingOutcome=data;
+  syncTournamentQualifiedWait();
+});
+document.getElementById('tournamentQualifiedGoHome')?.addEventListener('click',()=>{
+  if(state?.status==='finished'&&isPlayingTournamentSeat()&&!leaveRoomPending)
+    emitConfirmedExit('temporary');
+});
+
 // V40.69.8.38 — encaminhamento automático de cada fase após a conclusão
 // da partida anterior. O ingresso só solicita a vaga reservada: o servidor
 // revalida a identidade, fase, elenco e sala; a PARTIDA continua com início manual.
@@ -3447,6 +3479,9 @@ function requestTournamentSeatLocation(){
   socket.emit('locateTournamentSeat');
 }
 function autoEnterTournamentSeat(data,manualRetry=false){
+  if(typeof tournamentWaitingOutcome!=='undefined'&&tournamentWaitingOutcome&&data?.tournamentId===tournamentWaitingOutcome.tournamentId&&data.stage!==tournamentWaitingOutcome.stage){
+    tournamentWaitingOutcome=null;if(typeof syncTournamentQualifiedWait==='function')syncTournamentQualifiedWait();
+  }
   if(saved()?.temporaryExit)return;
   if(!socket.connected||!data||!/^[-a-z0-9]{3,64}$/i.test(String(data.tournamentId||''))||
     !['qualifier','quarter','semi','final'].includes(data.stage)||
@@ -3543,6 +3578,7 @@ socket.on('joined',data=>{
   // Não equivale a autorização, apenas evita reingressos repetidos no lobby.
   lastJoinedTournamentSeat=joinedTournament&&autoTournamentSeat?.key?
     {key:autoTournamentSeat.key,code:data.code}:null;
+  if(joinedTournament){tournamentWaitingOutcome=null;syncTournamentQualifiedWait();}
   if(joinedTournament||!autoTournamentSeat){
     clearAutoTournamentTimer();autoTournamentSeat=null;autoTournamentJoining=false;autoTournamentAttempts=0;autoTournamentWindowStartedAt=0;autoTournamentBlockedKey='';
     tournamentPhaseNotice(null);
@@ -3625,7 +3661,7 @@ socket.on('state',s=>{
   if(passPending && state?.me && state.currentPlayerId !== state.me.id){
     passPending=false;
   }
-  render();
+  render();syncTournamentQualifiedWait();
   // Quando a notificação da nova fase chegou antes de a antiga marcar
   // 'finished', retomar automaticamente sem depender de F5 ou novo socket.
   if(autoTournamentSeat&&!autoTournamentJoining&&
@@ -3825,7 +3861,7 @@ socket.on('leftRoom',data=>{
     const sess=saved();if(sess)saveSession({...sess,temporaryExit:true});
   }else clearSession();
   returnToLanding(data?.message||'Você saiu da sala.');
-  syncTemporarySeatReturnBanner();
+  syncTemporarySeatReturnBanner();if(typeof syncTournamentQualifiedWait==='function')syncTournamentQualifiedWait();
   syncPresenceProfile();
   if(finishedWait&&socket.connected){
     requestTournamentSeatLocation();
@@ -3965,7 +4001,7 @@ function returnToLanding(message=''){
   renderLinkInviteBanner('');
   syncPresenceProfile();
   if(message) toast(message);
-  syncTemporarySeatReturnBanner();
+  syncTemporarySeatReturnBanner();syncTournamentQualifiedWait();
 }
 
 

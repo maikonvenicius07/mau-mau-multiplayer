@@ -93,6 +93,11 @@
       <span id="temporarySeatReturnText">Você saiu temporariamente. Sua vaga segue sujeita às regras de ausência.</span>
       <button type="button" id="returnTemporarySeatBtn">↩ VOLTAR À MESA</button>
     </div>
+    <aside id="tournamentQualifiedLanding" class="tournament-qualified-wait hidden" role="status" aria-live="polite">
+      <strong id="tournamentQualifiedLandingTitle">🏆 Resultado da mesa registrado</strong>
+      <span id="tournamentQualifiedLandingText">Aguardando as demais mesas do torneio.</span>
+      <small>Mantenha o jogo aberto e conectado. A próxima mesa será localizada automaticamente quando estiver disponível.</small>
+    </aside>
     <div class="hero-card">
       <div class="google-account-bar">
         <img id="googleAccountPhoto" class="google-account-photo hidden" alt="Foto da conta" referrerpolicy="no-referrer" />
@@ -267,6 +272,11 @@
       <button id="abandonTournamentBtn" type="button">⛔ ABANDONAR TORNEIO</button>
     </div>
 
+    <aside id="tournamentQualifiedGame" class="tournament-qualified-wait hidden" role="status" aria-live="polite">
+      <strong id="tournamentQualifiedGameTitle">🏆 Resultado da mesa registrado</strong>
+      <span id="tournamentQualifiedGameText">Aguarde as demais mesas.</span>
+      <button type="button" id="tournamentQualifiedGoHome">🚪 VOLTAR À TELA PRINCIPAL</button>
+    </aside>
     <div id="tournamentWaitBanner" class="tournament-wait-banner hidden" role="status" aria-live="off">
       <span id="tournamentWaitClock" aria-label="Tempo restante">02:00</span>
       <span id="tournamentWaitPlayers" hidden></span>

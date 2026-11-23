@@ -5134,3 +5134,16 @@ button.bot-primary{
   #game .tournament-exit-bar button{font-size:9px;padding:3px 7px;min-height:27px}
   .temporary-seat-return{flex-direction:column;align-items:stretch;margin:8px 8px 14px}
   .temporary-seat-return button{width:100%}}
+
+/* V40.69.8.53 — aviso compacto, sem alterar a mesa/cartas e sem antecipar desempates. */
+.tournament-qualified-wait{box-sizing:border-box;width:min(560px,100%);padding:10px 12px;margin:7px auto;
+  border:1px solid #82b08a;border-radius:12px;background:#143124;color:#f9f6df;
+  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;font-size:12px}
+.tournament-qualified-wait.hidden{display:none!important}
+.tournament-qualified-wait strong{font-size:14px;color:#d9f0a7}
+.tournament-qualified-wait small{font-size:11px;color:#b9d0c0;line-height:1.35}
+.tournament-qualified-wait button{min-height:40px;border-radius:9px;border:1px solid #c9b87b;
+  background:#e4c77c;color:#242018;font-weight:800;padding:8px 12px;cursor:pointer}
+#game .tournament-qualified-wait{max-width:500px;margin:5px auto;padding:7px}
+@media(max-width:600px){.tournament-qualified-wait{max-width:calc(100vw - 18px);font-size:11px}
+  #game .tournament-qualified-wait{max-width:calc(100vw - 18px);padding:6px}}

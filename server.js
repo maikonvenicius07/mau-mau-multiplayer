@@ -43,7 +43,8 @@ const { TournamentStore, tournamentConfig } = require('./tournament-store');
 const { TournamentCatalog } = require('./tournament-catalog');
 const { TournamentDraw } = require('./tournament-draw');
 const { TournamentGames } = require('./tournament-games');
-const { TournamentBracket } = require('./tournament-bracket');
+const { TournamentBracket, nextStage } = require('./tournament-bracket');
+const TournamentQualifiedWait = require('./tournament-qualified-wait');
 const { recordTournamentResult } = require('./tournament-result-commit');
 const {TournamentPodiumArchive}=require('./tournament-podium-archive');
 
@@ -51,7 +52,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.52';
+const RELEASE_VERSION = 'V40.69.8.53';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -1395,6 +1396,23 @@ function maybeRecordFinished(room) {
         roomCode:room.code,record,roster});
       const initial=await tournamentDraw.get(room.tournament.id);
       const advanced=await tournamentBracket.advance(room.tournament.id,initial);
+      // A primeira mesa pode terminar antes das demais. Comunicar somente
+      // resultados já persistidos; empates na linha de corte continuam pendentes.
+      if(!advanced.champion&&advanced.currentStage===phase){
+        const currentRows=(await tournamentBracket.rows(room.tournament.id)).filter(r=>r.stage===phase);
+        const quota=nextStage(phase,currentRows)?.quota;
+        const currentRow=currentRows.find(r=>Number(r.number)===Number(room.tournament.tableNumber));
+        if(quota&&currentRow?.result?.results){
+          const remainingTables=currentRows.filter(r=>!r.result).length;
+          for(const player of currentRow.result.results){
+            const outcome=TournamentQualifiedWait.outcomeForPlayer(currentRow.result.results,quota,player.playerKey);
+            if(outcome)emitToPlayerKey(player.playerKey,'tournamentTableOutcome',{
+              tournamentId:room.tournament.id,stage:phase,tableNumber:room.tournament.tableNumber,
+              status:outcome.status,remainingTables
+            });
+          }
+        }
+      }
       if(advanced.champion){
         if(!await ensureTournamentPodiumReady())throw new Error('Nao foi possivel persistir o podio final.');
         const event=await tournamentCatalog.get(room.tournament.id);
@@ -3451,7 +3469,19 @@ io.on('connection', socket => {
         if(!tables.some(table=>table.number===number))continue;
         const binding=stage==='qualifier'?await tournamentGames.get(cup.id,number):
           await tournamentBracket.getBinding(cup.id,stage,number);
-        if(binding?.result)continue;
+        if(binding?.result){
+          // Recuperar o aviso após F5 ou saída da mesa encerrada sem fabricar
+          // classificação: desempates só são confirmados após o novo sorteio.
+          const currentRows=(await tournamentBracket.rows(cup.id)).filter(r=>r.stage===stage);
+          const quota=typeof nextStage==='function'?nextStage(stage,currentRows)?.quota:null;
+          const result=binding.result.results;
+          const outcome=quota&&TournamentQualifiedWait.outcomeForPlayer(result,quota,key);
+          if(outcome)socket.emit('tournamentTableOutcome',{
+            tournamentId:cup.id,stage,tableNumber:number,status:outcome.status,
+            remainingTables:currentRows.filter(r=>!r.result).length
+          });
+          return;
+        }
         const room=binding?.roomCode?rooms.get(binding.roomCode):null;
         if(room?.tournament?.forfeits?.some(p=>p.playerKey===key))continue;
         socket.emit('tournamentSeatAssigned',{tournamentId:cup.id,stage,tableNumber:number});
