@@ -1,3 +1,10 @@
+## V40.69.8.60 — Correção do teste de presença com o índice real (24/11/2026)
+
+- Base: ZIP `mau-mau-multiplayer-main (3)(6).zip`, release V40.69.8.59, com 232 arquivos de teste.
+- Reprodução: `tests/presence-snapshot-index-v4069855.test.js` falhava com `ReferenceError: PresenceSeatIndex is not defined` no contexto `vm`, pois o servidor passou a usar o índice real de cadeiras.
+- O teste agora injeta `PresenceSeatIndex` e `InputSafety` reais, sem substituir a implementação por mocks. Mantém as verificações de presença, busca, reconexão, robôs e múltiplas abas; acrescenta prioridade de cadeiras, empate, duplicação legada e reconexão expirada.
+- Nenhuma alteração na lógica de presença do servidor, nas regras de cartas, no torneio, no layout, na persistência ou no processo de build; `server.js` alterado exclusivamente na identificação de release. Todos os testes continuam obrigatórios.
+
 ## V40.69.8.59 — Correção consolidada dos builds e reconciliação segura (23/11/2026)
 
 - **Base:** ZIP `mau-mau-multiplayer-main (7)(5).zip` fornecido pelo usuário, cujo `server.js` informava V40.69.8.57, mas incluía novas otimizações com testes inconsistentes de outras versões. Mantido o filtro de catálogo `list({status:'closed'})` em vez de retroceder a API.

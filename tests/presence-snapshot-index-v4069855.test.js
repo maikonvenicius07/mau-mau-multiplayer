@@ -1,5 +1,5 @@
 'use strict';
-// Compatibilidade V40.69.8.58: valida o comportamento REAL dos snapshots
+// V40.69.8.60: valida o comportamento REAL dos snapshots
 // de presença sem depender da posição de blocos de handlers Socket.IO.
 // A versão anterior desse teste no GitHub extraía um handler por delimitadores
 // textuais desatualizados e falhava antes de verificar a presença.
@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+// Use as dependências reais do servidor no contexto isolado.
+const PresenceSeatIndex = require('../presence-seat-index');
+const InputSafety = require('../input-safety');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const start = source.indexOf('function cleanPresenceName(value)');
@@ -19,10 +22,7 @@ assert(source.includes("lobbySnapshotDelivery.emitIfChanged(io,'presenceSnapshot
 const onlinePresence = new Map();
 const rooms = new Map();
 const context = {
-  InputSafety: {
-    cleanPresenceName: value => String(value || 'Jogador').slice(0, 80),
-    cleanAvatar: value => String(value || 'macaco').slice(0, 80),
-  },
+  InputSafety, PresenceSeatIndex,
   onlinePresence, rooms, Date, Map, Set,
 };
 vm.runInNewContext(`${source.slice(start, end)}\nthis.presence = { registerPresenceSocket, unregisterPresenceSocket, updatePresenceFromSocket, buildPresenceSnapshot };`, context, {timeout: 1000});
@@ -78,4 +78,18 @@ rooms.get('MULTI').players.find(p=>p.playerKey==='bruno').reconnectDeadlineAt=Da
 snap=buildPresenceSnapshot();
 assert.equal(snap.players.some(p=>p.playerKey==='bruno'),false,'Prazo de reconexão expirado não permanece na lista');
 assert.equal(snap.players.some(p=>p.playerKey==='Robo'),false,'Robôs não são jogadores online');
-console.log('✓ V40.69.8.58: snapshot real de presença, busca, reconexão, partidas e múltiplas abas preservados.');
+// Verifica também o contrato da otimização: prioridade da cadeira conectada,
+// empate estável, duplicação legada e exclusão de bots/ausência expirada.
+const cases = new Map([
+  ['OLD', {status:'playing',round:1,players:[seated('ana',{connected:false,reconnectDeadlineAt:now+30000}),seated('ana'),seated('bot',{isBot:true})]}],
+  ['NEW', {status:'lobby',round:0,players:[seated('ana'),seated('tie'),seated('auto',{connected:false,autoControlled:true,reconnectDeadlineAt:now+30000})]}],
+  ['TIE', {status:'lobby',round:0,players:[seated('tie'),seated('expired',{connected:false,reconnectDeadlineAt:now-1})]}],
+]);
+const indexed = PresenceSeatIndex.indexPresenceSeats(cases, now);
+assert.equal(indexed.seats.get('ana').room,cases.get('NEW'));
+assert.equal(indexed.seats.get('tie').room,cases.get('NEW'));
+assert.equal(indexed.seats.has('bot'),false);
+assert.deepEqual([...indexed.reconnectingKeys],['ana']);
+const onlyOld = PresenceSeatIndex.indexPresenceSeats(new Map([['OLD',cases.get('OLD')]]),now);
+assert.equal(onlyOld.seats.get('ana').player,cases.get('OLD').players[0],'A primeira cadeira da mesma sala prevalece');
+console.log('✓ V40.69.8.60: snapshot real com índice de presença, busca, reconexão, partidas, múltiplas abas e prioridade de cadeiras.');
