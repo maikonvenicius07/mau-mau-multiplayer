@@ -1,3 +1,10 @@
+## V40.69.8.62 — Arquivamento do pódio com empates (24/11/2026)
+
+- Base V40.69.8.61. Preservar as três primeiras linhas do resultado oficial e incluir todas as linhas empatadas na posição da terceira, sem recalcular pontos, colocações ou vencedores. Corrige a falha de quatro campeões empatados que bloqueava o arquivamento e a limpeza.
+- Preservar o pódio já limpo e as proteções de divergência. Para arquivos legados ainda pendentes, somente estender o corte antigo quando coincidir exatamente com o resultado oficial; confirmar gravação antes de remover snapshots e dados operacionais. Sem migração nova de banco.
+- Novo teste com classificação real simulada, armazenamento JSON, recuperação de pódio legado, falha de gravação, proteção de participantes/observadores ativos, limpeza e UI. Contrato SQL simulado. `npm run verify`: 233 arquivos de teste aprovados; 1 bloqueado por falta de socket.io-client. PostgreSQL real, integração e Render ainda não homologados.
+- Sem alterações no motor de cartas, sorteio, classificação, entrada automática, cronômetro, layout, ranking normal ou regras de ausência da V40.69.8.61.
+
 ## V40.69.8.61 — Mesas sem comparecimento (24/11/2026)
 
 - Base V40.69.8.60, ZIP enviado pelo usuário. Após o prazo persistido de 120 s, mesa comprovadamente nunca iniciada e sem jogadores presentes pode ser concluída sem vencedor ou classificados, inclusive quando nunca houve código de sala.

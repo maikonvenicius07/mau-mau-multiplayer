@@ -55,7 +55,7 @@ const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.61';
+const RELEASE_VERSION = 'V40.69.8.62';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -4776,6 +4776,15 @@ async function cleanupCompletedTournamentData(){
           room.rankingRecording||room.pendingRankingRecord&&room.rankingRecorded!==true||
           room.players?.some(p=>!p.isBot&&p.connected)||
           ensureSpectators(room).some(p=>p.connected)))continue;
+        // Antes de descartar dados, reconfirmar o pódio com a classificação
+        // oficial ainda disponível. Recupera empates cortados por versões
+        // anteriores, inclusive se a limpeza for executada antes da reconciliação.
+        const event=await tournamentCatalog.get(id);
+        if(event?.status==='closed'){
+          const initial=await tournamentDraw.get(id);
+          const official=await tournamentBracket.summary(id,initial);
+          if(official.champion)await tournamentPodiumArchive.record({id,name:event.name,champion:official.champion});
+        }
         // Primeiro tombstones de todas as salas, incluindo snapshots deixados
         // por etapas anteriores. Evita restaurar uma mesa ja arquivada.
         const recordedCodes=new Set(active.map(room=>room.code));

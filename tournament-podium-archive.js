@@ -8,13 +8,27 @@ function podiumFromChampion(champion){
   if(!Array.isArray(champion?.names)||!champion.names.length||!Array.isArray(champion?.standings))
     throw new Error('Final sem campeao e classificacao confirmados; arquivo nao criado.');
   const standings=champion.standings.slice().sort((a,b)=>Number(a.position)-Number(b.position)||Number(a.score)-Number(b.score));
-  const podium=standings.slice(0,3).map(p=>({position:Number(p.position),name:String(p.name||'').slice(0,24),score:Number(p.score),forfeited:!!p.forfeited}));
+  // Manter as três primeiras linhas e todos os empatados na posição de
+  // corte. Não recalcular posições, pontos ou desempates da classificação.
+  const cutoff=Number(standings[Math.min(2,standings.length-1)]?.position);
+  const podium=standings.filter((p,i)=>i<3||Number(p.position)===cutoff)
+    .map(p=>({position:Number(p.position),name:String(p.name||'').slice(0,24),score:Number(p.score),forfeited:!!p.forfeited}));
   if(podium.length<(champion.byAbsence===true?1:2)||podium[0].position!==1||podium.some(p=>!Number.isInteger(p.position)||p.position<1||!p.name||!Number.isFinite(p.score)))
     throw new Error('Podio incompleto ou invalido; limpeza bloqueada.');
   const winners=champion.names.map(p=>String(p?.name||'')).filter(Boolean);
   if(!winners.length||!winners.every(n=>podium.some(p=>p.name===n&&p.position===1)))
     throw new Error('Campeao ausente da classificacao final; limpeza bloqueada.');
   return podium;
+}
+function standingsSignature(rows){
+  return JSON.stringify(rows.map(p=>[Number(p.position),p.name,Number(p.score),!!p.forfeited]));
+}
+// Só reparar arquivo legado ainda não limpo, cujo conteúdo seja exatamente
+// o corte antigo do resultado oficial completo. Nunca substituir divergências.
+function canExtendLegacyPodium(previous,standings){
+  return previous.length===3&&standings.length>3&&
+    standingsSignature(previous)===standingsSignature(standings.slice(0,3))&&
+    standings.slice(3).every(p=>p.position===standings[2].position);
 }
 function publicCup(row){
   return {id:row.id,name:row.name,champion:{
@@ -46,12 +60,30 @@ class TournamentPodiumArchive {
     if(this.pool){
       await this.pool.query(`INSERT INTO mm_tournament_podium(tournament_id,tournament_name,standings_json)
         VALUES($1,$2,$3::jsonb) ON CONFLICT(tournament_id) DO NOTHING`,[id,safeName,JSON.stringify(standings)]);
-      const check=await this.pool.query('SELECT tournament_name AS name,standings_json AS standings FROM mm_tournament_podium WHERE tournament_id=$1',[id]);
-      if(!check.rowCount||check.rows[0].name!==safeName||JSON.stringify(check.rows[0].standings.map(p=>[Number(p.position),p.name,Number(p.score),!!p.forfeited]))!==JSON.stringify(standings.map(p=>[p.position,p.name,p.score,p.forfeited])))
+      const read=()=>this.pool.query('SELECT tournament_name AS name,standings_json AS standings,cleaned_at AS "cleanedAt" FROM mm_tournament_podium WHERE tournament_id=$1',[id]);
+      let check=await read();
+      const previous=check.rows[0];
+      if(previous&&previous.name===safeName&&!previous.cleanedAt&&canExtendLegacyPodium(previous.standings,standings)){
+        // Compare-and-set: se outra operação alterar/limpar o arquivo,
+        // não sobrescrever o estado; a leitura de confirmação decide.
+        await this.pool.query(`UPDATE mm_tournament_podium SET standings_json=$2::jsonb
+          WHERE tournament_id=$1 AND cleaned_at IS NULL AND standings_json=$3::jsonb AND tournament_name=$4`,
+          [id,JSON.stringify(standings),JSON.stringify(previous.standings),safeName]);
+        check=await read();
+      }
+      if(!check.rowCount||check.rows[0].name!==safeName||standingsSignature(check.rows[0].standings)!==standingsSignature(standings))
         throw new Error('Podio persistido diverge do resultado oficial; limpeza bloqueada.');
     }else{
       this.reload();const previous=this.local.find(row=>row.id===id);
-      if(previous){if(previous.name!==safeName||JSON.stringify(previous.standings)!==JSON.stringify(standings))throw new Error('Podio existente e divergente; limpeza bloqueada.');return publicCup(previous);}
+      if(previous){
+        if(previous.name!==safeName)throw new Error('Podio existente e divergente; limpeza bloqueada.');
+        if(!previous.cleanedAt&&canExtendLegacyPodium(previous.standings,standings)){
+          previous.standings=standings;this.save();
+        }
+        if(standingsSignature(previous.standings)!==standingsSignature(standings))
+          throw new Error('Podio existente e divergente; limpeza bloqueada.');
+        return publicCup(previous);
+      }
       const row={id,name:safeName,standings,finishedAt:new Date().toISOString(),cleanedAt:null};
       this.local.push(row);this.save();
     }
