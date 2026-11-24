@@ -9,7 +9,7 @@ function podiumFromChampion(champion){
     throw new Error('Final sem campeao e classificacao confirmados; arquivo nao criado.');
   const standings=champion.standings.slice().sort((a,b)=>Number(a.position)-Number(b.position)||Number(a.score)-Number(b.score));
   const podium=standings.slice(0,3).map(p=>({position:Number(p.position),name:String(p.name||'').slice(0,24),score:Number(p.score),forfeited:!!p.forfeited}));
-  if(podium.length<2||podium[0].position!==1||podium.some(p=>!Number.isInteger(p.position)||p.position<1||!p.name||!Number.isFinite(p.score)))
+  if(podium.length<(champion.byAbsence===true?1:2)||podium[0].position!==1||podium.some(p=>!Number.isInteger(p.position)||p.position<1||!p.name||!Number.isFinite(p.score)))
     throw new Error('Podio incompleto ou invalido; limpeza bloqueada.');
   const winners=champion.names.map(p=>String(p?.name||'')).filter(Boolean);
   if(!winners.length||!winners.every(n=>podium.some(p=>p.name===n&&p.position===1)))
@@ -39,9 +39,10 @@ class TournamentPodiumArchive {
   }
   reload(){if(this.pool)return;try{const value=JSON.parse(fs.readFileSync(this.filePath,'utf8'));this.local=Array.isArray(value)?value:[];}catch(e){if(e.code==='ENOENT')this.local=[];else throw e;}}
   save(){const temp=this.filePath+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.local,null,2));fs.renameSync(temp,this.filePath);}
-  async record({id,name,champion}){
+  async recordNoChampion({id,name}){return this.record({id,name,noChampion:true});}
+  async record({id,name,champion,noChampion=false}){
     if(!/^[-a-z0-9]{3,64}$/i.test(id||'')||!String(name||'').trim())throw new Error('Identificacao do torneio invalida.');
-    const standings=podiumFromChampion(champion),safeName=String(name).slice(0,70);
+    const standings=noChampion?[]:podiumFromChampion(champion),safeName=String(name).slice(0,70);
     if(this.pool){
       await this.pool.query(`INSERT INTO mm_tournament_podium(tournament_id,tournament_name,standings_json)
         VALUES($1,$2,$3::jsonb) ON CONFLICT(tournament_id) DO NOTHING`,[id,safeName,JSON.stringify(standings)]);
@@ -58,8 +59,8 @@ class TournamentPodiumArchive {
   }
   async list(){
     if(this.pool){const {rows}=await this.pool.query(`SELECT tournament_id AS id,tournament_name AS name,standings_json AS standings
-      FROM mm_tournament_podium ORDER BY finished_at DESC,tournament_id DESC`);return rows.map(publicCup);}
-    this.reload();return this.local.slice().sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt))).map(publicCup);
+      FROM mm_tournament_podium ORDER BY finished_at DESC,tournament_id DESC`);return rows.filter(row=>row.standings.length).map(publicCup);}
+    this.reload();return this.local.filter(row=>row.standings.length).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt))).map(publicCup);
   }
   async pending(){
     if(this.pool){const {rows}=await this.pool.query('SELECT tournament_id AS id FROM mm_tournament_podium WHERE cleaned_at IS NULL');return rows.map(r=>r.id);}
@@ -73,7 +74,7 @@ class TournamentPodiumArchive {
       try{
         await conn.query('BEGIN');
         await conn.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`tournament:${id}`]);
-        const archived=await conn.query('SELECT cleaned_at FROM mm_tournament_podium WHERE tournament_id=$1 FOR UPDATE',[id]);
+        const archived=await conn.query('SELECT cleaned_at,standings_json FROM mm_tournament_podium WHERE tournament_id=$1 FOR UPDATE',[id]);
         if(!archived.rowCount)throw new Error('Podio nao persistido: limpeza proibida.');
         if(archived.rows[0].cleaned_at){await conn.query('COMMIT');return false;}
         const event=await conn.query('SELECT status FROM mm_tournaments WHERE id=$1 FOR UPDATE',[id]);
@@ -87,7 +88,10 @@ class TournamentPodiumArchive {
         await conn.query('DELETE FROM mm_tournament_table_seats WHERE tournament_id=$1',[id]);
         await conn.query('DELETE FROM mm_tournament_signups WHERE tournament_id=$1',[id]);
         await conn.query('DELETE FROM mm_tournaments WHERE id=$1',[id]);
-        await conn.query('UPDATE mm_tournament_podium SET cleaned_at=NOW() WHERE tournament_id=$1',[id]);
+        // Encerramento sem campeão é apenas um marcador de limpeza, não um pódio.
+        if(Array.isArray(archived.rows[0].standings_json)&&!archived.rows[0].standings_json.length)
+          await conn.query('DELETE FROM mm_tournament_podium WHERE tournament_id=$1',[id]);
+        else await conn.query('UPDATE mm_tournament_podium SET cleaned_at=NOW() WHERE tournament_id=$1',[id]);
         await conn.query('COMMIT');return true;
       }catch(e){try{await conn.query('ROLLBACK');}catch{}throw e;}
       finally{conn.release();}
@@ -108,7 +112,9 @@ class TournamentPodiumArchive {
     const storeTemp=store.filePath+'.tmp';fs.writeFileSync(storeTemp,JSON.stringify(store.local,null,2));fs.renameSync(storeTemp,store.filePath);
     catalog.local=catalog.local.filter(x=>x.id!==id);catalog.save();
     this.reload();const archived=this.local.find(x=>x.id===id);
-    archived.cleanedAt=new Date().toISOString();this.save();return true;
+    if(!archived.standings.length)this.local=this.local.filter(x=>x.id!==id);
+    else archived.cleanedAt=new Date().toISOString();
+    this.save();return true;
   }
 }
 module.exports={TournamentPodiumArchive,podiumFromChampion};

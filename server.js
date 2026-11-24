@@ -48,13 +48,14 @@ const { TournamentBracket, nextStage } = require('./tournament-bracket');
 const TournamentQualifiedWait = require('./tournament-qualified-wait');
 const TournamentObserverHandoff = require('./tournament-observer-handoff');
 const { recordTournamentResult } = require('./tournament-result-commit');
+const TournamentEmptyTable = require('./tournament-empty-table');
 const {TournamentPodiumArchive}=require('./tournament-podium-archive');
 
 const app = express();
 const server = http.createServer(app);
 const APP_VERSION = require('./package.json').version;
 // Identificação funcional; a versão legada do package.json permanece por contrato de regressão.
-const RELEASE_VERSION = 'V40.69.8.60';
+const RELEASE_VERSION = 'V40.69.8.61';
 const RULES_VERSION = APP_VERSION;
 const UI_VERSION = '49.11';
 // Câmera ao vivo opcional: somente mídia efêmera no LiveKit. Nenhum vídeo/áudio é gravado no servidor.
@@ -1370,7 +1371,7 @@ function maybeRecordFinished(room) {
   // da mesa enquanto o PostgreSQL estiver temporariamente indisponível.
   // A identificação da partida evita reutilização na revanche seguinte.
   const freshRecord=room.tournament
-    ?TournamentForfeit.tournamentMatchRecord(room,buildMatchRecord(room))
+    ?(room.tournament.noShowRecord||TournamentForfeit.tournamentMatchRecord(room,buildMatchRecord(room)))
     :buildMatchRecord(room);
   const record=room.pendingRankingRecord?.matchId===freshRecord.matchId
     ?room.pendingRankingRecord
@@ -1400,7 +1401,7 @@ function maybeRecordFinished(room) {
       const advanced=await tournamentBracket.advance(room.tournament.id,initial);
       // A primeira mesa pode terminar antes das demais. Comunicar somente
       // resultados já persistidos; empates na linha de corte continuam pendentes.
-      if(!advanced.champion&&advanced.currentStage===phase){
+      if(!advanced.champion&&!advanced.endedWithoutChampion&&advanced.currentStage===phase){
         const currentRows=(await tournamentBracket.rows(room.tournament.id)).filter(r=>r.stage===phase);
         const quota=nextStage(phase,currentRows)?.quota;
         const currentRow=currentRows.find(r=>Number(r.number)===Number(room.tournament.tableNumber));
@@ -1421,7 +1422,13 @@ function maybeRecordFinished(room) {
         if(!event)throw new Error('Torneio sem cadastro ao tentar registrar o podio.');
         await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:advanced.champion});
       }
-      if(!advanced.champion&&advanced.currentStage!==phase){
+      if(advanced.endedWithoutChampion){
+        if(!await ensureTournamentPodiumReady())throw new Error('Não foi possível confirmar o encerramento sem campeão.');
+        const event=await tournamentCatalog.get(room.tournament.id);
+        if(!event)throw new Error('Torneio sem cadastro.');
+        await tournamentPodiumArchive.recordNoChampion({id:event.id,name:event.name});
+      }
+      if(!advanced.champion&&!advanced.endedWithoutChampion&&advanced.currentStage!==phase){
         const next=advanced.stages.find(stage=>stage.stage===advanced.currentStage);
         try{await notifyTournamentSeats(room.tournament.id,advanced.currentStage,next?.tables||[]);}
         catch(e){console.error('[tournament] aviso da fase seguinte falhou; avanço preservado:',e.message);}
@@ -1689,7 +1696,9 @@ function emitRoom(room) {
     const target=io.sockets.sockets.get(p.socketId);
     if (!target) continue;
     emitRoomAvatarAssets(target,room);
-    StateDelivery.emitState(target,`PLAYER:${room.code}:${Number(room.matchSerial||1)}:${p.id}`,AvatarWire.leanStateAvatars(Engine.roomPublicState(room,p.id)));
+    const playerState=Engine.roomPublicState(room,p.id);
+    if(room.tournament?.noShowRecord)playerState.tournamentNoShow=true;
+    StateDelivery.emitState(target,`PLAYER:${room.code}:${Number(room.matchSerial||1)}:${p.id}`,AvatarWire.leanStateAvatars(playerState));
   }
   ensureSpectators(room);
   for (const spectator of room.spectators) {
@@ -1700,6 +1709,7 @@ function emitRoom(room) {
     const spectatorState=Engine.roomSpectatorState(room,spectator);
     ensureInviteReservations(room);
     spectatorState.tournamentSpectator=!!room.tournament;
+    if(room.tournament?.noShowRecord)spectatorState.tournamentNoShow=true;
     if(room.tournament){
       spectatorState.roundReview=null; // Nunca enviar mãos reveladas a espectadores do torneio.
       spectatorState.spectatorSeat={eligible:false,canRequest:false,status:'unavailable'};
@@ -2511,6 +2521,7 @@ function recoverablePlayerSeatForKey(playerKey) {
 
 async function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'}={}) {
   if(!socket||!room||!player||player.isBot)throw new Error('Vaga de reconexão inválida.');
+  if(room.tournament?.noShowRecord)throw new Error('Mesa encerrada por ausência.');
   const authKey=String(socket.data.auth?.playerKey||'');
   if(!authKey||player.playerKey!==authKey)throw new Error('Esta vaga pertence a outra conta.');
   const liveSocket=player.socketId?io.sockets.sockets.get(player.socketId):null;
@@ -2523,6 +2534,7 @@ async function resumeReservedPlayerSeat(socket,room,player,{source='auto-resume'
   // vinculada a mais de uma sala, ao retomar uma reserva válida mantemos somente
   // esta sala. As demais vagas humanas são abandonadas definitivamente.
   await abandonOtherPlayerMembershipsForSwitch(socket,room.code,'teve a reserva substituída pela sala retomada');
+  if(room.tournament?.noShowRecord)throw new Error('Mesa encerrada por ausência.');
 
   const wasDisconnected=!player.connected;
   const wasAutoControlled=!!player.autoControlled;
@@ -3467,7 +3479,7 @@ io.on('connection', socket => {
         const original=await tournamentDraw.get(cup.id);
         if(!original.length)continue;
         const bracket=await tournamentBracket.summary(cup.id,original);
-        if(bracket.champion)continue;
+        if(bracket.champion||bracket.endedWithoutChampion)continue;
         const stage=bracket.currentStage;
         // A cadeira da fase atual não pode promover um observador da própria
         // fase nem interromper a observação de outro campeonato.
@@ -3559,7 +3571,7 @@ io.on('connection', socket => {
       if(tournamentTestDeleteLocks.has(id))throw new Error('Este torneio de teste está sendo encerrado pelo organizador.');
       const initial=await tournamentDraw.get(id);
       const bracket=await tournamentBracket.summary(id,initial);
-      if(phase!==bracket.currentStage||bracket.champion)throw new Error('Esta fase já foi concluída ou ainda não começou.');
+      if(phase!==bracket.currentStage||bracket.champion||bracket.endedWithoutChampion)throw new Error('Esta fase já foi concluída ou ainda não começou.');
       const seat=phase==='qualifier'?await tournamentDraw.seatFor(id,number,socket.data.auth?.playerKey):
         await tournamentBracket.seatFor(id,phase,number,socket.data.auth?.playerKey);
       if(!seat)throw new Error('Sua conta não foi sorteada para esta mesa.');
@@ -3804,6 +3816,7 @@ io.on('connection', socket => {
       const prepareSuccessfulEntry=async()=>{
         if(switchPrepared)return;
         await prepareForRoomSwitch(socket,code);
+        if(room.tournament?.noShowRecord)throw new Error('Mesa encerrada por ausência.');
         switchPrepared=true;
       };
 
@@ -3979,7 +3992,7 @@ io.on('connection', socket => {
       const cup=await tournamentCatalog.get(id);
       if(!cup||cup.status!=='closed')throw new Error('Torneio indisponível para observação.');
       const bracket=await tournamentBracket.summary(id,await tournamentDraw.get(id));
-      if(bracket.champion||stage!==bracket.currentStage)
+      if(bracket.champion||bracket.endedWithoutChampion||stage!==bracket.currentStage)
         throw new Error('Esta fase não está mais em andamento.');
       const binding=stage==='qualifier'?await tournamentGames.get(id,tableNumber):
         await tournamentBracket.getBinding(id,stage,tableNumber);
@@ -4633,6 +4646,60 @@ restoredRoomsRecoveryTimer.unref?.();
 
 // V40.69.8.21 — recupera avanço pendente após falhas de notificação,
 // transação ou reinício. O avanço no PostgreSQL já usa advisory lock.
+// V40.69.8.61 — encerrar somente lobbies comprovadamente não iniciados,
+// com prazo persistido vencido e sem nenhum jogador presente. Compartilha
+// a trava de entrada para não competir com a criação/recuperação da sala.
+async function closeEmptyTournamentTable(id,phase,number){
+  const key=`${id}:${phase}:${number}`;
+  if(tournamentTestDeleteLocks.has(id)||tournamentTableJoinLocks.has(key))return false;
+  tournamentTableJoinLocks.add(key);
+  try{
+    const binding=phase==='qualifier'?await tournamentGames.get(id,number):await tournamentBracket.getBinding(id,phase,number);
+    const deadline=await tournamentWaitDeadline(id,phase,number,binding);
+    if(!deadline||Date.now()<deadline)return false;
+    if(binding?.result&&!(phase==='qualifier'&&TournamentEmptyTable.isAbsenceRecord(binding.result)))return false;
+    const code=binding?.roomCode;
+    const stored=!!(code&&!rooms.has(code)&&await roomSnapshotStore.hasStoredSnapshot(code));
+    const canClose=()=>{
+      const room=code?rooms.get(code):null;
+      if(room&&tournamentRoundStartLocks.has(code))return false;
+      if(!room&&RoomGovernance.atCapacity(rooms.size,MAX_ROOMS,pendingRoomCreations))return false;
+      return TournamentEmptyTable.canCloseEmpty({binding,room,deadline,snapshot:stored,
+        deleted:!!(code&&roomSnapshotStore.isRoomDeleted(code)),snapshotsReady:snapshotsRestored});
+    };
+    if(!binding?.result&&!canClose())return false;
+    const assignments=phase==='qualifier'?await tournamentDraw.seatAssignments(id):null;
+    const firstKey=assignments?.find(p=>Number(p.tableNumber)===number)?.playerKey;
+    const seat=phase==='qualifier'?(firstKey?await tournamentDraw.seatFor(id,number,firstKey):null):binding;
+    const roster=seat?.players;
+    if(!roster?.length)return false;
+    assertTournamentTable(roster);
+    const record=TournamentEmptyTable.absenceRecord({id,phase,number,roster,deadline});
+    // Recuperar escrita local interrompida entre o resultado público e privado.
+    if(binding?.result){
+      const previous=(await tournamentBracket.rows(id)).find(t=>t.stage===phase&&t.number===number);
+      if(!previous?.result)await recordTournamentResult({bracket:tournamentBracket,games:tournamentGames,id,phase,number,roomCode:binding.roomCode??null,record,roster});
+      return false;
+    }
+    if(!canClose())return false;
+    const room=code?rooms.get(code):null;
+    if(room){
+      const t=room.tournament;
+      const keys=new Set(roster.map(p=>p.playerKey));
+      if(!t||t.id!==id||t.phase!==phase||Number(t.tableNumber)!==number||
+        !Array.isArray(t.rosterKeys)||t.rosterKeys.length!==keys.size||new Set(t.rosterKeys).size!==keys.size||t.rosterKeys.some(k=>!keys.has(k))||room.players.some(p=>!keys.has(p.playerKey)))return false;
+      t.noShowRecord=record;
+      t.forfeits=roster.map(p=>({playerKey:p.playerKey,name:p.name,score:0,at:Date.now()}));
+      for(const p of room.players){p.reconnectEligible=false;p.voluntaryLeftAt=Date.now();}
+      room.status='finished';room.finishedAt=Date.now();room.currentPlayer=-1;room.winnerId=null;
+      Engine.appendLog(room,'Mesa encerrada por ausência de todos os jogadores. Nenhum classificado.','system');
+      emitRoom(room);return true;
+    }
+    await recordTournamentResult({bracket:tournamentBracket,games:tournamentGames,id,phase,number,roomCode:code??null,record,roster});
+    console.info('[tournament] mesa encerrada sem presentes',{id,phase,number});
+    return true;
+  }finally{tournamentTableJoinLocks.delete(key);}
+}
 let tournamentReconcileRunning=false;
 const tournamentSeatNoticeAt=new Map();
 const completedTournamentIds=new Set();
@@ -4659,16 +4726,25 @@ async function reconcileTournamentProgress(){
           await tournamentPodiumArchive.record({id:event.id,name:event.name,champion:bracket.champion});
           completedTournamentIds.add(event.id);continue;
         }
+        if(bracket.endedWithoutChampion){
+          if(!await ensureTournamentPodiumReady())throw new Error('Arquivo dos podios indisponivel.');
+          await tournamentPodiumArchive.recordNoChampion({id:event.id,name:event.name});
+          completedTournamentIds.add(event.id);continue;
+        }
         const stage=bracket.currentStage;
         const tables=stage==='qualifier'?first:bracket.stages.find(s=>s.stage===stage)?.tables||[];
         const notify=await Promise.all(tables.map(async table=>{
           const binding=stage==='qualifier'?await tournamentGames.get(event.id,table.number):
             await tournamentBracket.getBinding(event.id,stage,table.number);
-          if(binding?.result)return null;
+          if(binding?.result){
+            if(stage==='qualifier'&&binding.result.noShow)await closeEmptyTournamentTable(event.id,stage,table.number);
+            return null;
+          }
           const code=binding?.roomCode;
           const room=code?rooms.get(code):null;
           if(room&&maybeResolveTournamentLobbyWalkover(room))emitRoom(room);
           if(room&&room.status!=='lobby')return null;
+          if(await closeEmptyTournamentTable(event.id,stage,table.number))return null;
           const key=`${event.id}:${stage}:${table.number}`;
           if(Date.now()-(tournamentSeatNoticeAt.get(key)||0)<20000)return null;
           tournamentSeatNoticeAt.set(key,Date.now());return table;

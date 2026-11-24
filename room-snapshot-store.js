@@ -10,6 +10,7 @@ const BotDifficulty = require('./bot-difficulty');
 const SpectatorSeatAdmission = require('./spectator-seat-admission');
 const TournamentForfeit = require('./tournament-forfeit');
 const TournamentRoomRetention = require('./tournament-room-retention');
+const {isAbsenceRecord}=require('./tournament-empty-table');
 
 const SNAPSHOT_VERSION = 1;
 const DEFAULT_TTL_MS = RetentionPolicy.MULTIPLAYER_SNAPSHOT_TTL_MS;
@@ -72,7 +73,8 @@ function hydrateSnapshotAvatars(snapshot, avatarAssets={}) {
 
 function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}={}) {
   if (!snapshot || snapshot.snapshotVersion !== SNAPSHOT_VERSION) return null;
-  if (!snapshot.code || !Array.isArray(snapshot.players) || !snapshot.players.length) return null;
+  const emptyPending=snapshot.status==='finished'&&snapshot.rankingRecorded!==true&&isAbsenceRecord(snapshot.tournament?.noShowRecord);
+  if (!snapshot.code || !Array.isArray(snapshot.players) || (!snapshot.players.length&&!emptyPending)) return null;
   if (!['lobby','playing','between-rounds','finished'].includes(snapshot.status)) return null;
   // V40.69.8.6 — em sala comum, o resultado confirmado não encerra a
   // associação dos jogadores: eles podem voltar e pedir JOGAR NOVAMENTE.
@@ -148,7 +150,7 @@ function restoreRoomSnapshot(snapshot, {now=Date.now(), reconnectGraceMs=60000}=
     p.reconnectEligible = true;
     p.voluntaryLeftAt = null;
   }
-  if (!room.players.some(p => !p.isBot)) return null;
+  if (!room.players.some(p => !p.isBot)&&!emptyPending) return null;
   if (!room.players.some(p => !p.isBot && p.host)) {
     const firstHuman = room.players.find(p => !p.isBot);
     if (firstHuman) firstHuman.host = true;

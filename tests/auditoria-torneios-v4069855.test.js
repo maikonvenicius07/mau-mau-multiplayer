@@ -42,6 +42,7 @@ const context = vm.createContext({
   tournamentGames: { get: async () => ({roomCode: null}) },
   tournamentPodiumArchive: { record: async () => {} },
   rooms: new Map(),
+  closeEmptyTournamentTable:async()=>false,
   maybeResolveTournamentLobbyWalkover: () => false,
   emitRoom: () => {},
   notifyTournamentSeats: async (id, stage, tables) => notified.push(`${id}:${stage}:${tables.length}`),

@@ -1,3 +1,12 @@
+## V40.69.8.61 — Mesas sem comparecimento (24/11/2026)
+
+- Base V40.69.8.60, ZIP enviado pelo usuário. Após o prazo persistido de 120 s, mesa comprovadamente nunca iniciada e sem jogadores presentes pode ser concluída sem vencedor ou classificados, inclusive quando nunca houve código de sala.
+- Preservar W.O. do único presente, início manual para 2–4 jogadores e transição automática. Não encerrar partidas iniciadas, vínculos legados ambíguos, snapshots pendentes, entradas em curso ou lobbies com tolerância de reconexão vigente. Não fechar sala inexistente enquanto a capacidade estiver indisponível.
+- A fase continua com as vagas elegíveis; se não houver vagas, encerrar sem campeão e limpar sem publicar pódio; se houver uma única vaga, registrar somente o campeão por ausência. Em eventual empate nessa única vaga, sorteio estável derivado do identificador do torneio; a regra de empate da grande final convencional não foi modificada.
+- Resultados completos de ausência persistidos sem sala fictícia. PostgreSQL: permitir NULL em room_code de mm_tournament_table_games; preservar UNIQUE e demais restrições. Operação idempotente e transacional no pool compartilhado; recuperação de gravação parcial no JSON local.
+- Proteger encerramento contra entradas tardias, manter snapshots pendentes e mostrar ausência, sem vitória fictícia, no painel e na mesa.
+- Novo teste de reconciliação/ausência, cenários locais e contrato SQL simulado. 232 testes aprovados localmente; integração Socket.IO bloqueada por dependência ausente; PostgreSQL real e deploy ainda pendentes de validação. Nenhum teste removido.
+
 ## V40.69.8.60 — Correção do teste de presença com o índice real (24/11/2026)
 
 - Base: ZIP `mau-mau-multiplayer-main (3)(6).zip`, release V40.69.8.59, com 232 arquivos de teste.

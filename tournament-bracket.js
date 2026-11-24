@@ -5,6 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {planNextStageDraw,assertExistingStageDraw}=require('./tournament-next-stage-draw');
 const TournamentWait=require('./tournament-wait');
+const {isAbsenceRecord}=require('./tournament-empty-table');
 const {assertTournamentTable}=require('./tournament-table-capacity');
 // Fase adicional apenas para torneios grandes (65–100 inscritos).
 // A progressão de torneios menores permanece intocada.
@@ -18,7 +19,7 @@ function publicStage(row,advancedKeys=null){
   // Never expose playerKey: compare private identifiers exclusively on the server.
   return {stage:row.stage,number:row.number,players:row.players.map(p=>({name:p.name,seat:p.seat})),
     created:!!row.roomCode,finished:!!row.result,
-    result:row.result?{complete:true,results:row.result.results.map(p=>({
+    result:row.result?{complete:true,...(row.result.noShow?{noShow:true}:{}),results:row.result.results.map(p=>({
       name:p.name,position:p.position,score:p.score,won:p.won,forfeited:!!p.forfeited,
       ...(advancedKeys?{advanced:advancedKeys.has(p.playerKey)}:{})
     }))}:null};
@@ -116,9 +117,9 @@ class TournamentBracket{
   async claim(id,phase,number,roomCode){
     validate(id,phase,number);if(phase==='qualifier')throw fail('Mesa inicial usa o sorteio original.');
     if(this.pool){await this.pool.query(`UPDATE mm_tournament_stage_tables SET room_code=$4,room_state='lobby',claimed_at=NOW()
-      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code IS NULL`,[id,phase,number,roomCode]);return this.getBinding(id,phase,number);}
+      WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code IS NULL AND result_json IS NULL`,[id,phase,number,roomCode]);return this.getBinding(id,phase,number);}
     this.reload();const row=(this.local[id]||[]).find(t=>t.stage===phase&&t.number===number);if(!row)throw fail('Mesa não encontrada.',404);
-    if(!row.roomCode){row.roomCode=roomCode;row.roomState='lobby';row.claimedAt=Date.now();this.save();}return row;
+    if(!row.roomCode&&!row.result){row.roomCode=roomCode;row.roomState='lobby';row.claimedAt=Date.now();this.save();}return row;
   }
   async markStarted(id,phase,number,code){
     validate(id,phase,number);
@@ -162,14 +163,14 @@ class TournamentBracket{
   }
   async recordResult({id,stage='qualifier',number,roomCode,result,players,client=null}){
     validate(id,stage,number);
-    if(!roomCode||!Array.isArray(result?.results)||!result.results.length||!Array.isArray(players)||!players.length)throw fail('Resultado de torneio inválido.',400);
+    if((!roomCode&&!isAbsenceRecord(result))||!Array.isArray(result?.results)||!result.results.length||!Array.isArray(players)||!players.length)throw fail('Resultado de torneio inválido.',400);
     const byKey=new Map(players.map(p=>[p.playerKey,p]));
     const mapped=result.results.map(p=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),score:Number(p.score),position:Number(p.position),won:!!p.won&&!p.forfeited,forfeited:!!p.forfeited}));
     if(players.some(p=>!p.playerKey))throw fail('Participantes inválidos.',400);
     if(byKey.size!==players.length||mapped.length!==players.length||new Set(mapped.map(p=>p.playerKey)).size!==players.length||
        mapped.some(p=>!p.playerKey||!byKey.has(p.playerKey)||!Number.isFinite(p.score)||p.score<0||!Number.isInteger(p.position)||p.position<1))
       throw fail('A partida não tem o resultado completo dos jogadores sorteados. Avanço bloqueado.');
-    const record={matchId:String(result.matchId||'').slice(0,160),finishedAt:String(result.finishedAt||new Date().toISOString()),results:mapped};
+    const record={...(isAbsenceRecord(result)?{noShow:true}:{}),matchId:String(result.matchId||'').slice(0,160),finishedAt:String(result.finishedAt||new Date().toISOString()),results:mapped};
     const seats=players.map((p,i)=>({playerKey:p.playerKey,name:String(p.name||'Jogador').slice(0,24),seat:i+1}));
     assertTournamentTable(seats);
     const normalizedRows=rows=>rows.map(p=>({playerKey:p.playerKey,name:p.name,score:p.score,
@@ -189,7 +190,7 @@ class TournamentBracket{
       }else{
         // Verifica o roster persistido ANTES do UPDATE. Uma mesa com o mesmo
         // código, mas participantes divergentes, nunca pode receber resultado.
-        const bound=await query.query(`SELECT players_json AS players,room_code AS "roomCode",result_json AS result
+        const bound=await query.query(`SELECT players_json AS players,room_code AS "roomCode",result_json AS result,room_state AS "roomState"
           FROM mm_tournament_stage_tables WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 FOR UPDATE`,[id,stage,number]);
         const binding=bound.rows[0];
         if(!binding||binding.roomCode!==roomCode||!sameRoster(binding.players))
@@ -198,8 +199,9 @@ class TournamentBracket{
           if(!same(binding.result))throw fail('Esta fase já possui resultado conflitante.');
           return binding.result;
         }
+        if(record.noShow&&(roomCode?binding.roomState!=='lobby':binding.roomState==='started'))throw fail('Mesa iniciada não pode ser encerrada por ausência inicial.');
         const updated=await query.query(`UPDATE mm_tournament_stage_tables SET result_json=$5::jsonb
-          WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND room_code=$4 AND result_json IS NULL
+          WHERE tournament_id=$1 AND stage=$2 AND table_number=$3 AND ${roomCode===null&&record.noShow?'room_code IS NOT DISTINCT FROM $4':'room_code=$4'} AND result_json IS NULL
           RETURNING result_json AS result`,[id,stage,number,roomCode,JSON.stringify(record)]);
         if(updated.rowCount)return updated.rows[0].result;
       }
@@ -217,6 +219,7 @@ class TournamentBracket{
     }
     if(!row||row.roomCode!==roomCode||!sameRoster(row.players))throw fail('Mesa não encontrada ou diferente.',409);
     if(row.result){if(!same(row.result))throw fail('Resultado já registrado é diferente. A classificação foi bloqueada.');return row.result;}
+    if(record.noShow&&(roomCode?row.roomState!=='lobby':row.roomState==='started'))throw fail('Mesa iniciada não pode ser encerrada por ausência inicial.');
     row.result=record;this.save();return record;
   }
   async advance(id,initialTables){
@@ -252,6 +255,7 @@ class TournamentBracket{
         continue;
       }
       const qualified=candidatesFromStage(current,move.quota);
+      if(qualified.length<2&&current.some(t=>t.result.results.some(p=>p.forfeited)))return;
       const tables=planNextStageDraw(qualified);
       for(const table of tables)assertTournamentTable(table.players);
       if(move.phase==='final'&&tables.length!==1)
@@ -283,8 +287,27 @@ class TournamentBracket{
       const winners=latest.tables[0].result.results.filter(p=>p.won).map(p=>({name:p.name,score:p.score}));
       if(winners.length)champion={names:winners,stage:latest.stage,standings:latest.tables[0].result.results.map(p=>({name:p.name,position:p.position,score:p.score,forfeited:!!p.forfeited})).sort((a,b)=>a.position-b.position||a.score-b.score)};
     }
-    // Partidas intermediárias com apenas uma mesa só são finais se não houver fase seguinte.
-    return {stages,currentStage:latest?.stage||'qualifier',champion};
+    // Não criar uma mesa fictícia de um jogador. A exceção só vale depois
+    // de todos os resultados da fase estarem completos e haver ausências.
+    let endedWithoutChampion=false;
+    const current=rows.filter(r=>r.stage===latest?.stage);
+    if(!champion&&completeInitial&&current.length&&current.every(t=>t.result&&t.result.results.length===t.players.length)){
+      const move=nextStage(latest.stage,current);
+      const eligible=current.flatMap(t=>t.result.results.filter(p=>!p.forfeited));
+      const slots=move?current.reduce((n,t)=>n+Math.min(move.quota,t.result.results.filter(p=>!p.forfeited).length),0):eligible.length;
+      if(slots<=1&&current.some(t=>t.result.results.some(p=>p.forfeited))){
+        if(!slots)endedWithoutChampion=true;
+        else if(move){
+          // Se a última vaga tinha empate, usar sorteio estável por torneio:
+          // a identidade aleatória da competição evita novo sorteio em cada consulta.
+          const hash=p=>require('node:crypto').createHash('sha256').update(JSON.stringify([id,latest.stage,p.playerKey])).digest('hex');
+          const winner=eligible.slice().sort((a,b)=>a.score-b.score||hash(a).localeCompare(hash(b)))[0];
+          champion={names:[{name:winner.name,score:winner.score}],stage:latest.stage,byAbsence:true,
+            standings:[{name:winner.name,position:1,score:winner.score,forfeited:false}]};
+        }
+      }
+    }
+    return {stages,currentStage:latest?.stage||'qualifier',champion,...(endedWithoutChampion?{endedWithoutChampion:true}:{})};
   }
   async clearLocal(id){if(this.pool)return;this.reload();delete this.local[id];this.save();}
 }

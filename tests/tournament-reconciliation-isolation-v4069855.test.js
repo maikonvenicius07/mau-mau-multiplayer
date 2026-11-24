@@ -40,7 +40,8 @@ function scenario(failStep){
     }},
     tournamentPodiumArchive:{record:async()=>{}},
     rooms:new Map(),
-    maybeResolveTournamentLobbyWalkover:()=>false,
+    closeEmptyTournamentTable:async()=>false,
+  maybeResolveTournamentLobbyWalkover:()=>false,
     emitRoom:()=>{},
     notifyTournamentSeats:async(id,stage,tables)=>{
       if(failStep==='notify'&&id==='falhou')throw new Error('FALHA_SIMULADA_AVISO');

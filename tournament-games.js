@@ -2,6 +2,7 @@
 // V51.4 — identidade de cada mesa e resultado compacto, sem armazenar cartas.
 const fs = require('node:fs');
 const path = require('node:path');
+const {isAbsenceRecord}=require('./tournament-empty-table');
 function fail(message,status=409){return Object.assign(new Error(message),{status});}
 class TournamentGames {
   constructor({pool=null,databaseUrl=process.env.DATABASE_URL,filePath=path.join(__dirname,'data','tournament-games.json')}={}){
@@ -23,6 +24,8 @@ class TournamentGames {
       // Existing bindings cannot be assumed to be in the lobby.
       await this.pool.query(`ALTER TABLE mm_tournament_table_games ADD COLUMN IF NOT EXISTS room_state VARCHAR(16) NOT NULL DEFAULT 'legacy'`);
       await this.pool.query(`ALTER TABLE mm_tournament_table_games ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ`);
+      // Mesa sem comparecimento pode terminar sem nunca possuir código de sala.
+      await this.pool.query(`ALTER TABLE mm_tournament_table_games ALTER COLUMN room_code DROP NOT NULL`);
     }
     else {fs.mkdirSync(path.dirname(this.filePath),{recursive:true});this.reload();}
   }
@@ -59,12 +62,12 @@ class TournamentGames {
   }
   async finish({id,number,roomCode,result,expectedPlayers=null,client=null}){
     if(!roomCode||!Array.isArray(result?.results)||!result.results.length)throw fail('Resultado inválido.',400);
-    // Uma mesa nunca pode ser declarada concluída com participantes ausentes.
+    // O resultado deve incluir todos os sorteados, inclusive ausentes.
     if(expectedPlayers===null)throw fail('Quantidade de participantes sorteados não informada.',400);
     const count=Number(expectedPlayers);
     if(!Number.isInteger(count)||count<1||result.results.length!==count)
       throw fail('Resultado incompleto: confira todos os participantes sorteados antes de encerrar a mesa.');
-    const safe={matchId:String(result.matchId||'').slice(0,160),finishedAt:result.finishedAt,
+    const safe={...(isAbsenceRecord(result)?{noShow:true}:{}),matchId:String(result.matchId||'').slice(0,160),finishedAt:result.finishedAt,
       complete:true,
       results:result.results.map(p=>({name:String(p.name||'Jogador').slice(0,24),score:Number(p.score)||0,position:Number(p.position)||0,won:!!p.won&&!p.forfeited,forfeited:!!p.forfeited})).sort((a,b)=>a.position-b.position||a.score-b.score)};
     // finishedAt não deve tornar uma tentativa de repetição inválida quando o
@@ -76,7 +79,7 @@ class TournamentGames {
     if(this.pool){
       const query=client||this.pool;
       const r=await query.query(`UPDATE mm_tournament_table_games SET result_json=$4::jsonb,finished_at=NOW()
-        WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND result_json IS NULL
+        WHERE tournament_id=$1 AND table_number=$2 AND room_code=$3 AND result_json IS NULL${safe.noShow?" AND room_state='lobby'":''}
         RETURNING result_json AS result`,[id,number,roomCode,JSON.stringify(safe)]);
       if(r.rowCount)return r.rows[0].result;
       const prev=await this.get(id,number,client);
@@ -90,13 +93,31 @@ class TournamentGames {
       if(!same(current.result))throw fail('Esta mesa já tem um resultado diferente ou incompleto. A gravação foi bloqueada.');
       return current.result;
     }
+    if(safe.noShow&&current.roomState!=='lobby')throw fail('Mesa iniciada não pode ser encerrada por ausência inicial.');
     current.result=safe;this.save();return current.result;
+  }
+  async finishEmpty({id,number,roomCode,result,expectedPlayers,client=null}){
+    if(!isAbsenceRecord(result)||result.results.length!==expectedPlayers)throw fail('Resultado de ausência inválido.');
+    if(roomCode)return this.finish({id,number,roomCode,result,expectedPlayers,client});
+    const safe={noShow:true,matchId:result.matchId,finishedAt:result.finishedAt,complete:true,
+      results:result.results.map(p=>({name:String(p.name||'Jogador').slice(0,24),score:0,position:p.position,won:false,forfeited:true}))};
+    if(this.pool){
+      const query=client||this.pool;
+      await query.query(`INSERT INTO mm_tournament_table_games(tournament_id,table_number,room_code,room_state,result_json,finished_at)
+        VALUES($1,$2,NULL,'lobby',$3::jsonb,NOW()) ON CONFLICT(tournament_id,table_number) DO NOTHING`,[id,number,JSON.stringify(safe)]);
+      const prev=await this.get(id,number,client);
+      if(!prev||prev.roomCode!==null||!isAbsenceRecord(prev.result)||prev.result.matchId!==safe.matchId||JSON.stringify(prev.result.results.map(p=>[p.name,p.position]))!==JSON.stringify(safe.results.map(p=>[p.name,p.position])))throw fail('Mesa alterada durante o encerramento por ausência.');
+      return prev.result;
+    }
+    this.reload();const key=this.key(id,number),prev=this.local[key];
+    if(prev){if(prev.roomCode!==null||!isAbsenceRecord(prev.result)||JSON.stringify(prev.result)!==JSON.stringify(safe))throw fail('Mesa alterada durante o encerramento por ausência.');return prev.result;}
+    this.local[key]={roomCode:null,roomState:'lobby',result:safe};this.save();return safe;
   }
   async hasStarted(id){
     if(this.pool){const r=await this.pool.query('SELECT 1 FROM mm_tournament_table_games WHERE tournament_id=$1 LIMIT 1',[id]);return !!r.rowCount;}
     this.reload();return Object.keys(this.local).some(key=>key.startsWith(id+':'));
   }
   async clearLocal(id){if(this.pool)return;this.reload();for(const key of Object.keys(this.local)){if(key.startsWith(id+':'))delete this.local[key];}this.save();}
-  async statuses(id,numbers){const out={};for(const n of numbers){const row=await this.get(id,n);if(row){const complete=!!row.result&&row.result.complete!==false;out[n]={created:true,finished:complete,result:complete?row.result:null};}}return out;}
+  async statuses(id,numbers){const out={};for(const n of numbers){const row=await this.get(id,n);if(row){const complete=!!row.result&&row.result.complete!==false;out[n]={created:!!row.roomCode,finished:complete,result:complete?row.result:null};}}return out;}
 }
 module.exports={TournamentGames};

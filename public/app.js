@@ -4340,7 +4340,7 @@ function render(force=false){
   // O SDK da câmera continua responsável por sincronizar seu próprio estado.
   window.MauCamera?.onState();
   renderWhenChanged('score',players.map(p=>[p.id,p.name,p.avatar,p.score,p.roundScore,p.isBot,p.autoControlled]),renderScore,force);
-  renderWhenChanged('center',[state.topCard,state.status,state.paused,state.currentPlayerId,state.winnerId,state.requestedSuit,state.pendingSeven,state.continuationPlayerId,state.openingReaction,state.me?.id,state.me?.justDrawnCardId,state.me?.burnableCardIds,state.me?.quickActionCardIds,state.me?.doublePairs,players.map(p=>[p.id,p.name,p.score,p.autoControlled,p.connected,p.reconnectDeadlineAt])],renderCenter,force);
+  renderWhenChanged('center',[state.topCard,state.status,state.tournamentNoShow,state.paused,state.currentPlayerId,state.winnerId,state.requestedSuit,state.pendingSeven,state.continuationPlayerId,state.openingReaction,state.me?.id,state.me?.justDrawnCardId,state.me?.burnableCardIds,state.me?.quickActionCardIds,state.me?.doublePairs,players.map(p=>[p.id,p.name,p.score,p.autoControlled,p.connected,p.reconnectDeadlineAt])],renderCenter,force);
   renderWhenChanged('hand',[state.me,state.round,state.status,state.paused,state.currentPlayerId,state.pendingSeven,state.continuationPlayerId,state.openingReaction,handSort,passPending,socket.connected],renderHand,force);
   renderWhenChanged('log',state.log||[],renderLog,force);
   renderWhenChanged('controls',[spectator,state.status,state.round,state.roundReview,state.replay,state.isPublic,state.rules?.rounds,state.botDifficulty,players,state.me?.id,state.me?.role,state.me?.host,socket.connected],renderControls,force);
@@ -4559,7 +4559,8 @@ function renderCenter(){
   else if(state.status==='playing'&&!state.paused&&state.me?.quickActionCardIds?.length) banner=state.openingReaction?'⚡ AÇÃO RÁPIDA NA ABERTURA! Descarte a carta igual sem tomar a vez':'⚡ AÇÃO RÁPIDA! Jogue a carta igual enquanto o topo não mudar';
   else if(state.status==='playing'&&!state.paused&&state.currentPlayerId===state.me?.id&&state.me?.doublePairs?.length) banner='🃏🃏 CARTA DUPLA disponível! Use ×2 (somente carta normal)';
   if(state.status==='between-rounds'){const w=state.players.find(p=>p.id===state.winnerId);banner=`🏆 ${w?.name||'Jogador'} venceu a rodada`}
-  if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
+  if(state.status==='finished'&&state.tournamentNoShow)banner='Mesa encerrada por ausência — sem classificados.';
+  else if(state.status==='finished'){const min=Math.min(...state.players.map(p=>p.score));const ws=state.players.filter(p=>p.score===min);banner=`🏆 ${ws.map(p=>p.name).join(' e ')} ${ws.length>1?'empataram':'venceu'}!`}
   $('#turnBanner').textContent=banner;
   $('#turnBanner').classList.toggle('reconnect-wait',!!reconnectBannerText());
   $('#suitRequest').classList.toggle('hidden',!state.requestedSuit);if(state.requestedSuit)$('#suitRequest').textContent=`Naipe pedido: ${suitGlyph[state.requestedSuit]} ${suitName[state.requestedSuit]}`;

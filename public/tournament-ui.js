@@ -31,7 +31,7 @@
   function tickTournamentSchedule(){
     if(!dialog.open||!config||!schedule||!scheduleClockText||!scheduleCountdown)return;
     const when=schedule.timestamp(config.startAt),now=scheduleClock?.now();
-    const active=config.status!=='cancelled'&&!bracket?.champion&&!scheduleInProgress&&when!==null&&now!==null;
+    const active=config.status!=='cancelled'&&!bracket?.champion&&!bracket?.endedWithoutChampion&&!scheduleInProgress&&when!==null&&now!==null;
     scheduleCountdown.hidden=!active;
     if(!active)return;
     const remaining=schedule.countdown(when,now);
@@ -66,7 +66,7 @@
     });
     scheduleInProgress=inProgress;
     const info=schedule.state({startAt:newTime,status:config.status,registered:config.registered,
-      started:inProgress,finished:!!result.bracket?.champion,nowMs:scheduleClock?.now()});
+      started:inProgress,finished:!!(result.bracket?.champion||result.bracket?.endedWithoutChampion),nowMs:scheduleClock?.now()});
     if(scheduleDate)scheduleDate.textContent=info.date?.date||'A definir';
     if(scheduleTime)scheduleTime.textContent=info.date?.time||'A definir';
     if(scheduleZone)scheduleZone.textContent=info.date?.zone||schedule.ZONE_LABEL;
@@ -165,7 +165,7 @@
             if(p.forfeited)note=' · Desclassificado por desistência';
             else if(p.advanced===true)note=' · Classificado';
             else if(p.advanced===false)note=' · Eliminado';
-            li.textContent=p.position+'º '+p.name+' · '+p.score+' pontos'+note;
+            li.textContent=table.result.noShow?p.name+' · Ausente':p.position+'º '+p.name+' · '+p.score+' pontos'+note;
             if(p.advanced===true)li.className='tournament-advanced';
             standings.append(li);
           }
@@ -196,7 +196,8 @@
     if(tablesPanel){const heading=tablesPanel.querySelector('h3');if(heading)heading.textContent='🎲 '+(stagesLabel[currentStage]||'Mesas sorteadas');}
     const progress=document.getElementById('tournamentProgress');
     if(progress){progress.replaceChildren();
-      if(bracket?.champion){const t=document.createElement('strong');t.className='tournament-champion';
+      if(bracket?.endedWithoutChampion){const t=document.createElement('strong');t.textContent='Torneio encerrado por ausência, sem campeão.';progress.append(t);}
+      else if(bracket?.champion){const t=document.createElement('strong');t.className='tournament-champion';
         t.textContent='🏆 '+(bracket.champion.names.length>1?'Campeões: ':'Campeão: ')+bracket.champion.names.map(x=>x.name).join(', ');progress.append(t);}
       else if(bracket?.stages?.length){const p=document.createElement('p');
         if(currentStage==='final'){
@@ -271,15 +272,15 @@
           details.append(count);
           const clock=document.createElement('div');clock.dataset.waitDeadline=String(game.wait.deadlineAt);clock.dataset.waitPresent=String(game.wait.present||0);
           clock.className='tournament-wait-clock';details.append(clock);
-          if(game.wait.requiresAttention){const warning=document.createElement('small');warning.textContent='Nenhum participante compareceu. É necessária uma decisão do organizador; não há vitória automática sem jogador.';details.append(warning);}
+          if(game.wait.requiresAttention){const warning=document.createElement('small');warning.textContent='Nenhum participante compareceu. A mesa será encerrada sem classificados após a confirmação do servidor.';details.append(warning);}
           else if(game.wait.absent?.length){const names=document.createElement('small');names.textContent='Ausentes: '+game.wait.absent.join(', ');details.append(names);}
           card.append(details);
         }
         if(game?.finished){
           const result=document.createElement('div');result.className='tournament-table-result';
-          const h=document.createElement('strong');h.textContent=game.result?.complete===false?'⚠️ Resultado parcial (participante ausente)':'🏆 Resultado da mesa';result.append(h);
+          const h=document.createElement('strong');h.textContent=game.result?.noShow?'Mesa encerrada por ausência — sem classificados':game.result?.complete===false?'⚠️ Resultado parcial (participante ausente)':'🏆 Resultado da mesa';result.append(h);
           for(const p of game.result?.results||[]){const line=document.createElement('p');
-            line.textContent=`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
+            line.textContent=game.result?.noShow?`${p.name} — ausente`:`${p.position}º ${p.name} — ${p.score} pontos${p.won?' 🏆':''}`;result.append(line);}
           card.append(result);
         }else if(t.number===myTable&&!needsRecovery){
           const note=document.createElement('p');note.className='tournament-note';
